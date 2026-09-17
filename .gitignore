@@ -30,3 +30,7 @@ playwright/.cache/
 .DS_Store
 .idea/
 *.swp
+
+# pdf.js font/cmap/wasm files, copied from node_modules by apps/web/scripts/copy-pdfjs-assets.mjs
+apps/web/public/pdfjs/
+apps/web/e2e/.auth-state.json

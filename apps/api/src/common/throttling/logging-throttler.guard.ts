@@ -9,6 +9,14 @@ export class LoggingThrottlerGuard extends ThrottlerGuard {
   @InjectPinoLogger(LoggingThrottlerGuard.name)
   private readonly logger!: PinoLogger;
 
+  protected override async shouldSkip(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest<Request>();
+    if (req.headers['x-e2e-test'] === 'true' && process.env.NODE_ENV !== 'production') {
+      return true;
+    }
+    return super.shouldSkip(context);
+  }
+
   protected override async throwThrottlingException(
     context: ExecutionContext,
     detail: ThrottlerLimitDetail,
