@@ -73,6 +73,7 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
+| [0012](0012-nestjs-api-and-react-vite-web.md) | Build a NestJS API and a React + Vite web app instead of one Next.js app | Accepted |
 
 ### Planned
 
@@ -90,3 +91,7 @@ Decisions already made in the design documents that should be captured as ADRs d
 | 0009 | Store only the HMAC of signing tokens | [10](../10-security-and-threat-model.md) |
 | 0010 | Defer Tier 2 qualified signatures | [02](../02-feasibility-and-build-vs-buy.md), [04](../04-technology-stack.md) |
 | 0011 | Freeze jurisdiction policy at envelope creation | [07](../07-compliance-layer.md) |
+
+Numbers 0002 to 0011 stay reserved for the rows above, even though 0012 was written first. Numbers
+are permanent references and are never reused, so a record written out of order takes the next free
+number rather than one of the reserved ones.

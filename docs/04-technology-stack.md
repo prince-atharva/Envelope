@@ -34,7 +34,7 @@ Here, one language covers everything. That matters for three concrete reasons.
 
 | What it does | The tool | Why this one |
 |---|---|---|
-| The website and screens | **Next.js** | The standard choice; handles both the pages people see and the server behind them |
+| The website and screens | **React** (with Vite) | The standard choice for screens. The server behind them is a separate service, built with **NestJS**, so other systems can use it too |
 | Displaying PDFs on screen | **PDF.js** | Made by Mozilla. It is what Firefox uses to show PDFs, so it is tested by hundreds of millions of people |
 | Capturing a drawn signature | **signature_pad** | Produces smooth, natural-looking strokes rather than jagged lines |
 | Building the finished document | **pdf-lib** | Free, no licence cost, pure JavaScript, and does exactly what we need |
@@ -77,9 +77,15 @@ This kind of licensing trap is easy to walk into and expensive to walk out of. W
 
 ## Full Stack
 
+> **Superseded in part by [ADR 0012](adr/0012-nestjs-api-and-react-vite-web.md).** The build uses a
+> **NestJS** API (`apps/api`, with a worker entry point) and a **React + Vite** web app
+> (`apps/web`), not one Next.js app, and **Biome** instead of ESLint and Prettier. Everything else
+> in this document stands, including the shared coordinate module, which lives in
+> `packages/shared/src/coordinates.ts`.
+
 | Layer | Technology | Version | Rationale |
 |---|---|---|---|
-| Framework | Next.js | 14+ (App Router) | Unified client/server, route handlers remove a separate API tier for v1, excellent DX |
+| Framework | Next.js | 14+ (App Router) | Unified client/server, route handlers remove a separate API tier for v1, excellent DX — **see ADR 0012: replaced by NestJS + React/Vite** |
 | Language | TypeScript | 5.x, `strict` | Type safety across the shared coordinate module is the point of the whole stack decision |
 | Styling | Tailwind CSS | 3.x | Fast iteration; small production bundle matters for the signer portal |
 | PDF rendering | `pdfjs-dist` | 4.x | Mozilla's renderer; exposes `getViewport()` for accurate rendered dimensions |
@@ -102,11 +108,15 @@ The coordinate conversion in [06-signing-and-document-sealing.md](06-signing-and
 With a single language, this is one module:
 
 ```
-   src/lib/coordinates.ts        ← the single source of truth
+   packages/shared/src/coordinates.ts        ← the single source of truth
         │
-        ├── imported by  src/components/FieldPlacementLayer.tsx   (browser)
-        └── imported by  src/services/PdfSealingService.ts        (server)
+        ├── imported by  apps/web/src/features/builder/   (browser)
+        └── imported by  apps/api/src/                    (server, sealing)
 ```
+
+*(Paths as built; see [ADR 0012](adr/0012-nestjs-api-and-react-vite-web.md). The design originally
+wrote these as `src/lib/coordinates.ts`, `src/components/FieldPlacementLayer.tsx` and
+`src/services/PdfSealingService.ts`.)*
 
 In a polyglot stack it becomes two implementations in two languages, kept in sync by discipline alone. Every future change to the field model — rotation support, per-page scaling, nested containers — must be applied twice, correctly, forever.
 
@@ -159,7 +169,7 @@ The architecture in [03-architecture.md](03-architecture.md) already isolates se
 | `sharp` | Apache 2.0 | Unrestricted | libvips is LGPL, dynamically linked — fine |
 | Prisma | Apache 2.0 | Unrestricted | — |
 | BullMQ | MIT | Unrestricted | — |
-| Next.js | MIT | Unrestricted | — |
+| React, Vite, NestJS | MIT | Unrestricted | Replaced Next.js (also MIT); see ADR 0012 |
 | **`iText`** | **AGPL / commercial** | **REJECTED** | AGPL would require open-sourcing the entire application. Commercial licensing is priced per-deployment. |
 | **`PDFtron` / `Apryse`** | Commercial | **REJECTED** | Capable, but licence cost is material and unnecessary for Tier 1. |
 
@@ -180,8 +190,8 @@ The architecture in [03-architecture.md](03-architecture.md) already isolates se
 | Concern | Choice |
 |---|---|
 | Package manager | `pnpm` — faster installs, strict dependency resolution |
-| Linting | ESLint + `@typescript-eslint`, `strict` |
-| Formatting | Prettier, enforced in CI |
+| Linting | ~~ESLint + `@typescript-eslint`~~ → **Biome**, `strict` ([ADR 0012](adr/0012-nestjs-api-and-react-vite-web.md)) |
+| Formatting | ~~Prettier~~ → **Biome**, enforced in CI ([ADR 0012](adr/0012-nestjs-api-and-react-vite-web.md)) |
 | Unit tests | Vitest — fast, native TypeScript |
 | E2E tests | Playwright — **real iOS Safari and Android Chrome required**, not just desktop emulation |
 | Local environment | Docker Compose: Postgres, Redis, MinIO (S3-compatible) |

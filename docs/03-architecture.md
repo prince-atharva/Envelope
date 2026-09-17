@@ -150,7 +150,7 @@ Steps 16 and 17 are where the interesting work happens, and they are covered in 
 │                          CLIENT / PRESENTATION LAYER                          │
 ├────────────────────────────────────┬──────────────────────────────────────────┤
 │           Sender Studio            │             Signer Portal                │
-│  - Next.js app (authenticated)     │  - Next.js route, unauthenticated        │
+│  - React + Vite app (authed)       │  - React route, unauthenticated          │
 │  - pdfjs-dist page rendering       │  - Token-gated, single-use               │
 │  - Absolute overlay layer for      │  - signature_pad canvas capture          │
 │    drag-and-drop field placement   │  - Minimal bundle: mobile-first, low BW  │
@@ -162,7 +162,7 @@ Steps 16 and 17 are where the interesting work happens, and they are covered in 
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │                            APPLICATION LAYER                                  │
 ├───────────────────────────────────────────────────────────────────────────────┤
-│  Node.js / TypeScript  (Next.js route handlers or NestJS)                      │
+│  Node.js / TypeScript  (NestJS — see ADR 0012)                                 │
 │                                                                               │
 │   ┌───────────────┐  ┌────────────────┐  ┌──────────────┐  ┌───────────────┐ │
 │   │ Token         │  │ Envelope State │  │ Field &      │  │ Audit         │ │
@@ -318,3 +318,4 @@ Environments: `local` (Docker Compose), `staging` (production-shaped, synthetic 
 | Coordinates stored only as ratios | Device-independent placement; single conversion chokepoint | ADR-0002 (planned) |
 | Audit hash-chained | Makes the log itself tamper-evident, not merely append-only by convention | ADR-0004 (planned) |
 | Object Lock on final version only | Intermediate versions must remain writable during multi-signer flows | ADR-0007 (planned) |
+| Separate NestJS API and React/Vite web app | The API outlives the web app (integration, signer portal, workers); Next.js route handlers give worker processes no structure | [ADR-0012](adr/0012-nestjs-api-and-react-vite-web.md) (accepted) |

@@ -132,6 +132,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   propagation, retries, permanent failure alerts and a queue outage during sign-up. A unit test
   covers the template and its HTML escaping.
 
+- Sender web app (`apps/web`): React 19, Vite 8, Tailwind CSS 4, React Router and TanStack Query.
+  - `lib/api.ts`: the access token is kept in memory, `X-Request-Id` goes out with every call, a
+    401 triggers one silent refresh shared between callers, problem+json bodies become `ApiError`,
+    and uploads report progress.
+  - `lib/auth.tsx`: the session is restored from the refresh cookie on load; cached data is cleared
+    on logout.
+  - `lib/logger.ts`: browser errors from the error boundary, `window.onerror` and
+    `unhandledrejection` are reported to `POST /client-logs`, de-duplicated and capped, with query
+    strings stripped from URLs.
+  - Pages: `/login`, `/register`, `/dashboard` (infinite list, empty state), `/dashboard/new`
+    (drag and drop, PDF and 25 MB checks before upload, progress bar) and
+    `/dashboard/envelopes/:id` (fingerprint with copy button, versions, audit timeline, viewer,
+    download).
+  - `components/pdf/PdfViewer`: pdf.js 6 with pages rendered only near the screen, high-DPI canvases
+    capped for mobile GPUs, fit-width plus 50–200% zoom, focal-point wheel and pinch zoom, page
+    navigation and keyboard shortcuts.
+  - Branding: logo, favicon, page titles and placeholder brand colours.
+- Playwright tests (`apps/web/e2e`): sign-up, login and logout; and upload → 12 pages rendered →
+  zoom, on desktop Chrome and at Pixel 7 and iPhone 14 sizes.
+
+### Changed
+
+- The product is now **Envelope by HealthProHub** (previously "Digital Sign"). The workspace
+  packages are `@envelope/api`, `@envelope/web` and `@envelope/shared`. Infrastructure identifiers
+  keep the old name on purpose: the `digitalsign_app` role, the `digitalsign` Compose project, the
+  bucket names and the `urn:digitalsign:error:` problem type.
+- Documentation: ADR 0012 records the NestJS + React/Vite and Biome decisions, docs 03 and 04 point
+  at it, the docs index drops links to a HealthProHub integration folder that was never written,
+  and the repository README now covers setup, commands, logging and the naming rule.
+- Continuous integration: GitHub Actions runs Biome, typecheck, unit tests, a migration drift
+  check, the API e2e suite, Playwright and the build. Services come from `docker compose`, because
+  Postgres needs the repository's init script.
+
 ### Fixed
 
 - `pnpm-lock.yaml` still referred to `@digitalsign/shared` after the package rename, so

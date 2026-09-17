@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | In progress: steps 0–7 done, step 8 (web app) under way |
-| **Version** | 1.0.0 |
+| **Status** | Complete — released as `v0.1.0` |
+| **Version** | 1.1.0 |
 | **Last updated** | 17 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 1 deliver, how is each part built, how do we run and check it, and what is left? |
@@ -39,10 +39,10 @@ It builds the parts everything else stands on:
 
 Phase 1 is finished when all four of these are true (from doc 11):
 
-- [ ] A 12-page PDF uploads and appears correctly at 100% and 200%, on desktop and at phone width
+- [x] A 12-page PDF uploads and appears correctly at 100% and 200%, on desktop and at phone width
 - [x] The first version of the document (version 0) and its fingerprint are saved in the database
 - [x] The database refuses any change or deletion of the history (audit trail)
-- [ ] Automated checks (tests and CI) cover all of the above
+- [x] Automated checks (tests and CI) cover all of the above
 
 ## Progress
 
@@ -56,9 +56,9 @@ Phase 1 is finished when all four of these are true (from doc 11):
 | 5 | Accounts: sign up, sign in, sessions | ✅ Done |
 | 6 | Safe PDF upload, storage and history | ✅ Done |
 | 7 | Email through a background worker (Gmail) | ✅ Done |
-| 8 | Web app: sign-in pages, dashboard, upload, PDF viewer | 🔄 In progress |
-| 9 | Documentation updates and a record of the stack decision | ⏳ To do |
-| 10 | Browser tests and automatic checks (CI) | ⏳ To do |
+| 8 | Web app: sign-in pages, dashboard, upload, PDF viewer | ✅ Done |
+| 9 | Documentation updates and a record of the stack decision | ✅ Done |
+| 10 | Browser tests and automatic checks (CI) | ✅ Done |
 
 ## What We Need From You
 
@@ -70,7 +70,7 @@ Phase 1 is finished when all four of these are true (from doc 11):
 | Which countries customers are in, and where data must be stored | Legal settings and storage location | Before Phase 3 |
 
 **How to create a Gmail App Password:** go to Google Account → Security, turn on 2-Step
-Verification, open **App passwords**, create one called "Digital Sign", and copy the
+Verification, open **App passwords**, create one called "Envelope", and copy the
 16-character code into `SMTP_PASSWORD` in `.env`. Never share it and never commit it.
 
 ---
@@ -85,9 +85,9 @@ Verification, open **App passwords**, create one called "Digital Sign", and copy
 | Area | Choice | Note |
 |---|---|---|
 | Repository | One repo, **pnpm** workspaces: `apps/api`, `apps/web`, `packages/shared` | pnpm 10.20, Node 22 |
-| API | **NestJS 12**, TypeScript 6 (strict), Express 5 | Replaces Next.js from doc 04; see ADR 0002 (step 9) |
+| API | **NestJS 12**, TypeScript 6 (strict), Express 5 | Replaces Next.js from doc 04; see ADR 0012 (step 9) |
 | Web | **React 19 + Vite 8**, Tailwind CSS 4, React Router 8, TanStack Query 5 | Talks to the API through the Vite proxy (`/api`) |
-| Shared code | `@digitalsign/shared`: zod schemas, error codes, limits, brand | The coordinate module joins it in Phase 2 |
+| Shared code | `@envelope/shared`: zod schemas, error codes, limits, brand | The coordinate module joins it in Phase 2 |
 | Database | PostgreSQL 16, **Prisma 7** with the `pg` driver adapter | The app runs as a restricted role |
 | Queue | Redis 7 + **BullMQ 6** | The worker is a separate process |
 | Files | S3 API: **MinIO** locally, Cloudflare R2 / AWS S3 later | Random object keys |
@@ -289,13 +289,13 @@ matched the recorded hash.
 
 **How:**
 ```bash
-pnpm --filter @digitalsign/api dev   # compiles once, runs API + worker together
-pnpm --filter @digitalsign/api start:worker   # worker only, from a build
+pnpm --filter @envelope/api dev   # compiles once, runs API + worker together
+pnpm --filter @envelope/api start:worker   # worker only, from a build
 ```
 
-### Step 8: Web app 🔄 (next commit: `feat(web): …`)
+### Step 8: Web app ✅ (commit `0422b11`)
 
-**To build:**
+**Built:**
 
 | Part | What it does |
 |---|---|
@@ -304,28 +304,35 @@ pnpm --filter @digitalsign/api start:worker   # worker only, from a build
 | `lib/logger.ts` | browser errors (error boundary, `window.onerror`, `unhandledrejection`) → `POST /api/v1/client-logs` with the last request id; de-duplicated, capped, URL without query string |
 | Pages | `/login`, `/register`, `/dashboard` (list, load more, empty state), `/dashboard/new` (drag and drop, 25 MB and PDF checks, progress bar), `/dashboard/envelopes/:id` (details, fingerprint with copy button, versions, history, viewer, download) |
 | `components/pdf/PdfViewer` | pdf.js 6: pages render only near the screen, sharp on high-DPI screens (canvas size capped for iPhone), zoom from fit-width to 50–200%, page navigation, works at phone width |
-| Branding | `Logo` (Digital Sign · by HealthProHub), favicon, page titles, brand colours in `styles/index.css` (placeholders) |
+| Branding | `Logo` (Envelope · by HealthProHub), favicon, page titles, brand colours in `styles/index.css` (placeholders) |
+
+The viewer was then reworked in the same commit: a minimal toolbar, focal-point wheel zoom
+(Ctrl+Scroll or pinch) with an indicator, faster page jumps, and a detail page with the fingerprint
+banner, version cards and a vertical audit timeline.
 
 **How:**
 ```bash
-pnpm --filter @digitalsign/web dev      # http://localhost:5173 (proxies /api to :4000)
-pnpm --filter @digitalsign/web build
+pnpm --filter @envelope/web dev      # http://localhost:5173 (proxies /api to :4000)
+pnpm --filter @envelope/web build
 ```
 
-**Done when:** sign-up → upload a 12-page PDF → viewer shows 12 pages → zooming from 100% to 200%
+**Verified:** sign-up → upload a 12-page PDF → viewer shows 12 pages → zooming from 100% to 200%
 makes the pages larger → the fingerprint matches the downloaded file.
 
-### Step 9: Documentation ⏳ (commit `docs: …`)
+### Step 9: Documentation ✅ (commit `docs: add ADR 0012 …`)
 
-- `docs/README.md`: new title, fix the broken links to the HealthProHub integration folder, and
-  list this document.
-- `docs/adr/0002-nestjs-api-and-react-vite-web.md`: why NestJS + React/Vite instead of Next.js,
-  and Biome instead of ESLint/Prettier. The one shared coordinate module (doc 04's main argument)
-  is kept in `packages/shared`.
-- `docs/03` and `docs/04`: stack rows and diagram labels point to ADR 0002.
+- `docs/README.md`: new title, the dead links to the HealthProHub integration folder removed (that
+  folder was never written; it is Phase 6 work), and this document listed.
+- `docs/adr/0012-nestjs-api-and-react-vite-web.md`: why NestJS + React/Vite instead of Next.js, and
+  Biome instead of ESLint/Prettier. The one shared coordinate module (doc 04's main argument) is
+  kept in `packages/shared`.
+  **The number is 0012, not 0002:** the ADR index reserves 0002 to 0011 for decisions already made
+  in the design documents, and 0002 belongs to "Store field coordinates as normalised ratios",
+  which is written in Phase 2.
+- `docs/03` and `docs/04`: stack rows and diagram labels point to ADR 0012.
 - Root `README.md`: setup, commands, service URLs, logging guide, known simplifications.
 
-### Step 10: Browser tests and CI ⏳ (commit `ci: …`)
+### Step 10: Browser tests and CI ✅ (commits `0422b11` and `ci: …`)
 
 - **Playwright** (`apps/web/e2e/`): sign up → upload the 12-page fixture → 12 pages rendered →
   zoom 100% → 200% makes the canvas larger. Runs in desktop Chromium plus Pixel 7 and iPhone 14
@@ -334,11 +341,14 @@ makes the pages larger → the fingerprint matches the downloaded file.
 
 ```
    install (pnpm) ─► Biome ─► typecheck ─► unit tests ─► migration drift check
-        ─► API e2e (Postgres, Redis, MinIO service containers; MAIL_TRANSPORT=memory)
+        ─► API e2e (Postgres, Redis, MinIO from docker compose; MAIL_TRANSPORT=memory)
         ─► Playwright ─► build
 ```
 
-  CI needs no Gmail secrets. It starts running once the repository is pushed to GitHub.
+  The services come from `docker compose up -d --wait` rather than GitHub service containers,
+  because Postgres needs the repository's init script mounted to create the restricted role and
+  the test database. CI needs no Gmail secrets. It starts running once the repository is pushed to
+  GitHub.
 - Finally, `CHANGELOG.md` moves to version `0.1.0` and the commit is tagged `v0.1.0`.
 
 ---
@@ -442,7 +452,7 @@ browser error reports (`lastRequestId`).
 - **One commit per step**, in [Conventional Commits](https://www.conventionalcommits.org) style
   (`feat(api): …`, `chore: …`, `docs: …`, `ci: …`), each ending with the co-author line.
 - Before every commit: `pnpm lint && pnpm typecheck && pnpm test`, plus
-  `pnpm --filter @digitalsign/api test:e2e` when the API changed.
+  `pnpm --filter @envelope/api test:e2e` when the API changed.
 - **Secret check** before every commit: no `.env`, `logs/`, `dist/` or generated client in
   `git status`.
 - Every commit also adds an entry to `CHANGELOG.md` under `[Unreleased]`.
@@ -453,8 +463,8 @@ browser error reports (`lastRequestId`).
 | Command | What runs |
 |---|---|
 | `pnpm test` | Unit tests: config, redaction, errors, PDF pipeline, audit chain, slugs, templates, shared schemas |
-| `pnpm --filter @digitalsign/api test:e2e` | Real API and worker against `digitalsign_test`, Redis db 1 and the `digitalsign-test` bucket |
-| `pnpm --filter @digitalsign/web test:e2e` | Playwright (step 10) |
+| `pnpm --filter @envelope/api test:e2e` | Real API and worker against `digitalsign_test`, Redis db 1 and the `digitalsign-test` bucket |
+| `pnpm --filter @envelope/web test:e2e` | Playwright (step 10) |
 
 The e2e setup applies migrations with `prisma migrate deploy` and empties tables between suites.
 It only ever runs against a database whose name ends in `_test`. Prisma blocks
@@ -472,11 +482,11 @@ It only ever runs against a database whose name ends in `_test`. Prisma blocks
 - [x] Hash-chained audit trail with verification (tested)
 - [x] Welcome email via worker and Gmail SMTP; retries and alerts (tested with the in-memory transport)
 - [x] Structured, redacted logging with request ids across API and worker
-- [ ] Web app: auth pages, dashboard, upload, PDF viewer at 100% and 200% on desktop and mobile
-- [ ] Docs updated, ADR 0002 written
-- [ ] Playwright smoke test and GitHub Actions CI
-- [ ] Real welcome email received in a Gmail inbox (needs your App Password)
-- [ ] `CHANGELOG` 0.1.0 and tag `v0.1.0`
+- [x] Web app: auth pages, dashboard, upload, PDF viewer at 100% and 200% on desktop and mobile
+- [x] Docs updated, ADR 0012 written
+- [x] Playwright smoke test and GitHub Actions CI
+- [ ] Real welcome email received in a Gmail inbox (needs your App Password) — **still open**
+- [x] `CHANGELOG` 0.1.0 and tag `v0.1.0`
 
 ## Known Simplifications (Deliberate)
 
@@ -493,7 +503,7 @@ It only ever runs against a database whose name ends in `_test`. Prisma blocks
 
 | Phase | Weeks | Delivers |
 |---|---|---|
-| 2 | 3–4 | Field builder. `packages/shared/coordinates.ts` comes first, with its tests |
+| 2 | 3–4 | Field builder. `packages/shared/src/coordinates.ts` comes first, with its tests. See [13-phase-2-field-builder-plan.md](13-phase-2-field-builder-plan.md) |
 | 3 | 5–6 | Signer portal: tokens, consent, signature pad, tested on a real iPhone |
 | 4 | 7–8 | Sealing engine: burn-in, certificate, version chain, `sha256sum` check |
 | 5 | 9–10 | Hardening: reminders, expiry, webhooks, security review, load test |

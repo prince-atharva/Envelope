@@ -1,25 +1,19 @@
-# Digital Signature Platform — Documentation
+# Envelope by HealthProHub — Documentation
 
 | | |
 |---|---|
-| **Status** | Draft for client review |
-| **Version** | 1.0.0 |
-| **Last updated** | 10 September 2026 |
+| **Status** | Draft for client review; Phase 1 built |
+| **Version** | 1.1.0 |
+| **Last updated** | 17 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
 
----
-
-## 🏥 HealthProHub Integration & Dual-Mode SaaS Guide
-
-> [!IMPORTANT]
-> **New Documentation Available:** A complete, dedicated architectural and integration guide has been created in [`docs/healthprohub-integration-and-dual-mode/`](./healthprohub-integration-and-dual-mode/README.md):
-> - **[01-overview-and-concepts.md](./healthprohub-integration-and-dual-mode/01-overview-and-concepts.md)**: Core concepts and the two parallel operational modes.
-> - **[02-healthprohub-integration-flow.md](./healthprohub-integration-and-dual-mode/02-healthprohub-integration-flow.md)**: Visual sequence diagrams & step-by-step doctor onboarding contract flow.
-> - **[03-standalone-saas-flow.md](./healthprohub-integration-and-dual-mode/03-standalone-saas-flow.md)**: How third-party organizations use this platform as an independent digital signature SaaS.
-> - **[04-technical-architecture-and-apis.md](./healthprohub-integration-and-dual-mode/04-technical-architecture-and-apis.md)**: Database schema extensions, embedded APIs, and postMessage protocols.
-> - **[05-zero-lag-reliability-and-first-steps.md](./healthprohub-integration-and-dual-mode/05-zero-lag-reliability-and-first-steps.md)**: Initial setup order (Day 1), Sub-100ms Zero-Lag speed strategy, and Webhook fail-safe design.
-> - **[06-frontend-embed-sdk-guide.md](./healthprohub-integration-and-dual-mode/06-frontend-embed-sdk-guide.md)**: 5-line Embed SDK (`@signflow/embed`) with modal & inline code for HealthProHub.
+> **Name:** the product is **Envelope by HealthProHub**. Documents 00 to 11 were written before it
+> was named and call it "the platform". They still describe the product accurately.
+>
+> **HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is Phase 6. It has no
+> documents in this folder yet. An earlier index linked to a
+> `healthprohub-integration-and-dual-mode/` folder that was never written; those links are removed.
 
 ---
 
@@ -84,7 +78,13 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 12 | [phase-1-foundation-plan](12-phase-1-foundation-plan.md) | What does Phase 1 deliver, how is it built and run, and what is left? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
-There is also **[DIGITAL_SIGNATURE_PLATFORM_SPEC.md](../DIGITAL_SIGNATURE_PLATFORM_SPEC.md)** in the folder above this one. That is a single self-contained file combining everything here — the one to hand to a client or attach to an email.
+Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12
+and upwards are **phase plans**: what was actually built, in which commit, and how to run it. Where
+the two disagree, an ADR records why. The most important one so far is
+**[ADR 0012](adr/0012-nestjs-api-and-react-vite-web.md)**: the build uses a NestJS API plus a React
+and Vite web app, not the single Next.js app described in doc 04.
+
+The repository's own [README](../README.md) covers setup, the commands and the service URLs.
 
 ---
 
