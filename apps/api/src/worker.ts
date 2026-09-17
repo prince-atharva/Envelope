@@ -22,7 +22,7 @@ async function bootstrap(): Promise<void> {
   const logger = PinoLogger.root.child({ context: 'Bootstrap' });
   logger.info(
     { envFile: envFile ?? 'none (using the process environment)', config: describeConfig(config) },
-    'Starting Digital Sign worker',
+    'Starting Envelope worker',
   );
 
   const smtpReady = await app.get(MailTransportService).verify();

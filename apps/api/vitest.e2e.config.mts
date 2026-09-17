@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [swc.vite()],
   resolve: {
     alias: {
-      '@digitalsign/shared': fileURLToPath(
+      '@envelope/shared': fileURLToPath(
         new URL('../../packages/shared/src/index.ts', import.meta.url),
       ),
     },

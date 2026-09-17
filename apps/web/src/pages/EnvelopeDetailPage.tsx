@@ -1,4 +1,4 @@
-import type { AuditEventInfo, DocumentVersionInfo } from '@digitalsign/shared';
+import type { AuditEventInfo, DocumentVersionInfo } from '@envelope/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';

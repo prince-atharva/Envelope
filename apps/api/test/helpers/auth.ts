@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
-import type { AuthResponse } from '@digitalsign/shared';
+import type { AuthResponse } from '@envelope/shared';
 import request, { type Response } from 'supertest';
 
 export const TEST_PASSWORD = 'correct horse battery staple';

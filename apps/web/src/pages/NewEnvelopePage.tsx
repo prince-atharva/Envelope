@@ -1,4 +1,4 @@
-import { MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@digitalsign/shared';
+import { MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { type DragEvent, type FormEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';

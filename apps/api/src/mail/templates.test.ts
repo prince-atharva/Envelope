@@ -12,9 +12,9 @@ describe('welcome email', () => {
   it('is branded and links to the dashboard', () => {
     const email = renderWelcomeEmail(job, 'https://sign.example.com');
     expect(email.to).toBe('raj@example.com');
-    expect(email.subject).toBe('Welcome to Digital Sign by HealthProHub');
+    expect(email.subject).toBe('Welcome to Envelope by HealthProHub');
     expect(email.html).toContain('href="https://sign.example.com/dashboard"');
-    expect(email.text).toContain('Open Digital Sign: https://sign.example.com/dashboard');
+    expect(email.text).toContain('Open Envelope: https://sign.example.com/dashboard');
     expect(email.html).toContain('by HealthProHub');
   });
 

@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@digitalsign/shared';
+import type { ErrorCode } from '@envelope/shared';
 import { ApiError } from './api';
 
 const MESSAGES: Partial<Record<ErrorCode, string>> = {
@@ -15,7 +15,7 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   INVALID_PDF: 'That PDF appears to be damaged and could not be read.',
   MALWARE_DETECTED: 'That file did not pass the security scan.',
   NOT_FOUND: 'We could not find that document.',
-  SERVICE_UNAVAILABLE: 'Cannot reach Digital Sign right now. Check your connection and try again.',
+  SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 
 /** A message a person can act on, plus a reference id for unexpected failures. */

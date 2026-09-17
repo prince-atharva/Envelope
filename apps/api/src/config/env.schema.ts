@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import { z } from 'zod';
 
 const port = z.coerce.number().int().min(1).max(65535);

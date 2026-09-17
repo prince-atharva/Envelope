@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../../lib/auth';

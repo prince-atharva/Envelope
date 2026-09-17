@@ -1,8 +1,8 @@
 {
-  "name": "@digitalsign/web",
+  "name": "@envelope/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Digital Sign by HealthProHub: sender web app",
+  "description": "Envelope by HealthProHub: sender web app",
   "type": "module",
   "scripts": {
     "postinstall": "node scripts/copy-pdfjs-assets.mjs",
@@ -16,7 +16,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@digitalsign/shared": "workspace:*",
+    "@envelope/shared": "workspace:*",
     "@tanstack/react-query": "^5.103.1",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.3.0",

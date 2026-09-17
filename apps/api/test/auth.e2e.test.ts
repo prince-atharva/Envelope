@@ -1,4 +1,4 @@
-import type { AuthResponse, ProblemDetails, UserProfile } from '@digitalsign/shared';
+import type { AuthResponse, ProblemDetails, UserProfile } from '@envelope/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { REFRESH_REUSE_GRACE_MS } from '../src/auth/session.service';

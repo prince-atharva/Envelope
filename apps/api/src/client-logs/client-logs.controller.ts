@@ -1,4 +1,4 @@
-import { CLIENT_LOG_MAX_BYTES, type ClientLog, clientLogSchema } from '@digitalsign/shared';
+import { CLIENT_LOG_MAX_BYTES, type ClientLog, clientLogSchema } from '@envelope/shared';
 import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
 import { ApiBody, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';

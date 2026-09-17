@@ -21,7 +21,7 @@ async function bootstrap(): Promise<void> {
   const logger = PinoLogger.root.child({ context: 'Bootstrap' });
   logger.info(
     { envFile: envFile ?? 'none (using the process environment)', config: describeConfig(config) },
-    'Starting Digital Sign API',
+    'Starting Envelope API',
   );
 
   await app.listen(config.API_PORT);

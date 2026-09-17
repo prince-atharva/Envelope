@@ -6,7 +6,7 @@ import type {
   EnvelopeListResponse,
   EnvelopeSummary,
   ListEnvelopesQuery,
-} from '@digitalsign/shared';
+} from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';

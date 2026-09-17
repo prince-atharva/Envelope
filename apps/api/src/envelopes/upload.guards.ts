@@ -1,4 +1,4 @@
-import { MAX_UPLOAD_BYTES } from '@digitalsign/shared';
+import { MAX_UPLOAD_BYTES } from '@envelope/shared';
 import {
   type CallHandler,
   type CanActivate,

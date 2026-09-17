@@ -1,8 +1,8 @@
 {
-  "name": "@digitalsign/api",
+  "name": "@envelope/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Digital Sign by HealthProHub: NestJS API and background worker",
+  "description": "Envelope by HealthProHub: NestJS API and background worker",
   "scripts": {
     "postinstall": "prisma generate",
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1134.0",
-    "@digitalsign/shared": "workspace:*",
+    "@envelope/shared": "workspace:*",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.0.3",
     "@nestjs/core": "^12.0.3",

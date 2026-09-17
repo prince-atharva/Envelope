@@ -1,4 +1,4 @@
-import type { EnvelopeStatus } from '@digitalsign/shared';
+import type { EnvelopeStatus } from '@envelope/shared';
 
 const STYLES: Record<EnvelopeStatus, { label: string; className: string }> = {
   DRAFT: { label: 'Draft', className: 'bg-slate-100 text-slate-700 ring-slate-200' },

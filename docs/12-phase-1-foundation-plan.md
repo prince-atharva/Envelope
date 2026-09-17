@@ -14,7 +14,7 @@
 
 ## What Phase 1 Is
 
-Phase 1 is the **foundation** of Digital Sign by HealthProHub: weeks 1–2 of the roadmap in
+Phase 1 is the **foundation** of Envelope by HealthProHub: weeks 1–2 of the roadmap in
 [11-implementation-roadmap.md](11-implementation-roadmap.md). It does not collect signatures yet.
 It builds the parts everything else stands on:
 

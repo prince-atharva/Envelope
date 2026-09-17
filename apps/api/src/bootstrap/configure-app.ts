@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';

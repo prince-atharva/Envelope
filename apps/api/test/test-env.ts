@@ -30,7 +30,7 @@ export const TEST_ENV: Record<string, string> = {
 
   MAIL_TRANSPORT: 'memory',
   EMAIL_RETRY_BASE_DELAY_MS: '20',
-  SMTP_FROM: 'Digital Sign by HealthProHub <no-reply@test.local>',
+  SMTP_FROM: 'Envelope by HealthProHub <no-reply@test.local>',
 
   // Set TEST_LOG_LEVEL=debug to see the application logs while debugging a test.
   LOG_LEVEL: env.TEST_LOG_LEVEL ?? 'silent',

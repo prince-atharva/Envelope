@@ -1,4 +1,4 @@
-# Digital Sign by HealthProHub
+# Envelope by HealthProHub
 
 An electronic signature platform. Upload a PDF, mark where people sign, and send them a link.
 Signers sign in their browser on any device without creating an account.

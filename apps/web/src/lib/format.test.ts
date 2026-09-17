@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import { describe, expect, it } from 'vitest';
 import {
   describeAuditAction,

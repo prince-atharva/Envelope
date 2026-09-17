@@ -9,7 +9,7 @@ import {
   type ProblemFieldError,
   type RegisterInput,
   type UserProfile,
-} from '@digitalsign/shared';
+} from '@envelope/shared';
 
 const API_BASE = '/api/v1';
 

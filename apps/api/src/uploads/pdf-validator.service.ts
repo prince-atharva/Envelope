@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { type ErrorCode, MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@digitalsign/shared';
+import { type ErrorCode, MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { PDFDocument } from 'pdf-lib';

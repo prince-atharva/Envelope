@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { AuthResponse, LoginInput, RegisterInput, UserProfile } from '@digitalsign/shared';
+import type { AuthResponse, LoginInput, RegisterInput, UserProfile } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';

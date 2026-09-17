@@ -1,4 +1,4 @@
-import { PASSWORD_MIN_LENGTH, registerSchema } from '@digitalsign/shared';
+import { PASSWORD_MIN_LENGTH, registerSchema } from '@envelope/shared';
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert } from '../components/ui/Alert';

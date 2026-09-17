@@ -1,4 +1,4 @@
-import { CLIENT_LOG_MAX_BYTES, type ClientLog } from '@digitalsign/shared';
+import { CLIENT_LOG_MAX_BYTES, type ClientLog } from '@envelope/shared';
 import { getLastRequestId } from './api';
 
 const MAX_REPORTS_PER_PAGE_LOAD = 20;

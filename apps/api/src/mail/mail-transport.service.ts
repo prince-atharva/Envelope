@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { createTransport, type Transporter } from 'nodemailer';

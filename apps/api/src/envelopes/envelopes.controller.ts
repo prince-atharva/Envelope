@@ -6,7 +6,7 @@ import {
   type ListEnvelopesQuery,
   listEnvelopesQuerySchema,
   MAX_UPLOAD_BYTES,
-} from '@digitalsign/shared';
+} from '@envelope/shared';
 import {
   Body,
   Controller,

@@ -5,7 +5,7 @@ import {
   type RegisterInput,
   registerSchema,
   type UserProfile,
-} from '@digitalsign/shared';
+} from '@envelope/shared';
 import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
 import {
   ApiBearerAuth,

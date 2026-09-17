@@ -1,8 +1,8 @@
 {
-  "name": "@digitalsign/shared",
+  "name": "@envelope/shared",
   "version": "0.1.0",
   "private": true,
-  "description": "Code shared by the Digital Sign API and web app: schemas, error codes, limits, brand",
+  "description": "Code shared by the Envelope API and web app: schemas, error codes, limits, brand",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -1,4 +1,4 @@
-import type { LoginInput, RegisterInput, UserProfile } from '@digitalsign/shared';
+import type { LoginInput, RegisterInput, UserProfile } from '@envelope/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   createContext,

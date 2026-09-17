@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     envDir: repoRoot,
-    resolve: { alias: { '@digitalsign/shared': sharedSource } },
+    resolve: { alias: { '@envelope/shared': sharedSource } },
     server: { port, strictPort: true, proxy },
     preview: { port, strictPort: true, proxy },
     build: { sourcemap: true, target: 'es2022' },

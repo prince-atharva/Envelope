@@ -1,4 +1,4 @@
-import { MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@digitalsign/shared';
+import { MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
 import type { PinoLogger } from 'nestjs-pino';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {

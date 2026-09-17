@@ -1,4 +1,4 @@
-import { loginSchema } from '@digitalsign/shared';
+import { loginSchema } from '@envelope/shared';
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert } from '../components/ui/Alert';
@@ -63,7 +63,7 @@ export function LoginPage() {
         </Button>
       </form>
       <p className="mt-6 text-center text-sm text-slate-600">
-        New to Digital Sign?{' '}
+        New to Envelope?{' '}
         <Link to="/register" className="font-medium text-brand-700 hover:underline">
           Create an account
         </Link>

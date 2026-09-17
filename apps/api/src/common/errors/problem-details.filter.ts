@@ -1,4 +1,4 @@
-import type { ProblemDetails } from '@digitalsign/shared';
+import type { ProblemDetails } from '@envelope/shared';
 import { type ArgumentsHost, Catch, type ExceptionFilter } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';

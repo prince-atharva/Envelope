@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import { Outlet } from 'react-router';
 import { Logo } from '../brand/Logo';
 

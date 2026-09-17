@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 import type { RenderedEmail, WelcomeEmailJob } from './mail.types';
 
 /** Brand colour placeholder until HealthProHub supplies its palette (docs/11, week 2). */

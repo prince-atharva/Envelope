@@ -1,4 +1,4 @@
-import { ERROR_CATALOG, type ErrorCode, type ProblemFieldError } from '@digitalsign/shared';
+import { ERROR_CATALOG, type ErrorCode, type ProblemFieldError } from '@envelope/shared';
 import { HttpException } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { ZodError } from 'zod';

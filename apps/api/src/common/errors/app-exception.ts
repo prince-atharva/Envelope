@@ -1,4 +1,4 @@
-import { ERROR_CATALOG, type ErrorCode, type ProblemFieldError } from '@digitalsign/shared';
+import { ERROR_CATALOG, type ErrorCode, type ProblemFieldError } from '@envelope/shared';
 
 export interface AppExceptionOptions {
   errors?: ProblemFieldError[];

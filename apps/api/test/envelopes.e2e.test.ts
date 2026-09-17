@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { EnvelopeDetail, EnvelopeListResponse } from '@digitalsign/shared';
+import type { EnvelopeDetail, EnvelopeListResponse } from '@envelope/shared';
 import request, { type Response } from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AuditService } from '../src/audit/audit.service';

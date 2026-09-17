@@ -1,4 +1,4 @@
-import { BRAND } from '@digitalsign/shared';
+import { BRAND } from '@envelope/shared';
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
