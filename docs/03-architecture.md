@@ -248,6 +248,12 @@ Steps 16 and 17 are where the interesting work happens, and they are covered in 
 
 This is what gets implemented — the diagram alone is not sufficient.
 
+Draft editing (Phase 2) does not change the envelope's status, but each change is
+still recorded: `ENVELOPE_UPDATED`, `RECIPIENT_ADDED`, `RECIPIENT_UPDATED`,
+`RECIPIENT_REMOVED` and `FIELDS_SAVED`. Their metadata holds ids, counts and a
+hash of the layout, never a name, an email or a message: the audit trail cannot
+be edited afterwards, so personal data does not go into it.
+
 | From | To | Trigger | Guard | Side effects | Audit event |
 |---|---|---|---|---|---|
 | `DRAFT` | `SENT` | `POST /envelopes/:id/send` | ≥1 recipient; every recipient has ≥1 required field; all ratios valid | Mint tokens, hash+store, queue emails, set `expiresAt` | `ENVELOPE_SENT` |

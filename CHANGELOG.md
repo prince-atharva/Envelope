@@ -1,10 +1,15 @@
 # Changelog
 
-All notable changes to Digital Sign by HealthProHub are recorded here.
+All notable changes to Envelope by HealthProHub are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [0.2.0] - 2026-09-18
+
+Phase 2 (Field Builder): recipients, fields placed on the page as ratios, autosave, and a review
+screen. See [docs/13-phase-2-field-builder-plan.md](docs/13-phase-2-field-builder-plan.md).
 
 ### Added
 

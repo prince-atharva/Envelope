@@ -244,10 +244,18 @@ model Recipient {
   status         RecipientStatus @default(PENDING)
   routingOrder   Int             @default(1)  // equal values sign in parallel
 
+  // As built (Phase 2): the colour this person gets in the field builder,
+  // assigned when they are added so removing someone never recolours the rest.
+  // One email may appear only once per envelope.
+  colorIndex     Int             @default(0)
+
   // ── Access credentials ──
   // Only the HMAC-SHA256 hash is stored. The raw token exists solely
   // in the email that was sent. A full database compromise cannot
   // reconstruct a working signing link. See doc 10.
+  //
+  // As built (Phase 2): both are NULLABLE. Tokens are minted when the envelope
+  // is sent, and a recipient added while preparing a draft has none yet.
   tokenHash      String          @unique
   tokenExpiresAt DateTime
   tokenUsedAt    DateTime?       // single-use enforcement
@@ -409,7 +417,7 @@ These MUST be enforced, and each SHOULD have a test:
 | 1 | All four ratio fields in `[0.0, 1.0]` | Prisma validation + `CHECK` constraint |
 | 2 | `ratioX + ratioWidth <= 1.0` and `ratioY + ratioHeight <= 1.0` | Application validation — a field must not overflow the page |
 | 3 | `pageNumber >= 1` and `<= ` the document's page count | Validated at placement time |
-| 4 | A field's recipient belongs to the same envelope | `CHECK` via trigger, or application-enforced |
+| 4 | A field's recipient belongs to the same envelope | **As built:** a composite foreign key. `Recipient` carries a unique `(id, envelopeId)`, and `DocumentField(recipientId, envelopeId)` references it, so the database refuses the row rather than trusting the application |
 | 5 | `AuditTrail` admits no UPDATE or DELETE | Revoke privileges from the application role |
 | 6 | `AuditTrail.prevHash` matches the prior row's `eventHash` | Verified by a periodic integrity job |
 | 7 | `DocumentVersion.versionNumber` is contiguous from 0 | Unique constraint + application logic |

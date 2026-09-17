@@ -155,14 +155,27 @@ Create a draft.
 
 `pageDimensions` is returned so the client can render and place fields without a second request. `rotation` matters — see doc 06 gotchas.
 
-### `POST /v1/envelopes/:id/fields`
+### `PUT /v1/envelopes/:id/fields`
 
-Bulk placement. **Ratios only.**
+Replaces the **whole** field layout. **Ratios only.**
+
+> **As built (Phase 2).** The design said `POST` without saying whether a second
+> call added to the layout or replaced it. The builder always holds the complete
+> layout, so it sends the complete layout: replacement has one meaning, and a
+> field the user deleted cannot come back. Sending `{"fields": []}` clears them.
+>
+> Each field carries an `id` chosen by the client, so a field keeps its identity
+> across the saves that happen while it is being dragged.
+>
+> An unchanged layout is accepted and written nowhere: no audit event, no new
+> revision. Autosave fires on every interaction, and without this the audit chain
+> would fill with events that record nothing.
 
 ```json
 {
   "fields": [
     {
+      "id": "f1c0...",
       "recipientId": "9d4e...",
       "type": "SIGNATURE",
       "pageNumber": 4,
@@ -171,6 +184,7 @@ Bulk placement. **Ratios only.**
       "required": true
     },
     {
+      "id": "f1c1...",
       "recipientId": "9d4e...",
       "type": "DATE_SIGNED",
       "pageNumber": 4,
@@ -187,9 +201,39 @@ Validation — all MUST pass or the whole request is rejected:
 - Every ratio in `[0.0, 1.0]`
 - `ratioX + ratioWidth <= 1.0`, `ratioY + ratioHeight <= 1.0`
 - `pageNumber` within the document's page count
-- `recipientId` belongs to this envelope
+- `recipientId` belongs to this envelope, and is not a VIEWER or CC — they mark nothing
+- at most 1000 fields, and no two fields sharing an `id`
+
+Ratios are rounded to six decimals before they are stored, so the same box placed
+at any zoom level produces the same numbers ([ADR 0002](adr/0002-store-field-coordinates-as-ratios.md)).
 
 Pixel coordinates are not accepted in any form. A request containing `x`, `y`, `width`, or `height` is rejected with `INVALID_COORDINATE_SPACE` — a deliberately loud failure, because silently accepting pixels is exactly how misplaced signatures reach production.
+
+### Editing a draft (Phase 2)
+
+Not in the original specification, which described creating an envelope with its
+recipients and then sending it. Preparing a document is an editing session, so
+each part of it can be changed on its own.
+
+| Method | Path | What it changes |
+|---|---|---|
+| `PATCH` | `/v1/envelopes/:id` | `title`, `message`, `sequentialSigning` |
+| `POST` | `/v1/envelopes/:id/recipients` | adds one person; the colour is assigned here |
+| `PATCH` | `/v1/envelopes/:id/recipients/:recipientId` | name, email, role, routing order |
+| `DELETE` | `/v1/envelopes/:id/recipients/:recipientId` | removes them, and their fields |
+| `PUT` | `/v1/envelopes/:id/fields` | the whole layout, above |
+
+All of them require the envelope to be a **draft**, and answer `ENVELOPE_NOT_DRAFT`
+(409) otherwise. All of them return the envelope's new `draftRevision`.
+
+**Concurrency.** `GET /v1/envelopes/:id` returns `draftRevision` and an `ETag`.
+A change may carry that value as `If-Match: "7"`. If the draft has moved on
+since, the request is refused with **412 `DRAFT_REVISION_MISMATCH`** rather than
+overwriting what the other tab did. Without the header the change is applied
+unconditionally, which suits a script that owns the envelope.
+
+Changing someone to `VIEWER` or `CC` deletes their fields in the same
+transaction, and the response says how many went in `fieldsRemoved`.
 
 ### `POST /v1/envelopes/:id/send`
 
@@ -405,7 +449,9 @@ RFC 7807:
 | `PAGE_OUT_OF_RANGE` | 400 | `pageNumber` beyond the document |
 | `DOCUMENT_CATEGORY_BLOCKED` | 422 | Category not permitted in this jurisdiction |
 | `RECIPIENT_HAS_NO_FIELDS` | 422 | A signer has nothing to sign |
-| `ENVELOPE_NOT_DRAFT` | 409 | Mutation attempted on a sent envelope |
+| `ENVELOPE_NOT_DRAFT` | 409 | Change attempted on an envelope that has been sent |
+| `RECIPIENT_EMAIL_TAKEN` | 409 | That email is already on this envelope |
+| `DRAFT_REVISION_MISMATCH` | 412 | `If-Match` is behind the draft's current revision |
 | `ENVELOPE_TERMINAL` | 409 | Action attempted on a completed/declined/voided envelope |
 | `TOKEN_INVALID` | 401 | Unrecognised token |
 | `TOKEN_EXPIRED` | 401 | Past `tokenExpiresAt` |

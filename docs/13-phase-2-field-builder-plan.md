@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | In progress |
+| **Status** | Complete — released as `v0.2.0` |
 | **Version** | 1.0.0 |
-| **Last updated** | 17 September 2026 |
+| **Last updated** | 18 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 2 deliver, how is each part built, and how do we check it? |
 
@@ -55,23 +55,29 @@ records the decision and the reasoning.
 
 From doc 11, Phase 2 is finished when:
 
-- [ ] fields can be placed for two people across several pages, and reloading shows them unmoved;
-- [ ] the stored positions are **identical whether you work at 100% or 200% zoom**;
-- [ ] the coordinate tests pass.
+- [x] fields can be placed for two people across several pages, and reloading shows them unmoved;
+- [x] the stored positions are **identical whether you work at 100% or 200% zoom**;
+- [x] the coordinate tests pass.
+
+All three are checked by browser tests that run on desktop Chrome and at Pixel 7
+and iPhone 14 sizes.
 
 ## Progress
 
 | # | Step | Status |
 |---|---|---|
 | 0 | Close Phase 1: lockfile, ADR 0012, CI, `v0.1.0` | ✅ Done |
-| 1 | This plan and ADR 0002 | 🔄 In progress |
-| 2 | The coordinates module, with its tests | ⏳ To do |
-| 3 | Database: draft recipients and field ownership | ⏳ To do |
-| 4 | API: edit a draft (people, boxes, settings) | ⏳ To do |
-| 5 | Viewer: a layer for boxes on top of each page | ⏳ To do |
-| 6 | The builder and review screens | ⏳ To do |
-| 7 | Browser tests, including the zoom test | ⏳ To do |
-| 8 | Documentation and release `v0.2.0` | ⏳ To do |
+| 1 | This plan and ADR 0002 | ✅ Done |
+| 2 | The coordinates module, with its tests | ✅ Done |
+| 3 | Database: draft recipients and field ownership | ✅ Done |
+| 4 | API: edit a draft (people, boxes, settings) | ✅ Done |
+| 5 | Viewer: a layer for boxes on top of each page | ✅ Done |
+| 6 | The builder and review screens | ✅ Done |
+| 7 | Browser tests, including the zoom test | ✅ Done |
+| 8 | Documentation and release `v0.2.0` | ✅ Done |
+
+Steps 3 and 4 became one commit: the migration and the API that uses it do not
+compile apart.
 
 ## What We Need From You
 
