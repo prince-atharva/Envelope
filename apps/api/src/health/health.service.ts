@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
+import { StorageService } from '../storage/storage.service';
 import { APP_VERSION } from '../version';
 
 const CHECK_TIMEOUT_MS = 2_000;
@@ -24,6 +25,7 @@ export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly storage: StorageService,
     @InjectPinoLogger(HealthService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -47,6 +49,7 @@ export class HealthService {
     return {
       database: () => this.prisma.$queryRaw`SELECT 1`,
       redis: () => this.redis.client.ping(),
+      storage: () => this.storage.ping(),
     };
   }
 

@@ -11,7 +11,12 @@ export class ZodValidationPipe<TSchema extends z.ZodType> implements PipeTransfo
   constructor(private readonly schema: TSchema) {}
 
   transform(value: unknown): z.output<TSchema> {
-    return this.schema.parse(value);
+    // Multer and the query parser build objects without a prototype; copy them first.
+    const input =
+      value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === null
+        ? { ...value }
+        : value;
+    return this.schema.parse(input);
   }
 }
 

@@ -78,3 +78,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - The schema is applied with `prisma migrate deploy`, and tables are emptied between suites.
     Prisma refuses `migrate reset` when an AI agent runs it, and deploy never drops anything.
   - Tests check what was logged and that no password or token ever reached a logger.
+- Document upload (`POST /api/v1/envelopes`, multipart `file` plus optional `title`), following the
+  docs/10 upload-hardening pipeline:
+  - Size is checked from Content-Length before the body is read, then again by multer (25 MB).
+  - The content must start with `%PDF-`. File names and Content-Type are never trusted.
+  - Damaged and password-protected PDFs are rejected, as are PDFs with more than 500 pages.
+  - Malware scanning sits behind an interface. For now it is a pass-through that logs clearly that
+    no scanning happens.
+  - Active content is removed: JavaScript, Launch/Submit/Import/remote actions, automatic
+    additional actions, embedded files, file attachments and XFA. Web links are kept. Clean files
+    are stored byte-for-byte as uploaded.
+  - Each step is logged at debug level, and the outcome at info or warn. File names and titles are
+    never logged.
+  - Uploads are limited to 20 per minute per tenant.
+- Envelopes:
+  - A draft envelope, DocumentVersion 0 (SHA-256, page count, size) and an `ENVELOPE_CREATED` audit
+    event are created in one transaction. If that transaction fails, the stored file is deleted
+    again.
+  - Documents are stored in S3/MinIO under `tenants/<tenant>/envelopes/<id>/v0-<uuid>.pdf`.
+  - `GET /api/v1/envelopes` (newest first, cursor pagination), `GET /:id` (with versions and audit
+    trail) and `GET /:id/file?version=` (streamed PDF).
+- Tenant isolation: a Prisma extension adds the signed-in tenant to every envelope query and
+  refuses to run a query without one or to write another tenant's rows. Other tenants' ids, and
+  malformed ids, get the same 404 as ids that do not exist.
+- Hash-chained audit trail:
+  - `eventHash = SHA-256(prevHash | action | timestamp | canonical payload)`.
+  - A per-envelope `sequence` column (second migration) and an advisory lock keep the chain in
+    order.
+  - `AuditService.verify()` reports the exact broken event and logs it with `alert: true`. A failed
+    audit write is also logged as an alert.
+- `/health` now also checks object storage.
+- Tests: a 12-page upload whose download's SHA-256 matches, sanitising (checked by an independent
+  PDF inspector), each rejection path, a 26 MB upload, tenant isolation, cursor paging, the
+  per-tenant upload limit, and that the app role cannot update, delete or truncate audit rows.

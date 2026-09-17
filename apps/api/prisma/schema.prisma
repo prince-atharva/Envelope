@@ -294,12 +294,15 @@ model AuditTrail {
   userAgent String @db.Text
   metadata  Json?
 
-  // Tamper-evident chain
+  // Tamper-evident chain. `sequence` numbers an envelope's events 1, 2, 3, ... so the
+  // chain order never depends on timestamps that can collide.
+  sequence  Int
   prevHash  String? // previous event's eventHash; null for the first event
   eventHash String  @unique // SHA-256 over (prevHash + action + timestamp + payload)
 
   timestamp DateTime @default(now())
 
+  @@unique([envelopeId, sequence])
   @@index([envelopeId, timestamp])
   @@index([timestamp])
 }

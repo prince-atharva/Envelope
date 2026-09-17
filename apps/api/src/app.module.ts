@@ -3,16 +3,19 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
 import { LoggingThrottlerGuard } from './common/throttling/logging-throttler.guard';
 import { ConfigModule } from './config/config.module';
+import { EnvelopesModule } from './envelopes/envelopes.module';
 import { HealthModule } from './health/health.module';
 import { LoggingModule } from './logging/logging.module';
 import { RoutePatternInterceptor } from './logging/route-pattern.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -35,7 +38,10 @@ import { RedisModule } from './redis/redis.module';
     ThrottlerModule.forRoot({ throttlers: [{ name: 'default', ttl: 60_000, limit: 300 }] }),
     PrismaModule,
     RedisModule,
+    StorageModule,
+    AuditModule,
     AuthModule,
+    EnvelopesModule,
     HealthModule,
     ClientLogsModule,
   ],

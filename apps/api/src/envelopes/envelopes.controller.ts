@@ -1,0 +1,132 @@
+import {
+  type CreateEnvelopeInput,
+  createEnvelopeSchema,
+  type EnvelopeDetail,
+  type EnvelopeListResponse,
+  type ListEnvelopesQuery,
+  listEnvelopesQuerySchema,
+  MAX_UPLOAD_BYTES,
+} from '@digitalsign/shared';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  StreamableFile,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiProduces,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
+import { z } from 'zod';
+import { Client, CurrentUser } from '../auth/auth.decorators';
+import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { AppException } from '../common/errors/app-exception';
+import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
+import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { EnvelopesService } from './envelopes.service';
+import {
+  TenantUploadRateLimitGuard,
+  UploadErrorsInterceptor,
+  UploadSizeGuard,
+} from './upload.guards';
+
+const documentQuerySchema = z.strictObject({
+  version: z.coerce.number().int().min(0).default(0),
+});
+
+function contentDisposition(filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+@ApiTags('envelopes')
+@ApiBearerAuth()
+@Controller('envelopes')
+export class EnvelopesController {
+  constructor(private readonly envelopes: EnvelopesService) {}
+
+  @Post()
+  @UseGuards(UploadSizeGuard, TenantUploadRateLimitGuard)
+  @UseInterceptors(
+    UploadErrorsInterceptor,
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 4, fieldSize: 16 * 1024, parts: 6 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload a PDF and create a draft envelope',
+    description:
+      'The file goes through the upload-hardening pipeline (docs/10): size, PDF signature, ' +
+      'structure, encryption, page count, malware scan and removal of active content.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary', description: 'PDF, at most 25 MB and 500 pages' },
+        title: { type: 'string', maxLength: 200 },
+      },
+    },
+  })
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Client() client: ClientInfo,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body(new ZodValidationPipe(createEnvelopeSchema)) body: CreateEnvelopeInput,
+  ): Promise<EnvelopeDetail> {
+    if (!file) {
+      throw new AppException('FILE_REQUIRED', 'Send the PDF in the "file" form field.');
+    }
+    return this.envelopes.create(user, file, body, client);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'List envelopes, newest first' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    schema: { type: 'integer', minimum: 1, maximum: 100 },
+  })
+  @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string' } })
+  list(
+    @Query(new ZodValidationPipe(listEnvelopesQuerySchema)) query: ListEnvelopesQuery,
+  ): Promise<EnvelopeListResponse> {
+    return this.envelopes.list(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'An envelope with its document versions and audit trail' })
+  get(@Param('id', UuidParamPipe) id: string): Promise<EnvelopeDetail> {
+    return this.envelopes.get(id);
+  }
+
+  @Get(':id/file')
+  @ApiOperation({ summary: 'Download a document version (default: version 0, the original)' })
+  @ApiQuery({ name: 'version', required: false, schema: { type: 'integer', minimum: 0 } })
+  @ApiProduces('application/pdf')
+  async file(
+    @Param('id', UuidParamPipe) id: string,
+    @Query(new ZodValidationPipe(documentQuerySchema)) query: z.infer<typeof documentQuerySchema>,
+  ): Promise<StreamableFile> {
+    const document = await this.envelopes.openDocument(id, query.version);
+    return new StreamableFile(document.body, {
+      type: 'application/pdf',
+      length: document.sizeBytes,
+      disposition: contentDisposition(document.filename),
+    });
+  }
+}

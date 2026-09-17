@@ -70,11 +70,11 @@ function routeOf(req: Request): string {
   return redactUrl((req.originalUrl ?? req.url).split('?')[0]) ?? '';
 }
 
+/** Serialised when the request starts (pino-http binds it then), so it cannot know the route. */
 function serializeRequest(req: Request): Record<string, unknown> {
   return {
     method: req.method,
     url: redactUrl(req.originalUrl ?? req.url),
-    route: routeOf(req),
     ip: req.ip,
     userAgent: req.headers['user-agent'],
     contentLength: req.headers['content-length'],
@@ -111,13 +111,16 @@ function httpLoggerOptions(): HttpLoggerOptions<Request, Response> {
     customSuccessMessage: (req, res) => `${req.method} ${routeOf(req)} ${res.statusCode}`,
     customErrorMessage: (req, res, error) =>
       `${req.method} ${routeOf(req)} ${res.statusCode} failed: ${error.message}`,
-    // The problem-details filter records the error code on res.locals.
+    // Added when the response finishes: the matched route (RoutePatternInterceptor)
+    // and the error code (ProblemDetailsFilter), both kept on res.locals.
     customSuccessObject: (_req, res, value: Record<string, unknown>) => ({
       ...value,
+      route: res.locals.route,
       errorCode: res.locals.errorCode,
     }),
     customErrorObject: (_req, res, _error, value: Record<string, unknown>) => ({
       ...value,
+      route: res.locals.route,
       errorCode: res.locals.errorCode,
     }),
   };
