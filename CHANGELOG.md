@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-17
+
+Phase 1 (Foundation): accounts, hardened PDF upload with a SHA-256 fingerprint, a tamper-evident
+audit trail, email through a background worker, and a web app with a PDF viewer. See
+[docs/12-phase-1-foundation-plan.md](docs/12-phase-1-foundation-plan.md).
+
 ### Added
 
 - pnpm workspace monorepo: `apps/*` and `packages/*`, Node 22, TypeScript 6 in strict mode.
