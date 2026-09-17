@@ -24,6 +24,8 @@ docs/         product specification, architecture and roadmap
 - Biome for linting and formatting: `pnpm lint`, `pnpm lint:fix`, `pnpm format`
 
 ```bash
+cp .env.example .env      # then set the Gmail SMTP values and two random secrets
+docker compose up -d      # Postgres :5545, Redis :6391, MinIO :9102 (console :9103)
 pnpm install
 pnpm lint
 pnpm typecheck
