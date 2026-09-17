@@ -20,7 +20,7 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1134.0
         version: 3.1134.0
-      '@digitalsign/shared':
+      '@envelope/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@nestjs/bullmq':
@@ -156,7 +156,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@digitalsign/shared':
+      '@envelope/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@tanstack/react-query':

@@ -131,3 +131,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Tests: an e2e suite runs the real worker in the test process and covers delivery, request-id
   propagation, retries, permanent failure alerts and a queue outage during sign-up. A unit test
   covers the template and its HTML escaping.
+
+### Fixed
+
+- `pnpm-lock.yaml` still referred to `@digitalsign/shared` after the package rename, so
+  `pnpm install --frozen-lockfile` failed. The lockfile is regenerated.
+- `pnpm lint` failed on the web app. Biome now parses Tailwind CSS directives (`@theme`,
+  `@apply`), the favicon has a `<title>`, and two files are formatted.
