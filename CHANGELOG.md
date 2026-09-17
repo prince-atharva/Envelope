@@ -24,6 +24,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `checkReadyToSend`, which the review screen and the Phase 3 send endpoint both use.
 - New limits: 50 recipients and 1000 fields per envelope, and a 2000-character message.
 - New error codes: `RECIPIENT_EMAIL_TAKEN` (409) and `DRAFT_REVISION_MISMATCH` (412).
+- Draft recipients and fields in the database:
+  - `Recipient.tokenHash` and `tokenExpiresAt` are nullable, because a recipient added while
+    preparing a draft has no signing token until the envelope is sent (Phase 3).
+  - `Recipient` gains `colorIndex` and `createdAt`, and one email may appear only once per envelope.
+  - `Envelope` gains `message` and `draftRevision`.
+  - A composite foreign key on `DocumentField(recipientId, envelopeId)` makes the database refuse a
+    field whose recipient belongs to another envelope (docs/05, invariant 4).
+- Draft editing endpoints: `PATCH /envelopes/:id`, `POST`, `PATCH` and `DELETE`
+  `/envelopes/:id/recipients[/:recipientId]`, and `PUT /envelopes/:id/fields`, which replaces the
+  whole layout in one transaction.
+  - Every change first claims the draft in a single statement that checks the tenant, checks the
+    envelope is still a draft, checks the caller's `If-Match` revision and bumps it. A stale
+    revision is refused with 412 instead of overwriting another tab's work.
+  - Pixel coordinates are answered with `INVALID_COORDINATE_SPACE` and the offending path, before
+    zod turns them into a generic validation error. Positions are then checked with the shared
+    `validateRatios`, so the API refuses exactly what the builder marks red.
+  - One bad field rejects the whole request, leaving the saved layout untouched.
+  - Changing someone to a CC or VIEWER removes their fields in the same transaction and reports how
+    many went.
+  - An unchanged layout writes nothing at all: no audit row, no revision bump, so autosave cannot
+    flood the audit chain.
+  - New audit actions `ENVELOPE_UPDATED`, `RECIPIENT_ADDED`, `RECIPIENT_UPDATED`,
+    `RECIPIENT_REMOVED` and `FIELDS_SAVED`. Their metadata holds ids, counts and a layout hash, and
+    never a name, an email or a message: the audit trail cannot be edited afterwards.
+- `GET /envelopes/:id` now returns recipients, fields, the message, the signing order and the draft
+  revision.
+- Tenant scoping extended to `Recipient` and `DocumentField`, filtered through their envelope.
+  `findUnique`, `update` and `delete` on those models are refused outright, because a unique `where`
+  cannot carry the filter.
+- The JSON body limit is 1 MB (Express defaults to 100 kB; 1000 fields is about 250 kB).
+- Tests: 26 e2e cases covering the endpoints, every validation code, stale revisions, a sent
+  envelope, cross-tenant 404s on every new endpoint, audit-chain verification, and checks that no
+  name or email reaches a log or the audit trail in clear.
 
 ## [0.1.0] - 2026-09-17
 

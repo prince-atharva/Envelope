@@ -211,6 +211,8 @@ export class EnvelopesService {
         owner: { select: { id: true, fullName: true } },
         versions: { orderBy: { versionNumber: 'asc' } },
         auditLogs: { orderBy: { sequence: 'asc' }, take: AUDIT_EVENTS_IN_DETAIL },
+        recipients: { orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }] },
+        fields: { orderBy: [{ pageNumber: 'asc' }, { ratioY: 'asc' }, { ratioX: 'asc' }] },
       },
     });
     if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
@@ -220,6 +222,31 @@ export class EnvelopesService {
       originalHash: envelope.originalHash,
       finalHash: envelope.finalHash,
       owner: envelope.owner,
+      message: envelope.message,
+      sequentialSigning: envelope.sequentialSigning,
+      draftRevision: envelope.draftRevision,
+      recipients: envelope.recipients.map((recipient) => ({
+        id: recipient.id,
+        name: recipient.name,
+        email: recipient.email,
+        role: recipient.role,
+        status: recipient.status,
+        routingOrder: recipient.routingOrder,
+        colorIndex: recipient.colorIndex,
+      })),
+      // Ordered by page, then down the page: the same order the builder walks
+      // fields in, so "next field" means the same thing on both sides.
+      fields: envelope.fields.map((field) => ({
+        id: field.id,
+        recipientId: field.recipientId,
+        type: field.type,
+        pageNumber: field.pageNumber,
+        required: field.required,
+        ratioX: field.ratioX,
+        ratioY: field.ratioY,
+        ratioWidth: field.ratioWidth,
+        ratioHeight: field.ratioHeight,
+      })),
       versions: envelope.versions.map((version) => ({
         versionNumber: version.versionNumber,
         sha256: version.hash,

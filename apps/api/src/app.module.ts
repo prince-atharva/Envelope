@@ -9,6 +9,7 @@ import { ClientLogsModule } from './client-logs/client-logs.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
 import { LoggingThrottlerGuard } from './common/throttling/logging-throttler.guard';
 import { ConfigModule } from './config/config.module';
+import { DraftsModule } from './drafts/drafts.module';
 import { EnvelopesModule } from './envelopes/envelopes.module';
 import { HealthModule } from './health/health.module';
 import { LoggingModule } from './logging/logging.module';
@@ -44,6 +45,7 @@ import { StorageModule } from './storage/storage.module';
     AuditModule,
     AuthModule,
     EnvelopesModule,
+    DraftsModule,
     HealthModule,
     ClientLogsModule,
   ],

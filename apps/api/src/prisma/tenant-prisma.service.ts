@@ -58,13 +58,52 @@ function scopeArgs(args: Record<string, unknown>, operation: string, tenantId: s
 }
 
 /**
+ * Child models have no tenantId of their own, so they are filtered through their
+ * envelope instead. Only the plural operations are allowed: `findUnique`,
+ * `update` and `delete` take a unique `where` that a relation filter cannot
+ * safely extend, and letting them through unscoped is how one tenant would end
+ * up editing another's rows.
+ */
+const CHILD_FILTERED_OPERATIONS = new Set([
+  'findFirst',
+  'findFirstOrThrow',
+  'findMany',
+  'count',
+  'aggregate',
+  'groupBy',
+  'updateMany',
+  'updateManyAndReturn',
+  'deleteMany',
+]);
+
+function scopeChildArgs(args: Record<string, unknown>, operation: string, tenantId: string) {
+  if (CHILD_FILTERED_OPERATIONS.has(operation)) {
+    return {
+      ...args,
+      where: { ...((args.where as object | undefined) ?? {}), envelope: { tenantId } },
+    };
+  }
+  if (CREATE_OPERATIONS.has(operation)) {
+    // A child row's envelopeId is always checked against an envelope that was
+    // itself loaded or locked through this client, so the create is already
+    // confined to the tenant.
+    return args;
+  }
+  throw new Error(
+    `Operation "${operation}" is not supported on envelope-scoped models; ` +
+      'use the findMany/updateMany/deleteMany form with an envelopeId filter',
+  );
+}
+
+/**
  * Database access for tenant-owned data (docs/05, "Multi-Tenancy"). Every query on
  * a tenant-owned root model is limited to the signed-in user's tenant, taken from
  * the request context. Queries outside an authenticated request fail instead of
  * silently returning every tenant's rows.
  *
- * Child rows (versions, recipients, fields, audit events) are reached through
- * their envelope, which is itself filtered.
+ * Recipients and fields are queried directly by the draft editor, so they carry
+ * their own filter through their envelope. Versions and audit events are only
+ * ever reached through an envelope that is already filtered.
  */
 @Injectable()
 export class TenantPrismaService {
@@ -79,6 +118,22 @@ export class TenantPrismaService {
             const tenantId = tenantOf(cls, operation);
             return query(
               scopeArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
+            );
+          },
+        },
+        recipient: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeChildArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
+            );
+          },
+        },
+        documentField: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeChildArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
             );
           },
         },

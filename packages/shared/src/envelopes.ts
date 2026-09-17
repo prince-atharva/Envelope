@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { FieldInfo, RecipientInfo } from './draft';
 
 export type EnvelopeStatus =
   | 'DRAFT'
@@ -57,6 +58,17 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   owner: { id: string; fullName: string };
   versions: DocumentVersionInfo[];
   auditTrail: AuditEventInfo[];
+  /** The note that goes out with the invitation. */
+  message: string | null;
+  /** True when people are asked to sign one after another, in routing order. */
+  sequentialSigning: boolean;
+  /**
+   * Increments on every draft change. The builder sends it back as `If-Match`,
+   * so two open tabs cannot silently overwrite each other's work.
+   */
+  draftRevision: number;
+  recipients: RecipientInfo[];
+  fields: FieldInfo[];
 }
 
 export interface EnvelopeListResponse {

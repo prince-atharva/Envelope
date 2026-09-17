@@ -160,6 +160,14 @@ model Envelope {
   expiresAt         DateTime?
   completedAt       DateTime?
 
+  /// Optional note included in the invitation email (docs/08, POST /send).
+  message String? @db.Text
+
+  /// Bumped by every draft edit. The builder sends the value it loaded back as
+  /// `If-Match`, so two tabs editing one draft cannot silently overwrite each
+  /// other; a stale value is answered with 412 DRAFT_REVISION_MISMATCH.
+  draftRevision Int @default(0)
+
   // Jurisdiction policy resolution (docs/07)
   jurisdictionCode String @default("US")
 
@@ -188,10 +196,17 @@ model Recipient {
   status       RecipientStatus @default(PENDING)
   routingOrder Int             @default(1) // equal values sign in parallel
 
+  /// Which colour this person gets in the field builder. Assigned when they are
+  /// added and never reused, so removing someone does not recolour the rest.
+  colorIndex Int @default(0)
+
   // Access credentials. Only the HMAC-SHA256 hash is stored; the raw token exists
   // solely in the email that was sent (docs/10).
-  tokenHash      String    @unique
-  tokenExpiresAt DateTime
+  //
+  // Both are null until the envelope is sent: a draft recipient has no token yet
+  // (Phase 3 mints them). Postgres allows many nulls in a unique index.
+  tokenHash      String?   @unique
+  tokenExpiresAt DateTime?
   tokenUsedAt    DateTime? // single-use enforcement
   accessCode     String? // optional SMS OTP, hashed
 
@@ -207,10 +222,18 @@ model Recipient {
   signedFromIp String?
   signedFromUa String?
 
+  createdAt DateTime @default(now())
+
   fields      DocumentField[]
   auditEvents AuditTrail[]
   versions    DocumentVersion[]
 
+  /// Lets DocumentField carry a composite foreign key on (recipientId, envelopeId),
+  /// which is what stops a field pointing at a recipient of another envelope
+  /// (docs/05, invariant 4).
+  @@unique([id, envelopeId])
+  /// One entry per person per envelope. Emails are stored lower-cased.
+  @@unique([envelopeId, email])
   @@index([envelopeId, routingOrder])
 }
 
@@ -219,8 +242,11 @@ model DocumentField {
   envelopeId String   @db.Uuid
   envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
 
+  // Composite foreign key, not just recipientId: it is the database, rather than
+  // the application, that guarantees a field's recipient belongs to the same
+  // envelope as the field (docs/05, invariant 4).
   recipientId String    @db.Uuid
-  recipient   Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  recipient   Recipient @relation(fields: [recipientId, envelopeId], references: [id, envelopeId], onDelete: Cascade)
 
   type       FieldType @default(SIGNATURE)
   pageNumber Int // 1-indexed

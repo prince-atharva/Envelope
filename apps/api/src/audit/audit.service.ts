@@ -20,8 +20,20 @@ export interface AuditTransaction {
   };
 }
 
-/** Every audit action the system records. Extended as later phases add events. */
-export type AuditAction = 'ENVELOPE_CREATED';
+/**
+ * Every audit action the system records. Extended as later phases add events.
+ *
+ * Draft events (everything but ENVELOPE_CREATED here) never fill the
+ * `recipientId` COLUMN, because that foreign key is RESTRICT and would make the
+ * recipient impossible to remove from the draft. The id goes in `metadata`.
+ */
+export type AuditAction =
+  | 'ENVELOPE_CREATED'
+  | 'ENVELOPE_UPDATED'
+  | 'RECIPIENT_ADDED'
+  | 'RECIPIENT_UPDATED'
+  | 'RECIPIENT_REMOVED'
+  | 'FIELDS_SAVED';
 
 export interface AuditEventInput {
   envelopeId: string;

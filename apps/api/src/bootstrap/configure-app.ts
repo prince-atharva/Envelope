@@ -43,11 +43,16 @@ export function configureApp(app: NestExpressApplication): void {
   );
   app.use(cookieParser());
 
+  // Express defaults to 100 kB, which a full field layout can exceed: 1000
+  // fields is roughly 250 kB of JSON. The cap still has to exist, because
+  // parsing is done before any handler runs.
+  app.useBodyParser('json', { limit: '1mb' });
+
   if (config.CORS_ORIGINS.length > 0) {
     app.enableCors({
       origin: config.CORS_ORIGINS,
       credentials: true,
-      exposedHeaders: [REQUEST_ID_HEADER, 'Retry-After'],
+      exposedHeaders: [REQUEST_ID_HEADER, 'Retry-After', 'ETag'],
     });
   }
 
