@@ -20,3 +20,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `digitalsign_test` database.
 - `.env.example` documents every variable, including Gmail SMTP with an App Password. There is no
   Mailpit.
+- Database schema (Prisma 7 with the `pg` driver adapter) following docs/05, plus `Tenant`,
+  `Session` (refresh-token rotation) and `User.role`. All ids are native `uuid` columns.
+  Migrations run as the schema owner (`DIRECT_DATABASE_URL`).
+- Initial migration with hand-written invariants:
+  - field ratio range and stay-on-page CHECKs;
+  - positive page numbers, routing orders and page counts;
+  - at most one final `DocumentVersion` per envelope;
+  - audit hashes must be 64-character hex.
+- Runtime role grants: `digitalsign_app` gets CRUD on every table, but only SELECT/INSERT on
+  `AuditTrail`. It has no access to the migration ledger.
+- AuditTrail foreign keys use `RESTRICT` on delete and update. Postgres runs cascades as the table
+  owner, so docs/05's `CASCADE`/`SET NULL` would have let the app remove or rewrite audit rows.

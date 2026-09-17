@@ -1,0 +1,25 @@
+{
+  "name": "@digitalsign/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digital Sign by HealthProHub: NestJS API and background worker",
+  "scripts": {
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "dotenv": "^17.4.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "@types/pg": "^8.23.1",
+    "prisma": "7.10.0",
+    "typescript": "~6.0.3"
+  }
+}

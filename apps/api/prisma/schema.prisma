@@ -1,0 +1,305 @@
+// Digital Sign by HealthProHub: database schema.
+//
+// Follows docs/05-data-model.md. Differences from the doc, and why:
+//   - Tenant model: tenantId is a real foreign key (organisations, HealthProHub dual-mode).
+//   - Session model: refresh-token rotation for sender logins (docs/10, "Session").
+//   - User.role: owner/admin/member, so a tenant can have more than one sender.
+//   - All ids are native Postgres uuid columns.
+//   - AuditTrail foreign keys use RESTRICT instead of CASCADE / SET NULL. Postgres runs
+//     referential actions as the table owner, so a cascade would let the app role delete
+//     or rewrite audit rows it has no UPDATE/DELETE privilege on (docs/05, invariant 5).
+//   - DocumentVersion records pageCount and sizeBytes; Envelope records the display
+//     filename and page count (needed for the page-range check, invariant 3).
+//
+// Rules Prisma cannot express (CHECK constraints, the partial unique index, and the
+// role grants) are hand-written at the end of the initial migration.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  // Compiled by tsc together with the app, so imports must name the emitted .js files.
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Enumerations
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum EnvelopeStatus {
+  DRAFT
+  SENT
+  DELIVERED
+  PARTIALLY_SIGNED
+  COMPLETED
+  DECLINED
+  VOIDED
+}
+
+enum RecipientRole {
+  SIGNER // must sign
+  APPROVER // must approve, does not sign
+  VIEWER // read-only access
+  CC // receives the completed copy only
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  VIEWED
+  SIGNED
+  DECLINED
+}
+
+enum FieldType {
+  SIGNATURE
+  INITIALS
+  DATE_SIGNED // system-generated, never user-editable
+  TEXT_INPUT
+  CHECKBOX
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Tenancy and accounts
+// ─────────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  envelopes Envelope[]
+}
+
+/// Senders and admins only. Signers never have a User row.
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @db.Uuid
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  organization String?
+  role         UserRole  @default(OWNER)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  envelopes Envelope[]
+  sessions  Session[]
+
+  @@index([tenantId])
+}
+
+/// One row per refresh token. Rotating a token revokes its row and links the
+/// replacement; presenting a revoked token again revokes the whole family.
+model Session {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Shared by every rotation that descends from one login.
+  familyId      String    @db.Uuid
+  /// HMAC-SHA256 of the refresh token. The raw token only ever exists in the cookie.
+  tokenHash     String    @unique
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?
+  replacedById  String?   @unique @db.Uuid
+  ip            String?
+  userAgent     String?   @db.Text
+  lastUsedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Core entities
+// ─────────────────────────────────────────────────────────────
+
+model Envelope {
+  id       String         @id @default(uuid()) @db.Uuid
+  tenantId String         @db.Uuid
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  title    String
+  status   EnvelopeStatus @default(DRAFT)
+
+  ownerId String @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  // Storage. These hold object-storage keys, not public URLs; downloads are
+  // streamed or presigned on demand. The original is NEVER mutated.
+  originalFileUrl  String
+  completedFileUrl String?
+  /// Uploaded filename, for display only. Never used as a storage key (docs/10).
+  originalFilename String
+  pageCount        Int
+
+  // Convenience copies of DocumentVersion 0 and the final version's hashes.
+  // DocumentVersion remains the authoritative chain of custody.
+  originalHash String
+  finalHash    String?
+
+  // Routing
+  sequentialSigning Boolean   @default(false)
+  expiresAt         DateTime?
+  completedAt       DateTime?
+
+  // Jurisdiction policy resolution (docs/07)
+  jurisdictionCode String @default("US")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recipients Recipient[]
+  fields     DocumentField[]
+  versions   DocumentVersion[]
+  auditLogs  AuditTrail[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([ownerId])
+  @@index([expiresAt])
+}
+
+model Recipient {
+  id         String   @id @default(uuid()) @db.Uuid
+  envelopeId String   @db.Uuid
+  envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+
+  name         String
+  email        String
+  role         RecipientRole   @default(SIGNER)
+  status       RecipientStatus @default(PENDING)
+  routingOrder Int             @default(1) // equal values sign in parallel
+
+  // Access credentials. Only the HMAC-SHA256 hash is stored; the raw token exists
+  // solely in the email that was sent (docs/10).
+  tokenHash      String    @unique
+  tokenExpiresAt DateTime
+  tokenUsedAt    DateTime? // single-use enforcement
+  accessCode     String? // optional SMS OTP, hashed
+
+  // Consent (ESIGN, docs/07). The verbatim disclosure text is stored, not a
+  // reference to a template that may later change.
+  consentGivenAt DateTime?
+  consentText    String?   @db.Text
+
+  signedAt       DateTime?
+  declinedReason String?
+
+  // Signing telemetry
+  signedFromIp String?
+  signedFromUa String?
+
+  fields      DocumentField[]
+  auditEvents AuditTrail[]
+  versions    DocumentVersion[]
+
+  @@index([envelopeId, routingOrder])
+}
+
+model DocumentField {
+  id         String   @id @default(uuid()) @db.Uuid
+  envelopeId String   @db.Uuid
+  envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+
+  recipientId String    @db.Uuid
+  recipient   Recipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  type       FieldType @default(SIGNATURE)
+  pageNumber Int // 1-indexed
+  required   Boolean   @default(true)
+
+  // Normalised coordinates, range [0.0, 1.0]. NEVER pixels, NEVER PDF points.
+  // Conversion mathematics: docs/06.
+  ratioX      Float
+  ratioY      Float
+  ratioWidth  Float
+  ratioHeight Float
+
+  // Text for TEXT_INPUT / DATE_SIGNED; object-storage key for SIGNATURE / INITIALS.
+  value       String?   @db.Text
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+
+  @@index([envelopeId, pageNumber])
+  @@index([recipientId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DocumentVersion: chain of custody
+//
+//  One row per signing round. Version 0 is the original upload.
+//  Each later version is the document as the NEXT signer saw it.
+// ─────────────────────────────────────────────────────────────
+
+model DocumentVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  envelopeId String   @db.Uuid
+  envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+
+  versionNumber Int // 0 = original
+  fileUrl       String // object-storage key
+  hash          String // SHA-256 (hex) of this exact file
+  pageCount     Int
+  sizeBytes     Int
+
+  // Null for version 0; otherwise the recipient whose signature produced this version.
+  createdByRecipientId String?    @db.Uuid
+  createdByRecipient   Recipient? @relation(fields: [createdByRecipientId], references: [id], onDelete: SetNull)
+
+  isFinal   Boolean  @default(false) // certificate appended, Object Lock applied
+  createdAt DateTime @default(now())
+
+  @@unique([envelopeId, versionNumber])
+  @@index([envelopeId])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  AuditTrail: append-only, hash-chained
+//
+//  No UPDATE. No DELETE. Enforced by database privileges (see the
+//  initial migration), not by application convention.
+// ─────────────────────────────────────────────────────────────
+
+model AuditTrail {
+  id         String   @id @default(uuid()) @db.Uuid
+  envelopeId String   @db.Uuid
+  envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  recipientId String?    @db.Uuid
+  recipient   Recipient? @relation(fields: [recipientId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  /// Actor for sender-side events (null for signer and system events).
+  actorUserId String? @db.Uuid
+
+  action    String // ENVELOPE_CREATED, ENVELOPE_SENT, CONSENT_GIVEN, ...
+  ipAddress String
+  userAgent String @db.Text
+  metadata  Json?
+
+  // Tamper-evident chain
+  prevHash  String? // previous event's eventHash; null for the first event
+  eventHash String  @unique // SHA-256 over (prevHash + action + timestamp + payload)
+
+  timestamp DateTime @default(now())
+
+  @@index([envelopeId, timestamp])
+  @@index([timestamp])
+}
