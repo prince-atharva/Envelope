@@ -1,13 +1,20 @@
 import {
+  type AddRecipientInput,
   type AuthResponse,
+  type DraftRevisionResponse,
   type EnvelopeDetail,
   type EnvelopeListResponse,
   type ErrorCode,
+  type FieldInput,
   isErrorCode,
   type LoginInput,
   type ProblemDetails,
   type ProblemFieldError,
+  type RecipientResponse,
   type RegisterInput,
+  type SaveFieldsResponse,
+  type UpdateEnvelopeInput,
+  type UpdateRecipientInput,
   type UserProfile,
 } from '@envelope/shared';
 
@@ -170,14 +177,31 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
 async function json<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await apiFetch(path, init);
+  // 204, and any other empty body, would make res.json() throw.
+  if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T;
   return (await res.json()) as T;
 }
 
-function jsonBody(body: unknown): RequestInit {
+function jsonBody(body: unknown, method = 'POST'): RequestInit {
   return {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  };
+}
+
+/**
+ * A draft change, tagged with the revision the client last saw.
+ *
+ * The server refuses the request with 412 if someone else has changed the draft
+ * since, rather than letting one tab silently overwrite another's work.
+ */
+function draftChange(body: unknown, method: string, revision?: number): RequestInit {
+  const init = jsonBody(body, method);
+  if (revision === undefined) return init;
+  return {
+    ...init,
+    headers: { ...(init.headers as Record<string, string>), 'If-Match': `"${revision}"` },
   };
 }
 
@@ -266,4 +290,42 @@ export const api = {
     form.append('file', file);
     return upload<EnvelopeDetail>('/envelopes', form, onProgress);
   },
+
+  // ─── Preparing a draft ───
+
+  updateEnvelope: (id: string, input: UpdateEnvelopeInput, revision?: number) =>
+    json<DraftRevisionResponse>(
+      `/envelopes/${encodeURIComponent(id)}`,
+      draftChange(input, 'PATCH', revision),
+    ),
+
+  addRecipient: (id: string, input: AddRecipientInput, revision?: number) =>
+    json<RecipientResponse>(
+      `/envelopes/${encodeURIComponent(id)}/recipients`,
+      draftChange(input, 'POST', revision),
+    ),
+
+  updateRecipient: (
+    id: string,
+    recipientId: string,
+    input: UpdateRecipientInput,
+    revision?: number,
+  ) =>
+    json<RecipientResponse>(
+      `/envelopes/${encodeURIComponent(id)}/recipients/${encodeURIComponent(recipientId)}`,
+      draftChange(input, 'PATCH', revision),
+    ),
+
+  removeRecipient: (id: string, recipientId: string, revision?: number) =>
+    json<DraftRevisionResponse>(
+      `/envelopes/${encodeURIComponent(id)}/recipients/${encodeURIComponent(recipientId)}`,
+      draftChange(undefined, 'DELETE', revision),
+    ),
+
+  /** Replaces the whole field layout. */
+  saveFields: (id: string, fields: FieldInput[], revision?: number) =>
+    json<SaveFieldsResponse>(
+      `/envelopes/${encodeURIComponent(id)}/fields`,
+      draftChange({ fields }, 'PUT', revision),
+    ),
 };

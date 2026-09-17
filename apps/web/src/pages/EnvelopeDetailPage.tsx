@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { Alert } from '../components/ui/Alert';
-import { Button } from '../components/ui/Button';
+import { Button, ButtonLink } from '../components/ui/Button';
 import { FullPageSpinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { api } from '../lib/api';
@@ -117,10 +117,19 @@ export function EnvelopeDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {envelope.status === 'DRAFT' && (
+            <ButtonLink
+              to={`/dashboard/envelopes/${envelope.id}/prepare`}
+              variant="primary"
+              className="text-xs py-1.5 px-3.5"
+            >
+              Prepare for signing
+            </ButtonLink>
+          )}
           <Button
             onClick={handleDownload}
             disabled={!pdfData}
-            variant="primary"
+            variant={envelope.status === 'DRAFT' ? 'secondary' : 'primary'}
             className="text-xs py-1.5 px-3.5"
           >
             Download PDF

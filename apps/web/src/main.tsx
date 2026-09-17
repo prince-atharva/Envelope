@@ -11,7 +11,9 @@ import { DashboardPage } from './pages/DashboardPage';
 import { EnvelopeDetailPage } from './pages/EnvelopeDetailPage';
 import { LoginPage } from './pages/LoginPage';
 import { NewEnvelopePage } from './pages/NewEnvelopePage';
+import { PreparePage } from './pages/PreparePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ReviewPage } from './pages/ReviewPage';
 import { GuestOnly, RequireAuth } from './routes/guards';
 import './styles/index.css';
 
@@ -51,6 +53,8 @@ createRoot(root).render(
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/dashboard/new" element={<NewEnvelopePage />} />
                   <Route path="/dashboard/envelopes/:id" element={<EnvelopeDetailPage />} />
+                  <Route path="/dashboard/envelopes/:id/prepare" element={<PreparePage />} />
+                  <Route path="/dashboard/envelopes/:id/review" element={<ReviewPage />} />
                 </Route>
               </Route>
 
