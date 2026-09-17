@@ -2,9 +2,11 @@ import { Controller, Get, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { Public } from '../auth/auth.decorators';
 import { type HealthReport, HealthService } from './health.service';
 
 @ApiTags('health')
+@Public()
 @SkipThrottle()
 @Controller('health')
 export class HealthController {

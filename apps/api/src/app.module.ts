@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
+import { AuthModule } from './auth/auth.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
 import { LoggingThrottlerGuard } from './common/throttling/logging-throttler.guard';
@@ -34,6 +35,7 @@ import { RedisModule } from './redis/redis.module';
     ThrottlerModule.forRoot({ throttlers: [{ name: 'default', ttl: 60_000, limit: 300 }] }),
     PrismaModule,
     RedisModule,
+    AuthModule,
     HealthModule,
     ClientLogsModule,
   ],

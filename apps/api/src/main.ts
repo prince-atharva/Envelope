@@ -15,6 +15,7 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   configureApp(app);
+  app.enableShutdownHooks();
 
   const config = app.get(AppConfig);
   const logger = PinoLogger.root.child({ context: 'Bootstrap' });

@@ -4,6 +4,7 @@ import { ApiBody, ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/sw
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Public } from '../auth/auth.decorators';
 import { AppException } from '../common/errors/app-exception';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { redactUrl } from '../logging/redact';
@@ -14,6 +15,7 @@ import { redactUrl } from '../logging/redact';
  * login page matter too. Size-capped and rate-limited instead.
  */
 @ApiTags('client-logs')
+@Public()
 @Controller('client-logs')
 export class ClientLogsController {
   constructor(@InjectPinoLogger(ClientLogsController.name) private readonly logger: PinoLogger) {}

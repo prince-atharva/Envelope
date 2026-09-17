@@ -56,3 +56,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   IP and 8 KB per report.
 - Global rate limit of 300 requests/min per IP, plus helmet security headers, cookie parsing and
   optional CORS.
+- Sender accounts:
+  - `POST /api/v1/auth/register` creates a workspace (tenant) and its owner. Limited to 10/hour per
+    IP.
+  - `POST /api/v1/auth/login` (limited to 10/min per IP), `refresh`, `logout`, and `GET me`.
+  - Passwords are hashed with Argon2id (19 MiB, t=2, p=1, OWASP parameters). Old hashes are
+    upgraded on login. Unknown emails take the same time and get the same error as wrong
+    passwords.
+  - Access tokens are 15-minute HS256 JWTs, kept in memory by the browser. Every route requires one
+    unless it is marked `@Public()`, and the token's session must still be active.
+  - Refresh tokens are 32 random bytes in an httpOnly, SameSite=Strict cookie scoped to
+    `/api/v1/auth`. Only an HMAC of the token is stored, and it is rotated on every use.
+  - Reusing an old refresh token revokes every session from that login. A 30-second grace window
+    lets two tabs refresh at once without logging the user out.
+  - Auth events are logged: registration, login success or failure (with the reason), refresh,
+    token reuse (warn), logout, and invalid tokens. Emails are partly masked. User and tenant ids
+    are attached to the rest of each request's log lines.
+- End-to-end test suite (`pnpm --filter @digitalsign/api test:e2e`):
+  - Runs against the `digitalsign_test` database, Redis db 1 and the `digitalsign-test` bucket,
+    with in-memory email.
+  - The schema is applied with `prisma migrate deploy`, and tables are emptied between suites.
+    Prisma refuses `migrate reset` when an AI agent runs it, and deploy never drops anything.
+  - Tests check what was logged and that no password or token ever reached a logger.

@@ -52,7 +52,6 @@ export function configureApp(app: NestExpressApplication): void {
   }
 
   app.setGlobalPrefix(API_PREFIX);
-  app.enableShutdownHooks();
 
   if (config.API_DOCS_ENABLED ?? config.NODE_ENV !== 'production') {
     const document = SwaggerModule.createDocument(
