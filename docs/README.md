@@ -81,6 +81,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 09 | [ux-flows](09-ux-flows.md) | What does the user actually see and do? |
 | 10 | [security-and-threat-model](10-security-and-threat-model.md) | What could go wrong, and how do we stop it? |
 | 11 | [implementation-roadmap](11-implementation-roadmap.md) | What gets built when, and what does it cost to run? |
+| 12 | [phase-1-foundation-plan](12-phase-1-foundation-plan.md) | What does Phase 1 deliver, how is it built and run, and what is left? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 There is also **[DIGITAL_SIGNATURE_PLATFORM_SPEC.md](../DIGITAL_SIGNATURE_PLATFORM_SPEC.md)** in the folder above this one. That is a single self-contained file combining everything here — the one to hand to a client or attach to an email.
