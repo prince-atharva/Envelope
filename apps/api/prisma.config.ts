@@ -23,5 +23,9 @@ export default defineConfig({
     // Migrations run as the schema owner. The application itself connects with
     // DATABASE_URL (the restricted digitalsign_app role) through the pg adapter.
     url: process.env.DIRECT_DATABASE_URL,
+    // Prisma RESETS this database whenever it uses it: `migrate dev` and the CI
+    // drift check (`migrate diff --from-migrations`). docker-compose creates
+    // digitalsign_shadow for exactly this and nothing else.
+    shadowDatabaseUrl: process.env.SHADOW_DATABASE_URL,
   },
 });

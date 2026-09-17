@@ -1,0 +1,129 @@
+# Continuous integration for Envelope by HealthProHub.
+#
+# Services come from docker compose rather than GitHub `services:` containers,
+# because Postgres needs docker/postgres/init mounted from the repository to
+# create the restricted digitalsign_app role and the test and shadow databases.
+# GitHub starts `services:` before the checkout, so the script would be missing.
+#
+# No Gmail secrets are needed: MAIL_TRANSPORT=memory everywhere.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Test-only values. Real secrets never appear in CI.
+  NODE_ENV: test
+  APP_URL: http://localhost:5173
+  API_PORT: '4000'
+  DATABASE_URL: postgresql://digitalsign_app:digitalsign_app_dev_password@localhost:5545/digitalsign?schema=public
+  DIRECT_DATABASE_URL: postgresql://digitalsign:digitalsign_dev_password@localhost:5545/digitalsign?schema=public
+  SHADOW_DATABASE_URL: postgresql://digitalsign:digitalsign_dev_password@localhost:5545/digitalsign_shadow?schema=public
+  REDIS_URL: redis://localhost:6391
+  QUEUE_PREFIX: digitalsign-ci
+  JWT_ACCESS_SECRET: ci-access-secret-0123456789abcdefghijklmnopqrstuv
+  REFRESH_TOKEN_SECRET: ci-refresh-secret-0123456789abcdefghijklmnopqrstuv
+  S3_ENDPOINT: http://localhost:9102
+  S3_REGION: us-east-1
+  S3_ACCESS_KEY_ID: digitalsign
+  S3_SECRET_ACCESS_KEY: digitalsign_dev_password
+  S3_BUCKET: digitalsign-documents
+  S3_FORCE_PATH_STYLE: 'true'
+  MAIL_TRANSPORT: memory
+  SMTP_FROM: Envelope by HealthProHub <no-reply@ci.local>
+  LOG_LEVEL: warn
+  LOG_PRETTY: 'false'
+  LOG_FILES_ENABLED: 'false'
+
+jobs:
+  ci:
+    name: lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint and format check (Biome)
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Start Postgres, Redis and MinIO
+        run: docker compose up -d --wait
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      # Fails when schema.prisma has changes that no migration applies.
+      - name: Migration drift check
+        working-directory: apps/api
+        run: >
+          pnpm exec prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-schema prisma/schema.prisma
+          --exit-code
+
+      - name: API end-to-end tests
+        run: pnpm --filter @envelope/api test:e2e
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @envelope/web exec playwright install --with-deps chromium
+
+      # Started here rather than by Playwright's webServer, so the API is
+      # actually answering before the first test signs up. Playwright reuses it.
+      - name: Start the app
+        run: |
+          pnpm dev > /tmp/dev.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:4000/api/v1/health/live > /dev/null \
+               && curl -sf http://localhost:5173 > /dev/null; then
+              echo "API and web are up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "The app did not start in time:"; tail -50 /tmp/dev.log; exit 1
+
+      - name: Browser tests
+        run: pnpm --filter @envelope/web test:e2e --project=desktop-chrome
+
+      - name: Application log from the browser-test run
+        if: failure()
+        run: tail -100 /tmp/dev.log
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+      - name: Build
+        run: pnpm build
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v

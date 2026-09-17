@@ -164,6 +164,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Continuous integration: GitHub Actions runs Biome, typecheck, unit tests, a migration drift
   check, the API e2e suite, Playwright and the build. Services come from `docker compose`, because
   Postgres needs the repository's init script.
+  - A `digitalsign_shadow` database is created for Prisma. The drift check compares the migration
+    folder with `schema.prisma` and fails on any difference. `SHADOW_DATABASE_URL` configures it.
+  - CI starts the app and waits for the API's health endpoint before Playwright runs, because Vite
+    answers long before the API has compiled and the first test signs up immediately.
 
 ### Fixed
 

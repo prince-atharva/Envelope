@@ -31,11 +31,17 @@ export default defineConfig({
       use: { ...devices['iPhone 14'], defaultBrowserType: 'chromium' },
     },
   ],
+  // `pnpm dev` starts the API, the worker and the web app together.
+  //
+  // reuseExistingServer is on in CI too: the workflow starts the same stack and
+  // waits for the API's health endpoint first. Waiting on port 5173 alone is not
+  // enough, because Vite answers well before the API has compiled, and the first
+  // test signs up straight away.
   webServer: {
     command: 'pnpm dev',
     url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    reuseExistingServer: true,
+    timeout: process.env.CI ? 180_000 : 60_000,
     cwd: '../..',
   },
 });
