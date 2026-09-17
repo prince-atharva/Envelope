@@ -76,6 +76,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 10 | [security-and-threat-model](10-security-and-threat-model.md) | What could go wrong, and how do we stop it? |
 | 11 | [implementation-roadmap](11-implementation-roadmap.md) | What gets built when, and what does it cost to run? |
 | 12 | [phase-1-foundation-plan](12-phase-1-foundation-plan.md) | What does Phase 1 deliver, how is it built and run, and what is left? |
+| 13 | [phase-2-field-builder-plan](13-phase-2-field-builder-plan.md) | What does Phase 2 deliver, and how are fields placed and saved? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12
