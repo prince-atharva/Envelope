@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- `@envelope/shared` coordinates module (`coordinates.ts`), the single place field geometry is
+  converted, with 47 unit tests. Both the browser and the server import it; nothing else may do
+  this arithmetic (ADR 0002).
+  - Conversions: pixels ↔ ratios, points ↔ ratios, ratios → PDF points with the Y axis inverted and
+    re-anchored to the bottom-left corner, and aspect-preserving image fitting.
+  - Geometry: 6-decimal rounding, 4pt snapping, clamping to the page, per-type minimum sizes (a
+    checkbox stays square rather than being forced to 40×15pt) and alignment guides.
+  - `validateRatios` returns the same `RATIO_OUT_OF_RANGE` / `FIELD_EXCEEDS_PAGE` codes the API and
+    the database use, so a box the builder marks red is one the server would reject.
+  - Tests cover the round trip, Y inversion at the top, middle and bottom of a page, A4, US Letter
+    and a rotated page, the 0 and 1 boundaries, and **zoom independence**: the same box gives
+    identical ratios at 100%, 125%, 200% and 300%.
+- `@envelope/shared` draft schemas (`draft.ts`): recipients, fields and envelope settings, plus
+  `checkReadyToSend`, which the review screen and the Phase 3 send endpoint both use.
+- New limits: 50 recipients and 1000 fields per envelope, and a 2000-character message.
+- New error codes: `RECIPIENT_EMAIL_TAKEN` (409) and `DRAFT_REVISION_MISMATCH` (412).
+
 ## [0.1.0] - 2026-09-17
 
 Phase 1 (Foundation): accounts, hardened PDF upload with a SHA-256 fingerprint, a tamper-evident

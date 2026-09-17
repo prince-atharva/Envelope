@@ -38,6 +38,9 @@ export const ERROR_CATALOG = {
   PAGE_OUT_OF_RANGE: { status: 400, title: 'Page out of range' },
   ENVELOPE_NOT_DRAFT: { status: 409, title: 'Envelope is not a draft' },
   ENVELOPE_TERMINAL: { status: 409, title: 'Envelope is in a terminal state' },
+  RECIPIENT_EMAIL_TAKEN: { status: 409, title: 'That person is already on this envelope' },
+  /** The draft changed since the client last read it: another tab or window edited it. */
+  DRAFT_REVISION_MISMATCH: { status: 412, title: 'The draft changed since you loaded it' },
   DOCUMENT_CATEGORY_BLOCKED: { status: 422, title: 'Document category blocked' },
   RECIPIENT_HAS_NO_FIELDS: { status: 422, title: 'Recipient has no fields' },
   REQUIRED_FIELDS_INCOMPLETE: { status: 422, title: 'Required fields incomplete' },
