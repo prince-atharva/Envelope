@@ -6,6 +6,8 @@ import { PinoLogger } from 'nestjs-pino';
 import { vi } from 'vitest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap/configure-app';
+import { MemoryMailbox } from '../../src/mail/mail-transport.service';
+import { WorkerModule } from '../../src/worker.module';
 
 export interface TestApp {
   app: INestApplication;
@@ -24,6 +26,35 @@ export async function createTestApp(): Promise<TestApp> {
     http: app.getHttpServer() as Server,
     close: () => app.close(),
   };
+}
+
+export interface TestWorker {
+  mailbox: MemoryMailbox;
+  close(): Promise<void>;
+}
+
+/** Starts the real WorkerModule (queue consumers) in this process. */
+export async function createTestWorker(): Promise<TestWorker> {
+  const moduleRef = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
+  await moduleRef.init();
+  return {
+    mailbox: moduleRef.get(MemoryMailbox),
+    close: () => moduleRef.close(),
+  };
+}
+
+/** Polls until `check` returns a value, or fails after `timeoutMs`. */
+export async function waitFor<T>(
+  check: () => T | undefined | Promise<T | undefined>,
+  timeoutMs = 10_000,
+): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await check();
+    if (value !== undefined) return value;
+    if (Date.now() > deadline) throw new Error(`condition not met within ${timeoutMs}ms`);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
 }
 
 type Level = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';

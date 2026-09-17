@@ -111,3 +111,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Tests: a 12-page upload whose download's SHA-256 matches, sanitising (checked by an independent
   PDF inspector), each rejection path, a 26 MB upload, tenant isolation, cursor paging, the
   per-tenant upload limit, and that the app role cannot update, delete or truncate audit rows.
+- Email through a BullMQ queue and a separate worker process (`apps/api/src/worker.ts`):
+  - The API only adds jobs. The worker renders and sends them over real SMTP (Gmail by default)
+    with pooled connections and required STARTTLS.
+  - At startup the worker checks the SMTP login and logs a clear error for bad credentials (for
+    example Gmail's 535 "Username and Password not accepted", with a reminder that Gmail needs an
+    App Password). The password is never logged.
+  - Failed sends are retried 5 times with exponential backoff (10s, 20s, 40s, 80s). Each retry is
+    logged as `warn`, and a job that fails permanently is logged as `error` with `alert: true`.
+  - Every log line written during a job carries the job id and the id of the API request that
+    queued it, so API and worker logs can be matched.
+- Welcome email on sign-up. It is branded, every user-supplied value is HTML-escaped, and there is
+  one per user (idempotent job id). If the queue is unavailable, registration still succeeds and
+  the failure is logged as an error.
+- `MAIL_TRANSPORT=memory` keeps sent messages in memory for tests, so no real email is sent.
+  `QUEUE_PREFIX` and `EMAIL_RETRY_BASE_DELAY_MS` are configurable.
+- `pnpm --filter @digitalsign/api dev` now compiles once and runs the API and the worker together.
+  `start:worker` runs the built worker.
+- Tests: an e2e suite runs the real worker in the test process and covers delivery, request-id
+  propagation, retries, permanent failure alerts and a queue outage during sign-up. A unit test
+  covers the template and its HTML escaping.

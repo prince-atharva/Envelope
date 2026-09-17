@@ -14,6 +14,7 @@ import { HealthModule } from './health/health.module';
 import { LoggingModule } from './logging/logging.module';
 import { RoutePatternInterceptor } from './logging/route-pattern.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
+import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -39,6 +40,7 @@ import { StorageModule } from './storage/storage.module';
     PrismaModule,
     RedisModule,
     StorageModule,
+    QueueModule,
     AuditModule,
     AuthModule,
     EnvelopesModule,

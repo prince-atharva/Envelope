@@ -40,6 +40,11 @@ export const envSchema = z
     DB_SLOW_QUERY_MS: z.coerce.number().int().min(1).default(500),
 
     REDIS_URL: z.url({ protocol: /^rediss?$/, error: 'must be a redis:// or rediss:// URL' }),
+    /** Namespace for BullMQ keys in Redis. */
+    QUEUE_PREFIX: z
+      .string()
+      .regex(/^[a-z0-9-]+$/, 'use lowercase letters, digits and dashes')
+      .default('digitalsign'),
 
     JWT_ACCESS_SECRET: secret,
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
@@ -54,6 +59,8 @@ export const envSchema = z
     S3_FORCE_PATH_STYLE: flag.default(false),
 
     MAIL_TRANSPORT: z.enum(['smtp', 'memory']).default('smtp'),
+    /** First retry delay for a failed email; each later retry waits twice as long. */
+    EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),
     SMTP_PORT: port.default(587),
     SMTP_SECURE: flag.default(false),

@@ -7,6 +7,7 @@ import { AppException } from '../common/errors/app-exception';
 import { AppConfig } from '../config/app-config';
 import { Prisma, type Tenant, type User } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
+import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AccessTokenClaims, ClientInfo } from './auth.types';
 import { PasswordService } from './password.service';
@@ -52,6 +53,7 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly jwt: JwtService,
     private readonly config: AppConfig,
+    private readonly mailQueue: MailQueueService,
     @InjectPinoLogger(AuthService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -117,6 +119,19 @@ export class AuthService {
       },
       'User registered',
     );
+
+    // The account exists either way; a queue outage must not fail the sign-up.
+    await this.mailQueue
+      .enqueueWelcome({
+        userId: user.id,
+        to: user.email,
+        fullName: user.fullName,
+        workspaceName: user.tenant.name,
+      })
+      .catch((error: unknown) => {
+        this.logger.error({ err: error, userId: user.id }, 'Welcome email could not be queued');
+      });
+
     return this.buildResult(user, issued);
   }
 

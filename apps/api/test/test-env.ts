@@ -16,6 +16,7 @@ export const TEST_ENV: Record<string, string> = {
     env.TEST_DIRECT_DATABASE_URL ??
     'postgresql://digitalsign:digitalsign_dev_password@localhost:5545/digitalsign_test?schema=public',
   REDIS_URL: env.TEST_REDIS_URL ?? 'redis://localhost:6391/1',
+  QUEUE_PREFIX: 'digitalsign-test',
 
   JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdefghijklmnop',
   REFRESH_TOKEN_SECRET: 'test-refresh-secret-0123456789abcdefghijklmnop',
@@ -28,6 +29,7 @@ export const TEST_ENV: Record<string, string> = {
   S3_FORCE_PATH_STYLE: 'true',
 
   MAIL_TRANSPORT: 'memory',
+  EMAIL_RETRY_BASE_DELAY_MS: '20',
   SMTP_FROM: 'Digital Sign by HealthProHub <no-reply@test.local>',
 
   // Set TEST_LOG_LEVEL=debug to see the application logs while debugging a test.
