@@ -25,6 +25,11 @@ import { describeError } from '../lib/errors';
 import { queryKeys } from '../lib/query-keys';
 import { useDocumentTitle } from '../lib/use-document-title';
 
+/** Identifies one version of the layout as the server sees it. */
+function layoutSignature(revision: number, fieldCount: number): string {
+  return `${revision}:${fieldCount}`;
+}
+
 const SAVE_LABEL: Record<string, string> = {
   idle: '',
   saving: 'Saving…',
@@ -59,9 +64,6 @@ export function PreparePage() {
   });
 
   useDocumentTitle(envelope ? `Prepare · ${envelope.title}` : 'Prepare');
-
-  /** Identifies one version of the layout as the server sees it. */
-  const layoutSignature = (revision: number, fieldCount: number) => `${revision}:${fieldCount}`;
 
   // What the builder has already taken from the server. A save writes its own
   // result here, so the effect below does not treat the answer to our own save
