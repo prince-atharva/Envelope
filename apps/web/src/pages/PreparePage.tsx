@@ -60,8 +60,17 @@ export function PreparePage() {
 
   useDocumentTitle(envelope ? `Prepare · ${envelope.title}` : 'Prepare');
 
+  /** Identifies one version of the layout as the server sees it. */
+  const layoutSignature = (revision: number, fieldCount: number) => `${revision}:${fieldCount}`;
+
+  // What the builder has already taken from the server. A save writes its own
+  // result here, so the effect below does not treat the answer to our own save
+  // as someone else's change and reload over the top of it.
+  const loadedRef = useRef<string | null>(null);
+
   const onSaved = useCallback(
     (fields: FieldInfo[], revision: number) => {
+      loadedRef.current = layoutSignature(revision, fields.length);
       dispatch({ type: 'saved', fields });
       queryClient.setQueryData(queryKeys.envelope(id), (old: typeof envelope) =>
         old ? { ...old, fields, draftRevision: revision } : old,
@@ -72,12 +81,14 @@ export function PreparePage() {
 
   const autosave = useAutosave(id, envelope?.draftRevision ?? 0, onSaved);
 
-  // Load the saved layout once the envelope arrives, and whenever the server
-  // sends a different one back (after a recipient change, say).
-  const loadedRef = useRef<string | null>(null);
+  // Loads the saved layout when the envelope first arrives, and again when the
+  // server sends a different one back — after a recipient change, say.
+  //
+  // Reloading clears the selection, so doing it after our own save would
+  // deselect the field the user is working on and stop the arrow keys mid-edit.
   useEffect(() => {
     if (!envelope) return;
-    const signature = `${envelope.draftRevision}:${envelope.fields.length}`;
+    const signature = layoutSignature(envelope.draftRevision, envelope.fields.length);
     if (loadedRef.current === signature || state.dirty) return;
     loadedRef.current = signature;
     dispatch({ type: 'reset', fields: envelope.fields });
@@ -158,8 +169,13 @@ export function PreparePage() {
         setArmed(null);
       }
     }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    // Capture phase on purpose. The viewer also listens for the arrow keys, to
+    // turn the page, and it registers first because child effects run before
+    // parent ones. A capture listener runs before any bubble listener whatever
+    // the order, so `preventDefault` here reaches the viewer's check in time and
+    // nudging a field no longer turns the page as well.
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [state.selection.length]);
 
   const placeField = useCallback(

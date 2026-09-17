@@ -45,6 +45,10 @@ export function FieldPalette({ armed, onArm, disabled }: FieldPaletteProps) {
                 type="button"
                 disabled={disabled}
                 aria-pressed={isArmed}
+                // Named explicitly: without this the hint below the label joins
+                // the accessible name, so the button announces as
+                // "Signature Where they sign".
+                aria-label={field.label}
                 onClick={() => onArm(isArmed ? null : field.type)}
                 className={`flex w-full flex-col rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   isArmed

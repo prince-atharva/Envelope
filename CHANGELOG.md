@@ -62,6 +62,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
     two copies of that calculation are now one function.
   - The window arrow-key handler stands aside when the event was handled inside an overlay, so
     nudging a field does not also turn the page.
+- Browser tests for the builder (desktop Chrome, Pixel 7 and iPhone 14 sizes): place fields for two
+  people across pages and reload to find them unmoved; **identical stored ratios whether the work is
+  done at 100% or 200%**; correct placement on a landscape page and a page rotated 90°; arrow keys
+  nudging a field without turning the page; and a role change to copy-only removing that person's
+  fields. A mixed-page fixture PDF was added for the rotation case, and the sign-up and upload steps
+  moved into shared helpers.
 - Tests: 26 e2e cases covering the endpoints, every validation code, stale revisions, a sent
   envelope, cross-tenant 404s on every new endpoint, audit-chain verification, and checks that no
   name or email reaches a log or the audit trail in clear.
@@ -237,6 +243,12 @@ audit trail, email through a background worker, and a web app with a PDF viewer.
 
 ### Fixed
 
+- The builder reloaded its own saved layout after every autosave, which cleared the selection and
+  stopped the arrow keys working mid-edit. A save now records its own result as already loaded.
+- Arrow keys nudged the selected field *and* turned the page, because the viewer's key handler runs
+  before the builder's. The builder now listens in the capture phase.
+- Playwright waits for the API's health endpoint before the first test: Vite answers within a second
+  or two while the API is still compiling, and the first test failed with a proxy error.
 - `pnpm-lock.yaml` still referred to `@digitalsign/shared` after the package rename, so
   `pnpm install --frozen-lockfile` failed. The lockfile is regenerated.
 - `pnpm lint` failed on the web app. Biome now parses Tailwind CSS directives (`@theme`,
