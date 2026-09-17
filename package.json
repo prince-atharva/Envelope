@@ -1,0 +1,28 @@
+{
+  "name": "digital-sign",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digital Sign by HealthProHub — electronic signature platform",
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "postinstall": "pnpm --filter @digitalsign/shared build",
+    "dev": "pnpm --parallel --recursive dev",
+    "build": "pnpm --recursive build",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm --recursive typecheck",
+    "test": "pnpm --recursive test",
+    "test:e2e": "pnpm --recursive --workspace-concurrency=1 test:e2e",
+    "db:migrate": "pnpm --filter @digitalsign/api db:migrate",
+    "db:deploy": "pnpm --filter @digitalsign/api db:deploy",
+    "db:studio": "pnpm --filter @digitalsign/api db:studio"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "typescript": "~6.0.3"
+  }
+}

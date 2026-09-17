@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 10 does not run dependency install scripts unless they are listed here.
+# Each entry needs its postinstall step to work (native binaries / generated clients).
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@prisma/engines'
+  - '@swc/core'
+  - argon2
+  - esbuild
+  - prisma

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+apps/api/src/generated/
+
+# Environment — real secrets (Gmail App Password, JWT secrets) live only here.
+.env
+.env.*
+!.env.example
+
+# Logs — application logs are operational data, never committed.
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Tests
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Editors / OS
+.DS_Store
+.idea/
+*.swp
