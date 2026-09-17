@@ -1,6 +1,7 @@
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode, Ref } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Setup the worker for pdfjs-dist v6
 GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
@@ -11,14 +12,65 @@ const ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
 export type ScaleMode = number | 'fit-width';
 
+/** Side padding the scroll area takes out of the available width in fit-width mode. */
+const FIT_WIDTH_PADDING = 48;
+
+/**
+ * What an overlay needs to place things on a page.
+ *
+ * `widthPt`/`heightPt` are the page's own size in PDF points, with /Rotate and
+ * the CropBox already applied, exactly what the coordinates module expects.
+ * `pxPerPt` converts between what is on screen and that fixed space.
+ */
+export interface PageRenderInfo {
+  pageNumber: number;
+  widthPt: number;
+  heightPt: number;
+  cssWidth: number;
+  cssHeight: number;
+  pxPerPt: number;
+}
+
+export interface PdfViewerHandle {
+  jumpToPage: (page: number) => void;
+}
+
 interface PdfViewerProps {
   data: ArrayBuffer;
   className?: string;
+  /**
+   * Draws something on top of a page, sized to exactly the rendered page.
+   * Used by the field builder; without it the viewer behaves as before.
+   */
+  renderPageOverlay?: (page: PageRenderInfo) => ReactNode;
+  onPageChange?: (page: number) => void;
+  ref?: Ref<PdfViewerHandle>;
 }
 
 interface PageDimensions {
   width: number;
   height: number;
+}
+
+/**
+ * The page's size on screen, in CSS pixels.
+ *
+ * The canvas, the page wrapper and any overlay all take their size from here, so
+ * they cannot drift apart: a box drawn at inset 0 covers exactly the page.
+ */
+function displaySize(
+  page: PageDimensions,
+  scale: ScaleMode,
+  containerWidth: number,
+): { width: number; height: number; scale: number } {
+  if (page.width <= 0) return { width: page.width, height: page.height, scale: 1 };
+
+  if (scale === 'fit-width') {
+    if (containerWidth <= 32) return { width: page.width, height: page.height, scale: 1 };
+    const fitScale = (containerWidth - FIT_WIDTH_PADDING) / page.width;
+    return { width: page.width * fitScale, height: page.height * fitScale, scale: fitScale };
+  }
+  return { width: page.width * scale, height: page.height * scale, scale };
 }
 
 // A single page component that renders a canvas when visible and preserves it once rendered
@@ -28,12 +80,14 @@ const PdfPage = ({
   scale,
   containerWidth,
   defaultDimensions,
+  renderPageOverlay,
 }: {
   pdfDoc: PDFDocumentProxy;
   pageNumber: number;
   scale: ScaleMode;
   containerWidth: number;
   defaultDimensions: PageDimensions;
+  renderPageOverlay?: (page: PageRenderInfo) => ReactNode;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -83,20 +137,9 @@ const PdfPage = ({
     };
   }, [pdfDoc, pageNumber]);
 
-  // Compute display dimensions according to scale & container bounds
-  let displayWidth = pageDimensions.width;
-  let displayHeight = pageDimensions.height;
-
-  if (scale === 'fit-width') {
-    if (containerWidth > 32 && pageDimensions.width > 0) {
-      const fitScale = (containerWidth - 48) / pageDimensions.width;
-      displayWidth = containerWidth - 48;
-      displayHeight = pageDimensions.height * fitScale;
-    }
-  } else if (typeof scale === 'number') {
-    displayWidth = pageDimensions.width * scale;
-    displayHeight = pageDimensions.height * scale;
-  }
+  const display = displaySize(pageDimensions, scale, containerWidth);
+  const displayWidth = display.width;
+  const displayHeight = display.height;
 
   // Render to canvas
   useEffect(() => {
@@ -111,15 +154,7 @@ const PdfPage = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let renderScale = 1;
-    if (scale === 'fit-width') {
-      if (containerWidth > 32 && pageDimensions.width > 0) {
-        renderScale = (containerWidth - 48) / pageDimensions.width;
-      }
-    } else if (typeof scale === 'number') {
-      renderScale = scale;
-    }
-
+    const renderScale = displaySize(pageDimensions, scale, containerWidth).scale;
     const viewport = pageProxy.getViewport({ scale: renderScale });
 
     // High DPI scaling (capped at 2 for mobile GPU safety)
@@ -135,10 +170,12 @@ const PdfPage = ({
       actualHeight = Math.floor(actualHeight * reduction);
     }
 
+    // Only the backing store is set here. The CSS size comes from the same
+    // `displaySize` call the wrapper uses, below, so the canvas, the wrapper and
+    // any overlay always describe the same rectangle — including for pages that
+    // have not re-rendered since the last zoom change.
     canvas.width = actualWidth;
     canvas.height = actualHeight;
-    canvas.style.width = `${Math.round(viewport.width)}px`;
-    canvas.style.height = `${Math.round(viewport.height)}px`;
 
     const renderContext = {
       canvasContext: ctx,
@@ -176,11 +213,14 @@ const PdfPage = ({
   }, [isVisible, pageProxy, scale, containerWidth, pageDimensions, pageNumber]);
 
   return (
+    // `ring` rather than `border`: a border sits inside the wrapper's width, so
+    // the canvas and an inset-0 overlay would each be a pixel or two adrift of
+    // the page. A ring is drawn outside the box and costs nothing.
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
       data-page-number={pageNumber}
-      className="relative bg-white shadow-lg mx-auto mb-6 last:mb-2 flex items-center justify-center overflow-hidden shrink-0 rounded-sm border border-slate-200/60 transition-shadow hover:shadow-xl"
+      className="relative bg-white shadow-lg mx-auto mb-6 last:mb-2 flex items-center justify-center shrink-0 rounded-sm ring-1 ring-slate-200/60 transition-shadow hover:shadow-xl"
       style={{
         width: `${Math.round(displayWidth)}px`,
         height: `${Math.round(displayHeight)}px`,
@@ -189,7 +229,8 @@ const PdfPage = ({
     >
       <canvas
         ref={canvasRef}
-        className={`block max-w-full ${hasEverRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150`}
+        className={`block ${hasEverRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150`}
+        style={{ width: `${Math.round(displayWidth)}px`, height: `${Math.round(displayHeight)}px` }}
       />
       {!hasEverRendered && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 text-xs text-slate-400 gap-2">
@@ -197,11 +238,29 @@ const PdfPage = ({
           <span className="font-medium text-slate-500">Page {pageNumber}</span>
         </div>
       )}
+      {renderPageOverlay && pageDimensions.width > 0 && (
+        <div className="absolute inset-0" data-pdf-overlay={pageNumber}>
+          {renderPageOverlay({
+            pageNumber,
+            widthPt: pageDimensions.width,
+            heightPt: pageDimensions.height,
+            cssWidth: displayWidth,
+            cssHeight: displayHeight,
+            pxPerPt: display.scale,
+          })}
+        </div>
+      )}
     </div>
   );
 };
 
-export function PdfViewer({ data, className = '' }: PdfViewerProps) {
+export function PdfViewer({
+  data,
+  className = '',
+  renderPageOverlay,
+  onPageChange,
+  ref,
+}: PdfViewerProps) {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -375,6 +434,14 @@ export function PdfViewer({ data, className = '' }: PdfViewerProps) {
     [numPages],
   );
 
+  // Lets the field builder scroll to a page, for example when the review screen
+  // links to a problem field.
+  useImperativeHandle(ref, () => ({ jumpToPage }), [jumpToPage]);
+
+  useEffect(() => {
+    if (numPages > 0) onPageChange?.(currentPage);
+  }, [currentPage, numPages, onPageChange]);
+
   // Track active page via maximum visible viewport intersection
   const handleScroll = useCallback(() => {
     if (!scrollRef.current || numPages === 0) {
@@ -456,6 +523,10 @@ export function PdfViewer({ data, className = '' }: PdfViewerProps) {
       ) {
         return;
       }
+      // An overlay that has already acted on the key owns it: without this,
+      // nudging a field with the arrow keys would also turn the page.
+      if (e.defaultPrevented) return;
+      if (e.target instanceof Element && e.target.closest('[data-pdf-overlay]')) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         e.preventDefault();
         jumpToPage(currentPage + 1);
@@ -727,6 +798,7 @@ export function PdfViewer({ data, className = '' }: PdfViewerProps) {
               scale={scale}
               containerWidth={containerWidth}
               defaultDimensions={defaultDimensions}
+              renderPageOverlay={renderPageOverlay}
             />
           ))}
         </div>

@@ -54,6 +54,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `findUnique`, `update` and `delete` on those models are refused outright, because a unique `where`
   cannot carry the filter.
 - The JSON body limit is 1 MB (Express defaults to 100 kB; 1000 fields is about 250 kB).
+- `PdfViewer` can draw an overlay on each page: a `renderPageOverlay` prop receives the page's size
+  in points and in CSS pixels, plus the pixels-per-point scale, and renders inside the page box.
+  `onPageChange` and a `jumpToPage` ref handle come with it.
+  - The page's border became a ring and the canvas takes its CSS size from the same calculation the
+    wrapper uses, so the canvas, the page and an overlay describe exactly the same rectangle. The
+    two copies of that calculation are now one function.
+  - The window arrow-key handler stands aside when the event was handled inside an overlay, so
+    nudging a field does not also turn the page.
 - Tests: 26 e2e cases covering the endpoints, every validation code, stale revisions, a sent
   envelope, cross-tenant 404s on every new endpoint, audit-chain verification, and checks that no
   name or email reaches a log or the audit trail in clear.
