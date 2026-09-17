@@ -32,3 +32,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `AuditTrail`. It has no access to the migration ledger.
 - AuditTrail foreign keys use `RESTRICT` on delete and update. Postgres runs cascades as the table
   owner, so docs/05's `CASCADE`/`SET NULL` would have let the app remove or rewrite audit rows.
+- NestJS 12 API foundation (`apps/api`), served under `/api/v1`, with Swagger UI at `/api/docs`
+  (off by default in production).
+- Startup config check (zod): the API refuses to boot with a missing or weak setting. Error messages
+  name the variable, never its value.
+- Structured logging with pino:
+  - One line per request: method, route pattern, status, duration, IP, user agent and error code.
+    4xx is logged as `warn`, 5xx as `error`.
+  - `X-Request-Id` is accepted or generated, returned on every response, and included in every log
+    line and error body.
+  - Daily-rotated JSON files: `logs/api.<date>.<n>.log`, plus `logs/api-error.<date>.<n>.log` for
+    errors only (14 files kept by default).
+  - Readable single-line console output in development.
+  - Passwords, tokens, cookies, `Authorization` headers, secrets, signing links and URL credentials
+    are redacted. A unit test fails if any of them leaks.
+  - Also logged: startup config summary (no secrets), dependency checks, slow queries (over
+    `DB_SLOW_QUERY_MS`), Redis connection problems (throttled), rate-limit hits, graceful shutdown,
+    and fatal crashes. Buffered log lines are flushed before the process exits.
+- RFC 7807 `application/problem+json` for every error, built from the shared error catalog.
+  Unexpected errors hide their detail from the client and are logged with a stack trace.
+- `GET /api/v1/health` (Postgres and Redis, 503 when degraded) and `GET /api/v1/health/live`.
+- `POST /api/v1/client-logs`: browser error reports go into the server logs. Limited to 20/min per
+  IP and 8 KB per report.
+- Global rate limit of 300 requests/min per IP, plus helmet security headers, cookie parsing and
+  optional CORS.

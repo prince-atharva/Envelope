@@ -59,6 +59,9 @@
       "includes": ["apps/api/**"],
       "linter": {
         "rules": {
+          "complexity": {
+            "noStaticOnlyClass": "off"
+          },
           "style": {
             "useImportType": "off"
           }

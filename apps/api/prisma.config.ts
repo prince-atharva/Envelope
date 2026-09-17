@@ -22,6 +22,6 @@ export default defineConfig({
   datasource: {
     // Migrations run as the schema owner. The application itself connects with
     // DATABASE_URL (the restricted digitalsign_app role) through the pg adapter.
-    url: process.env['DIRECT_DATABASE_URL'],
+    url: process.env.DIRECT_DATABASE_URL,
   },
 });

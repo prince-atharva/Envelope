@@ -5,10 +5,14 @@
  */
 export const ERROR_CATALOG = {
   // Generic
+  BAD_REQUEST: { status: 400, title: 'Bad request' },
   VALIDATION_FAILED: { status: 400, title: 'Request validation failed' },
   UNAUTHENTICATED: { status: 401, title: 'Authentication required' },
   FORBIDDEN: { status: 403, title: 'Forbidden' },
   NOT_FOUND: { status: 404, title: 'Not found' },
+  CONFLICT: { status: 409, title: 'Conflict' },
+  PAYLOAD_TOO_LARGE: { status: 413, title: 'Request body too large' },
+  UNSUPPORTED_MEDIA_TYPE: { status: 415, title: 'Unsupported media type' },
   RATE_LIMITED: { status: 429, title: 'Too many requests' },
   INTERNAL_ERROR: { status: 500, title: 'Internal server error' },
   SERVICE_UNAVAILABLE: { status: 503, title: 'Service unavailable' },

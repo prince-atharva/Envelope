@@ -5,21 +5,54 @@
   "description": "Digital Sign by HealthProHub: NestJS API and background worker",
   "scripts": {
     "postinstall": "prisma generate",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "dev": "tsc-watch -p tsconfig.build.json --noClear --onSuccess \"node --enable-source-maps dist/main.js\"",
+    "start": "node --enable-source-maps dist/main.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@digitalsign/shared": "workspace:*",
+    "@nestjs/common": "^12.0.3",
+    "@nestjs/core": "^12.0.3",
+    "@nestjs/platform-express": "^12.0.3",
+    "@nestjs/swagger": "^12.0.1",
+    "@nestjs/throttler": "^6.7.0",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
-    "pg": "^8.23.0"
+    "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
+    "nestjs-cls": "^6.3.0",
+    "nestjs-pino": "^5.2.0",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
+    "pino-roll": "^4.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@nestjs/testing": "^12.0.3",
+    "@swc/core": "^1.16.2",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.20.3",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "pino-pretty": "^13.1.3",
     "prisma": "7.10.0",
-    "typescript": "~6.0.3"
+    "supertest": "^7.2.2",
+    "tsc-watch": "^7.2.1",
+    "typescript": "~6.0.3",
+    "unplugin-swc": "^1.6.0",
+    "vitest": "^5.0.1"
   }
 }
