@@ -1,0 +1,56 @@
+import {
+  type SendEnvelopeInput,
+  type SendEnvelopeResponse,
+  sendEnvelopeSchema,
+} from '@envelope/shared';
+import { Body, Controller, Headers, HttpCode, Param, Post, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { Client, CurrentUser } from '../auth/auth.decorators';
+import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
+import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { SendingService } from './sending.service';
+
+const IDEMPOTENCY_KEY_HEADER = {
+  name: 'Idempotency-Key',
+  required: true,
+  description:
+    'A value unique to this attempt (a UUID is ideal). Repeating the request with the same key ' +
+    'within 24 hours returns the first response with Idempotency-Replayed: true, and sends nothing.',
+};
+
+@ApiTags('sending')
+@ApiBearerAuth()
+@Controller('envelopes')
+export class SendingController {
+  constructor(
+    private readonly sending: SendingService,
+    private readonly idempotency: IdempotencyService,
+  ) {}
+
+  @Post(':id/send')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Send a draft for signing' })
+  @ApiHeader(IDEMPOTENCY_KEY_HEADER)
+  @ApiBody({ schema: openApiSchema(sendEnvelopeSchema), required: false })
+  async send(
+    @Param('id', UuidParamPipe) id: string,
+    @Body(new ZodValidationPipe(sendEnvelopeSchema.optional())) body: SendEnvelopeInput | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Client() client: ClientInfo,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('idempotency-key') idempotencyKey?: string,
+  ): Promise<SendEnvelopeResponse> {
+    const input = body ?? {};
+    const { response, replayed } = await this.idempotency.run(
+      `send:${user.tenantId}:${id}`,
+      idempotencyKey,
+      input,
+      () => this.sending.send(id, input, user, client),
+    );
+    if (replayed) res.setHeader('Idempotency-Replayed', 'true');
+    return response;
+  }
+}

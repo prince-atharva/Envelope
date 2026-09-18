@@ -85,7 +85,7 @@ From doc 11, Phase 3 is finished when:
 | 2 | A clearer signing-order choice, with reordering | ✅ Done |
 | 3 | Database and shared rules for signing | ✅ Done |
 | 4 | Signing links: creating, checking and hiding them | ✅ Done |
-| 5 | Sending, invitation emails and signing order | ⬜ |
+| 5 | Sending, invitation emails and signing order | ✅ Done |
 | 6 | The signer's side of the API | ⬜ |
 | 7 | Reminders, and progress for the sender | ⬜ |
 | 8 | Send dialog and progress screen | ⬜ |

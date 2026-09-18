@@ -23,9 +23,13 @@ export interface AuditTransaction {
 /**
  * Every audit action the system records. Extended as later phases add events.
  *
- * Draft events (everything but ENVELOPE_CREATED here) never fill the
- * `recipientId` COLUMN, because that foreign key is RESTRICT and would make the
- * recipient impossible to remove from the draft. The id goes in `metadata`.
+ * Draft events (ENVELOPE_UPDATED to FIELDS_SAVED) never fill the `recipientId`
+ * COLUMN, because that foreign key is RESTRICT and would make the recipient
+ * impossible to remove from the draft. The id goes in `metadata`.
+ *
+ * Events from sending onwards do fill it: once an envelope has left DRAFT,
+ * nobody can be removed from it, and the column is what ties evidence to a
+ * person (docs/05).
  */
 export type AuditAction =
   | 'ENVELOPE_CREATED'
@@ -33,7 +37,20 @@ export type AuditAction =
   | 'RECIPIENT_ADDED'
   | 'RECIPIENT_UPDATED'
   | 'RECIPIENT_REMOVED'
-  | 'FIELDS_SAVED';
+  | 'FIELDS_SAVED'
+  // Sending (Phase 3)
+  | 'ENVELOPE_SENT'
+  | 'EMAIL_SENT'
+  | 'REMINDER_REQUESTED'
+  // Signing (Phase 3)
+  | 'ENVELOPE_VIEWED'
+  | 'CONSENT_GIVEN'
+  | 'SIGNATURE_ADOPTED'
+  | 'RECIPIENT_SIGNED'
+  | 'RECIPIENT_DECLINED';
+
+/** Recorded on events the system itself causes, with no client behind them. */
+export const SYSTEM_ACTOR = { ipAddress: 'system', userAgent: 'envelope-worker' } as const;
 
 export interface AuditEventInput {
   envelopeId: string;

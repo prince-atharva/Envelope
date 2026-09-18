@@ -17,6 +17,7 @@ import { RoutePatternInterceptor } from './logging/route-pattern.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { SendingModule } from './sending/sending.module';
 import { SigningModule } from './signing/signing.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -47,6 +48,7 @@ import { StorageModule } from './storage/storage.module';
     AuthModule,
     EnvelopesModule,
     DraftsModule,
+    SendingModule,
     SigningModule,
     HealthModule,
     ClientLogsModule,

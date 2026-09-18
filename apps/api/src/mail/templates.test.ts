@@ -1,5 +1,60 @@
 import { describe, expect, it } from 'vitest';
-import { escapeHtml, renderWelcomeEmail } from './templates';
+import { escapeHtml, renderSigningLinkEmail, renderWelcomeEmail } from './templates';
+
+describe('signing-link emails', () => {
+  const url = `https://sign.example.com/sign/${'a'.repeat(64)}`;
+  const base = {
+    kind: 'invitation' as const,
+    to: 'priya@example.com',
+    recipientName: 'Priya Sharma',
+    action: 'sign' as const,
+    senderName: 'Raj Kumar',
+    envelopeTitle: 'Lease <2026>',
+    message: 'Please sign by Friday.\nThanks!',
+    expiresAt: new Date('2026-10-02T09:00:00Z'),
+    signingUrl: url,
+  };
+
+  it('invites with the sender in the subject and one call to action', () => {
+    const email = renderSigningLinkEmail(base);
+    expect(email.subject).toBe('Raj Kumar has sent you a document to sign');
+    expect(email.html).toContain(`href="${url}"`);
+    expect(email.html.match(/<a /g)).toHaveLength(1);
+    expect(email.html).toContain('Review &amp; Sign');
+    expect(email.text).toContain(`Review & Sign: ${url}`);
+    expect(email.text).toContain('This link works until 2 October 2026.');
+  });
+
+  it('includes the sender message, escaped in HTML and as typed in text', () => {
+    const email = renderSigningLinkEmail({ ...base, message: '<b>Hi</b> & thanks' });
+    expect(email.html).toContain('&lt;b&gt;Hi&lt;/b&gt; &amp; thanks');
+    expect(email.text).toContain('Message from Raj Kumar:\n<b>Hi</b> & thanks');
+    expect(renderSigningLinkEmail({ ...base, message: null }).text).not.toContain('Message from');
+  });
+
+  it('escapes the title and never lets a name break the subject line', () => {
+    const email = renderSigningLinkEmail({
+      ...base,
+      kind: 'reminder',
+      envelopeTitle: 'Lease\r\nBcc: attacker@example.com',
+    });
+    expect(email.subject).toBe('Reminder: Lease Bcc: attacker@example.com awaits your signature');
+    expect(email.subject).not.toMatch(/[\r\n]/);
+    expect(renderSigningLinkEmail(base).html).toContain('Lease &lt;2026&gt;');
+  });
+
+  it('tells a reminder recipient that older links stopped working', () => {
+    const email = renderSigningLinkEmail({ ...base, kind: 'reminder' });
+    expect(email.subject).toBe('Reminder: Lease <2026> awaits your signature');
+    expect(email.text).toContain('Links in earlier emails about this document no longer work.');
+  });
+
+  it('asks an approver to approve', () => {
+    const email = renderSigningLinkEmail({ ...base, action: 'approve' });
+    expect(email.subject).toBe('Raj Kumar has sent you a document to approve');
+    expect(email.html).toContain('Review &amp; Approve');
+  });
+});
 
 describe('welcome email', () => {
   const job = {
@@ -25,6 +80,11 @@ describe('welcome email', () => {
     expect(html).toContain('Sunrise &amp; Co &quot;Clinic&quot;');
     // The plain-text part is not HTML and keeps the values as typed.
     expect(text).toContain('Hi Raj <script>alert(1)</script> Kumar,');
+  });
+
+  it('keeps its own footer', () => {
+    const { html } = renderWelcomeEmail(job, 'https://sign.example.com');
+    expect(html).toContain('an account was created with this address');
   });
 
   it('escapes all five HTML special characters', () => {

@@ -49,6 +49,32 @@ Phase 3 (Signer Portal) in progress. See
   links from it, and it lets you try the signing flow without an SMTP account. It is refused in
   production, as `memory` now is too.
 
+- **Sending:** `POST /envelopes/:id/send` (`apps/api/src/sending/`).
+  - It needs an `Idempotency-Key` header. The response is kept in Redis for 24 hours per tenant and
+    envelope. A repeat with the same key returns it with `Idempotency-Replayed: true` and sends
+    nothing; the same key with a different body returns 422 `IDEMPOTENCY_KEY_MISMATCH`.
+  - One transaction claims the draft, re-runs `checkReadyToSend` on the stored data, sets `SENT`,
+    `sentAt` and `expiresAt` (`expiresInDays`, default `SIGNING_DEFAULT_EXPIRY_DAYS`), marks whoever
+    is due first as invited, and writes `ENVELOPE_SENT`. "Everyone at once" invites every signer and
+    approver; "one after another" invites only the first routing group.
+  - Refusals list every problem in `errors`: `RECIPIENT_HAS_NO_FIELDS` (docs/08) or the new
+    `NOT_READY_TO_SEND`. `checkReadyToSend` now also reports `NO_SIGNERS` when only viewers and
+    copy recipients are on the envelope.
+- **Invitation emails**, minted and sent by the worker (ADR 0009):
+  - The job holds only the envelope and recipient ids.
+  - The worker checks the person is still due a link, stores the HMAC of a fresh token, and sends
+    the email with one **Review & Sign** (or **Review & Approve**) button, the sender's message, the
+    expiry date and a plain-text copy. It then sets `notifiedAt` and writes `EMAIL_SENT` with the
+    recipient id.
+  - A queued email for someone who has since signed or declined, or on an envelope that has closed
+    or expired, is skipped and logged.
+  - The worker now connects to the database and the audit trail.
+- Audit actions `ENVELOPE_SENT`, `EMAIL_SENT`, `REMINDER_REQUESTED`, `ENVELOPE_VIEWED`,
+  `CONSENT_GIVEN`, `SIGNATURE_ADOPTED`, `RECIPIENT_SIGNED` and `RECIPIENT_DECLINED`. Events from
+  sending onwards fill the `recipientId` column, since recipients can no longer be removed.
+- The email layout takes its footer as a parameter, so signing emails explain why the recipient got
+  them. Subject values have line breaks removed.
+
 ### Security
 
 - Logs now redact `rawToken`, `signingUrl` and `SIGNING_TOKEN_SECRET` wherever they appear as keys.

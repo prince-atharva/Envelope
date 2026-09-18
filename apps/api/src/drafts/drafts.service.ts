@@ -1,9 +1,7 @@
 import {
   type AddRecipientInput,
   canOwnFields,
-  type FieldInfo,
   MAX_RECIPIENTS_PER_ENVELOPE,
-  type RecipientInfo,
   type RecipientResponse,
   type SaveFieldsInput,
   type SaveFieldsResponse,
@@ -15,39 +13,14 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
-import type { DocumentField, Prisma, Recipient } from '../generated/prisma/client';
+import type { Prisma } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
+import { toFieldInfo, toRecipientInfo } from './draft-mappers';
 import { assertValidGeometry, layoutHash } from './draft-validation';
 
 /** The transaction type the tenant-scoped client hands to a callback. */
 type Tx = Parameters<Parameters<TenantPrismaService['client']['$transaction']>[0]>[0];
-
-function toRecipientInfo(row: Recipient): RecipientInfo {
-  return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    role: row.role,
-    status: row.status,
-    routingOrder: row.routingOrder,
-    colorIndex: row.colorIndex,
-  };
-}
-
-function toFieldInfo(row: DocumentField): FieldInfo {
-  return {
-    id: row.id,
-    recipientId: row.recipientId,
-    type: row.type,
-    pageNumber: row.pageNumber,
-    required: row.required,
-    ratioX: row.ratioX,
-    ratioY: row.ratioY,
-    ratioWidth: row.ratioWidth,
-    ratioHeight: row.ratioHeight,
-  };
-}
 
 /**
  * Editing a draft: its settings, the people on it, and where they sign.

@@ -133,6 +133,7 @@ export interface SaveFieldsResponse extends DraftRevisionResponse {
 
 export type ReadinessIssue =
   | { code: 'NO_RECIPIENTS'; message: string }
+  | { code: 'NO_SIGNERS'; message: string }
   | { code: 'RECIPIENT_HAS_NO_FIELDS'; message: string; recipientId: string }
   | { code: 'INVALID_FIELD'; message: string; fieldId: string };
 
@@ -153,6 +154,12 @@ export function checkReadyToSend(draft: {
 
   if (draft.recipients.length === 0) {
     issues.push({ code: 'NO_RECIPIENTS', message: 'Add at least one person.' });
+  } else if (!draft.recipients.some((recipient) => canOwnFields(recipient.role))) {
+    // Viewers and copy recipients alone would leave nothing to do.
+    issues.push({
+      code: 'NO_SIGNERS',
+      message: 'Add at least one person who signs or approves.',
+    });
   }
 
   for (const recipient of draft.recipients) {

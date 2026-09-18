@@ -5,7 +5,7 @@ import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { maskEmail } from '../logging/redact';
 import { EMAIL_QUEUE } from '../queue/queue.module';
-import type { EmailJobData, WelcomeEmailJob } from './mail.types';
+import type { EmailJobData, SigningLinkEmailJob, WelcomeEmailJob } from './mail.types';
 
 /** API side of email: puts jobs on the queue. The worker does the sending. */
 @Injectable()
@@ -39,6 +39,36 @@ export class MailQueueService implements OnModuleInit {
     const job = await this.queue.add(data.template, data, { jobId: `welcome-${input.userId}` });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, to: maskEmail(input.to) },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /**
+   * Queues an invitation or a reminder. Only ids go on the queue: the worker
+   * mints the link when it sends (ADR 0009).
+   *
+   * An invitation is queued at most once per recipient, however many times this
+   * is called. Reminders are each their own job.
+   */
+  async enqueueSigningLink(
+    template: SigningLinkEmailJob['template'],
+    envelopeId: string,
+    recipientId: string,
+  ): Promise<string | undefined> {
+    const data: SigningLinkEmailJob = {
+      template,
+      envelopeId,
+      recipientId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const jobId =
+      template === 'invitation'
+        ? `invitation-${recipientId}`
+        : `reminder-${recipientId}-${Date.now()}`;
+    const job = await this.queue.add(template, data, { jobId });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template, envelopeId, recipientId },
       'Email job enqueued',
     );
     return job.id;

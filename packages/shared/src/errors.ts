@@ -43,6 +43,8 @@ export const ERROR_CATALOG = {
   DRAFT_REVISION_MISMATCH: { status: 412, title: 'The draft changed since you loaded it' },
   DOCUMENT_CATEGORY_BLOCKED: { status: 422, title: 'Document category blocked' },
   RECIPIENT_HAS_NO_FIELDS: { status: 422, title: 'Recipient has no fields' },
+  /** Anything else checkReadyToSend reports; `errors` lists every problem. */
+  NOT_READY_TO_SEND: { status: 422, title: 'The envelope is not ready to send' },
   REQUIRED_FIELDS_INCOMPLETE: { status: 422, title: 'Required fields incomplete' },
   TOKEN_INVALID: { status: 401, title: 'Invalid signing link' },
   TOKEN_EXPIRED: { status: 401, title: 'Signing link expired' },

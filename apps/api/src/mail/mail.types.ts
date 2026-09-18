@@ -8,7 +8,21 @@ export interface WelcomeEmailJob {
   requestId?: string;
 }
 
-export type EmailJobData = WelcomeEmailJob;
+/**
+ * An email that carries a signing link: the first invitation, or a reminder.
+ *
+ * Deliberately only ids. The worker reads the rest from the database and mints
+ * the link itself at send time, so the raw token is never written to Redis
+ * (ADR 0009).
+ */
+export interface SigningLinkEmailJob {
+  template: 'invitation' | 'reminder';
+  envelopeId: string;
+  recipientId: string;
+  requestId?: string;
+}
+
+export type EmailJobData = WelcomeEmailJob | SigningLinkEmailJob;
 export type EmailTemplate = EmailJobData['template'];
 
 export interface RenderedEmail {

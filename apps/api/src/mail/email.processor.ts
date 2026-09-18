@@ -3,8 +3,9 @@ import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config';
 import { EMAIL_QUEUE } from '../queue/queue.module';
-import type { EmailJobData, RenderedEmail } from './mail.types';
+import type { EmailJobData } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
+import { SigningLinkMailer, type SigningLinkResult } from './signing-link.mailer';
 import { renderWelcomeEmail } from './templates';
 
 /**
@@ -15,20 +16,24 @@ import { renderWelcomeEmail } from './templates';
 export class EmailProcessor extends WorkerHost {
   constructor(
     private readonly transport: MailTransportService,
+    private readonly signingLinks: SigningLinkMailer,
     private readonly config: AppConfig,
     @InjectPinoLogger(EmailProcessor.name) private readonly logger: PinoLogger,
   ) {
     super();
   }
 
-  private render(data: EmailJobData): RenderedEmail {
+  private deliver(data: EmailJobData): Promise<SigningLinkResult> {
     switch (data.template) {
       case 'welcome':
-        return renderWelcomeEmail(data, this.config.APP_URL);
+        return this.transport.send(renderWelcomeEmail(data, this.config.APP_URL), data.template);
+      case 'invitation':
+      case 'reminder':
+        return this.signingLinks.send(data);
     }
   }
 
-  process(job: Job<EmailJobData>): Promise<{ messageId: string }> {
+  process(job: Job<EmailJobData>): Promise<SigningLinkResult> {
     return this.logger.runInContext(
       async () => {
         const started = performance.now();
@@ -36,10 +41,10 @@ export class EmailProcessor extends WorkerHost {
           { attempt: job.attemptsMade + 1, maxAttempts: job.opts.attempts ?? 1 },
           'Email job started',
         );
-        const result = await this.transport.send(this.render(job.data), job.data.template);
+        const result = await this.deliver(job.data);
         this.logger.info(
-          { messageId: result.messageId, durationMs: Math.round(performance.now() - started) },
-          'Email job completed',
+          { ...result, durationMs: Math.round(performance.now() - started) },
+          'skipped' in result ? 'Email job completed without sending' : 'Email job completed',
         );
         return result;
       },
