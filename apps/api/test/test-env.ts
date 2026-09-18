@@ -20,6 +20,7 @@ export const TEST_ENV: Record<string, string> = {
 
   JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdefghijklmnop',
   REFRESH_TOKEN_SECRET: 'test-refresh-secret-0123456789abcdefghijklmnop',
+  SIGNING_TOKEN_SECRET: 'test-signing-secret-0123456789abcdefghijklmnop',
 
   S3_ENDPOINT: env.TEST_S3_ENDPOINT ?? 'http://localhost:9102',
   S3_REGION: 'us-east-1',

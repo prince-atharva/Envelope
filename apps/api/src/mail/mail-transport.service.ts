@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { BRAND } from '@envelope/shared';
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -30,7 +33,8 @@ function smtpDetails(error: unknown): Record<string, unknown> {
 
 /**
  * Sends email. With MAIL_TRANSPORT=smtp this is real SMTP (Gmail in development,
- * any SMTP relay in production); with `memory` messages go to MemoryMailbox.
+ * any SMTP relay in production); with `memory` messages go to MemoryMailbox; with
+ * `file` they are written to MAIL_OUTBOX_DIR and nothing is sent.
  */
 @Injectable()
 export class MailTransportService implements OnModuleDestroy {
@@ -63,6 +67,13 @@ export class MailTransportService implements OnModuleDestroy {
 
   /** Checks the SMTP login once at start-up and says clearly what is wrong. */
   async verify(): Promise<boolean> {
+    if (this.config.MAIL_TRANSPORT === 'file') {
+      this.logger.warn(
+        { transport: 'file', outbox: this.config.MAIL_OUTBOX_DIR },
+        'Emails are written to the outbox folder and not sent',
+      );
+      return true;
+    }
     if (this.config.MAIL_TRANSPORT !== 'smtp') {
       this.logger.info({ transport: this.config.MAIL_TRANSPORT }, 'Email transport ready');
       return true;
@@ -95,13 +106,11 @@ export class MailTransportService implements OnModuleDestroy {
         rejected?: unknown[];
         response?: string;
       };
+      const sent: SentEmail = { ...email, from: this.from, messageId: info.messageId, template };
       if (this.config.MAIL_TRANSPORT === 'memory') {
-        this.mailbox.messages.push({
-          ...email,
-          from: this.from,
-          messageId: info.messageId,
-          template,
-        });
+        this.mailbox.messages.push(sent);
+      } else if (this.config.MAIL_TRANSPORT === 'file') {
+        await this.writeToOutbox(sent);
       }
       this.logger.info(
         {
@@ -126,6 +135,22 @@ export class MailTransportService implements OnModuleDestroy {
       );
       throw error;
     }
+  }
+
+  /**
+   * MAIL_TRANSPORT=file: one JSON file per message, readable only by this user,
+   * named so that a directory listing sorts oldest first. The path is not
+   * logged, because the file holds a live signing link.
+   */
+  private async writeToOutbox(sent: SentEmail): Promise<void> {
+    const directory = path.resolve(this.config.APP_ROOT_DIR, this.config.MAIL_OUTBOX_DIR);
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    const name = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}.json`;
+    await writeFile(
+      path.join(directory, name),
+      JSON.stringify({ ...sent, sentAt: new Date().toISOString() }, null, 2),
+      { mode: 0o600 },
+    );
   }
 
   onModuleDestroy(): void {

@@ -5,7 +5,7 @@
 # create the restricted digitalsign_app role and the test and shadow databases.
 # GitHub starts `services:` before the checkout, so the script would be missing.
 #
-# No Gmail secrets are needed: MAIL_TRANSPORT=memory everywhere.
+# No Gmail secrets are needed: nothing in CI sends real email.
 name: CI
 
 on:
@@ -30,13 +30,17 @@ env:
   QUEUE_PREFIX: digitalsign-ci
   JWT_ACCESS_SECRET: ci-access-secret-0123456789abcdefghijklmnopqrstuv
   REFRESH_TOKEN_SECRET: ci-refresh-secret-0123456789abcdefghijklmnopqrstuv
+  SIGNING_TOKEN_SECRET: ci-signing-secret-0123456789abcdefghijklmnopqrstuv
   S3_ENDPOINT: http://localhost:9102
   S3_REGION: us-east-1
   S3_ACCESS_KEY_ID: digitalsign
   S3_SECRET_ACCESS_KEY: digitalsign_dev_password
   S3_BUCKET: digitalsign-documents
   S3_FORCE_PATH_STYLE: 'true'
-  MAIL_TRANSPORT: memory
+  # The app started for the browser tests writes emails to the outbox, where the
+  # signing tests read the link. The API e2e suite uses its own memory transport.
+  MAIL_TRANSPORT: file
+  MAIL_OUTBOX_DIR: .mail-outbox
   SMTP_FROM: Envelope by HealthProHub <no-reply@ci.local>
   LOG_LEVEL: warn
   LOG_PRETTY: 'false'

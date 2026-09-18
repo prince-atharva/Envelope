@@ -7,7 +7,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Public } from '../auth/auth.decorators';
 import { AppException } from '../common/errors/app-exception';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
-import { redactUrl } from '../logging/redact';
+import { redactUrl, scrubSecrets } from '../logging/redact';
 
 /**
  * Receives browser errors from the web app so they appear in the server logs
@@ -38,7 +38,9 @@ export class ClientLogsController {
     const client = {
       source: body.source,
       url: redactUrl(body.url),
-      stack: body.stack,
+      // A browser stack names the page's URL, which on the signing page holds
+      // the token. Only the log message itself is scrubbed automatically.
+      stack: body.stack === undefined ? undefined : scrubSecrets(body.stack),
       lastRequestId: body.lastRequestId,
       userAgent: body.userAgent ?? req.headers['user-agent'],
       occurredAt: body.occurredAt,

@@ -19,6 +19,8 @@ const SENSITIVE_KEYS = [
   'accessToken',
   'refreshToken',
   'signingToken',
+  'rawToken',
+  'signingUrl',
   'tokenHash',
   'secret',
   'apiKey',
@@ -27,6 +29,7 @@ const SENSITIVE_KEYS = [
   'SMTP_PASSWORD',
   'JWT_ACCESS_SECRET',
   'REFRESH_TOKEN_SECRET',
+  'SIGNING_TOKEN_SECRET',
   'S3_SECRET_ACCESS_KEY',
   'DATABASE_URL',
   'DIRECT_DATABASE_URL',
@@ -48,7 +51,9 @@ export const REDACT_PATHS: string[] = [
 
 const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
-const SIGNING_PATH = /(\/sign\/)[^/?#\s"']+/gi;
+// Stops at ':' and ')' as well, so a stack frame keeps its line number. Real
+// tokens are hex and contain neither.
+const SIGNING_PATH = /(\/sign\/)[^/?#\s"':)]+/gi;
 const SECRET_QUERY = /([?&](?:token|code|access_token|refresh_token|signature)=)[^&#\s"']+/gi;
 const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^:/?#\s]+:)[^@/?#\s]+@/gi;
 

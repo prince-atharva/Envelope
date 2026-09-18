@@ -5,6 +5,8 @@ export interface AppExceptionOptions {
   /** Overrides the catalog status (rarely needed). */
   status?: number;
   headers?: Record<string, string>;
+  /** A finer reason within the code, sent as `reason` (see ProblemDetails). */
+  reason?: string;
   cause?: unknown;
 }
 

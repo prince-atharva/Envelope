@@ -7,6 +7,7 @@ const valid = {
   REDIS_URL: 'redis://localhost:6391',
   JWT_ACCESS_SECRET: 'a'.repeat(40),
   REFRESH_TOKEN_SECRET: 'b'.repeat(40),
+  SIGNING_TOKEN_SECRET: 'c'.repeat(40),
   S3_ACCESS_KEY_ID: 'key',
   S3_SECRET_ACCESS_KEY: 'super-secret-s3-value',
   S3_BUCKET: 'bucket',
@@ -35,6 +36,26 @@ describe('parseEnv', () => {
     expect(env.SMTP_SECURE).toBe(false);
     expect(env.LOG_RETENTION_DAYS).toBe(14);
     expect(env.CORS_ORIGINS).toEqual([]);
+    expect(env.SIGNING_DEFAULT_EXPIRY_DAYS).toBe(14);
+    expect(env.MAIL_OUTBOX_DIR).toBe('.mail-outbox');
+  });
+
+  it('requires a signing-token secret of its own', () => {
+    const { SIGNING_TOKEN_SECRET: _omit, ...without } = valid;
+    expect(problemsOf(without)).toEqual([expect.stringMatching(/^SIGNING_TOKEN_SECRET: /)]);
+    expect(problemsOf({ ...valid, SIGNING_TOKEN_SECRET: valid.REFRESH_TOKEN_SECRET })).toEqual([
+      'SIGNING_TOKEN_SECRET: must be different from JWT_ACCESS_SECRET and REFRESH_TOKEN_SECRET',
+    ]);
+  });
+
+  it('refuses the memory and file mail transports in production', () => {
+    const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, ...rest } = valid;
+    for (const transport of ['memory', 'file']) {
+      expect(problemsOf({ ...rest, NODE_ENV: 'production', MAIL_TRANSPORT: transport })).toEqual([
+        `MAIL_TRANSPORT: ${transport} transport is for development and tests only`,
+      ]);
+    }
+    expect(parseEnv({ ...rest, MAIL_TRANSPORT: 'file' }).MAIL_TRANSPORT).toBe('file');
   });
 
   it('parses comma-separated CORS origins and boolean flags', () => {

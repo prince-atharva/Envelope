@@ -1,4 +1,4 @@
-import { BRAND } from '@envelope/shared';
+import { BRAND, DEFAULT_EXPIRY_DAYS, MAX_EXPIRY_DAYS } from '@envelope/shared';
 import { z } from 'zod';
 
 const port = z.coerce.number().int().min(1).max(65535);
@@ -51,6 +51,16 @@ export const envSchema = z
     REFRESH_TOKEN_SECRET: secret,
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
 
+    /** HMAC key for signing-link tokens (ADR 0009). Rotating it invalidates every open link. */
+    SIGNING_TOKEN_SECRET: secret,
+    /** How long signing links last when the sender does not choose. */
+    SIGNING_DEFAULT_EXPIRY_DAYS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_EXPIRY_DAYS)
+      .default(DEFAULT_EXPIRY_DAYS),
+
     S3_ENDPOINT: z.url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),
     S3_ACCESS_KEY_ID: z.string().min(1),
@@ -58,7 +68,14 @@ export const envSchema = z
     S3_BUCKET: z.string().min(3),
     S3_FORCE_PATH_STYLE: flag.default(false),
 
-    MAIL_TRANSPORT: z.enum(['smtp', 'memory']).default('smtp'),
+    /**
+     * smtp sends for real. memory keeps messages in the process (API e2e tests).
+     * file writes each message as JSON to MAIL_OUTBOX_DIR and sends nothing
+     * (browser tests, and trying the signing flow without an SMTP account).
+     */
+    MAIL_TRANSPORT: z.enum(['smtp', 'memory', 'file']).default('smtp'),
+    /** Relative to APP_ROOT_DIR. Only used with MAIL_TRANSPORT=file. */
+    MAIL_OUTBOX_DIR: z.string().min(1).default('.mail-outbox'),
     /** First retry delay for a failed email; each later retry waits twice as long. */
     EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),
@@ -80,11 +97,12 @@ export const envSchema = z
         }
       }
     }
-    if (env.NODE_ENV === 'production' && env.MAIL_TRANSPORT === 'memory') {
+    if (env.NODE_ENV === 'production' && env.MAIL_TRANSPORT !== 'smtp') {
+      // A file outbox would put live signing links on disk.
       ctx.addIssue({
         code: 'custom',
         path: ['MAIL_TRANSPORT'],
-        message: 'memory transport is for tests only',
+        message: `${env.MAIL_TRANSPORT} transport is for development and tests only`,
       });
     }
     if (env.JWT_ACCESS_SECRET === env.REFRESH_TOKEN_SECRET) {
@@ -92,6 +110,16 @@ export const envSchema = z
         code: 'custom',
         path: ['REFRESH_TOKEN_SECRET'],
         message: 'must be different from JWT_ACCESS_SECRET',
+      });
+    }
+    if (
+      env.SIGNING_TOKEN_SECRET === env.JWT_ACCESS_SECRET ||
+      env.SIGNING_TOKEN_SECRET === env.REFRESH_TOKEN_SECRET
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SIGNING_TOKEN_SECRET'],
+        message: 'must be different from JWT_ACCESS_SECRET and REFRESH_TOKEN_SECRET',
       });
     }
   });

@@ -20,6 +20,13 @@ describe('mapException', () => {
     });
   });
 
+  it('passes a finer reason through', () => {
+    const problem = mapException(
+      new AppException('ENVELOPE_TERMINAL', 'Cancelled.', { reason: 'VOIDED' }),
+    );
+    expect(problem).toMatchObject({ status: 409, code: 'ENVELOPE_TERMINAL', reason: 'VOIDED' });
+  });
+
   it('turns zod errors into per-field validation errors', () => {
     const result = z.object({ email: z.email() }).safeParse({ email: 'nope' });
     expect(result.success).toBe(false);

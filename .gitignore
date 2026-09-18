@@ -19,6 +19,9 @@ logs/
 npm-debug.log*
 pnpm-debug.log*
 
+# Emails written by MAIL_TRANSPORT=file. They hold live signing links.
+.mail-outbox/
+
 # Tests
 coverage/
 playwright-report/

@@ -34,6 +34,28 @@ Phase 3 (Signer Portal) in progress. See
   `REMINDER_TOO_SOON` (429), `IDEMPOTENCY_KEY_REQUIRED` (400) and `IDEMPOTENCY_KEY_MISMATCH` (422).
   Problem details gain an optional `reason`, which `ENVELOPE_TERMINAL` uses to say whether the
   envelope was cancelled or declined.
+- Signing tokens (`apps/api/src/signing/`):
+  - `signing-token.ts` mints 256-bit hex tokens, hashes them with HMAC-SHA256 under the new
+    `SIGNING_TOKEN_SECRET`, and gives an 8-character `tokenRef`, the only form allowed in logs.
+  - `TokenGuardianService.resolve` is the one place a signing link is checked. It refuses in a
+    fixed order: unknown → `TOKEN_INVALID`; cancelled or declined → `ENVELOPE_TERMINAL` with a
+    reason; already signed → `TOKEN_ALREADY_USED`; expired (link or envelope, whichever is first) →
+    `TOKEN_EXPIRED`. Once a link resolves, every later log line of the request names the tenant,
+    envelope, recipient and `tokenRef`.
+- New settings: `SIGNING_TOKEN_SECRET` (required, at least 32 characters, different from the other
+  secrets) and `SIGNING_DEFAULT_EXPIRY_DAYS` (default 14).
+- `MAIL_TRANSPORT=file` writes each email as JSON to `MAIL_OUTBOX_DIR` (default `.mail-outbox`,
+  gitignored, files readable only by their owner) and sends nothing. The browser tests read signing
+  links from it, and it lets you try the signing flow without an SMTP account. It is refused in
+  production, as `memory` now is too.
+
+### Security
+
+- Logs now redact `rawToken`, `signingUrl` and `SIGNING_TOKEN_SECRET` wherever they appear as keys.
+- Browser error reports have their stack trace scrubbed before logging. Previously only the message
+  and URL were, and a stack from the signing page would have carried the token.
+- The signing-link pattern in the scrubber stops at `:` and `)`, so a scrubbed stack frame keeps its
+  line and column numbers.
 
 ### Changed
 

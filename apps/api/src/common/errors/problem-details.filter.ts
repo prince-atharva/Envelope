@@ -62,6 +62,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       instance: redactUrl(req.originalUrl),
       requestId: typeof req.id === 'string' ? req.id : undefined,
       errors: problem.errors,
+      reason: problem.reason,
     };
 
     res.status(problem.status).type(PROBLEM_CONTENT_TYPE).json(body);

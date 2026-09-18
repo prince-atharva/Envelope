@@ -11,6 +11,7 @@ export interface MappedProblem {
   detail?: string;
   errors?: ProblemFieldError[];
   headers?: Record<string, string>;
+  reason?: string;
   /** True for bugs and outages: logged with a stack trace, detail hidden from the client. */
   unexpected: boolean;
 }
@@ -69,6 +70,7 @@ export function mapException(exception: unknown): MappedProblem {
       detail: exception.detail,
       errors: exception.options.errors,
       headers: exception.options.headers,
+      reason: exception.options.reason,
       unexpected: exception.status >= 500,
     };
   }
