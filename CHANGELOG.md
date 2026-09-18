@@ -69,6 +69,35 @@ Phase 3 (Signer Portal) in progress. See
   - A queued email for someone who has since signed or declined, or on an envelope that has closed
     or expired, is skipped and logged.
   - The worker now connects to the database and the audit trail.
+- **The public signer API**, `/sign/:token/...` (`apps/api/src/signing/`). There is no account: the
+  token is checked on every request, and every later query is scoped to the one recipient it names.
+  - `GET /sign/:token` opens the session. The first visit sets the person to `VIEWED` and writes
+    `ENVELOPE_VIEWED` once. Before consent it returns only the title, sender, page count, expiry
+    and the notice with its SHA-256. The person's own fields come only after consent, never anyone
+    else's.
+  - `GET /sign/:token/document` streams the original PDF, and only after consent.
+  - `POST /sign/:token/consent` checks the hash of the notice that was shown (a changed notice gets
+    409 `CONSENT_TEXT_CHANGED`), stores the verbatim text, and writes `CONSENT_GIVEN` with the IP and
+    browser. Repeating it changes nothing.
+  - `POST /sign/:token/adopt` ("Adopt & Sign") checks the image is a transparent PNG of at most 500 KB
+    and a sensible size, stores it in object storage, and writes `SIGNATURE_ADOPTED` with its method
+    (drawn or typed) and SHA-256. Adopting again replaces it and deletes the unused image.
+  - `POST /sign/:token/submit` ("Finish", 202):
+    - Only the signer's own fields are accepted.
+    - It fills signatures and initials from the adopted images, sets `DATE_SIGNED` from the server
+      clock, and requires every required field.
+    - In one transaction it spends the token, records the IP and browser, moves the envelope to
+      `PARTIALLY_SIGNED` and writes `RECIPIENT_SIGNED`.
+    - With "one after another", it invites the next group once the current one has finished.
+  - `POST /sign/:token/decline` needs a reason and is allowed before consent. It ends the envelope for
+    everyone in the same transaction and writes `RECIPIENT_DECLINED`; the reason stays on the
+    recipient and out of the audit metadata.
+  - Every signing response sends `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
+  - Signing routes are rate-limited per link rather than per address: 60 reads and 10 changes a
+    minute, keyed on a hash of the token.
+- The consent notice is a clearly marked **DRAFT placeholder** (`signing/consent-text.ts`), pending
+  lawyer-approved wording. The API logs a warning at every start-up until it is replaced, and each
+  `CONSENT_GIVEN` event records `draftText: true`.
 - Audit actions `ENVELOPE_SENT`, `EMAIL_SENT`, `REMINDER_REQUESTED`, `ENVELOPE_VIEWED`,
   `CONSENT_GIVEN`, `SIGNATURE_ADOPTED`, `RECIPIENT_SIGNED` and `RECIPIENT_DECLINED`. Events from
   sending onwards fill the `recipientId` column, since recipients can no longer be removed.

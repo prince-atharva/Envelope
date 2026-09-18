@@ -91,9 +91,14 @@ export type AdoptSignatureInput = z.infer<typeof adoptSignatureSchema>;
 
 export const submitSigningSchema = z.strictObject({
   /**
-   * Values for TEXT_INPUT and CHECKBOX fields (`"true"` or `"false"`).
-   * SIGNATURE and INITIALS come from the adopted images, and DATE_SIGNED is
-   * set by the server, so any value sent for those is ignored.
+   * The signer's answers, one entry per field they filled in.
+   *
+   * - TEXT_INPUT: the text.
+   * - CHECKBOX: `"true"` or `"false"`.
+   * - SIGNATURE and INITIALS: the adopted image goes in; any value is ignored.
+   *   Required ones are always filled. An optional one is filled only if it is
+   *   listed here.
+   * - DATE_SIGNED: set by the server (docs/08); any value is ignored.
    */
   fields: z
     .array(
@@ -139,6 +144,10 @@ export interface SigningSession {
   fields: SigningField[];
   /** What has been adopted so far, and how. */
   adopted: Partial<Record<SignatureKind, SignatureMethod>>;
+}
+
+export interface ConsentResponse {
+  consentGivenAt: string;
 }
 
 export interface AdoptSignatureResponse {

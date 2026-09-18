@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import type { SendEnvelopeResponse } from '@envelope/shared';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AuditService } from '../src/audit/audit.service';
 import type { EmailJobData } from '../src/mail/mail.types';
 import { EMAIL_QUEUE } from '../src/queue/queue.module';
+import { makePng, pngDataUrl } from './fixtures/png';
 import {
   captureLogs,
   createTestApp,
@@ -22,9 +23,11 @@ import {
   emailsTo,
   linkFor,
   type PersonSpec,
+  type PreparedEnvelope,
   prepareEnvelope,
   sendEnvelope,
 } from './helpers/signing';
+import { readStoredObject } from './helpers/storage';
 import { TEST_ENV } from './test-env';
 
 const hmac = (token: string) =>
@@ -268,6 +271,365 @@ describe('sending and signing (e2e)', () => {
 
       const jobs = await queue.getJobs(['completed', 'waiting', 'active', 'delayed', 'failed']);
       expect(JSON.stringify(jobs.map((job) => job.data))).not.toContain(token);
+      expect(logs.text()).not.toContain(token);
+    });
+  });
+
+  describe('signing', () => {
+    const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Safari/604.1';
+    const api = (token: string, path = '') => `/api/v1/sign/${token}${path}`;
+    const open = (token: string) => request(t.http).get(api(token)).set('User-Agent', UA);
+    const post = (token: string, path: string, body: unknown) =>
+      request(t.http)
+        .post(api(token, path))
+        .set('User-Agent', UA)
+        .send(body as object);
+
+    /** Sends a fresh envelope and returns each person's link, in the order given. */
+    async function sent(
+      specs: Omit<PersonSpec, 'email'>[],
+      options: { sequential?: boolean; upload?: boolean } = {},
+    ) {
+      const team = people(...specs);
+      const envelope = await prepareEnvelope(t.http, owner, team, options);
+      await sendEnvelope(t.http, owner, envelope.id).expect(200);
+      return { envelope, team };
+    }
+
+    async function consent(token: string) {
+      const session = await open(token).expect(200);
+      await post(token, '/consent', {
+        agreed: true,
+        consentTextHash: session.body.consentTextHash,
+      }).expect(200);
+    }
+
+    async function adoptBoth(token: string) {
+      await post(token, '/adopt', {
+        kind: 'SIGNATURE',
+        method: 'DRAWN',
+        image: pngDataUrl(),
+      }).expect(200);
+      await post(token, '/adopt', {
+        kind: 'INITIALS',
+        method: 'TYPED',
+        image: pngDataUrl(makePng(120, 60)),
+      }).expect(200);
+    }
+
+    function checkboxOf(envelope: PreparedEnvelope, recipientId?: string) {
+      const box = envelope.fields.find(
+        (f) => f.type === 'CHECKBOX' && f.recipientId === recipientId,
+      );
+      if (!box) throw new Error('no checkbox');
+      return box;
+    }
+
+    it('shows the notice first and nothing about the document until consent', async () => {
+      const { envelope, team } = await sent([{ name: 'Gate Keeper' }], { upload: true });
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+
+      const res = await open(token).expect(200);
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(res.headers['referrer-policy']).toBe('no-referrer');
+      expect(res.body).toMatchObject({
+        envelopeTitle: 'agreement',
+        senderName: 'Raj Kumar',
+        recipientName: 'Gate Keeper',
+        pageCount: 2,
+        consentRequired: true,
+        fields: [],
+        adopted: {},
+      });
+      expect(res.body.consentText).toMatch(/^DRAFT — not legally reviewed/);
+      expect(res.body.consentTextHash).toBe(
+        createHash('sha256').update(res.body.consentText).digest('hex'),
+      );
+
+      for (const [path, body] of [
+        ['/adopt', { kind: 'SIGNATURE', method: 'DRAWN', image: pngDataUrl() }],
+        ['/submit', { fields: [] }],
+      ] as const) {
+        expect((await post(token, path, body).expect(403)).body.code).toBe('CONSENT_REQUIRED');
+      }
+      const document = await request(t.http).get(api(token, '/document')).expect(403);
+      expect(document.body.code).toBe('CONSENT_REQUIRED');
+
+      // Opening twice is recorded once.
+      await open(token).expect(200);
+      const rows = await recipientRows(envelope.id);
+      expect(rows[0]?.status).toBe('VIEWED');
+      expect((await auditActions(envelope.id)).filter((a) => a === 'ENVELOPE_VIEWED')).toHaveLength(
+        1,
+      );
+    });
+
+    it('stores the exact notice agreed to, with the address and browser', async () => {
+      const { envelope, team } = await sent([{ name: 'Consent Giver' }, { name: 'Other Signer' }], {
+        upload: true,
+      });
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      const session = await open(token).expect(200);
+
+      const stale = await post(token, '/consent', {
+        agreed: true,
+        consentTextHash: 'f'.repeat(64),
+      }).expect(409);
+      expect(stale.body.code).toBe('CONSENT_TEXT_CHANGED');
+
+      const agreed = await post(token, '/consent', {
+        agreed: true,
+        consentTextHash: session.body.consentTextHash,
+      }).expect(200);
+      const again = await post(token, '/consent', {
+        agreed: true,
+        consentTextHash: session.body.consentTextHash,
+      }).expect(200);
+      expect(again.body.consentGivenAt).toBe(agreed.body.consentGivenAt);
+
+      const { rows } = await ownerQuery<{ consentText: string }>(
+        `SELECT "consentText" FROM "Recipient" WHERE id = $1`,
+        [envelope.recipients[0]?.id],
+      );
+      expect(rows[0]?.consentText).toBe(session.body.consentText);
+      const { rows: events } = await ownerQuery<{ ipAddress: string; userAgent: string }>(
+        `SELECT "ipAddress", "userAgent" FROM "AuditTrail"
+          WHERE "envelopeId" = $1 AND action = 'CONSENT_GIVEN'`,
+        [envelope.id],
+      );
+      expect(events).toHaveLength(1);
+      expect(events[0]?.userAgent).toBe(UA);
+      expect(events[0]?.ipAddress).toMatch(/127\.0\.0\.1|::1/);
+
+      // Now the fields arrive: this person's only, top to bottom.
+      const after = await open(token).expect(200);
+      const mine = envelope.fields.filter((f) => f.recipientId === envelope.recipients[0]?.id);
+      expect(after.body.consentRequired).toBe(false);
+      expect(after.body.consentText).toBeNull();
+      expect(after.body.fields.map((f: { id: string }) => f.id)).toEqual(
+        [...mine].sort((a, b) => a.ratioY - b.ratioY).map((f) => f.id),
+      );
+      expect(after.body.fields[0]).not.toHaveProperty('recipientId');
+
+      const document = await request(t.http).get(api(token, '/document')).expect(200);
+      expect(document.headers['content-type']).toBe('application/pdf');
+      expect(document.headers['cache-control']).toBe('no-store');
+      expect(
+        Buffer.from(document.body as Buffer)
+          .subarray(0, 5)
+          .toString(),
+      ).toBe('%PDF-');
+    });
+
+    it('keeps one adopted image per kind, and refuses anything but a transparent PNG', async () => {
+      const { envelope, team } = await sent([{ name: 'Image Adopter' }]);
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      await consent(token);
+
+      const jpeg = await post(token, '/adopt', {
+        kind: 'SIGNATURE',
+        method: 'DRAWN',
+        image: 'data:image/jpeg;base64,/9j/4AAQ',
+      }).expect(400);
+      expect(jpeg.body.code).toBe('VALIDATION_FAILED');
+      const opaque = await post(token, '/adopt', {
+        kind: 'SIGNATURE',
+        method: 'DRAWN',
+        image: pngDataUrl(makePng(200, 80, 2)),
+      }).expect(422);
+      expect(opaque.body.code).toBe('INVALID_SIGNATURE_IMAGE');
+
+      const png = makePng(240, 80);
+      await post(token, '/adopt', {
+        kind: 'SIGNATURE',
+        method: 'DRAWN',
+        image: pngDataUrl(png),
+      }).expect(200);
+      const { rows } = await ownerQuery<{ signatureImageKey: string }>(
+        `SELECT "signatureImageKey" FROM "Recipient" WHERE id = $1`,
+        [envelope.recipients[0]?.id],
+      );
+      const key = rows[0]?.signatureImageKey ?? '';
+      expect(key).toMatch(/\/signatures\/.+\/signature-.+\.png$/);
+      expect((await readStoredObject(key)).equals(png)).toBe(true);
+
+      // Adopting again replaces the image, and the unused one is removed.
+      await post(token, '/adopt', {
+        kind: 'SIGNATURE',
+        method: 'TYPED',
+        image: pngDataUrl(makePng(300, 90)),
+      }).expect(200);
+      await expect(readStoredObject(key)).rejects.toThrow();
+      expect((await open(token).expect(200)).body.adopted).toEqual({ SIGNATURE: 'TYPED' });
+      expect(
+        (await auditActions(envelope.id)).filter((a) => a === 'SIGNATURE_ADOPTED'),
+      ).toHaveLength(2);
+    });
+
+    it('signs: fills every field, spends the link, and moves the envelope on', async () => {
+      const { envelope, team } = await sent([{ name: 'Finisher' }, { name: 'Still Waiting' }]);
+      const [finisher] = envelope.recipients;
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      await consent(token);
+      await post(token, '/adopt', {
+        kind: 'SIGNATURE',
+        method: 'DRAWN',
+        image: pngDataUrl(),
+      }).expect(200);
+
+      const box = checkboxOf(envelope, finisher?.id);
+      const incomplete = await post(token, '/submit', {
+        fields: [{ id: box.id, value: 'false' }],
+      }).expect(422);
+      expect(incomplete.body.code).toBe('REQUIRED_FIELDS_INCOMPLETE');
+      expect(incomplete.body.errors).toHaveLength(2); // the initials and the tick box
+
+      const theirs = envelope.fields.find((f) => f.recipientId !== finisher?.id);
+      const foreign = await post(token, '/submit', { fields: [{ id: theirs?.id }] }).expect(400);
+      expect(foreign.body.code).toBe('VALIDATION_FAILED');
+
+      await post(token, '/adopt', {
+        kind: 'INITIALS',
+        method: 'TYPED',
+        image: pngDataUrl(makePng(120, 60)),
+      }).expect(200);
+      const date = envelope.fields.find(
+        (f) => f.type === 'DATE_SIGNED' && f.recipientId === finisher?.id,
+      );
+      const done = await post(token, '/submit', {
+        fields: [
+          { id: box.id, value: 'true' },
+          { id: date?.id, value: '1999-01-01' },
+        ],
+      }).expect(202);
+      expect(done.body).toMatchObject({ status: 'SIGNED' });
+
+      const { rows: recipient } = await ownerQuery<{
+        status: string;
+        tokenUsedAt: Date | null;
+        signedFromUa: string;
+      }>(`SELECT status, "tokenUsedAt", "signedFromUa" FROM "Recipient" WHERE id = $1`, [
+        finisher?.id,
+      ]);
+      expect(recipient[0]).toMatchObject({ status: 'SIGNED', signedFromUa: UA });
+      expect(recipient[0]?.tokenUsedAt).not.toBeNull();
+
+      const { rows: values } = await ownerQuery<{
+        type: string;
+        value: string | null;
+        isCompleted: boolean;
+      }>(
+        `SELECT type, value, "isCompleted" FROM "DocumentField"
+          WHERE "recipientId" = $1 ORDER BY "ratioY"`,
+        [finisher?.id],
+      );
+      const byType = Object.fromEntries(values.map((v) => [v.type, v]));
+      expect(byType.SIGNATURE?.value).toMatch(/signature-.+\.png$/);
+      expect(byType.INITIALS?.value).toMatch(/initials-.+\.png$/);
+      expect(byType.DATE_SIGNED?.value).toBe(new Date().toISOString().slice(0, 10));
+      expect(byType.CHECKBOX).toMatchObject({ value: 'true', isCompleted: true });
+      expect(byType.TEXT_INPUT).toMatchObject({ value: null, isCompleted: false });
+
+      const { rows: env } = await ownerQuery<{ status: string }>(
+        `SELECT status FROM "Envelope" WHERE id = $1`,
+        [envelope.id],
+      );
+      expect(env[0]?.status).toBe('PARTIALLY_SIGNED');
+
+      // The link is spent: every route now says so.
+      expect((await post(token, '/submit', { fields: [] }).expect(410)).body.code).toBe(
+        'TOKEN_ALREADY_USED',
+      );
+      expect((await open(token).expect(410)).body.code).toBe('TOKEN_ALREADY_USED');
+      expect((await t.app.get(AuditService).verify(envelope.id)).valid).toBe(true);
+    });
+
+    it('emails the next person only once the one before has signed', async () => {
+      const { envelope, team } = await sent([{ name: 'Goes First' }, { name: 'Goes Second' }], {
+        sequential: true,
+      });
+      const [first, second] = team;
+      if (!first || !second) throw new Error('missing people');
+      const token = await linkFor(worker.mailbox, first.email);
+      expect(emailsTo(worker.mailbox, second.email)).toEqual([]);
+
+      await consent(token);
+      await adoptBoth(token);
+      await post(token, '/submit', {
+        fields: [{ id: checkboxOf(envelope, envelope.recipients[0]?.id).id, value: 'true' }],
+      }).expect(202);
+
+      const next = await linkFor(worker.mailbox, second.email);
+      expect((await open(next).expect(200)).body.recipientName).toBe('Goes Second');
+      expect((await recipientRows(envelope.id)).map((row) => row.status)).toEqual([
+        'SIGNED',
+        'VIEWED',
+      ]);
+    });
+
+    it('ends the envelope for everyone when one person declines', async () => {
+      const { envelope, team } = await sent([{ name: 'Says No' }, { name: 'Left Waiting' }]);
+      const [no, waiting] = team;
+      const noToken = await linkFor(worker.mailbox, no?.email ?? '');
+      const waitingToken = await linkFor(worker.mailbox, waiting?.email ?? '');
+
+      const blank = await post(noToken, '/decline', { reason: '  ' }).expect(400);
+      expect(blank.body.code).toBe('VALIDATION_FAILED');
+      // Declining needs no consent first.
+      await post(noToken, '/decline', { reason: 'The fee is wrong.' }).expect(200);
+
+      const mine = await open(noToken).expect(409);
+      expect(mine.body).toMatchObject({ code: 'ENVELOPE_TERMINAL', reason: 'YOU_DECLINED' });
+      const theirs = await open(waitingToken).expect(409);
+      expect(theirs.body).toMatchObject({ code: 'ENVELOPE_TERMINAL', reason: 'DECLINED' });
+
+      const { rows } = await ownerQuery<{ status: string; declinedReason: string | null }>(
+        `SELECT e.status, r."declinedReason" FROM "Envelope" e
+           JOIN "Recipient" r ON r."envelopeId" = e.id
+          WHERE e.id = $1 AND r.id = $2`,
+        [envelope.id, envelope.recipients[0]?.id],
+      );
+      expect(rows[0]).toEqual({ status: 'DECLINED', declinedReason: 'The fee is wrong.' });
+      expect(await auditActions(envelope.id)).toContain('RECIPIENT_DECLINED');
+    });
+
+    it('turns away links that are unknown, malformed or expired', async () => {
+      const unknown = await open('0'.repeat(64)).expect(401);
+      expect(unknown.body.code).toBe('TOKEN_INVALID');
+      expect((await open('not-a-token').expect(401)).body.code).toBe('TOKEN_INVALID');
+      // The problem details never echo the token back.
+      expect(unknown.body.instance).toBe('/api/v1/sign/[redacted]');
+
+      const { envelope, team } = await sent([{ name: 'Too Late' }]);
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      await ownerQuery(
+        `UPDATE "Envelope" SET "expiresAt" = now() - interval '1 minute' WHERE id = $1`,
+        [envelope.id],
+      );
+      expect((await open(token).expect(401)).body.code).toBe('TOKEN_EXPIRED');
+    });
+
+    it('limits each link to 10 changes a minute, whatever the address', async () => {
+      const { team } = await sent([{ name: 'Rate Limited' }]);
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      const wrong = { agreed: true, consentTextHash: 'e'.repeat(64) };
+      for (let i = 0; i < 10; i += 1) await post(token, '/consent', wrong).expect(409);
+      const limited = await post(token, '/consent', wrong).expect(429);
+      expect(limited.body.code).toBe('RATE_LIMITED');
+      expect(Number(limited.headers['retry-after'])).toBeGreaterThan(0);
+      // Reading is counted separately.
+      await open(token).expect(200);
+    });
+
+    it('never logs a signing token', async () => {
+      const { envelope, team } = await sent([{ name: 'Quiet Signer' }]);
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      await consent(token);
+      await adoptBoth(token);
+      await post(token, '/submit', {
+        fields: [{ id: checkboxOf(envelope, envelope.recipients[0]?.id).id, value: 'true' }],
+      }).expect(202);
+      await open(token).expect(410);
       expect(logs.text()).not.toContain(token);
     });
   });

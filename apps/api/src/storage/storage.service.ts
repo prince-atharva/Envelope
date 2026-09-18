@@ -31,3 +31,14 @@ export function envelopeDocumentKey(
 ): string {
   return `tenants/${tenantId}/envelopes/${envelopeId}/v${versionNumber}-${uniqueId}.pdf`;
 }
+
+/** Where an adopted signature or initials image is kept. Retained with the envelope (docs/05). */
+export function signatureImageKey(
+  tenantId: string,
+  envelopeId: string,
+  recipientId: string,
+  kind: 'signature' | 'initials',
+  uniqueId: string,
+): string {
+  return `tenants/${tenantId}/envelopes/${envelopeId}/signatures/${recipientId}/${kind}-${uniqueId}.png`;
+}
