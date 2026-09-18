@@ -1,4 +1,7 @@
 import {
+  type RemindInput,
+  type RemindResponse,
+  remindSchema,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
   sendEnvelopeSchema,
@@ -52,5 +55,20 @@ export class SendingController {
     );
     if (replayed) res.setHeader('Idempotency-Replayed', 'true');
     return response;
+  }
+
+  @Post(':id/remind')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Remind people whose turn it is (one reminder per person per 24 hours)',
+  })
+  @ApiBody({ schema: openApiSchema(remindSchema), required: false })
+  remind(
+    @Param('id', UuidParamPipe) id: string,
+    @Body(new ZodValidationPipe(remindSchema.optional())) body: RemindInput | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Client() client: ClientInfo,
+  ): Promise<RemindResponse> {
+    return this.sending.remind(id, body ?? {}, user, client);
   }
 }

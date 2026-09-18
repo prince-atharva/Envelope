@@ -1,7 +1,11 @@
 import {
   checkReadyToSend,
+  currentRoutingGroup,
   type ProblemFieldError,
+  REMINDER_COOLDOWN_HOURS,
   type ReadinessIssue,
+  type RemindInput,
+  type RemindResponse,
   recipientsDueInvitation,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
@@ -17,6 +21,27 @@ import { MailQueueService } from '../mail/mail-queue.service';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 
 const DAY_MS = 24 * 3600 * 1000;
+/** Envelope statuses in which signers can still act, and so can be reminded. */
+const OPEN_STATUSES: ReadonlySet<string> = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
+
+/** A reminder that has not reached the mail server may be retried after this long. */
+const UNDELIVERED_RETRY_MS = 10 * 60 * 1000;
+
+/**
+ * When this person may next be reminded, as a timestamp (0: now).
+ *
+ * Normally one a day. If nothing has ever reached them, a retry is allowed
+ * sooner, but not at once, so repeated clicks while the first email is still
+ * on its way do not send several.
+ */
+export function nextReminderAt(
+  recipient: { notifiedAt: Date | null; lastRemindedAt: Date | null },
+  cooldownMs: number,
+): number {
+  if (!recipient.lastRemindedAt) return 0;
+  const wait = recipient.notifiedAt ? cooldownMs : UNDELIVERED_RETRY_MS;
+  return recipient.lastRemindedAt.getTime() + wait;
+}
 
 function notReady(issues: ReadinessIssue[]): AppException {
   const errors: ProblemFieldError[] = issues.map((issue) => ({
@@ -161,6 +186,133 @@ export class SendingService {
       expiresAt: expiresAt.toISOString(),
       invited: invited.map((id) => ({ id, status: 'SENT' })),
     };
+  }
+
+  /**
+   * POST /envelopes/:id/remind (docs/08). Reminds everyone whose turn it is and
+   * who has not finished, or only the people named. Each reminder carries a new
+   * link, and the previous one stops working (ADR 0009).
+   *
+   * One reminder per person per day. Someone whose invitation never reached the
+   * mail server is exempt, so this is also how a failed invitation is re-sent.
+   */
+  async remind(
+    envelopeId: string,
+    input: RemindInput,
+    user: AuthenticatedUser,
+    client: ClientInfo,
+  ): Promise<RemindResponse> {
+    const now = new Date();
+    const cooldownMs = REMINDER_COOLDOWN_HOURS * 3600 * 1000;
+
+    const { reminded, skipped, retryAfterSeconds } = await this.db.$transaction(async (tx) => {
+      // Locks the envelope row, so two reminder clicks cannot both get through.
+      const locked = await tx.envelope.updateMany({
+        where: { id: envelopeId },
+        data: { updatedAt: now },
+      });
+      if (locked.count === 0) throw new AppException('NOT_FOUND', 'Envelope not found.');
+
+      const envelope = await tx.envelope.findUnique({
+        where: { id: envelopeId },
+        include: { recipients: true },
+      });
+      if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
+      if (envelope.status === 'DRAFT') {
+        throw new AppException('CONFLICT', 'This envelope has not been sent yet.');
+      }
+      if (!OPEN_STATUSES.has(envelope.status)) {
+        throw new AppException('ENVELOPE_TERMINAL', 'This envelope is closed.');
+      }
+
+      const byId = new Map(envelope.recipients.map((recipient) => [recipient.id, recipient]));
+      const unknown = (input.recipientIds ?? []).filter((id) => !byId.has(id));
+      if (unknown.length > 0) throw new AppException('NOT_FOUND', 'Recipient not found.');
+
+      const turn = new Set(
+        currentRoutingGroup(envelope.recipients, envelope.sequentialSigning).map((r) => r.id),
+      );
+      const targets = input.recipientIds ?? [...turn];
+
+      const due: string[] = [];
+      const refused: RemindResponse['skipped'] = [];
+      let soonest = Number.POSITIVE_INFINITY;
+      for (const id of targets) {
+        const recipient = byId.get(id);
+        if (!recipient) continue;
+        if (recipient.status === 'SIGNED' || recipient.status === 'DECLINED') {
+          refused.push({ recipientId: id, reason: 'FINISHED' });
+        } else if (!turn.has(id)) {
+          refused.push({ recipientId: id, reason: 'NOT_THEIR_TURN' });
+        } else if (nextReminderAt(recipient, cooldownMs) > now.getTime()) {
+          refused.push({ recipientId: id, reason: 'TOO_SOON' });
+          soonest = Math.min(soonest, nextReminderAt(recipient, cooldownMs));
+        } else {
+          due.push(id);
+        }
+      }
+
+      if (due.length > 0) {
+        await tx.recipient.updateMany({
+          where: { envelopeId, id: { in: due } },
+          data: { lastRemindedAt: now },
+        });
+        // Someone whose turn it is but who was never marked invited (a failed
+        // queue at send time) is invited now.
+        await tx.recipient.updateMany({
+          where: { envelopeId, id: { in: due }, status: 'PENDING' },
+          data: { status: 'SENT', invitedAt: now },
+        });
+        for (const recipientId of due) {
+          await this.audit.record(tx, {
+            envelopeId,
+            recipientId,
+            action: 'REMINDER_REQUESTED',
+            actorUserId: user.id,
+            ipAddress: client.ip,
+            userAgent: client.userAgent,
+          });
+        }
+      }
+
+      return {
+        reminded: due,
+        skipped: refused,
+        retryAfterSeconds: Number.isFinite(soonest)
+          ? Math.max(1, Math.ceil((soonest - now.getTime()) / 1000))
+          : undefined,
+      };
+    });
+
+    if (reminded.length === 0 && retryAfterSeconds !== undefined) {
+      this.logger.info(
+        { envelopeId, skipped: skipped.length },
+        'Reminder refused: sent too recently',
+      );
+      throw new AppException(
+        'REMINDER_TOO_SOON',
+        `A reminder was sent in the last ${REMINDER_COOLDOWN_HOURS} hours.`,
+        { headers: { 'Retry-After': String(retryAfterSeconds) } },
+      );
+    }
+
+    for (const recipientId of reminded) {
+      try {
+        await this.mail.enqueueSigningLink('reminder', envelopeId, recipientId);
+      } catch (error) {
+        this.logger.error(
+          { err: error, alert: true, envelopeId, recipientId },
+          'Reminder could not be queued',
+        );
+        throw new AppException('SERVICE_UNAVAILABLE', 'The reminder could not be sent. Try again.');
+      }
+    }
+
+    this.logger.info(
+      { envelopeId, reminded: reminded.length, skipped: skipped.length },
+      'Reminders requested',
+    );
+    return { reminded, skipped };
   }
 
   /**

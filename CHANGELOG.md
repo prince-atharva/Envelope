@@ -95,6 +95,18 @@ Phase 3 (Signer Portal) in progress. See
   - Every signing response sends `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
   - Signing routes are rate-limited per link rather than per address: 60 reads and 10 changes a
     minute, keyed on a hash of the token.
+- **Reminders:** `POST /envelopes/:id/remind`, optionally with `recipientIds`.
+  - It reminds everyone whose turn it is and who has not finished. Each reminder mints a new link,
+    and the old one stops working.
+  - One reminder per person per 24 hours; a second gets 429 `REMINDER_TOO_SOON` with
+    `Retry-After`. If no email has reached the person, a retry is allowed after 10 minutes, which is
+    also how a failed invitation gets re-sent.
+  - People not yet due, or already finished, are listed in `skipped` with a reason.
+  - Each reminder writes `REMINDER_REQUESTED`.
+- **The sender is emailed when someone declines**, with the reason and a link to the envelope.
+- `GET /envelopes/:id` now includes `sentAt` and `expiresAt`, and for each recipient their
+  progress: `invitedAt`, `notifiedAt`, `lastRemindedAt`, `viewedAt`, `signedAt`, `declinedAt` and
+  `declinedReason` (new shared type `RecipientDetail`).
 - The consent notice is a clearly marked **DRAFT placeholder** (`signing/consent-text.ts`), pending
   lawyer-approved wording. The API logs a warning at every start-up until it is replaced, and each
   `CONSENT_GIVEN` event records `draftText: true`.

@@ -5,7 +5,12 @@ import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { maskEmail } from '../logging/redact';
 import { EMAIL_QUEUE } from '../queue/queue.module';
-import type { EmailJobData, SigningLinkEmailJob, WelcomeEmailJob } from './mail.types';
+import type {
+  DeclinedNoticeJob,
+  EmailJobData,
+  SigningLinkEmailJob,
+  WelcomeEmailJob,
+} from './mail.types';
 
 /** API side of email: puts jobs on the queue. The worker does the sending. */
 @Injectable()
@@ -69,6 +74,25 @@ export class MailQueueService implements OnModuleInit {
     const job = await this.queue.add(template, data, { jobId });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** Tells the sender someone declined. Once per envelope: only one person can end it. */
+  async enqueueDeclinedNotice(
+    envelopeId: string,
+    recipientId: string,
+  ): Promise<string | undefined> {
+    const data: DeclinedNoticeJob = {
+      template: 'declined',
+      envelopeId,
+      recipientId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, { jobId: `declined-${envelopeId}` });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
       'Email job enqueued',
     );
     return job.id;

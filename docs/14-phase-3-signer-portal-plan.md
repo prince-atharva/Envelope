@@ -87,7 +87,7 @@ From doc 11, Phase 3 is finished when:
 | 4 | Signing links: creating, checking and hiding them | ✅ Done |
 | 5 | Sending, invitation emails and signing order | ✅ Done |
 | 6 | The signer's side of the API | ✅ Done |
-| 7 | Reminders, and progress for the sender | ⬜ |
+| 7 | Reminders, and progress for the sender | ✅ Done |
 | 8 | Send dialog and progress screen | ⬜ |
 | 9 | The signing screens | ⬜ |
 | 10 | Browser tests and the link-leak audit | ⬜ |

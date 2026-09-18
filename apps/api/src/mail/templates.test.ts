@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { escapeHtml, renderSigningLinkEmail, renderWelcomeEmail } from './templates';
+import {
+  escapeHtml,
+  renderDeclinedEmail,
+  renderSigningLinkEmail,
+  renderWelcomeEmail,
+} from './templates';
 
 describe('signing-link emails', () => {
   const url = `https://sign.example.com/sign/${'a'.repeat(64)}`;
@@ -53,6 +58,23 @@ describe('signing-link emails', () => {
     const email = renderSigningLinkEmail({ ...base, action: 'approve' });
     expect(email.subject).toBe('Raj Kumar has sent you a document to approve');
     expect(email.html).toContain('Review &amp; Approve');
+  });
+});
+
+describe('declined notice', () => {
+  it('tells the sender who declined, why, and where to look', () => {
+    const email = renderDeclinedEmail({
+      to: 'raj@example.com',
+      senderName: 'Raj Kumar',
+      recipientName: 'Priya Sharma',
+      envelopeTitle: 'Lease',
+      reason: 'The fee is <wrong>.',
+      envelopeUrl: 'https://sign.example.com/dashboard/envelopes/e-1',
+    });
+    expect(email.subject).toBe('Priya Sharma declined Lease');
+    expect(email.html).toContain('The fee is &lt;wrong&gt;.');
+    expect(email.text).toContain('Their reason:\nThe fee is <wrong>.');
+    expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
   });
 });
 

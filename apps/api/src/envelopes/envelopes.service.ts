@@ -225,6 +225,8 @@ export class EnvelopesService {
       message: envelope.message,
       sequentialSigning: envelope.sequentialSigning,
       draftRevision: envelope.draftRevision,
+      sentAt: envelope.sentAt?.toISOString() ?? null,
+      expiresAt: envelope.expiresAt?.toISOString() ?? null,
       recipients: envelope.recipients.map((recipient) => ({
         id: recipient.id,
         name: recipient.name,
@@ -233,6 +235,13 @@ export class EnvelopesService {
         status: recipient.status,
         routingOrder: recipient.routingOrder,
         colorIndex: recipient.colorIndex,
+        invitedAt: recipient.invitedAt?.toISOString() ?? null,
+        notifiedAt: recipient.notifiedAt?.toISOString() ?? null,
+        lastRemindedAt: recipient.lastRemindedAt?.toISOString() ?? null,
+        viewedAt: recipient.viewedAt?.toISOString() ?? null,
+        signedAt: recipient.signedAt?.toISOString() ?? null,
+        declinedAt: recipient.declinedAt?.toISOString() ?? null,
+        declinedReason: recipient.declinedReason,
       })),
       // Ordered by page, then down the page: the same order the builder walks
       // fields in, so "next field" means the same thing on both sides.

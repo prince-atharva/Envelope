@@ -22,7 +22,16 @@ export interface SigningLinkEmailJob {
   requestId?: string;
 }
 
-export type EmailJobData = WelcomeEmailJob | SigningLinkEmailJob;
+/** Tells the sender that someone declined. Ids only; the worker reads the rest. */
+export interface DeclinedNoticeJob {
+  template: 'declined';
+  envelopeId: string;
+  /** The person who declined. */
+  recipientId: string;
+  requestId?: string;
+}
+
+export type EmailJobData = WelcomeEmailJob | SigningLinkEmailJob | DeclinedNoticeJob;
 export type EmailTemplate = EmailJobData['template'];
 
 export interface RenderedEmail {

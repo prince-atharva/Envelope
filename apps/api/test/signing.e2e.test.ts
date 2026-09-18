@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID } from 'node:crypto';
-import type { SendEnvelopeResponse } from '@envelope/shared';
+import type { EnvelopeDetail, SendEnvelopeResponse } from '@envelope/shared';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import request from 'supertest';
@@ -631,6 +631,111 @@ describe('sending and signing (e2e)', () => {
       }).expect(202);
       await open(token).expect(410);
       expect(logs.text()).not.toContain(token);
+    });
+  });
+
+  describe('reminders and progress', () => {
+    const remind = (envelopeId: string, body: Record<string, unknown> = {}, user = owner) =>
+      request(t.http)
+        .post(`/api/v1/envelopes/${envelopeId}/remind`)
+        .set('Authorization', bearer(user))
+        .send(body);
+    const detail = async (envelopeId: string) =>
+      (
+        await request(t.http)
+          .get(`/api/v1/envelopes/${envelopeId}`)
+          .set('Authorization', bearer(owner))
+          .expect(200)
+      ).body as EnvelopeDetail;
+
+    it('reminds with a new link, and the old one stops working', async () => {
+      const team = people({ name: 'Slow Signer' });
+      const envelope = await prepareEnvelope(t.http, owner, team);
+      await sendEnvelope(t.http, owner, envelope.id).expect(200);
+      const email = team[0]?.email ?? '';
+      const first = await linkFor(worker.mailbox, email);
+      await waitFor(async () =>
+        (await recipientRows(envelope.id))[0]?.notifiedAt ? true : undefined,
+      );
+
+      const res = await remind(envelope.id).expect(200);
+      expect(res.body).toEqual({ reminded: [envelope.recipients[0]?.id], skipped: [] });
+
+      const reminder = await waitFor(() => emailsTo(worker.mailbox, email, 'reminder')[0]);
+      expect(reminder.subject).toBe('Reminder: Agreement under test awaits your signature');
+      const second = await linkFor(worker.mailbox, email);
+      expect(second).not.toBe(first);
+      await waitFor(async () =>
+        (await recipientRows(envelope.id))[0]?.tokenHash === hmac(second) ? true : undefined,
+      );
+      expect((await request(t.http).get(`/api/v1/sign/${first}`).expect(401)).body.code).toBe(
+        'TOKEN_INVALID',
+      );
+      await request(t.http).get(`/api/v1/sign/${second}`).expect(200);
+
+      const soon = await remind(envelope.id).expect(429);
+      expect(soon.body.code).toBe('REMINDER_TOO_SOON');
+      expect(Number(soon.headers['retry-after'])).toBeGreaterThan(23 * 3600);
+      expect(await auditActions(envelope.id)).toContain('REMINDER_REQUESTED');
+    });
+
+    it('does not remind people whose turn has not come or who have finished', async () => {
+      const team = people({ name: 'Turn One' }, { name: 'Turn Two' });
+      const envelope = await prepareEnvelope(t.http, owner, team, { sequential: true });
+      await sendEnvelope(t.http, owner, envelope.id).expect(200);
+      await linkFor(worker.mailbox, team[0]?.email ?? '');
+
+      const res = await remind(envelope.id, { recipientIds: [envelope.recipients[1]?.id] }).expect(
+        200,
+      );
+      expect(res.body).toEqual({
+        reminded: [],
+        skipped: [{ recipientId: envelope.recipients[1]?.id, reason: 'NOT_THEIR_TURN' }],
+      });
+      expect((await remind(envelope.id, { recipientIds: [randomUUID()] })).status).toBe(404);
+      expect((await remind(envelope.id, {}, outsider)).status).toBe(404);
+
+      const draft = await prepareEnvelope(t.http, owner, people({ name: 'Not Sent' }));
+      expect((await remind(draft.id).expect(409)).body.code).toBe('CONFLICT');
+    });
+
+    it("shows the sender each person's progress, and tells them about a decline", async () => {
+      const team = people({ name: 'Progress One' }, { name: 'Progress Two' });
+      const envelope = await prepareEnvelope(t.http, owner, team);
+      await sendEnvelope(t.http, owner, envelope.id).expect(200);
+      const one = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      await linkFor(worker.mailbox, team[1]?.email ?? '');
+      await request(t.http).get(`/api/v1/sign/${one}`).expect(200);
+
+      const sentView = await detail(envelope.id);
+      expect(sentView.status).toBe('SENT');
+      expect(sentView.sentAt).not.toBeNull();
+      expect(sentView.expiresAt).not.toBeNull();
+      const [first, second] = sentView.recipients;
+      expect(first).toMatchObject({ status: 'VIEWED', declinedAt: null });
+      expect(first?.viewedAt).not.toBeNull();
+      expect(second).toMatchObject({ status: 'SENT', viewedAt: null });
+
+      await request(t.http)
+        .post(`/api/v1/sign/${one}/decline`)
+        .send({ reason: 'Not my department.' })
+        .expect(200);
+      const declinedView = await detail(envelope.id);
+      expect(declinedView.status).toBe('DECLINED');
+      expect(declinedView.recipients[0]).toMatchObject({
+        status: 'DECLINED',
+        declinedReason: 'Not my department.',
+      });
+
+      // The owner has had other decline notices in this suite; find this one.
+      const notice = await waitFor(() =>
+        emailsTo(worker.mailbox, owner.email, 'declined').find((m) =>
+          m.subject.startsWith('Progress One'),
+        ),
+      );
+      expect(notice.subject).toBe('Progress One declined Agreement under test');
+      expect(notice.text).toContain('Not my department.');
+      expect(notice.text).toContain(`/dashboard/envelopes/${envelope.id}`);
     });
   });
 

@@ -51,6 +51,23 @@ export interface AuditEventInfo {
   eventHash: string;
 }
 
+/**
+ * A recipient as their sender sees them, with how far they have got.
+ * Times are ISO strings, or null until the step happens.
+ */
+export interface RecipientDetail extends RecipientInfo {
+  /** Their turn began: at send, or when the group before them finished. */
+  invitedAt: string | null;
+  /** The mail server last accepted an invitation or reminder for them. */
+  notifiedAt: string | null;
+  lastRemindedAt: string | null;
+  viewedAt: string | null;
+  signedAt: string | null;
+  declinedAt: string | null;
+  /** Shown to the sender only. */
+  declinedReason: string | null;
+}
+
 export interface EnvelopeDetail extends EnvelopeSummary {
   /** SHA-256 of DocumentVersion 0, the document as uploaded (after sanitising). */
   originalHash: string;
@@ -67,7 +84,11 @@ export interface EnvelopeDetail extends EnvelopeSummary {
    * so two open tabs cannot silently overwrite each other's work.
    */
   draftRevision: number;
-  recipients: RecipientInfo[];
+  /** When it was sent. Null for a draft. */
+  sentAt: string | null;
+  /** When every signing link stops working. Null for a draft. */
+  expiresAt: string | null;
+  recipients: RecipientDetail[];
   fields: FieldInfo[];
 }
 

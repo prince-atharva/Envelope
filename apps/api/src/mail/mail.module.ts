@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { EmailProcessor } from './email.processor';
 import { MailQueueService } from './mail-queue.service';
 import { MailTransportService, MemoryMailbox } from './mail-transport.service';
+import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer } from './signing-link.mailer';
 
 /** Imported by the API: queues email. */
@@ -17,7 +18,13 @@ export class MailProducerModule {}
  * trail (see WorkerModule).
  */
 @Module({
-  providers: [EmailProcessor, MailTransportService, MemoryMailbox, SigningLinkMailer],
+  providers: [
+    EmailProcessor,
+    MailTransportService,
+    MemoryMailbox,
+    SigningLinkMailer,
+    SenderNoticeMailer,
+  ],
   exports: [MailTransportService, MemoryMailbox],
 })
 export class MailWorkerModule {}

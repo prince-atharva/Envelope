@@ -82,6 +82,48 @@ export function renderWelcomeEmail(job: WelcomeEmailJob, appUrl: string): Render
   return { to: job.to, subject, html, text };
 }
 
+export interface DeclinedNotice {
+  to: string;
+  senderName: string;
+  recipientName: string;
+  envelopeTitle: string;
+  reason: string;
+  envelopeUrl: string;
+}
+
+/** To the sender, straight away, when someone declines (docs/09: "the sender is told immediately"). */
+export function renderDeclinedEmail(notice: DeclinedNotice): RenderedEmail {
+  const who = oneLine(notice.recipientName);
+  const title = oneLine(notice.envelopeTitle);
+  const subject = `${who} declined ${title}`;
+  const intro = `${who} declined to sign "${title}", so it can no longer be signed by anyone.`;
+  const footer = `You received this email because you sent this document using ${BRAND.fullName}.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.senderName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 8px;">Their reason:</p>
+     <blockquote style="margin:0 0 16px;padding:12px 16px;background:#f4f6f8;border-left:3px solid ${BRAND_COLOR};white-space:pre-line;">${escapeHtml(notice.reason)}</blockquote>
+     ${button(notice.envelopeUrl, 'View the document')}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.senderName)},`,
+    '',
+    intro,
+    '',
+    'Their reason:',
+    notice.reason,
+    '',
+    `View the document: ${notice.envelopeUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
 /** Everything an invitation or reminder needs, read by the worker from the database. */
 export interface SigningLinkEmail {
   kind: 'invitation' | 'reminder';

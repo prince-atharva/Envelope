@@ -471,6 +471,12 @@ export class SigningService {
     }
 
     this.logger.info({ reasonLength: input.reason.length }, 'Recipient declined; envelope closed');
+    try {
+      await this.mail.enqueueDeclinedNotice(envelope.id, recipient.id);
+    } catch (error) {
+      // The decline stands either way; the sender still sees it on the envelope page.
+      this.logger.error({ err: error, alert: true }, 'Decline notice could not be queued');
+    }
     return { status: 'DECLINED', declinedAt: declinedAt.toISOString() };
   }
 

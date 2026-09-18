@@ -5,6 +5,7 @@ import { AppConfig } from '../config/app-config';
 import { EMAIL_QUEUE } from '../queue/queue.module';
 import type { EmailJobData } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
+import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer, type SigningLinkResult } from './signing-link.mailer';
 import { renderWelcomeEmail } from './templates';
 
@@ -17,6 +18,7 @@ export class EmailProcessor extends WorkerHost {
   constructor(
     private readonly transport: MailTransportService,
     private readonly signingLinks: SigningLinkMailer,
+    private readonly senderNotices: SenderNoticeMailer,
     private readonly config: AppConfig,
     @InjectPinoLogger(EmailProcessor.name) private readonly logger: PinoLogger,
   ) {
@@ -30,6 +32,8 @@ export class EmailProcessor extends WorkerHost {
       case 'invitation':
       case 'reminder':
         return this.signingLinks.send(data);
+      case 'declined':
+        return this.senderNotices.sendDeclined(data);
     }
   }
 
