@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+Phase 3 (Signer Portal) in progress. See
+[docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
+
+### Added
+
+- Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
+  HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
+  database, every reminder rotates them, and revocation is by envelope and recipient state.
+
 ## [0.2.0] - 2026-09-18
 
 Phase 2 (Field Builder): recipients, fields placed on the page as ratios, autosave, and a review

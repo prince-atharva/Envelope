@@ -77,6 +77,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 11 | [implementation-roadmap](11-implementation-roadmap.md) | What gets built when, and what does it cost to run? |
 | 12 | [phase-1-foundation-plan](12-phase-1-foundation-plan.md) | What does Phase 1 deliver, how is it built and run, and what is left? |
 | 13 | [phase-2-field-builder-plan](13-phase-2-field-builder-plan.md) | What does Phase 2 deliver, and how are fields placed and saved? |
+| 14 | [phase-3-signer-portal-plan](14-phase-3-signer-portal-plan.md) | What does Phase 3 deliver, and how does a signer open, sign and finish? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12
