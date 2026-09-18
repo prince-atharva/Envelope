@@ -10,7 +10,7 @@ import {
 } from '@envelope/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, Navigate, useParams } from 'react-router';
 import { type PageRenderInfo, PdfViewer, type PdfViewerHandle } from '../components/pdf/PdfViewer';
 import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
@@ -229,15 +229,9 @@ export function PreparePage() {
   }
   if (!envelope) return <Alert>This document could not be found.</Alert>;
 
+  // Sent already: fields can no longer change, so show the progress instead.
   if (envelope.status !== 'DRAFT') {
-    return (
-      <Alert tone="info">
-        This document has already been sent, so its fields can no longer be changed.{' '}
-        <Link className="underline" to={`/dashboard/envelopes/${envelope.id}`}>
-          Back to the document
-        </Link>
-      </Alert>
-    );
+    return <Navigate to={`/dashboard/envelopes/${envelope.id}`} replace />;
   }
 
   const selectedField = state.fields.find((field) => field.id === state.selection[0]);

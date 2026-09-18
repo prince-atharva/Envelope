@@ -132,3 +132,53 @@ export async function waitForFieldsSaved(page: Page, expectedCount: number): Pro
   );
   await expect(page.getByText('Saved', { exact: true })).toBeVisible({ timeout: 10_000 });
 }
+
+/** Picks whose fields the next placements belong to, in the builder's people list. */
+export async function selectRecipient(page: Page, name: string): Promise<void> {
+  await page.locator('button[aria-pressed]').filter({ hasText: name }).click();
+}
+
+export interface Person {
+  name: string;
+  email: string;
+}
+
+/**
+ * Uploads a document and prepares it for the given people: each gets a
+ * signature and a tick box on page 1. Returns the envelope id, on the review
+ * screen, ready to send.
+ */
+export async function prepareToSend(
+  page: Page,
+  people: Person[],
+  options: { oneAfterAnother?: boolean } = {},
+): Promise<string> {
+  const envelopeId = await uploadDocument(page, TWELVE_PAGE_PDF);
+  await page.getByRole('link', { name: 'Prepare for signing' }).click();
+  for (const person of people) await addRecipient(page, person.name, person.email);
+  if (options.oneAfterAnother) {
+    await page.getByRole('radio', { name: 'One after another' }).click();
+    await expect(page.getByRole('radio', { name: 'One after another' })).toBeChecked();
+  }
+
+  // A click on a page that has not rendered yet has no page size to convert
+  // with, so the builder ignores it.
+  await page.getByLabel('Zoom Level').selectOption('1');
+  await expect(page.locator('[data-pdf-overlay="1"]')).toBeAttached({ timeout: 20_000 });
+
+  let placed = 0;
+  for (const [index, person] of people.entries()) {
+    await selectRecipient(page, person.name);
+    const x = 0.15 + index * 0.35;
+    await placeField(page, 'Signature', 1, { xRatio: x, yRatio: 0.3 });
+    placed += 1;
+    await waitForFieldsSaved(page, placed);
+    await placeField(page, 'Tick box', 1, { xRatio: x, yRatio: 0.45 });
+    placed += 1;
+    await waitForFieldsSaved(page, placed);
+  }
+
+  await page.getByRole('link', { name: 'Review' }).click();
+  await expect(page).toHaveURL(new RegExp(`/envelopes/${envelopeId}/review$`));
+  return envelopeId;
+}

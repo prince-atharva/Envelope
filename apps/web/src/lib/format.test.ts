@@ -4,6 +4,7 @@ import {
   describeAuditAction,
   formatBytes,
   formatDateTime,
+  formatRelative,
   pageTitle,
   pluralize,
   shortHash,
@@ -79,6 +80,21 @@ describe('format', () => {
 
     it('describes unknown action gracefully', () => {
       expect(describeAuditAction('UNKNOWN_WEIRD_ACTION')).toBe('unknown weird action');
+    });
+
+    it('describes the signing events', () => {
+      expect(describeAuditAction('CONSENT_GIVEN')).toBe('Agreed to sign electronically');
+      expect(describeAuditAction('RECIPIENT_SIGNED')).toBe('Signed');
+    });
+  });
+
+  describe('formatRelative', () => {
+    const now = new Date('2026-10-01T12:00:00Z').getTime();
+
+    it('says how long ago, in the largest whole unit', () => {
+      expect(formatRelative('2026-10-01T09:00:00Z', now)).toMatch(/3 hours ago/);
+      expect(formatRelative('2026-09-29T12:00:00Z', now)).toMatch(/2 days ago/);
+      expect(formatRelative('2026-10-01T11:59:40Z', now)).toMatch(/this minute|now/);
     });
   });
 });

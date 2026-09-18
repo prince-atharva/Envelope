@@ -12,7 +12,11 @@ import {
   type ProblemFieldError,
   type RecipientResponse,
   type RegisterInput,
+  type RemindInput,
+  type RemindResponse,
   type SaveFieldsResponse,
+  type SendEnvelopeInput,
+  type SendEnvelopeResponse,
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
   type UserProfile,
@@ -328,4 +332,21 @@ export const api = {
       `/envelopes/${encodeURIComponent(id)}/fields`,
       draftChange({ fields }, 'PUT', revision),
     ),
+
+  // ─── Sending ───
+
+  /**
+   * Sends a draft. The key stays the same for every retry of one attempt, so a
+   * request repeated after a dropped connection is answered, not sent twice.
+   */
+  sendEnvelope: (id: string, input: SendEnvelopeInput, idempotencyKey: string) => {
+    const init = jsonBody(input);
+    return json<SendEnvelopeResponse>(`/envelopes/${encodeURIComponent(id)}/send`, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
+    });
+  },
+
+  remind: (id: string, input: RemindInput = {}) =>
+    json<RemindResponse>(`/envelopes/${encodeURIComponent(id)}/remind`, jsonBody(input)),
 };

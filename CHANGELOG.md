@@ -107,6 +107,23 @@ Phase 3 (Signer Portal) in progress. See
 - `GET /envelopes/:id` now includes `sentAt` and `expiresAt`, and for each recipient their
   progress: `invitedAt`, `notifiedAt`, `lastRemindedAt`, `viewedAt`, `signedAt`, `declinedAt` and
   `declinedReason` (new shared type `RecipientDetail`).
+- **Sending from the web app.** The review screen's **Send for signing** is enabled once the draft is
+  ready.
+  - It opens a dialog that names who is emailed now and who follows one after another, notes who
+    only gets the finished copy, and offers link expiry (7, 14 or 30 days) and the message.
+  - The dialog keeps one idempotency key while it is open, so a retry cannot send twice.
+  - Once sent, the prepare and review pages redirect to the envelope page, which confirms who is
+    being emailed.
+- **Signing progress** on the envelope page:
+  - Each person shows as waiting for their turn, sending email, email sent, opened, signed (or
+    approved) or declined, with the time.
+  - A decline is shown with its reason.
+  - A **Send reminder** button appears for anyone whose turn it is. It becomes "Reminded … ago" while
+    the 24-hour limit runs.
+  - The page refreshes every 15 seconds while people are signing.
+- The audit trail describes every Phase 3 event in plain words.
+- `nextReminderAt` moved to `@envelope/shared`, so the reminder button and the API apply the same
+  rule.
 - The consent notice is a clearly marked **DRAFT placeholder** (`signing/consent-text.ts`), pending
   lawyer-approved wording. The API logs a warning at every start-up until it is replaced, and each
   `CONSENT_GIVEN` event records `draftText: true`.

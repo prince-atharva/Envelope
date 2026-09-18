@@ -56,7 +56,8 @@ test.describe('Field builder', () => {
     await expect(page).toHaveURL(new RegExp(`/envelopes/${envelopeId}/review$`));
     await expect(page.getByText('1 signature on page 1')).toBeVisible();
     await expect(page.getByText('1 date on page 3')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Send for signing' })).toBeDisabled();
+    // Both people have a required field, so the draft is ready to send.
+    await expect(page.getByRole('button', { name: 'Send for signing' })).toBeEnabled();
   });
 
   test('stores identical positions whether the work is done at 100% or 200%', async ({ page }) => {

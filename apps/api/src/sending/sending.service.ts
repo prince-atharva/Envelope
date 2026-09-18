@@ -1,6 +1,7 @@
 import {
   checkReadyToSend,
   currentRoutingGroup,
+  nextReminderAt,
   type ProblemFieldError,
   REMINDER_COOLDOWN_HOURS,
   type ReadinessIssue,
@@ -23,25 +24,6 @@ import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 const DAY_MS = 24 * 3600 * 1000;
 /** Envelope statuses in which signers can still act, and so can be reminded. */
 const OPEN_STATUSES: ReadonlySet<string> = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
-
-/** A reminder that has not reached the mail server may be retried after this long. */
-const UNDELIVERED_RETRY_MS = 10 * 60 * 1000;
-
-/**
- * When this person may next be reminded, as a timestamp (0: now).
- *
- * Normally one a day. If nothing has ever reached them, a retry is allowed
- * sooner, but not at once, so repeated clicks while the first email is still
- * on its way do not send several.
- */
-export function nextReminderAt(
-  recipient: { notifiedAt: Date | null; lastRemindedAt: Date | null },
-  cooldownMs: number,
-): number {
-  if (!recipient.lastRemindedAt) return 0;
-  const wait = recipient.notifiedAt ? cooldownMs : UNDELIVERED_RETRY_MS;
-  return recipient.lastRemindedAt.getTime() + wait;
-}
 
 function notReady(issues: ReadinessIssue[]): AppException {
   const errors: ProblemFieldError[] = issues.map((issue) => ({
@@ -203,7 +185,6 @@ export class SendingService {
     client: ClientInfo,
   ): Promise<RemindResponse> {
     const now = new Date();
-    const cooldownMs = REMINDER_COOLDOWN_HOURS * 3600 * 1000;
 
     const { reminded, skipped, retryAfterSeconds } = await this.db.$transaction(async (tx) => {
       // Locks the envelope row, so two reminder clicks cannot both get through.
@@ -244,9 +225,9 @@ export class SendingService {
           refused.push({ recipientId: id, reason: 'FINISHED' });
         } else if (!turn.has(id)) {
           refused.push({ recipientId: id, reason: 'NOT_THEIR_TURN' });
-        } else if (nextReminderAt(recipient, cooldownMs) > now.getTime()) {
+        } else if (nextReminderAt(recipient) > now.getTime()) {
           refused.push({ recipientId: id, reason: 'TOO_SOON' });
-          soonest = Math.min(soonest, nextReminderAt(recipient, cooldownMs));
+          soonest = Math.min(soonest, nextReminderAt(recipient));
         } else {
           due.push(id);
         }

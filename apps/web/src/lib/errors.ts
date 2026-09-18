@@ -15,6 +15,8 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   INVALID_PDF: 'That PDF appears to be damaged and could not be read.',
   MALWARE_DETECTED: 'That file did not pass the security scan.',
   NOT_FOUND: 'We could not find that document.',
+  ENVELOPE_NOT_DRAFT: 'This document has already been sent.',
+  REMINDER_TOO_SOON: 'A reminder was sent in the last 24 hours. Try again tomorrow.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 

@@ -5,6 +5,7 @@ import {
   consentSchema,
   currentRoutingGroup,
   declineSchema,
+  nextReminderAt,
   orderFieldsForSigning,
   PNG_DATA_URL_PREFIX,
   type RoutingRecipient,
@@ -99,6 +100,32 @@ describe('routing', () => {
   it('is empty once everyone has finished', () => {
     const list = [person('a', 1, 'SIGNED'), person('b', 2, 'SIGNED')];
     expect(currentRoutingGroup(list, true)).toEqual([]);
+  });
+});
+
+describe('nextReminderAt', () => {
+  const at = (iso: string) => new Date(iso);
+
+  it('allows the first reminder at once', () => {
+    expect(nextReminderAt({ notifiedAt: at('2026-10-01T09:00:00Z'), lastRemindedAt: null })).toBe(
+      0,
+    );
+    expect(nextReminderAt({ notifiedAt: null, lastRemindedAt: null })).toBe(0);
+  });
+
+  it('waits a day after a reminder, and accepts ISO strings from the API', () => {
+    expect(
+      nextReminderAt({
+        notifiedAt: '2026-10-01T09:00:00Z',
+        lastRemindedAt: '2026-10-02T09:00:00Z',
+      }),
+    ).toBe(at('2026-10-03T09:00:00Z').getTime());
+  });
+
+  it('lets a reminder that never arrived be retried after ten minutes', () => {
+    expect(nextReminderAt({ notifiedAt: null, lastRemindedAt: at('2026-10-02T09:00:00Z') })).toBe(
+      at('2026-10-02T09:10:00Z').getTime(),
+    );
   });
 });
 

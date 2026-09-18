@@ -6,11 +6,13 @@ import {
   type RecipientRole,
 } from '@envelope/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router';
+import { useState } from 'react';
+import { Link, Navigate, useParams } from 'react-router';
 import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { FullPageSpinner } from '../components/ui/Spinner';
 import { recipientColor } from '../features/builder/recipient-colors';
+import { SendDialog } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
 import { describeError } from '../lib/errors';
 import { queryKeys } from '../lib/query-keys';
@@ -52,11 +54,12 @@ function describeSigningOrder(sequential: boolean, recipients: readonly Recipien
 /**
  * One screen showing exactly what each person will receive (docs/09, step 5).
  *
- * It exists because a wrong send cannot be undone. Sending itself is Phase 3, so
- * the button is here but disabled.
+ * It exists because a wrong send cannot be undone: Send opens a dialog that
+ * says who is emailed now and who later, and only that dialog sends.
  */
 export function ReviewPage() {
   const { id = '' } = useParams<{ id: string }>();
+  const [sending, setSending] = useState(false);
 
   const {
     data: envelope,
@@ -76,6 +79,8 @@ export function ReviewPage() {
     return <Alert reference={described.reference}>{described.message}</Alert>;
   }
   if (!envelope) return <Alert>This document could not be found.</Alert>;
+  // Sent already: there is nothing left to review.
+  if (envelope.status !== 'DRAFT') return <Navigate to={`/dashboard/envelopes/${id}`} replace />;
 
   const issues = checkReadyToSend(envelope);
   const ready = issues.length === 0;
@@ -186,13 +191,12 @@ export function ReviewPage() {
         <ButtonLink to={`/dashboard/envelopes/${envelope.id}/prepare`} variant="secondary">
           Keep preparing
         </ButtonLink>
-        <Button disabled title="Sending arrives in Phase 3">
+        <Button disabled={!ready} onClick={() => setSending(true)}>
           Send for signing
         </Button>
-        <p className="text-xs text-slate-500">
-          Sending, the email links and the signing screen arrive in the next phase.
-        </p>
       </div>
+
+      <SendDialog envelope={envelope} open={sending} onClose={() => setSending(false)} />
     </div>
   );
 }

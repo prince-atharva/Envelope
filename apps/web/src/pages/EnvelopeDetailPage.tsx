@@ -1,29 +1,39 @@
 import type { AuditEventInfo, DocumentVersionInfo } from '@envelope/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { PdfViewer } from '../components/pdf/PdfViewer';
 import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { FullPageSpinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { RecipientProgress } from '../features/sending/RecipientProgress';
+import type { SentState } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
 import { describeError } from '../lib/errors';
 import { describeAuditAction, formatBytes, formatDateTime, shortHash } from '../lib/format';
+import { queryKeys } from '../lib/query-keys';
 import { useDocumentTitle } from '../lib/use-document-title';
+
+/** While people are signing, the page checks for progress this often. */
+const PROGRESS_REFRESH_MS = 15_000;
+const IN_PROGRESS = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
 
 export function EnvelopeDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const [copied, setCopied] = useState(false);
+  const sent = (useLocation().state as SentState | null)?.sentTo;
 
   const {
     data: envelope,
     isLoading: isLoadingEnvelope,
     error: envelopeError,
   } = useQuery({
-    queryKey: ['envelope', id],
+    queryKey: queryKeys.envelope(id),
     queryFn: () => api.getEnvelope(id),
     enabled: id.length > 0,
+    refetchInterval: (query) =>
+      query.state.data && IN_PROGRESS.has(query.state.data.status) ? PROGRESS_REFRESH_MS : false,
   });
 
   const {
@@ -31,7 +41,7 @@ export function EnvelopeDetailPage() {
     isLoading: isLoadingPdf,
     error: pdfError,
   } = useQuery({
-    queryKey: ['document', id, 0],
+    queryKey: queryKeys.document(id, 0),
     queryFn: () => api.downloadDocument(id, 0),
     enabled: id.length > 0 && !!envelope,
   });
@@ -136,6 +146,10 @@ export function EnvelopeDetailPage() {
           </Button>
         </div>
       </div>
+
+      {sent && <Alert tone="success">Sent. We are emailing {sent} a link to sign.</Alert>}
+
+      {envelope.status !== 'DRAFT' && <RecipientProgress envelope={envelope} />}
 
       {/* 2. Main Hero Document Viewer */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col h-[75vh] min-h-[600px] max-h-[850px]">

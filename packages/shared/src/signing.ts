@@ -10,6 +10,7 @@ import {
   MAX_RECIPIENTS_PER_ENVELOPE,
   MAX_SIGNATURE_IMAGE_BYTES,
   MAX_TEXT_VALUE_LENGTH,
+  REMINDER_COOLDOWN_HOURS,
 } from './limits';
 
 /**
@@ -164,6 +165,31 @@ export interface SubmitSigningResponse {
 export interface DeclineResponse {
   status: 'DECLINED';
   declinedAt: string;
+}
+
+// ─── Reminders ───
+
+/** A reminder that has not reached the mail server may be retried after this long. */
+export const UNDELIVERED_REMINDER_RETRY_MINUTES = 10;
+
+/**
+ * When this person may next be reminded, as a timestamp in milliseconds
+ * (0: now). The API enforces it; the sender's screen uses it to grey out the
+ * button.
+ *
+ * Normally once a day (docs/08). If nothing has ever reached them, a retry is
+ * allowed sooner, but not at once, so repeated clicks while the first email is
+ * still on its way do not send several.
+ */
+export function nextReminderAt(recipient: {
+  notifiedAt: Date | string | null;
+  lastRemindedAt: Date | string | null;
+}): number {
+  if (!recipient.lastRemindedAt) return 0;
+  const wait = recipient.notifiedAt
+    ? REMINDER_COOLDOWN_HOURS * 3600 * 1000
+    : UNDELIVERED_REMINDER_RETRY_MINUTES * 60 * 1000;
+  return new Date(recipient.lastRemindedAt).getTime() + wait;
 }
 
 // ─── Order ───
