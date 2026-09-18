@@ -34,3 +34,36 @@
     @apply outline-2 outline-offset-2 outline-brand-600;
   }
 }
+
+/*
+ * The signer portal's sheets slide up. Decoration only, so it stops entirely
+ * for anyone who asks for reduced motion (docs/09, accessibility).
+ */
+@keyframes signing-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes signing-sheet-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.signing-sheet[open] {
+  animation: signing-sheet-up 220ms ease-out;
+}
+
+@media (min-width: 40rem) {
+  .signing-sheet[open] {
+    animation-name: signing-sheet-fade;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signing-sheet[open] {
+    animation: none;
+  }
+}

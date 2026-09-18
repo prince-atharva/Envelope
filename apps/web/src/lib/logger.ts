@@ -11,9 +11,23 @@ function truncate(value: string | undefined, max: number): string | undefined {
   return value === undefined || value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 }
 
+/** A signing link's token, wherever it appears: page URL, API path, message or stack. */
+const SIGNING_PATH = /(\/sign\/)[^/?#\s"':)]+/gi;
+
+/**
+ * Masks signing tokens in any text. The token is the signer's only credential
+ * (docs/10), and on the signing page it is in the page's own path, so it turns
+ * up in stack traces and error messages. The server scrubs reports too; this
+ * keeps the token from leaving the browser at all.
+ */
+export function redactSigningLinks(text: string): string {
+  return text.replace(SIGNING_PATH, '$1[redacted]');
+}
+
 /**
  * Builds a report that fits the server's limits. The page URL is sent without its
- * query string or fragment, which can carry tokens.
+ * query string or fragment, which can carry tokens, and signing tokens are
+ * masked everywhere.
  */
 export function buildClientLog(
   error: unknown,
@@ -24,9 +38,9 @@ export function buildClientLog(
   const url = new URL(context.url);
   const report: ClientLog = {
     level: 'error',
-    message: truncate(`${err.name}: ${err.message}`, 2000) ?? 'Error',
-    stack: truncate(err.stack, 6000),
-    url: truncate(`${url.origin}${url.pathname}`, 2000) ?? '',
+    message: truncate(redactSigningLinks(`${err.name}: ${err.message}`), 2000) ?? 'Error',
+    stack: truncate(err.stack === undefined ? undefined : redactSigningLinks(err.stack), 6000),
+    url: truncate(redactSigningLinks(`${url.origin}${url.pathname}`), 2000) ?? '',
     source: truncate(source, 100) ?? 'unknown',
     lastRequestId: context.lastRequestId,
     userAgent: truncate(context.userAgent, 500),

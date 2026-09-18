@@ -89,11 +89,20 @@ test.describe('Document lifecycle end-to-end', () => {
     const lastBtn = page.getByLabel('Last Page');
     const pageInput = page.getByLabel('Current Page Number');
 
+    // First, Last and the separate Fit Width button are left out on phones,
+    // so the toolbar fits across the screen.
+    const wide = (page.viewportSize()?.width ?? 0) >= 640;
+
     await expect(prevBtn).toBeVisible();
     await expect(nextBtn).toBeVisible();
-    await expect(firstBtn).toBeVisible();
-    await expect(lastBtn).toBeVisible();
     await expect(pageInput).toBeVisible();
+    if (wide) {
+      await expect(firstBtn).toBeVisible();
+      await expect(lastBtn).toBeVisible();
+    } else {
+      await expect(firstBtn).toBeHidden();
+      await expect(lastBtn).toBeHidden();
+    }
 
     // Initial state: page 1, previous & first disabled, next & last enabled
     await expect(pageInput).toHaveValue('1');
@@ -121,15 +130,23 @@ test.describe('Document lifecycle end-to-end', () => {
     await pageInput.press('Enter');
     await expect(pageInput).toHaveValue('7', { timeout: 5000 });
 
-    // Test jumping to Last Page (page 12)
-    await lastBtn.click();
+    // Test jumping to Last Page (page 12): the button, or on a phone the page box
+    if (wide) await lastBtn.click();
+    else {
+      await pageInput.fill('12');
+      await pageInput.press('Enter');
+    }
     await expect(pageInput).toHaveValue('12', { timeout: 5000 });
     await expect(nextBtn).toBeDisabled();
     await expect(lastBtn).toBeDisabled();
     await expect(prevBtn).toBeEnabled();
 
-    // Test jumping back to First Page (page 1)
-    await firstBtn.click();
+    // Test jumping back to First Page (page 1): the button, or on a phone the page box
+    if (wide) await firstBtn.click();
+    else {
+      await pageInput.fill('1');
+      await pageInput.press('Enter');
+    }
     await expect(pageInput).toHaveValue('1', { timeout: 5000 });
     await expect(prevBtn).toBeDisabled();
     await expect(firstBtn).toBeDisabled();
@@ -144,7 +161,9 @@ test.describe('Document lifecycle end-to-end', () => {
     await expect(pageInput).not.toHaveValue('1', { timeout: 5000 });
 
     // 13. Verify zoom controls & canvas-level mouse wheel zoom
-    await expect(page.getByRole('button', { name: 'Fit Width' })).toBeVisible();
+    const fitWidthBtn = page.getByRole('button', { name: 'Fit Width' });
+    if (wide) await expect(fitWidthBtn).toBeVisible();
+    else await expect(fitWidthBtn).toBeHidden();
     const zoomInBtn = page.getByLabel('Zoom In');
     const zoomOutBtn = page.getByLabel('Zoom Out');
     await expect(zoomInBtn).toBeVisible();
@@ -172,8 +191,9 @@ test.describe('Document lifecycle end-to-end', () => {
     await zoomSelect.selectOption('2');
     await expect(zoomSelect).toHaveValue('2');
 
-    // Zoom back to fit-width
-    await page.getByRole('button', { name: 'Fit Width' }).click();
+    // Zoom back to fit-width: the button, or on a phone the menu
+    if (wide) await fitWidthBtn.click();
+    else await zoomSelect.selectOption('fit-width');
     await expect(zoomSelect).toHaveValue('fit-width');
 
     // At least one canvas is rendered

@@ -17,6 +17,9 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   NOT_FOUND: 'We could not find that document.',
   ENVELOPE_NOT_DRAFT: 'This document has already been sent.',
   REMINDER_TOO_SOON: 'A reminder was sent in the last 24 hours. Try again tomorrow.',
+  INVALID_SIGNATURE_IMAGE: 'That signature could not be used. Please try again.',
+  REQUIRED_FIELDS_INCOMPLETE: 'Some required boxes are still empty.',
+  CONSENT_REQUIRED: 'Please agree to sign electronically first. Reload the page to see the notice.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 

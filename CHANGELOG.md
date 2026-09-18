@@ -132,6 +132,45 @@ Phase 3 (Signer Portal) in progress. See
   sending onwards fill the `recipientId` column, since recipients can no longer be removed.
 - The email layout takes its footer as a parameter, so signing emails explain why the recipient got
   them. Subject values have line breaks removed.
+- **The signing screens**, at `/sign/:token` (`apps/web/src/features/signing/`). There is no
+  account and no sender session: the link in the email is all a signer needs.
+  - **Consent:** who sent the document, its title, page count and link expiry, the sender's
+    message, and the notice exactly as the server sent it. **Review document** stays disabled until
+    "I agree to sign electronically" is ticked. The agreement carries the notice's SHA-256, and if
+    the wording changed meanwhile the new text is shown with a request to read it again.
+  - **The document** is fetched, and PDF.js loaded, only after consent. The signer's boxes are drawn
+    over it, and a bar along the bottom always shows how many required boxes are done, with
+    **Start**, then **Next: Signature**, **Next: Tick box** and so on. Next goes through the boxes in
+    reading order, scrolls each to the middle of the screen and highlights it briefly. When nothing
+    required is left, it becomes **Finish**.
+  - **Adopt and sign:** a sheet that slides up from the bottom on a phone. **Type** (the default)
+    shows the name in three self-hosted handwriting styles (Dancing Script, Great Vibes, Caveat);
+    **Draw** uses `signature_pad` at a pixel ratio of at least 2, with the iOS Safari handling
+    (`touch-action: none` and a cancelled `touchmove`) so the page does not scroll under the finger.
+    Both produce a transparent PNG cropped to the ink and scaled down if it is over 500 KB. One
+    adoption fills every box of that kind the signer taps; tapping a signed box offers to change it,
+    and an optional one can be cleared.
+  - **Text boxes** are typed into a full-size field in a sheet, because a box on a phone is often a
+    few pixels tall and iOS zooms the page in on any smaller input. **Tick boxes** toggle in place.
+    Dates show today's date and fill themselves in.
+  - **Decline** is available from the consent screen and the document, needs a reason, and says the
+    document will close for everyone.
+  - **End screens** for every outcome, none of them shown as an error: signed, already signed,
+    declined by you, declined by someone else, cancelled by the sender, link expired, link not
+    valid (including a malformed one, which never reaches the server), and closed.
+  - **Work in progress is kept on the device** after every change and restored on return, with a
+    notice. It is keyed by the signer's first field id rather than the link, so the token is never
+    stored and a reminder's new link still finds the draft. Drafts are cleared on finishing or
+    declining, and removed after 90 days. The adopted images are kept for the tab only.
+  - Adopting and finishing retry on a dropped connection or server error after 1, 2 and 4 seconds,
+    then offer **Try again**. A finish that already got through is recognised by the "already
+    signed" answer to the retry.
+  - Every box is a real button or checkbox with a name such as "Signature field, required, page 4 of
+    12", has a touch area of at least 44 × 44 px, and says what to do in words as well as colour.
+    Progress is announced to screen readers, and animations stop when reduced motion is requested.
+- Browser tests for signing (`apps/web/e2e/signing.spec.ts`): typed and drawn signatures, finishing
+  and returning to a spent link, a draft restored after reloading, declining before consent, and
+  links that are not valid. The helpers read signing links from the test outbox.
 
 ### Fixed
 
@@ -149,6 +188,9 @@ Phase 3 (Signer Portal) in progress. See
   - The web app is served as a production build, so a source change cannot reload a page in the
     middle of a test. That was the cause of occasional blank pages.
   - CI no longer starts `pnpm dev` for the browser tests.
+- **The document viewer now fits the page to the screen.** Its resize observer was set up before the
+  document had loaded, when there was nothing to observe, so pages kept a width guessed at the first
+  render: too narrow on a phone, and never refitted when the window was resized.
 
 ### Security
 
@@ -157,6 +199,12 @@ Phase 3 (Signer Portal) in progress. See
   and URL were, and a stack from the signing page would have carried the token.
 - The signing-link pattern in the scrubber stops at `:` and `)`, so a scrubbed stack frame keeps its
   line and column numbers.
+- **The signing token no longer leaves the browser in error reports.** The web app masks
+  `/sign/<token>` in the page URL, message and stack before sending a report, as well as the server
+  scrubbing it on arrival.
+- **No Referer carries the link.** `index.html` sets `strict-origin`, so no page's path is sent from
+  the very first request, and the signing page switches to `no-referrer`. Signer API requests also
+  send no cookies and no Authorization header, and bypass the HTTP cache.
 
 ### Changed
 
@@ -164,6 +212,16 @@ Phase 3 (Signer Portal) in progress. See
   and *One after another*, each with a one-line explanation of who is emailed when. With *One after
   another*, each person has Move up and Move down buttons. The review screen names the order, for
   example "One after another: Raj Patel, then Priya Sharma".
+- **The web app loads in two parts.** The signer portal and the sender app are separate chunks, and
+  the sender's session is restored only in the sender app, so a signer's phone never downloads the
+  sender pages or calls `/auth/refresh`. In a production build a signer loads about 131 KB of
+  JavaScript (gzipped) before the document and 143 KB with it, plus PDF.js, within docs/09's
+  150 KB budget. Before, everyone loaded one 339 KB bundle that included PDF.js.
+- On screens narrower than 640 px, the viewer toolbar leaves out First page, Last page and the
+  separate Fit Width button (the zoom menu has Fit Width), so it fits across a phone.
+- API request ids fall back to `crypto.getRandomValues` where `crypto.randomUUID` is missing, which
+  is the case on plain HTTP away from localhost, such as a phone testing against a laptop.
+- New `danger` button style, for Decline.
 
 ## [0.2.0] - 2026-09-18
 

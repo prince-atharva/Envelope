@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildClientLog } from './logger';
+import { buildClientLog, redactSigningLinks } from './logger';
+
+const TOKEN = 'ab'.repeat(32);
 
 describe('logger', () => {
   describe('buildClientLog', () => {
@@ -45,6 +47,33 @@ describe('logger', () => {
       const jsonBytes = new TextEncoder().encode(JSON.stringify(log)).length;
       expect(jsonBytes).toBeLessThanOrEqual(8192); // 8KB
       expect(log.stack?.length).toBeLessThan(10000);
+    });
+
+    it('never sends a signing token, from the page URL, the message or the stack', () => {
+      const error = new Error(`Failed to fetch /api/v1/sign/${TOKEN}/document`);
+      error.stack = `Error\n    at https://sign.example.com/sign/${TOKEN}:12:5`;
+
+      const log = buildClientLog(error, 'signing', {
+        url: `https://sign.example.com/sign/${TOKEN}?x=1#y`,
+      });
+
+      expect(JSON.stringify(log)).not.toContain(TOKEN);
+      expect(log.url).toBe('https://sign.example.com/sign/[redacted]');
+      expect(log.message).toBe('Error: Failed to fetch /api/v1/sign/[redacted]/document');
+      // The line and column survive, so the stack is still useful.
+      expect(log.stack).toContain('/sign/[redacted]:12:5');
+    });
+  });
+
+  describe('redactSigningLinks', () => {
+    it('leaves text without a signing link alone', () => {
+      expect(redactSigningLinks('/dashboard/envelopes/1')).toBe('/dashboard/envelopes/1');
+    });
+
+    it('masks every link in the text', () => {
+      expect(redactSigningLinks(`/sign/${TOKEN} and /SIGN/${TOKEN}/submit`)).toBe(
+        '/sign/[redacted] and /SIGN/[redacted]/submit',
+      );
     });
   });
 });

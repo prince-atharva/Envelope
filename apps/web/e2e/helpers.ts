@@ -1,6 +1,8 @@
-import { dirname, resolve } from 'node:path';
+import { readdir, readFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
+import { OUTBOX_DIR } from './stack/stack.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -58,11 +60,23 @@ export async function placeField(
   at: { xRatio: number; yRatio: number },
 ): Promise<void> {
   await page.getByRole('button', { name: fieldLabel, exact: true }).click();
-  const target = pageBox(page, pageNumber);
-  await target.scrollIntoViewIfNeeded();
-  const box = await target.boundingBox();
-  if (!box) throw new Error(`Page ${pageNumber} is not visible`);
-  await page.mouse.click(box.x + box.width * at.xRatio, box.y + box.height * at.yRatio);
+  // Bring the point itself to the middle of the screen, scrolling the viewer
+  // and the window as needed. Scrolling the page into view is not enough: a
+  // page taller than the viewer is centred as a whole, which can leave the
+  // point above or below what is on screen. A 1px marker at the point lets the
+  // browser do the scrolling, and says where to click.
+  const point = await pageBox(page, pageNumber).evaluate((element, where) => {
+    const marker = document.createElement('div');
+    marker.style.cssText = `position:absolute;left:${where.xRatio * 100}%;top:${
+      where.yRatio * 100
+    }%;width:1px;height:1px;pointer-events:none`;
+    element.append(marker);
+    marker.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const rect = marker.getBoundingClientRect();
+    marker.remove();
+    return { x: rect.left, y: rect.top };
+  }, at);
+  await page.mouse.click(point.x, point.y);
 }
 
 /** Where a field sits relative to its page, as fractions, measured from the DOM. */
@@ -181,4 +195,57 @@ export async function prepareToSend(
   await page.getByRole('link', { name: 'Review' }).click();
   await expect(page).toHaveURL(new RegExp(`/envelopes/${envelopeId}/review$`));
   return envelopeId;
+}
+
+interface OutboxEmail {
+  to: string;
+  template: string;
+  text: string;
+  sentAt: string;
+}
+
+/**
+ * The newest signing link emailed to this address, read from the isolated
+ * stack's file outbox (stack.mjs). Waits for the email worker, which sends
+ * after the request that queued it has returned.
+ */
+export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const files = (await readdir(OUTBOX_DIR).catch(() => [] as string[])).sort().reverse();
+    for (const file of files) {
+      const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
+      if (message.to !== email || !['invitation', 'reminder'].includes(message.template)) continue;
+      const link = /https?:\/\/\S+\/sign\/[0-9a-f]{64}/.exec(message.text)?.[0];
+      if (link) return link;
+    }
+    await new Promise((done) => setTimeout(done, 250));
+  }
+  throw new Error(`No signing link was emailed to ${email}`);
+}
+
+/** Sends the envelope on the review screen, with the dialog's defaults. */
+export async function sendFromReview(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Send for signing' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.getByText(/^Sent\./)).toBeVisible({ timeout: 15_000 });
+}
+
+/**
+ * Opens a signing link as the signer would: from an email, with no sender
+ * session in the browser.
+ */
+export async function openAsSigner(page: Page, link: string): Promise<void> {
+  await page.context().clearCookies();
+  await page.goto(link);
+}
+
+/** Ticks the notice and continues to the document. */
+export async function agreeToSign(page: Page): Promise<void> {
+  await expect(
+    page.getByRole('heading', { name: 'Agreement to sign electronically' }),
+  ).toBeVisible();
+  await page.getByLabel('I agree to sign electronically').check();
+  await page.getByRole('button', { name: 'Review document' }).click();
+  await expect(page.locator('[data-pdf-overlay="1"]')).toBeAttached({ timeout: 20_000 });
 }

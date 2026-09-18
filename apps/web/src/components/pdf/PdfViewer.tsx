@@ -1,7 +1,14 @@
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import type { ReactNode, Ref } from 'react';
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 // Setup the worker for pdfjs-dist v6
 GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
@@ -333,18 +340,25 @@ export function PdfViewer({
     };
   }, [data]);
 
-  // Monitor container width for responsive fit-width scaling
-  useEffect(() => {
-    if (!containerRef.current) return;
+  // Fit-width follows the container. The container only exists once the
+  // document has loaded (before that the loading message is shown), so it is
+  // measured then, before the first paint: pages are drawn once at the right
+  // size instead of at the guess above and then again. The observer keeps it
+  // right when the window or the layout around the viewer changes.
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!pdfDoc || !container) return;
+    const measured = container.getBoundingClientRect().width;
+    if (measured > 0) setContainerWidth(measured);
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry && entry.contentRect.width > 0) {
         setContainerWidth(entry.contentRect.width);
       }
     });
-    observer.observe(containerRef.current);
+    observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [pdfDoc]);
 
   // Natural focal-point mouse wheel & trackpad pinch zoom
   useEffect(() => {
@@ -578,7 +592,7 @@ export function PdfViewer({
             type="button"
             onClick={() => jumpToPage(1)}
             disabled={currentPage <= 1}
-            className="p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="hidden sm:block p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="First Page"
             title="First Page (Home)"
           >
@@ -639,7 +653,9 @@ export function PdfViewer({
               className="w-12 text-center border border-slate-300 rounded-md px-1 py-0.5 text-xs font-semibold text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 shadow-xs"
               aria-label="Current Page Number"
             />
-            <span className="text-slate-500 ml-1.5 text-xs font-medium">of {numPages}</span>
+            <span className="text-slate-500 ml-1.5 text-xs font-medium whitespace-nowrap">
+              of {numPages}
+            </span>
           </form>
 
           <button
@@ -670,7 +686,7 @@ export function PdfViewer({
             type="button"
             onClick={() => jumpToPage(numPages)}
             disabled={currentPage >= numPages}
-            className="p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="hidden sm:block p-1 rounded-md text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Last Page"
             title="Last Page (End)"
           >
@@ -766,11 +782,12 @@ export function PdfViewer({
             </button>
           </div>
 
-          {/* Dedicated Fit Width Button */}
+          {/* Dedicated Fit Width Button. Phones use the menu's Fit Width: the
+            toolbar has to fit across a 320px screen. */}
           <button
             type="button"
             onClick={() => changeScale('fit-width')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shadow-xs ${
+            className={`hidden sm:block whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shadow-xs ${
               scale === 'fit-width'
                 ? 'bg-brand-600 text-white shadow-xs'
                 : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'

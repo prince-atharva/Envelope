@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Envelope by HealthProHub: prepare, send and sign documents securely." />
     <meta name="theme-color" content="#0f766e" />
+    <!--
+      Never send a page's path in the Referer header: on a signing page it holds
+      the signer's token (docs/10). This applies from the very first request,
+      before any script runs; the signing page then turns referrers off entirely.
+    -->
+    <meta name="referrer" content="strict-origin" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Envelope by HealthProHub</title>
   </head>

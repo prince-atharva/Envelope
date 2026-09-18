@@ -89,7 +89,7 @@ From doc 11, Phase 3 is finished when:
 | 6 | The signer's side of the API | ✅ Done |
 | 7 | Reminders, and progress for the sender | ✅ Done |
 | 8 | Send dialog and progress screen | ✅ Done |
-| 9 | The signing screens | ⬜ |
+| 9 | The signing screens | ✅ Done |
 | 10 | Browser tests and the link-leak audit | ⬜ |
 | 11 | Real-phone check, documentation and release `v0.3.0` | ⬜ |
 
@@ -229,6 +229,36 @@ device pixel ratio of at least 2; Type renders self-hosted script fonts through 
 both produce the same transparent PNG. The canvas sets `touch-action: none` and cancels `touchmove`
 for iOS Safari. Text and checkbox values are kept in `localStorage` until submit.
 
+### Step 9 as built
+
+| File | What it does |
+|---|---|
+| `main.tsx`, `SenderApp.tsx` | Two lazy chunks behind one router: `/sign/:token` and everything else. Only the sender app mounts `AuthProvider`. |
+| `SigningPage.tsx` | Loads the session, shows consent or the document, and turns every refusal into an end screen. A malformed token never reaches the server. |
+| `ConsentScreen.tsx` | The notice as sent, the tick box, and the agreement with the notice's hash. |
+| `SigningWorkspace.tsx` | Lazy: the document, the boxes, the Next/Finish bar, the sheets, the draft. PDF.js is in this chunk, so it loads only after consent. |
+| `SigningFieldLayer.tsx` | The signer's boxes over one page, positioned by ratio as percentages. |
+| `AdoptSheet.tsx`, `SignaturePadCanvas.tsx`, `signature-image.ts` | Type or draw, then a transparent PNG cropped to the ink and kept under 500 KB. |
+| `TextSheet.tsx`, `DeclineDialog.tsx`, `Sheet.tsx` | Text entry, decline, and the bottom sheet they share. |
+| `signing-state.ts`, `drafts.ts`, `end-states.ts`, `signing-api.ts` | Progress and Next order, the saved draft, refusal → screen, and the API client with retries. |
+
+Decisions made while building it:
+
+| Question | Decision | Why |
+|---|---|---|
+| What the draft is keyed by | The signer's lowest field id, not a hash of the token (docs/09 says token hash) | The token is then never stored anywhere, and a reminder's new link still finds the draft |
+| How text boxes are filled | In a sheet with a full-size input, not in the box | A box on a phone is often ~11px tall, and iOS zooms the page in on inputs under 16px |
+| Signature boxes | Each box is tapped, and the adopted image goes into the tapped ones | The signer's intent is recorded box by box, as on paper; the server still fills every required one |
+| Type or draw first | Type is the default tab | Typing is the keyboard-accessible path and must not feel secondary (docs/09) |
+| Referrer | `strict-origin` in `index.html` for the whole app, `no-referrer` on the signing page | The first requests of a signing page load before any script runs. A global `no-referrer` would turn the sender's POST `Origin` header into `null` |
+| Cookies on signer requests | `credentials: 'omit'` | A sender signed in on the same browser must not lend their session to a link |
+| Retries | Adopt and submit retry transient failures after 1, 2 and 4 s; a submit answered 410 counts as done | docs/09, "Offline resilience" |
+| Error reports | The web app masks `/sign/<token>` in URL, message and stack before sending | Belt and braces with the server's scrubbing |
+
+Measured in a production build: before consent a signer loads ~131 KB of JavaScript (gzipped), ~143 KB
+with the workspace, plus 132 KB of PDF.js, within the 150 KB budget. The build must run with
+`NODE_ENV=production`; see "Open points" below.
+
 ## Step 10: Tests
 
 - API e2e: send, idempotency, the consent gate, adopt validation, submit, decline, both signing
@@ -237,6 +267,16 @@ for iOS Safari. Text and checkbox values are kept in `localStorage` until submit
   files, any database row, any Redis key or any error body.
 - Playwright: draw and type signing, decline, draft restore and the already-signed screen, on
   desktop Chrome and on iPhone 14 **under WebKit**.
+
+## Open Points Found in Step 9
+
+- **Local `vite build` makes a development React build.** Vite reads `NODE_ENV` from the root
+  `.env`, which the API sets to `development`, and a build run from a plain shell then bundles
+  development React (125 KB instead of 70 KB gzipped). The browser-test stack and CI set
+  `NODE_ENV=production`, so they are not affected. Worth fixing before any real deployment.
+- **The web host's access log will contain `/sign/<token>`.** The page's own URL is requested from
+  whatever serves the web app. The production hosting config (Phase 5) must drop or scrub that path
+  from access logs, and send `Referrer-Policy: no-referrer` for `/sign/*` as a header as well.
 
 ## Deliberate Simplifications
 

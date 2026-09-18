@@ -36,6 +36,8 @@ export class ApiError extends Error {
   readonly detail?: string;
   readonly requestId?: string;
   readonly fieldErrors: ProblemFieldError[];
+  /** A finer reason within `code`, such as why a signing link leads nowhere. */
+  readonly reason?: string;
 
   constructor(
     problem: Pick<ProblemDetails, 'status' | 'code' | 'title'> & Partial<ProblemDetails>,
@@ -47,10 +49,11 @@ export class ApiError extends Error {
     this.detail = problem.detail;
     this.requestId = problem.requestId;
     this.fieldErrors = problem.errors ?? [];
+    this.reason = problem.reason;
   }
 }
 
-function networkError(): ApiError {
+export function networkError(): ApiError {
   return new ApiError({
     status: 0,
     code: 'SERVICE_UNAVAILABLE',
@@ -92,6 +95,11 @@ export function getLastRequestId(): string | undefined {
   return lastRequestId;
 }
 
+/** Notes a response's request id, for requests made outside this module (the signer portal). */
+export function rememberRequestId(res: Response): void {
+  lastRequestId = res.headers.get('X-Request-Id') ?? lastRequestId;
+}
+
 export function onSessionChange(listener: SessionListener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -112,9 +120,23 @@ function setSession(session: AuthResponse | null): void {
 
 // ─── Requests ───
 
+/**
+ * A fresh request id. `crypto.randomUUID` exists only on HTTPS and localhost, and
+ * a phone testing against a laptop over plain HTTP on the local network has
+ * neither, so the id falls back to the same format built from getRandomValues.
+ */
+export function newRequestId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 function withStandardHeaders(init: HeadersInit | undefined): Headers {
   const headers = new Headers(init);
-  headers.set('X-Request-Id', crypto.randomUUID());
+  headers.set('X-Request-Id', newRequestId());
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
   return headers;
 }
@@ -130,11 +152,12 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   } catch {
     throw networkError();
   }
-  lastRequestId = res.headers.get('X-Request-Id') ?? lastRequestId;
+  rememberRequestId(res);
   return res;
 }
 
-async function errorFrom(res: Response): Promise<ApiError> {
+/** The problem details of a failed response, as an ApiError. */
+export async function errorFrom(res: Response): Promise<ApiError> {
   const body: unknown = await res.json().catch(() => null);
   return toApiError(body, res.status, res.headers.get('X-Request-Id') ?? undefined);
 }
