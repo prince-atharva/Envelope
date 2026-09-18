@@ -26,8 +26,22 @@ interface RecipientPanelProps {
   onAdd: (input: AddRecipientInput) => Promise<void>;
   onChangeRole: (recipient: RecipientInfo, role: RecipientRole) => Promise<void>;
   onRemove: (recipient: RecipientInfo) => Promise<void>;
+  onMove: (recipient: RecipientInfo, direction: 'up' | 'down') => Promise<void>;
   onToggleSequential: (value: boolean) => Promise<void>;
 }
+
+const SIGNING_ORDER_OPTIONS = [
+  {
+    sequential: false,
+    label: 'Everyone at once',
+    hint: 'All signers get the email together and can sign in any order.',
+  },
+  {
+    sequential: true,
+    label: 'One after another',
+    hint: 'Signer 1 gets the email first. Each next person gets it only after the one before them has signed.',
+  },
+] as const;
 
 export function RecipientPanel({
   recipients,
@@ -39,12 +53,14 @@ export function RecipientPanel({
   onAdd,
   onChangeRole,
   onRemove,
+  onMove,
   onToggleSequential,
 }: RecipientPanelProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const sequentialId = useId();
+  const orderId = useId();
+  const showOrder = sequentialSigning && recipients.length > 1;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -138,10 +154,35 @@ export function RecipientPanel({
                   ))}
                 </select>
 
+                {showOrder && (
+                  <span className="ml-auto flex gap-1">
+                    <button
+                      type="button"
+                      disabled={busy || index === 0}
+                      aria-label={`Move ${recipient.name} up`}
+                      title="Move up"
+                      className="rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                      onClick={() => void onMove(recipient, 'up')}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || index === recipients.length - 1}
+                      aria-label={`Move ${recipient.name} down`}
+                      title="Move down"
+                      className="rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                      onClick={() => void onMove(recipient, 'down')}
+                    >
+                      ↓
+                    </button>
+                  </span>
+                )}
+
                 <button
                   type="button"
                   disabled={busy}
-                  className="ml-auto text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
+                  className={`${showOrder ? '' : 'ml-auto '}text-xs font-medium text-red-700 hover:underline disabled:opacity-50`}
                   onClick={() => {
                     if (
                       count > 0 &&
@@ -182,19 +223,47 @@ export function RecipientPanel({
         </Button>
       </form>
 
-      <div className="flex items-center gap-2">
-        <input
-          id={sequentialId}
-          type="checkbox"
-          checked={sequentialSigning}
-          disabled={busy}
-          onChange={(event) => void onToggleSequential(event.target.checked)}
-          className="h-4 w-4"
-        />
-        <label htmlFor={sequentialId} className="text-sm text-slate-700">
-          Ask people one at a time, in order
-        </label>
-      </div>
+      <fieldset className="space-y-2">
+        <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Signing order
+        </legend>
+        {SIGNING_ORDER_OPTIONS.map((option) => {
+          const inputId = `${orderId}-${option.sequential ? 'sequential' : 'parallel'}`;
+          const checked = sequentialSigning === option.sequential;
+          return (
+            <div
+              key={inputId}
+              className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${
+                checked ? 'border-brand-700 bg-brand-50' : 'border-slate-200'
+              }`}
+            >
+              <input
+                id={inputId}
+                type="radio"
+                name={orderId}
+                checked={checked}
+                disabled={busy}
+                aria-describedby={`${inputId}-hint`}
+                onChange={() => void onToggleSequential(option.sequential)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <div className="min-w-0">
+                <label htmlFor={inputId} className="block text-sm font-medium text-slate-900">
+                  {option.label}
+                </label>
+                <p id={`${inputId}-hint`} className="text-xs text-slate-600">
+                  {option.hint}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+        {showOrder && (
+          <p className="text-xs text-slate-500">
+            Use the arrows next to each person to change the order.
+          </p>
+        )}
+      </fieldset>
     </section>
   );
 }

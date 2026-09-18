@@ -15,6 +15,13 @@ Phase 3 (Signer Portal) in progress. See
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.
 
+### Changed
+
+- The builder's signing-order checkbox is now a **Signing order** choice between *Everyone at once*
+  and *One after another*, each with a one-line explanation of who is emailed when. With *One after
+  another*, each person has Move up and Move down buttons. The review screen names the order, for
+  example "One after another: Raj Patel, then Priya Sharma".
+
 ## [0.2.0] - 2026-09-18
 
 Phase 2 (Field Builder): recipients, fields placed on the page as ratios, autosave, and a review

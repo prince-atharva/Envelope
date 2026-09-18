@@ -151,6 +151,37 @@ test.describe('Field builder', () => {
     }
   });
 
+  test('signing one after another, in an order the sender can change', async ({ page }) => {
+    await signUp(page, 'order');
+    const envelopeId = await uploadDocument(page, TWELVE_PAGE_PDF);
+    await page.getByRole('link', { name: 'Prepare for signing' }).click();
+    await addRecipient(page, 'Priya Sharma', `priya-${Date.now()}@example.com`);
+    await addRecipient(page, 'Raj Patel', `raj-${Date.now()}@example.com`);
+
+    // Everyone at once is the default, and it shows no order.
+    await expect(page.getByRole('radio', { name: 'Everyone at once' })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Move Raj Patel up' })).toHaveCount(0);
+
+    // The choice is saved before the radio shows it, so wait rather than check().
+    await page.getByRole('radio', { name: 'One after another' }).click();
+    await expect(page.getByRole('radio', { name: 'One after another' })).toBeChecked();
+    await expect(page.getByText('1. Priya Sharma')).toBeVisible();
+    await expect(page.getByText('2. Raj Patel')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Move Priya Sharma up' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Move Raj Patel up' }).click();
+    await expect(page.getByText('1. Raj Patel')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('2. Priya Sharma')).toBeVisible();
+
+    // The order is saved, not just shown.
+    await page.reload();
+    await expect(page.getByRole('radio', { name: 'One after another' })).toBeChecked();
+    await expect(page.getByText('1. Raj Patel')).toBeVisible({ timeout: 10_000 });
+
+    await page.goto(`/dashboard/envelopes/${envelopeId}/review`);
+    await expect(page.getByText('One after another: Raj Patel, then Priya Sharma')).toBeVisible();
+  });
+
   test('a person who only gets a copy cannot hold fields', async ({ page }) => {
     await signUp(page, 'roles');
     await uploadDocument(page, TWELVE_PAGE_PDF);

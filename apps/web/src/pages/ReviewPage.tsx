@@ -2,6 +2,7 @@ import {
   canOwnFields,
   checkReadyToSend,
   type FieldInfo,
+  type RecipientInfo,
   type RecipientRole,
 } from '@envelope/shared';
 import { useQuery } from '@tanstack/react-query';
@@ -40,6 +41,12 @@ function summariseFields(fields: FieldInfo[]): string {
   return [...counts.entries()]
     .map(([label, count]) => `${count} ${label}${count === 1 ? '' : 's'}`)
     .join(', ');
+}
+
+function describeSigningOrder(sequential: boolean, recipients: readonly RecipientInfo[]): string {
+  if (!sequential) return 'Everyone at once';
+  if (recipients.length < 2) return 'One after another';
+  return `One after another: ${recipients.map((recipient) => recipient.name).join(', then ')}`;
 }
 
 /**
@@ -102,7 +109,7 @@ export function ReviewPage() {
           <div>
             <dt className="text-slate-500">Signing order</dt>
             <dd className="font-medium text-slate-900">
-              {envelope.sequentialSigning ? 'One at a time, in order' : 'Everyone at once'}
+              {describeSigningOrder(envelope.sequentialSigning, envelope.recipients)}
             </dd>
           </div>
           <div>

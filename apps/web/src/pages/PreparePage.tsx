@@ -19,6 +19,7 @@ import { builderReducer, initialBuilderState } from '../features/builder/builder
 import { FieldOverlay } from '../features/builder/FieldOverlay';
 import { FieldPalette } from '../features/builder/FieldPalette';
 import { RecipientPanel } from '../features/builder/RecipientPanel';
+import { moveRecipient } from '../features/builder/recipient-order';
 import { useAutosave } from '../features/builder/useAutosave';
 import { api } from '../lib/api';
 import { describeError } from '../lib/errors';
@@ -301,6 +302,17 @@ export function PreparePage() {
             onRemove={async (recipient: RecipientInfo) => {
               await runRecipientChange(() => api.removeRecipient(id, recipient.id));
               dispatch({ type: 'removeRecipientFields', recipientId: recipient.id });
+            }}
+            onMove={async (recipient: RecipientInfo, direction) => {
+              const changes = moveRecipient(envelope.recipients, recipient.id, direction);
+              await runRecipientChange(async () => {
+                // One at a time: each request bumps the draft revision.
+                for (const change of changes) {
+                  await api.updateRecipient(id, change.recipientId, {
+                    routingOrder: change.routingOrder,
+                  });
+                }
+              });
             }}
             onToggleSequential={async (value) => {
               await runRecipientChange(() => api.updateEnvelope(id, { sequentialSigning: value }));
