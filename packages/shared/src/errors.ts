@@ -48,6 +48,18 @@ export const ERROR_CATALOG = {
   TOKEN_EXPIRED: { status: 401, title: 'Signing link expired' },
   TOKEN_ALREADY_USED: { status: 410, title: 'Signing link already used' },
   CONSENT_REQUIRED: { status: 403, title: 'Consent required' },
+  /** The notice changed between being shown and being agreed to; show it again. */
+  CONSENT_TEXT_CHANGED: { status: 409, title: 'The notice has changed' },
+  INVALID_SIGNATURE_IMAGE: { status: 422, title: 'The signature image is not valid' },
+  REMINDER_TOO_SOON: { status: 429, title: 'A reminder was sent recently' },
+
+  // Idempotency (docs/08, API-03)
+  IDEMPOTENCY_KEY_REQUIRED: { status: 400, title: 'An Idempotency-Key header is required' },
+  /** The same key was sent again with a different request body. */
+  IDEMPOTENCY_KEY_MISMATCH: {
+    status: 422,
+    title: 'Idempotency key reused with a different request',
+  },
 } as const satisfies Record<string, { status: number; title: string }>;
 
 export type ErrorCode = keyof typeof ERROR_CATALOG;
@@ -67,7 +79,15 @@ export interface ProblemDetails {
   /** Matches the X-Request-Id response header and every server log line for the request. */
   requestId?: string;
   errors?: ProblemFieldError[];
+  /**
+   * A finer reason within `code`, for the few codes where the client shows
+   * different screens. `ENVELOPE_TERMINAL` carries a `TerminalReason`.
+   */
+  reason?: string;
 }
+
+/** Why a signing link leads nowhere: the envelope was cancelled, or someone declined. */
+export type TerminalReason = 'VOIDED' | 'DECLINED' | 'YOU_DECLINED';
 
 export function isErrorCode(value: unknown): value is ErrorCode {
   return typeof value === 'string' && Object.hasOwn(ERROR_CATALOG, value);

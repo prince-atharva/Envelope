@@ -491,8 +491,11 @@ describe('drafts (e2e)', () => {
         name: 'Signer',
         email: 'sent@example.com',
       });
-      // Phase 3 owns sending; for now force the status the way sending will.
-      await ownerQuery(`UPDATE "Envelope" SET status = 'SENT' WHERE id = $1`, [envelope.id]);
+      // Forced directly, so this test is about the draft endpoints alone rather
+      // than the whole send flow (covered in signing.e2e.test.ts).
+      await ownerQuery(`UPDATE "Envelope" SET status = 'SENT', "sentAt" = now() WHERE id = $1`, [
+        envelope.id,
+      ]);
 
       const patched = await request(t.http)
         .patch(`/api/v1/envelopes/${envelope.id}`)
@@ -504,7 +507,9 @@ describe('drafts (e2e)', () => {
       const saved = await saveFields(envelope.id, [aField(recipient.id)]).expect(409);
       expect(saved.body.code).toBe('ENVELOPE_NOT_DRAFT');
 
-      await ownerQuery(`UPDATE "Envelope" SET status = 'DRAFT' WHERE id = $1`, [envelope.id]);
+      await ownerQuery(`UPDATE "Envelope" SET status = 'DRAFT', "sentAt" = NULL WHERE id = $1`, [
+        envelope.id,
+      ]);
     });
   });
 

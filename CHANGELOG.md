@@ -14,6 +14,26 @@ Phase 3 (Signer Portal) in progress. See
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.
+- Database support for sending and signing (migration `signer_portal`):
+  - `Envelope.sentAt`.
+  - `Recipient.invitedAt`, `notifiedAt`, `lastRemindedAt`, `viewedAt` and `declinedAt`, for the
+    sender's progress view and the one-reminder-a-day limit.
+  - `Recipient.signatureImageKey`, `signatureMethod`, `initialsImageKey` and `initialsMethod`, with a
+    new `SignatureMethod` enum (`DRAWN`, `TYPED`), for the images a signer adopts.
+  - CHECK constraints: a sent envelope has `sentAt`; a signed recipient has `signedAt` and a spent
+    token; a declined one has a reason; consent is never stored without its verbatim text; an adopted
+    image always records how it was made.
+- `@envelope/shared` signing module (`signing.ts`): request schemas for send, remind, consent, adopt,
+  submit and decline; the signing session types; `SIGNING_TOKEN_PATTERN`; `orderFieldsForSigning`
+  (page, then top to bottom, then left to right); and `currentRoutingGroup` /
+  `recipientsDueInvitation`, which decide who is emailed at send and after each signature. Only
+  SIGNER and APPROVER recipients receive a signing link.
+- New limits: 500 KB per signature image, 1000-character decline reason, 500-character text
+  values, 14-day default expiry (90 at most), one reminder per recipient per 24 hours.
+- New error codes: `CONSENT_TEXT_CHANGED` (409), `INVALID_SIGNATURE_IMAGE` (422),
+  `REMINDER_TOO_SOON` (429), `IDEMPOTENCY_KEY_REQUIRED` (400) and `IDEMPOTENCY_KEY_MISMATCH` (422).
+  Problem details gain an optional `reason`, which `ENVELOPE_TERMINAL` uses to say whether the
+  envelope was cancelled or declined.
 
 ### Changed
 

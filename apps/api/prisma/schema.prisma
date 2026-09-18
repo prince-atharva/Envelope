@@ -62,6 +62,12 @@ enum RecipientStatus {
   DECLINED
 }
 
+/// How an adopted signature or initials image was made (docs/00: "how they signed").
+enum SignatureMethod {
+  DRAWN
+  TYPED
+}
+
 enum FieldType {
   SIGNATURE
   INITIALS
@@ -157,6 +163,8 @@ model Envelope {
 
   // Routing
   sequentialSigning Boolean   @default(false)
+  /// When the envelope left DRAFT. Null for a draft.
+  sentAt            DateTime?
   expiresAt         DateTime?
   completedAt       DateTime?
 
@@ -201,26 +209,46 @@ model Recipient {
   colorIndex Int @default(0)
 
   // Access credentials. Only the HMAC-SHA256 hash is stored; the raw token exists
-  // solely in the email that was sent (docs/10).
+  // solely in the email that was sent (docs/10, ADR 0009).
   //
-  // Both are null until the envelope is sent: a draft recipient has no token yet
-  // (Phase 3 mints them). Postgres allows many nulls in a unique index.
+  // Both are null until the email worker mints a token, which it does when it
+  // sends the invitation. Every reminder mints a new one and overwrites these,
+  // so only the newest link works. Postgres allows many nulls in a unique index.
   tokenHash      String?   @unique
   tokenExpiresAt DateTime?
   tokenUsedAt    DateTime? // single-use enforcement
   accessCode     String? // optional SMS OTP, hashed
+
+  // Progress, shown to the sender.
+  /// When this person's turn began: at send, or when the group before them finished.
+  invitedAt      DateTime?
+  /// When the mail server last accepted an invitation or reminder for them.
+  notifiedAt     DateTime?
+  /// When the sender last asked for a reminder. Limits reminders to one a day.
+  lastRemindedAt DateTime?
+  /// First time they opened the signing link.
+  viewedAt       DateTime?
 
   // Consent (ESIGN, docs/07). The verbatim disclosure text is stored, not a
   // reference to a template that may later change.
   consentGivenAt DateTime?
   consentText    String?   @db.Text
 
+  // The signature and initials this person adopted, as object-storage keys to
+  // transparent PNGs. Submitting copies them into every SIGNATURE and INITIALS
+  // field they own.
+  signatureImageKey String?
+  signatureMethod   SignatureMethod?
+  initialsImageKey  String?
+  initialsMethod    SignatureMethod?
+
   signedAt       DateTime?
-  declinedReason String?
+  declinedAt     DateTime?
+  declinedReason String?   @db.Text
 
   // Signing telemetry
   signedFromIp String?
-  signedFromUa String?
+  signedFromUa String?  @db.Text
 
   createdAt DateTime @default(now())
 

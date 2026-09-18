@@ -82,8 +82,8 @@ From doc 11, Phase 3 is finished when:
 | # | Step | Status |
 |---|---|---|
 | 1 | This plan and ADR 0009 | ✅ Done |
-| 2 | A clearer signing-order choice, with reordering | ⬜ |
-| 3 | Database and shared rules for signing | ⬜ |
+| 2 | A clearer signing-order choice, with reordering | ✅ Done |
+| 3 | Database and shared rules for signing | ✅ Done |
 | 4 | Signing links: creating, checking and hiding them | ⬜ |
 | 5 | Sending, invitation emails and signing order | ⬜ |
 | 6 | The signer's side of the API | ⬜ |

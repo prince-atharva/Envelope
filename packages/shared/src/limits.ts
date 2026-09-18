@@ -20,3 +20,22 @@ export const MAX_RECIPIENTS_PER_ENVELOPE = 50;
 export const MAX_FIELDS_PER_ENVELOPE = 1000;
 export const MAX_MESSAGE_LENGTH = 2000;
 export const MAX_RECIPIENT_NAME_LENGTH = 200;
+
+/**
+ * Signing limits (Phase 3).
+ *
+ * The image cap is doc 06's "~500 KB". As a base64 data URL it is about 683 kB,
+ * so an adopt request stays inside the 1 MB JSON body limit. The dimension cap
+ * is generous: a full-width pad at a device pixel ratio of 3 is under 2000px.
+ */
+export const MAX_SIGNATURE_IMAGE_BYTES = 500 * 1024;
+export const MAX_SIGNATURE_IMAGE_DIMENSION = 4096;
+export const MAX_DECLINE_REASON_LENGTH = 1000;
+export const MAX_TEXT_VALUE_LENGTH = 500;
+
+/** How long signing links last unless the sender chooses otherwise (docs/10: 14 days). */
+export const DEFAULT_EXPIRY_DAYS = 14;
+export const MAX_EXPIRY_DAYS = 90;
+
+/** docs/08: reminders are limited to one per recipient per 24 hours. */
+export const REMINDER_COOLDOWN_HOURS = 24;

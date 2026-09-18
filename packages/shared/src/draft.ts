@@ -10,7 +10,7 @@ import {
 
 /**
  * Preparing a draft: who signs, where they sign, and the envelope's settings.
- * Sending, tokens and the signer portal are Phase 3.
+ * Sending and signing are in signing.ts.
  */
 
 export type RecipientRole = 'SIGNER' | 'APPROVER' | 'VIEWER' | 'CC';
@@ -139,8 +139,8 @@ export type ReadinessIssue =
 /**
  * Everything that stops a draft being sent.
  *
- * The review screen shows these now; the Phase 3 send endpoint will refuse on
- * the same list, so the button and the server can never disagree.
+ * The review screen shows these, and the send endpoint refuses on the same
+ * list, so the button and the server can never disagree.
  *
  * Only SIGNER and APPROVER need fields (docs/08). A CC or VIEWER recipient
  * receives the document without marking it.
