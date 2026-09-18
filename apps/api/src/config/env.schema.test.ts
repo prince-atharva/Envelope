@@ -48,6 +48,12 @@ describe('parseEnv', () => {
     ]);
   });
 
+  it('refuses real email when running tests', () => {
+    expect(problemsOf({ ...valid, NODE_ENV: 'test' })).toEqual([
+      'MAIL_TRANSPORT: tests never send real email: use memory or file',
+    ]);
+  });
+
   it('refuses the memory and file mail transports in production', () => {
     const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, ...rest } = valid;
     for (const transport of ['memory', 'file']) {

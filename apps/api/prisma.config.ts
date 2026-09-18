@@ -5,7 +5,8 @@ import { defineConfig } from 'prisma/config';
 
 // The single .env lives at the repository root. Walk up from the current
 // directory so this works from apps/api (pnpm scripts) or from the root.
-for (let dir = process.cwd(); ; dir = path.dirname(dir)) {
+// ENV_FILE=none (the browser-test stack) skips it, as the app itself does.
+for (let dir = process.cwd(); process.env.ENV_FILE !== 'none'; dir = path.dirname(dir)) {
   const candidate = path.join(dir, '.env');
   if (existsSync(candidate)) {
     loadEnv({ path: candidate, quiet: true });

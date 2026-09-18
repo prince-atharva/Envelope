@@ -37,10 +37,9 @@ env:
   S3_SECRET_ACCESS_KEY: digitalsign_dev_password
   S3_BUCKET: digitalsign-documents
   S3_FORCE_PATH_STYLE: 'true'
-  # The app started for the browser tests writes emails to the outbox, where the
-  # signing tests read the link. The API e2e suite uses its own memory transport.
-  MAIL_TRANSPORT: file
-  MAIL_OUTBOX_DIR: .mail-outbox
+  # Nothing in CI sends email. The API e2e suite and the browser-test stack
+  # each set their own transport (memory and file) regardless of this.
+  MAIL_TRANSPORT: memory
   SMTP_FROM: Envelope by HealthProHub <no-reply@ci.local>
   LOG_LEVEL: warn
   LOG_PRETTY: 'false'
@@ -95,27 +94,14 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @envelope/web exec playwright install --with-deps chromium
 
-      # Started here rather than by Playwright's webServer, so the API is
-      # actually answering before the first test signs up. Playwright reuses it.
-      - name: Start the app
-        run: |
-          pnpm dev > /tmp/dev.log 2>&1 &
-          for i in $(seq 1 90); do
-            if curl -sf http://localhost:4000/api/v1/health/live > /dev/null \
-               && curl -sf http://localhost:5173 > /dev/null; then
-              echo "API and web are up after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "The app did not start in time:"; tail -50 /tmp/dev.log; exit 1
-
+      # Playwright builds and starts its own isolated stack (apps/web/e2e/stack):
+      # test database, Redis db 2, file-only email, ports 4100 and 5174.
       - name: Browser tests
         run: pnpm --filter @envelope/web test:e2e --project=desktop-chrome
 
-      - name: Application log from the browser-test run
+      - name: Browser-test stack logs
         if: failure()
-        run: tail -100 /tmp/dev.log
+        run: tail -n 100 apps/web/.e2e/logs/*.log || true
 
       - name: Upload Playwright report
         if: failure()

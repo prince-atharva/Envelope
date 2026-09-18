@@ -116,6 +116,23 @@ Phase 3 (Signer Portal) in progress. See
 - The email layout takes its footer as a parameter, so signing emails explain why the recipient got
   them. Subject values have line breaks removed.
 
+### Fixed
+
+- **Browser tests no longer touch the developer's setup.** They used to reuse the running `pnpm dev`
+  server, so each run wrote test accounts into the dev database and, once `.env` was switched to
+  Gmail SMTP, sent real welcome, invitation and reminder emails to made-up addresses, which bounced.
+  - Playwright now builds and starts its own isolated stack (`apps/web/e2e/stack`): API, worker and
+    web app on ports 4100 and 5174, the `digitalsign_test` database, Redis database 2, file-only
+    email in `apps/web/.e2e/outbox`, and logs in `apps/web/.e2e/logs`.
+  - The stack refuses to start unless the database is a `*_test` one, email is not SMTP and Redis is
+    not database 0.
+  - `ENV_FILE=none` makes the API, the worker and the Prisma CLI skip `.env`, so no developer setting
+    can leak into a run.
+  - The environment check now refuses `MAIL_TRANSPORT=smtp` whenever `NODE_ENV=test`.
+  - The web app is served as a production build, so a source change cannot reload a page in the
+    middle of a test. That was the cause of occasional blank pages.
+  - CI no longer starts `pnpm dev` for the browser tests.
+
 ### Security
 
 - Logs now redact `rawToken`, `signingUrl` and `SIGNING_TOKEN_SECRET` wherever they appear as keys.

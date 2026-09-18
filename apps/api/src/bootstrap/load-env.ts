@@ -10,8 +10,13 @@ import { config } from 'dotenv';
  * The directory that held the file is exported as APP_ROOT_DIR, which is what
  * relative paths such as LOG_DIR are resolved against. Production deployments
  * normally have no .env file at all.
+ *
+ * ENV_FILE=none skips the file entirely. The browser-test stack sets it, so a
+ * developer's .env (their dev database, their Gmail password) can never leak
+ * into a test run.
  */
 export function loadEnvFile(startDir: string = process.cwd()): string | undefined {
+  if (process.env.ENV_FILE === 'none') return undefined;
   for (let dir = startDir; ; dir = path.dirname(dir)) {
     const candidate = path.join(dir, '.env');
     if (existsSync(candidate)) {

@@ -97,6 +97,14 @@ export const envSchema = z
         }
       }
     }
+    if (env.NODE_ENV === 'test' && env.MAIL_TRANSPORT === 'smtp') {
+      // Tests use made-up addresses; real email to them bounces back to the sender.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_TRANSPORT'],
+        message: 'tests never send real email: use memory or file',
+      });
+    }
     if (env.NODE_ENV === 'production' && env.MAIL_TRANSPORT !== 'smtp') {
       // A file outbox would put live signing links on disk.
       ctx.addIssue({

@@ -58,12 +58,23 @@ Generate the two secrets with `openssl rand -base64 48`. `JWT_ACCESS_SECRET` and
 | `pnpm typecheck` | TypeScript, strict, across all packages |
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm --filter @envelope/api test:e2e` | API end-to-end tests against the test database |
-| `pnpm --filter @envelope/web test:e2e` | Playwright browser tests |
+| `pnpm --filter @envelope/web test:e2e` | Playwright browser tests, on their own isolated stack |
 | `pnpm build` | Build every package |
 | `pnpm db:migrate` / `db:deploy` / `db:studio` | Prisma |
 
 Before every commit: `pnpm lint && pnpm typecheck && pnpm test`, plus the API e2e tests when the
 API changed.
+
+**Tests never touch your development setup.** Neither test suite reads `.env`, uses the
+`digitalsign` database, or sends real email:
+
+- The API e2e suite uses the `digitalsign_test` database, Redis database 1, the `digitalsign-test`
+  bucket and in-memory email.
+- The browser tests build and start their own API, worker and web app on ports 4100 and 5174
+  (`apps/web/e2e/stack`). They use the same test database, Redis database 2 and file-only email,
+  which is written to `apps/web/.e2e/outbox`. They run happily while `pnpm dev` is running.
+- `E2E_REUSE_STACK=1` reuses a stack that is already running, for quick repeat runs.
+- The API refuses `MAIL_TRANSPORT=smtp` whenever `NODE_ENV=test`.
 
 ## Logging
 

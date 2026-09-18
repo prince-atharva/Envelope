@@ -1,8 +1,20 @@
 import { defineConfig, devices } from '@playwright/test';
+import { API_HEALTH_URL, WEB_URL } from './e2e/stack/stack.mjs';
+
+/**
+ * Browser tests run against their own isolated stack (e2e/stack/stack.mjs):
+ * their own API, worker and web app on ports 4100 and 5174, the *_test
+ * database, Redis database 2, and file-only email. They never touch the dev
+ * server, the dev database or real email, even while `pnpm dev` is running.
+ *
+ * The stack is built and started fresh for every run, so it always tests the
+ * current code. E2E_REUSE_STACK=1 reuses one already running on those ports,
+ * for quick repeat runs while writing a test.
+ */
+const reuse = process.env.E2E_REUSE_STACK === '1';
 
 export default defineConfig({
   testDir: './e2e',
-  globalSetup: './e2e/global-setup.ts',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
@@ -11,7 +23,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: WEB_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     extraHTTPHeaders: {
@@ -32,17 +44,22 @@ export default defineConfig({
       use: { ...devices['iPhone 14'], defaultBrowserType: 'chromium' },
     },
   ],
-  // `pnpm dev` starts the API, the worker and the web app together.
-  //
-  // reuseExistingServer is on in CI too: the workflow starts the same stack and
-  // waits for the API's health endpoint first. Waiting on port 5173 alone is not
-  // enough, because Vite answers well before the API has compiled, and the first
-  // test signs up straight away.
-  webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    timeout: process.env.CI ? 180_000 : 60_000,
-    cwd: '../..',
-  },
+  webServer: [
+    {
+      command: 'node e2e/stack/start-api.mjs',
+      url: API_HEALTH_URL,
+      reuseExistingServer: reuse,
+      timeout: 180_000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+    {
+      command: 'node e2e/stack/start-web.mjs',
+      url: WEB_URL,
+      reuseExistingServer: reuse,
+      timeout: 180_000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+  ],
 });
