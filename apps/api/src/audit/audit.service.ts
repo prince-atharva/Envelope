@@ -47,7 +47,11 @@ export type AuditAction =
   | 'CONSENT_GIVEN'
   | 'SIGNATURE_ADOPTED'
   | 'RECIPIENT_SIGNED'
-  | 'RECIPIENT_DECLINED';
+  | 'RECIPIENT_DECLINED'
+  // Sealing (Phase 4)
+  | 'VERSION_CREATED'
+  | 'ENVELOPE_COMPLETED'
+  | 'COMPLETION_SENT';
 
 /** Recorded on events the system itself causes, with no client behind them. */
 export const SYSTEM_ACTOR = { ipAddress: 'system', userAgent: 'envelope-worker' } as const;

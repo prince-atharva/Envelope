@@ -1,9 +1,9 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-/** Reads an object straight from the test bucket, bypassing the API. */
-export async function readStoredObject(key: string): Promise<Buffer> {
+/** A client for the test buckets, with the same credentials as the API, bypassing it. */
+export function testS3Client(): S3Client {
   const env = process.env;
-  const client = new S3Client({
+  return new S3Client({
     region: env.S3_REGION ?? 'us-east-1',
     endpoint: env.S3_ENDPOINT,
     forcePathStyle: true,
@@ -11,9 +11,18 @@ export async function readStoredObject(key: string): Promise<Buffer> {
       accessKeyId: env.S3_ACCESS_KEY_ID ?? '',
       secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? '',
     },
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
+}
+
+/** Reads an object straight from the test bucket, bypassing the API. */
+export async function readStoredObject(key: string): Promise<Buffer> {
+  const client = testS3Client();
   try {
-    const result = await client.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+    const result = await client.send(
+      new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
+    );
     return Buffer.from((await result.Body?.transformToByteArray()) ?? []);
   } finally {
     client.destroy();

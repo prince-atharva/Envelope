@@ -279,6 +279,7 @@ model Recipient {
   notifiedAt     DateTime?       // the mail server last accepted an invitation or reminder
   lastRemindedAt DateTime?       // limits reminders to one a day
   viewedAt       DateTime?       // first time they opened the link
+  servedVersionNumber Int?       // As built (Phase 4): the version last served; RECIPIENT_SIGNED records it
 
   // ── Consent (ESIGN requirement — see doc 07) ──
   // The verbatim disclosure text is stored, not a reference to a
@@ -366,6 +367,7 @@ model DocumentVersion {
   createdByRecipient   Recipient? @relation(fields: [createdByRecipientId], references: [id], onDelete: SetNull)
 
   isFinal       Boolean    @default(false)  // certificate appended, Object Lock applied
+  storageVersionId String?                 // As built (Phase 4): final only; reads name it (ADR 0007)
   createdAt     DateTime   @default(now())
 
   @@unique([envelopeId, versionNumber])
@@ -466,6 +468,8 @@ These MUST be enforced, and each SHOULD have a test:
 | 13 | A `DECLINED` recipient has `declinedAt` and a reason | **As built (Phase 3):** `CHECK` `Recipient_declined_has_reason` |
 | 14 | Consent is never recorded without its verbatim text | **As built (Phase 3):** `CHECK` `Recipient_consent_has_text` |
 | 15 | An adopted image always records how it was made | **As built (Phase 3):** `CHECK` `Recipient_signature_has_method` and `Recipient_initials_has_method` |
+| 16 | A completed envelope carries its seal: `finalHash`, `completedFileUrl`, `completedAt` | **As built (Phase 4):** `CHECK` `Envelope_completed_has_seal` |
+| 17 | The final version, and only the final version, records its storage version id | **As built (Phase 4):** `CHECK` `DocumentVersion_final_has_storage_version` (ADR 0007) |
 
 ### Database privileges for the audit table
 

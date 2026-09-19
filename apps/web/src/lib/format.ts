@@ -46,6 +46,9 @@ const AUDIT_ACTIONS: Record<string, string> = {
   SIGNATURE_ADOPTED: 'Signature adopted',
   RECIPIENT_SIGNED: 'Signed',
   RECIPIENT_DECLINED: 'Declined',
+  VERSION_CREATED: 'Signature stamped into a new version',
+  ENVELOPE_COMPLETED: 'Completed and sealed',
+  COMPLETION_SENT: 'Finished copy sent',
 };
 
 /** Audit actions as people read them. */

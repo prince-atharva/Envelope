@@ -19,6 +19,22 @@ Phase 4 (Sealing Engine) started. See
     boxes mapped into the page's own space, not just their width and height swapped.
   - 0006: sealing on workers, one envelope at a time, idempotent on the version number.
   - 0007: Object Lock on the final version only, in its own bucket.
+- **Locked storage for sealed documents** (migration `sealing_engine`):
+  - A separate bucket, `<S3_BUCKET>-sealed`, created with Object Lock by `minio-init`.
+  - `StorageService.putSealed()` writes with a retention date: `COMPLIANCE` mode in production
+    (enforced at start-up) and `GOVERNANCE` elsewhere, 7 years by default. It returns the object's
+    version id, which every read names, so a later write or delete marker on the same key cannot
+    change what is served.
+  - New settings `S3_SEALED_BUCKET`, `SEALED_RETENTION_MODE` and `SEALED_RETENTION_DAYS`, all
+    optional.
+  - The health check covers both buckets.
+  - `Recipient.servedVersionNumber` and `DocumentVersion.storageVersionId` are new columns.
+  - Two new CHECKs: a completed envelope carries its seal, and only the final version has a storage
+    version id.
+  - Audit actions `VERSION_CREATED`, `ENVELOPE_COMPLETED` and `COMPLETION_SENT`, with their
+    wording in the web app.
+  - An e2e test shows, against MinIO, that a locked version cannot be deleted and that a forged
+    newer version does not change what is read.
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.

@@ -67,6 +67,20 @@ export const envSchema = z
     S3_SECRET_ACCESS_KEY: z.string().min(1),
     S3_BUCKET: z.string().min(3),
     S3_FORCE_PATH_STYLE: flag.default(false),
+    /**
+     * Where sealed, final documents go (ADR 0007). The bucket must be created
+     * with Object Lock on. Defaults to "<S3_BUCKET>-sealed".
+     */
+    S3_SEALED_BUCKET: z.string().min(3).optional(),
+    /**
+     * COMPLIANCE: nobody can delete a sealed file before its retention date, not
+     * even the storage account's root user. GOVERNANCE allows it with a special
+     * permission, so dev and test files can be cleaned up. Defaults to
+     * COMPLIANCE in production and GOVERNANCE elsewhere.
+     */
+    SEALED_RETENTION_MODE: z.enum(['GOVERNANCE', 'COMPLIANCE']).optional(),
+    /** How long a sealed file is locked. Seven years by default (docs/01, docs/07). */
+    SEALED_RETENTION_DAYS: z.coerce.number().int().min(1).max(36_500).default(2557),
 
     /**
      * smtp sends for real. memory keeps messages in the process (API e2e tests).
@@ -130,7 +144,28 @@ export const envSchema = z
         message: 'must be different from JWT_ACCESS_SECRET and REFRESH_TOKEN_SECRET',
       });
     }
-  });
+    if (env.NODE_ENV === 'production' && env.SEALED_RETENTION_MODE === 'GOVERNANCE') {
+      // A sealed contract that an administrator can delete is not sealed (ADR 0007).
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SEALED_RETENTION_MODE'],
+        message: 'must be COMPLIANCE in production',
+      });
+    }
+    if (env.S3_SEALED_BUCKET !== undefined && env.S3_SEALED_BUCKET === env.S3_BUCKET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_SEALED_BUCKET'],
+        message: 'must be a separate bucket from S3_BUCKET, created with Object Lock on',
+      });
+    }
+  })
+  .transform((env) => ({
+    ...env,
+    S3_SEALED_BUCKET: env.S3_SEALED_BUCKET ?? `${env.S3_BUCKET}-sealed`,
+    SEALED_RETENTION_MODE:
+      env.SEALED_RETENTION_MODE ?? (env.NODE_ENV === 'production' ? 'COMPLIANCE' : 'GOVERNANCE'),
+  }));
 
 export type Env = z.infer<typeof envSchema>;
 

@@ -76,6 +76,8 @@ services:
       retries: 10
 
   # One-off job: creates the document buckets, then exits. Safe to re-run.
+  # The *-sealed buckets hold finished documents under Object Lock (ADR 0007),
+  # which can only be switched on when a bucket is created.
   minio-init:
     image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
     container_name: digitalsign_minio_init
@@ -87,7 +89,10 @@ services:
       mc alias set local http://minio:9000 digitalsign digitalsign_dev_password &&
       mc mb --ignore-existing local/digitalsign-documents &&
       mc mb --ignore-existing local/digitalsign-test &&
-      mc anonymous set none local/digitalsign-documents
+      mc mb --ignore-existing --with-lock local/digitalsign-documents-sealed &&
+      mc mb --ignore-existing --with-lock local/digitalsign-test-sealed &&
+      mc anonymous set none local/digitalsign-documents &&
+      mc anonymous set none local/digitalsign-documents-sealed
       "
 
 volumes:

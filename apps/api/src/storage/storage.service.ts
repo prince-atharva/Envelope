@@ -12,6 +12,8 @@ export interface StoredObject {
  */
 export abstract class StorageService {
   abstract readonly bucket: string;
+  /** Holds sealed, final documents only, under Object Lock (ADR 0007). */
+  abstract readonly sealedBucket: string;
   abstract put(
     key: string,
     body: Buffer,
@@ -19,7 +21,23 @@ export abstract class StorageService {
   ): Promise<void>;
   abstract get(key: string): Promise<StoredObject>;
   abstract delete(key: string): Promise<void>;
-  /** Cheap reachability check for /health. */
+  /**
+   * Writes a sealed document to the locked bucket with a retention date. That
+   * version of the object cannot be changed or deleted before the date.
+   *
+   * The bucket is versioned (Object Lock requires it), so keep the returned
+   * `versionId` and read with it: a later write to the same key would add a
+   * newer version, and a plain delete a delete marker, without touching the
+   * locked one.
+   */
+  abstract putSealed(
+    key: string,
+    body: Buffer,
+    options: { contentType: string; metadata?: Record<string, string> },
+  ): Promise<{ versionId: string; retainUntil: Date }>;
+  /** Reads exactly the locked version written by putSealed. */
+  abstract getSealed(key: string, versionId: string): Promise<StoredObject>;
+  /** Cheap reachability check for /health: both buckets. */
   abstract ping(): Promise<void>;
 }
 
@@ -30,6 +48,24 @@ export function envelopeDocumentKey(
   uniqueId: string,
 ): string {
   return `tenants/${tenantId}/envelopes/${envelopeId}/v${versionNumber}-${uniqueId}.pdf`;
+}
+
+/**
+ * Where version n of a signed document is kept while signing is under way
+ * (ADR 0003). The key is fixed per version, so a retried seal job overwrites
+ * its own unfinished attempt rather than leaving a second file (ADR 0006).
+ */
+export function signedVersionKey(
+  tenantId: string,
+  envelopeId: string,
+  versionNumber: number,
+): string {
+  return `tenants/${tenantId}/envelopes/${envelopeId}/versions/v${versionNumber}.pdf`;
+}
+
+/** Where the sealed, final document is kept, in the locked bucket (ADR 0007). */
+export function sealedDocumentKey(tenantId: string, envelopeId: string): string {
+  return `tenants/${tenantId}/envelopes/${envelopeId}/sealed.pdf`;
 }
 
 /** Where an adopted signature or initials image is kept. Retained with the envelope (docs/05). */

@@ -75,7 +75,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | # | Step | Status |
 |---|---|---|
 | 1 | This plan and the sealing ADRs | ✅ Done |
-| 2 | Database, settings and the locked storage bucket | ⬜ |
+| 2 | Database, settings and the locked storage bucket | ✅ Done |
 | 3 | Stamping signatures and answers into the page | ⬜ |
 | 4 | One version per signature, in order | ⬜ |
 | 5 | The certificate page, sealing and locking | ⬜ |
@@ -137,13 +137,25 @@ The ADR index reserved these numbers for exactly these decisions:
 
 | Change | Reason |
 |---|---|
-| `Recipient.servedVersionNumber` | The version last served to this signer; copied into `RECIPIENT_SIGNED` |
+| `Recipient.servedVersionNumber` | The version last served to this signer, copied into `RECIPIENT_SIGNED` |
+| `DocumentVersion.storageVersionId`, required on the final version only (CHECK) | The locked bucket is versioned. Reads name this id, so a later write or delete marker on the same key cannot change what is served. |
+| CHECK `Envelope_completed_has_seal` | A `COMPLETED` envelope always has `finalHash`, `completedFileUrl` and `completedAt` |
 | Audit actions `VERSION_CREATED`, `ENVELOPE_COMPLETED`, `COMPLETION_SENT` | The sealing chain in the audit trail |
-| A download-link table for the large-file fallback, holding only the HMAC | The same handling as signing links (ADR 0009) |
-| `S3_SEALED_BUCKET`, `SEALED_RETENTION_MODE`, `SEALED_RETENTION_DAYS` | The locked bucket |
-| `minio-init` creates `digitalsign-sealed` and `digitalsign-test-sealed` with `--with-lock` | Object Lock can only be switched on when a bucket is created |
+| `S3_SEALED_BUCKET` (default `<S3_BUCKET>-sealed`), `SEALED_RETENTION_MODE`, `SEALED_RETENTION_DAYS` (default 2557) | The locked bucket. None is required, so an existing `.env` keeps working. Production refuses `GOVERNANCE`. |
+| `minio-init` creates `digitalsign-documents-sealed` and `digitalsign-test-sealed` with `--with-lock` | Object Lock can only be switched on when a bucket is created |
 
-`StorageService` gains `putLocked(key, body)`, which writes to the sealed bucket with a retention date.
+`StorageService` gains `putSealed()`, which writes with a retention date and returns the version id,
+and `getSealed(key, versionId)`. The health check now covers both buckets. The tests use a one-day
+retention.
+
+`apps/api/test/sealed-storage.e2e.test.ts` shows, against MinIO, that:
+- the locked version cannot be deleted;
+- a forged newer version and a delete marker do not change what is read;
+- the retention mode and date are as configured.
+
+The download-link table for the large-file fallback arrives with step 6, where it is used. Its HMAC
+is taken with `SIGNING_TOKEN_SECRET` under a separate label (domain separation), so no new secret is
+required.
 
 ## Step 3: Stamping (`PdfSealingService.burnFields`)
 

@@ -48,6 +48,23 @@ describe('parseEnv', () => {
     ]);
   });
 
+  it('locks sealed documents for seven years, in a bucket of their own', () => {
+    const env = parseEnv(valid);
+    expect(env.S3_SEALED_BUCKET).toBe('bucket-sealed');
+    expect(env.SEALED_RETENTION_DAYS).toBe(2557);
+    expect(env.SEALED_RETENTION_MODE).toBe('GOVERNANCE');
+    expect(parseEnv({ ...valid, NODE_ENV: 'production' }).SEALED_RETENTION_MODE).toBe('COMPLIANCE');
+    expect(problemsOf({ ...valid, S3_SEALED_BUCKET: 'bucket' })).toEqual([
+      'S3_SEALED_BUCKET: must be a separate bucket from S3_BUCKET, created with Object Lock on',
+    ]);
+  });
+
+  it('refuses a sealed document that an administrator could delete in production', () => {
+    expect(
+      problemsOf({ ...valid, NODE_ENV: 'production', SEALED_RETENTION_MODE: 'GOVERNANCE' }),
+    ).toEqual(['SEALED_RETENTION_MODE: must be COMPLIANCE in production']);
+  });
+
   it('refuses real email when running tests', () => {
     expect(problemsOf({ ...valid, NODE_ENV: 'test' })).toEqual([
       'MAIL_TRANSPORT: tests never send real email: use memory or file',

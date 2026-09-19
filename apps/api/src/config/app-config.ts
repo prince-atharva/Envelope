@@ -29,7 +29,12 @@ export function describeConfig(config: AppConfig): Record<string, unknown> {
     logFiles: config.LOG_FILES_ENABLED ? config.LOG_DIR : false,
     database: `${database.username}@${database.host}${database.pathname}`,
     redis: redis.host,
-    storage: { endpoint: config.S3_ENDPOINT ?? 'aws-default', bucket: config.S3_BUCKET },
+    storage: {
+      endpoint: config.S3_ENDPOINT ?? 'aws-default',
+      bucket: config.S3_BUCKET,
+      sealedBucket: config.S3_SEALED_BUCKET,
+      sealedRetention: `${config.SEALED_RETENTION_MODE}, ${config.SEALED_RETENTION_DAYS} days`,
+    },
     mail:
       config.MAIL_TRANSPORT === 'smtp'
         ? { transport: 'smtp', host: config.SMTP_HOST, port: config.SMTP_PORT }

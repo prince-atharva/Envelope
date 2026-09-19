@@ -228,6 +228,9 @@ model Recipient {
   lastRemindedAt DateTime?
   /// First time they opened the signing link.
   viewedAt       DateTime?
+  /// The document version last served to them. RECIPIENT_SIGNED records it,
+  /// with its hash, as the version they attested to (ADR 0003).
+  servedVersionNumber Int?
 
   // Consent (ESIGN, docs/07). The verbatim disclosure text is stored, not a
   // reference to a template that may later change.
@@ -319,6 +322,12 @@ model DocumentVersion {
   createdByRecipient   Recipient? @relation(fields: [createdByRecipientId], references: [id], onDelete: SetNull)
 
   isFinal   Boolean  @default(false) // certificate appended, Object Lock applied
+
+  /// The storage version id of the sealed file (final version only). The locked
+  /// bucket is versioned, so a later write or a delete to the same key would add
+  /// a newer version or a delete marker; reads name this id, so what is served
+  /// is always exactly the file that was locked (ADR 0007).
+  storageVersionId String?
   createdAt DateTime @default(now())
 
   @@unique([envelopeId, versionNumber])

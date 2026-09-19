@@ -28,6 +28,8 @@ export const TEST_ENV: Record<string, string> = {
   S3_SECRET_ACCESS_KEY: env.TEST_S3_SECRET_ACCESS_KEY ?? 'digitalsign_dev_password',
   S3_BUCKET: env.TEST_S3_BUCKET ?? 'digitalsign-test',
   S3_FORCE_PATH_STYLE: 'true',
+  // digitalsign-test-sealed, created with Object Lock. One day, so test files do not stay locked.
+  SEALED_RETENTION_DAYS: '1',
 
   MAIL_TRANSPORT: 'memory',
   EMAIL_RETRY_BASE_DELAY_MS: '20',

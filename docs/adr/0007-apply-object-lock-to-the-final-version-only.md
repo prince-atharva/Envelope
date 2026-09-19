@@ -26,7 +26,12 @@ versions must stay writable, because a retry may overwrite them before their row
 
   The mode comes from `SEALED_RETENTION_MODE`, and the service refuses to start in production with
   anything but `COMPLIANCE`.
-- The sealed file's key is kept in `DocumentVersion.fileUrl` and `Envelope.completedFileUrl`.
+- **Reads name the version.** Object Lock requires a versioned bucket. There, a later write to the
+  same key does not fail: it adds a newer version on top. A plain delete adds a delete marker. Both
+  leave the locked version untouched, but a read by key alone would then return something else. So
+  the storage version id returned by the write is kept in `DocumentVersion.storageVersionId`, and
+  every read of a sealed file names it. The key is kept in `DocumentVersion.fileUrl` and
+  `Envelope.completedFileUrl`.
 
 ## Consequences
 
