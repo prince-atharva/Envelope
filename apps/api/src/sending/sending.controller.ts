@@ -13,6 +13,7 @@ import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempotency-header';
+import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { SendingService } from './sending.service';
@@ -28,6 +29,7 @@ export class SendingController {
 
   @Post(':id/send')
   @HttpCode(200)
+  @RateLimit(LIMITS.createAndSend)
   @ApiOperation({ summary: 'Send a draft for signing' })
   @ApiHeader(IDEMPOTENCY_KEY_HEADER)
   @ApiBody({ schema: openApiSchema(sendEnvelopeSchema), required: false })
@@ -52,6 +54,7 @@ export class SendingController {
 
   @Post(':id/remind')
   @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
   @ApiOperation({
     summary: 'Remind people whose turn it is (one reminder per person per 24 hours)',
   })

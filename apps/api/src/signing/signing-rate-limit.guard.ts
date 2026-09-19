@@ -1,9 +1,9 @@
 import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
 
 import { InjectThrottlerStorage, type ThrottlerStorage } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import { AppException } from '../common/errors/app-exception';
+import { countRequest, rateLimited } from '../common/throttling/rate-limit';
 import { tokenRef } from './signing-token';
 import { TokenGuardianService } from './token-guardian.service';
 
@@ -34,22 +34,18 @@ export class SigningRateLimitGuard implements CanActivate {
     const limit = read ? SIGNING_READS_PER_MINUTE : SIGNING_WRITES_PER_MINUTE;
     const bucket = read ? 'signing-reads' : 'signing-writes';
 
-    const record = await this.storage.increment(
-      `${bucket}:${hash.slice(0, 32)}`,
-      WINDOW_MS,
-      limit,
-      WINDOW_MS,
+    const res = context.switchToHttp().getResponse<Response>();
+    const count = await countRequest(this.storage, res, hash.slice(0, 32), {
       bucket,
-    );
-    if (record.totalHits > limit) {
-      const retryAfter = Math.max(1, Math.ceil(record.timeToExpire / 1000));
+      limit,
+      windowMs: WINDOW_MS,
+    });
+    if (count.limited) {
       this.logger.warn(
-        { tokenRef: tokenRef(hash), bucket, limit, hits: record.totalHits, retryAfter },
+        { tokenRef: tokenRef(hash), bucket, limit, hits: count.hits, retryAfter: count.retryAfter },
         'Signing link rate limit exceeded',
       );
-      throw new AppException('RATE_LIMITED', 'Too many requests. Please wait a moment.', {
-        headers: { 'Retry-After': String(retryAfter) },
-      });
+      throw rateLimited(count.retryAfter);
     }
     return true;
   }

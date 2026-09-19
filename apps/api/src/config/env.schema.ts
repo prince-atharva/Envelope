@@ -126,6 +126,17 @@ export const envSchema = z
     ALERT_EMAIL: z.email().optional(),
     /** The same alert is emailed at most this often; repeats in between are only logged. */
     ALERT_EMAIL_MIN_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
+    /**
+     * How long a rate-limit count may wait for Redis before this process counts
+     * in its own memory instead (docs/16 step 13).
+     */
+    RATE_LIMIT_REDIS_TIMEOUT_MS: z.coerce.number().int().min(10).max(5000).default(250),
+    /**
+     * Prefix of the rate-limit keys, `{prefix}:rl:…`. Defaults to QUEUE_PREFIX.
+     * The API e2e suite gives each test file its own, so counts never carry
+     * from one file into the next.
+     */
+    RATE_LIMIT_KEY_PREFIX: z.string().trim().min(1).optional(),
     /** First retry delay for a failed email; each later retry waits twice as long. */
     EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),

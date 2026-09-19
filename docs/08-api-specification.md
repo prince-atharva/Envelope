@@ -664,6 +664,10 @@ RFC 7807:
 | Signing session reads | 60/min per token |
 | Consent / submit | 10/min per token |
 | Verify | 30/min per IP |
+| Completion download | 30/min per IP |
+| Cancel, extend, remind, reminder settings | 30/min per tenant |
+| Sign-in | 10/min per IP, and 5/min per account |
+| Everything else | 300/min per IP |
 | Reminders | 1 per recipient per 24h |
 
 Signing-session limits are per token rather than per IP, since legitimate signers may share an IP behind corporate NAT.
@@ -672,6 +676,12 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 > anything else a minute. They are counted against a hash of the token, never the token, and they
 > apply even to a token that is unknown or was replaced, so guessing is limited too. Counters are
 > held in memory in each API process; Phase 5 moves them to Redis.
+
+> **As built (Phase 5).** Every count is kept in Redis and shared by all API servers, under
+> `{prefix}:rl:{bucket}:{hash}`: the tenant id, email, token or address is hashed, never stored.
+> If Redis is unavailable, each server counts in its own memory and one alert is raised. Every
+> limited response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
+> (seconds), and a refusal is `429 RATE_LIMITED` with `Retry-After` in seconds.
 
 ## Deferred
 

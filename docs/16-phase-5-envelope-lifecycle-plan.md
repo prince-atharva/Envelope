@@ -84,7 +84,7 @@ along the way:
 | 10 | Automatic reminders and the "expires soon" email | ✅ Done |
 | 11 | Alert emails | ✅ Done |
 | 12 | The nightly audit-chain check | ✅ Done |
-| 13 | Request limits in Redis, on every route | ⬜ |
+| 13 | Request limits in Redis, on every route | ✅ Done |
 | 14 | Dashboard views | ⬜ |
 | 15 | Tests: the finish line | ⬜ |
 | 16 | Documentation and release `v0.5.0` | ⬜ |
@@ -371,6 +371,13 @@ and upload guards already use the injected storage, so they move with it.
 
 Every limited response carries `X-RateLimit-Limit`, `-Remaining` and `-Reset`, and a refusal
 `Retry-After`.
+
+**As built:** `common/throttling/redis-throttler.storage.ts` backs the global throttler and every
+guard that counts. Per-workspace and per-account limits use `@RateLimit(LIMITS.…)`
+(`keyed-rate-limit.guard.ts`); signing and upload share the same `countRequest` helper, which also
+fixed their `Retry-After`. The key prefix is `RATE_LIMIT_KEY_PREFIX`, defaulting to
+`QUEUE_PREFIX`; the API e2e suite sets one per test file. The alert about an outage is not awaited,
+because its own Redis gate may be waiting on the same outage.
 
 ## Step 14: Dashboard Views
 

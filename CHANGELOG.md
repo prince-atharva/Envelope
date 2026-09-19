@@ -91,6 +91,14 @@ Phase 5 (Envelope Lifecycle) in progress. See
   that a completed, cancelled, expired or declined envelope has the event its status requires. All
   breaks of a run go into one alert (`chain-check-{date}`). `pnpm --filter @envelope/api audit:check`
   runs it on demand and exits with 1 on a break.
+- Request limits in Redis (docs/16 step 13). Every count is shared by all API servers, keyed on a
+  hash of the tenant, email, link or address. New limits: create and send 100 a minute per
+  workspace; cancel, extend, remind and reminder settings 30 a minute per workspace; sign-in 5 a
+  minute per account, as well as 10 per address. Limited responses carry `X-RateLimit-Limit`,
+  `-Remaining` and `-Reset`. If Redis is down, each server counts in memory and one alert is
+  raised.
+- Fixed: `Retry-After` on the signing and upload limits was always 1 second; it divided a time
+  already in seconds by 1000.
 - Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule
   slot, so a restarted worker's first sweep could come many intervals late.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing

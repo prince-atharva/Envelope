@@ -33,6 +33,7 @@ import { z } from 'zod';
 import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
+import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { EnvelopesService } from './envelopes.service';
@@ -59,6 +60,7 @@ export class EnvelopesController {
 
   @Post()
   @UseGuards(UploadSizeGuard, TenantUploadRateLimitGuard)
+  @RateLimit(LIMITS.createAndSend)
   @UseInterceptors(
     UploadErrorsInterceptor,
     FileInterceptor('file', {

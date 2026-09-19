@@ -8,10 +8,11 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import { InjectThrottlerStorage, type ThrottlerStorage } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { catchError, type Observable, throwError } from 'rxjs';
 import { AppException } from '../common/errors/app-exception';
+import { countRequest, rateLimited } from '../common/throttling/rate-limit';
 
 /** Room for the multipart boundaries and the title field around the PDF itself. */
 const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
@@ -56,22 +57,18 @@ export class TenantUploadRateLimitGuard implements CanActivate {
     const tenantId = req.user?.tenantId;
     if (!tenantId) return true; // JwtAuthGuard rejects the request anyway.
 
-    const record = await this.storage.increment(
-      `tenant-uploads:${tenantId}`,
-      WINDOW_MS,
-      UPLOADS_PER_MINUTE,
-      WINDOW_MS,
-      'tenant-uploads',
-    );
-    if (record.totalHits > UPLOADS_PER_MINUTE) {
-      const retryAfter = Math.max(1, Math.ceil(record.timeToExpire / 1000));
+    const res = context.switchToHttp().getResponse<Response>();
+    const count = await countRequest(this.storage, res, tenantId, {
+      bucket: 'tenant-uploads',
+      limit: UPLOADS_PER_MINUTE,
+      windowMs: WINDOW_MS,
+    });
+    if (count.limited) {
       this.logger.warn(
-        { tenantId, limit: UPLOADS_PER_MINUTE, hits: record.totalHits, retryAfter },
+        { tenantId, limit: UPLOADS_PER_MINUTE, hits: count.hits, retryAfter: count.retryAfter },
         'Tenant upload rate limit exceeded',
       );
-      throw new AppException('RATE_LIMITED', 'Too many uploads. Please wait a moment.', {
-        headers: { 'Retry-After': String(retryAfter) },
-      });
+      throw rateLimited(count.retryAfter, 'Too many uploads. Please wait a moment.');
     }
     return true;
   }

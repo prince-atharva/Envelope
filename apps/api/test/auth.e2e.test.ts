@@ -136,14 +136,13 @@ describe('auth (e2e)', () => {
       expect(logs.text()).not.toContain('definitely not it');
     });
 
-    it('rate-limits repeated attempts', async () => {
-      const email = uniqueEmail('limited');
+    it('rate-limits repeated attempts from one address, across accounts', async () => {
       const statuses: number[] = [];
       for (let attempt = 0; attempt < 11; attempt += 1) {
         const res = await request(t.http)
           .post('/api/v1/auth/login')
           .set('X-Forwarded-For', '203.0.113.7')
-          .send({ email, password: 'wrong password' });
+          .send({ email: uniqueEmail('limited'), password: 'wrong password' });
         statuses.push(res.status);
       }
       // Login allows 10 attempts per minute per client IP.
@@ -153,6 +152,24 @@ describe('auth (e2e)', () => {
         ip: '203.0.113.7',
         limit: 10,
       });
+    });
+
+    it('rate-limits repeated attempts against one account, from anywhere', async () => {
+      const email = uniqueEmail('targeted');
+      const statuses: number[] = [];
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const res = await request(t.http)
+          .post('/api/v1/auth/login')
+          .set('X-Forwarded-For', nextClientIp())
+          .send({ email, password: 'wrong password' });
+        statuses.push(res.status);
+      }
+      // 5 a minute per account (docs/16 step 13), whatever the address.
+      expect(statuses).toEqual([...Array(5).fill(401), 429]);
+      const refused = logs.find('Rate limit exceeded', 'warn').at(-1);
+      expect(refused?.fields).toMatchObject({ bucket: 'login-account', limit: 5 });
+      // The account's email is never logged with it.
+      expect(JSON.stringify(refused)).not.toContain(email);
     });
   });
 

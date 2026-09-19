@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
 import { AlertModule } from './alert/alert.module';
@@ -9,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
 import { LoggingThrottlerGuard } from './common/throttling/logging-throttler.guard';
+import { ThrottlingModule } from './common/throttling/throttling.module';
 import { CompletionModule } from './completion/completion.module';
 import { ConfigModule } from './config/config.module';
 import { DraftsModule } from './drafts/drafts.module';
@@ -42,8 +42,8 @@ import { VerifyModule } from './verify/verify.module';
         },
       },
     }),
-    // Default limit for every route; sensitive routes set stricter ones with @Throttle.
-    ThrottlerModule.forRoot({ throttlers: [{ name: 'default', ttl: 60_000, limit: 300 }] }),
+    // Every limit is counted in Redis, across all API servers (docs/16 step 13).
+    ThrottlingModule,
     PrismaModule,
     RedisModule,
     StorageModule,

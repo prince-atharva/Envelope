@@ -20,6 +20,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import { API_PREFIX } from '../bootstrap/configure-app';
 import { AppException } from '../common/errors/app-exception';
+import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { AppConfig } from '../config/app-config';
 import { Client, CurrentUser, Public } from './auth.decorators';
@@ -82,7 +83,9 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(200)
+  // 10 a minute from one address, and 5 a minute against one account from anywhere.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RateLimit(LIMITS.loginPerAccount)
   @ApiOperation({ summary: 'Sign in with email and password' })
   @ApiBody({ schema: openApiSchema(loginSchema) })
   @ApiOkResponse({ description: 'Signed in; refresh cookie set' })

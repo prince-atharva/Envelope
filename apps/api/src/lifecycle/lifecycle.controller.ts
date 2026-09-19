@@ -16,6 +16,7 @@ import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempotency-header';
+import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { CancelService } from './cancel.service';
@@ -34,6 +35,7 @@ export class LifecycleController {
   ) {}
 
   @Patch(':id/reminders')
+  @RateLimit(LIMITS.lifecycle)
   @ApiOperation({ summary: 'Turn automatic reminders on or off, or change how often' })
   @ApiBody({ schema: openApiSchema(reminderSettingsSchema) })
   updateReminders(
@@ -47,6 +49,7 @@ export class LifecycleController {
 
   @Post(':id/void')
   @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
   @ApiOperation({
     summary: 'Cancel a sent envelope (a reason is required), or discard a draft',
   })
@@ -62,6 +65,7 @@ export class LifecycleController {
 
   @Post(':id/extend')
   @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
   @ApiOperation({
     summary:
       'Give more time: a new deadline, and fresh links for whoever is due (reopens an expired envelope)',
