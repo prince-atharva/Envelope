@@ -76,7 +76,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 |---|---|---|
 | 1 | This plan and the sealing ADRs | ✅ Done |
 | 2 | Database, settings and the locked storage bucket | ✅ Done |
-| 3 | Stamping signatures and answers into the page | ⬜ |
+| 3 | Stamping signatures and answers into the page | ✅ Done |
 | 4 | One version per signature, in order | ⬜ |
 | 5 | The certificate page, sealing and locking | ⬜ |
 | 6 | Completion emails with the finished copy | ⬜ |
@@ -171,6 +171,38 @@ required.
   - mixed page sizes, using `apps/web/e2e/fixtures/mixed-pages.pdf`;
   - a CropBox offset from the MediaBox;
   - wide images in tall boxes, and the reverse.
+
+### Step 3 as built
+
+| File | What it does |
+|---|---|
+| `packages/shared/src/coordinates.ts` | `normaliseRotation`, `visibleBox`, `displayedPageSize`, `displayedPointToPdf` and `pdfPointToDisplayed`: Correction 4, with the rest of the coordinate arithmetic |
+| `apps/api/src/sealing/pdf-sealing.service.ts` | `burnFields(source, fields, images)`. Every item is drawn at `displayedPointToPdf(...)`, turned by the page's `/Rotate`. Images and the font are embedded once per document. |
+| `apps/api/src/sealing/fonts.ts`, `apps/api/assets/fonts/` | Noto Sans Regular and Bold, with `OFL.txt` |
+| `apps/api/test/helpers/pdf-placements.ts` | Reads images, text and lines back out of a page's content stream, with the matrix or points that place them |
+
+Decisions made while building it:
+
+| Question | Decision | Why |
+|---|---|---|
+| Tick boxes | Two drawn strokes, not a letter "X" | Each end point is mapped on its own, so a rotated page needs nothing more, and no glyph is needed |
+| Text too wide for its box | Shrunk down to 6 pt, then drawn in full, overflowing, with a warning in the log | The page must show what the signer entered, never a truncated version |
+| Characters the font lacks | Drawn as `?`; the log records how many, never the text | A stray character must not fail the whole seal |
+| Metadata | Loaded with `updateMetadata: false` | No new producer or date, so the same inputs give the same bytes, and a retried seal writes exactly the same file |
+| Forms | Flattened when the document has AcroForm fields; a failure to flatten is logged, and stamping goes on | The stamp does not depend on it |
+
+The tests read every placement back from the saved file and check it to within 0.01 pt:
+- 0°, 90°, 180° and 270° pages, with one case worked out by hand;
+- the mixed-pages fixture;
+- an offset CropBox;
+- text reading left to right on turned pages;
+- ticks inside their box;
+- Latin, Greek and Cyrillic names;
+- a flattened form;
+- identical output on a second run.
+
+A rendered 90° page was also checked by eye. The fonts sit outside `src`, so a production image must
+copy `apps/api/assets` (Phase 5).
 
 ## Step 4: One Version per Signature
 

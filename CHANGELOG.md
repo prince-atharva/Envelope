@@ -35,6 +35,23 @@ Phase 4 (Sealing Engine) started. See
     wording in the web app.
   - An e2e test shows, against MinIO, that a locked version cannot be deleted and that a forged
     newer version does not change what is read.
+- **Stamping signatures and answers into the PDF** (`apps/api/src/sealing/`,
+  `PdfSealingService.burnFields`). It writes into the page content, never as annotations (ADR 0005).
+  - **Signatures and initials:** the transparent margin is trimmed with `sharp`, and the image is
+    kept in proportion, centred in its box.
+  - **Text and dates:** in embedded Noto Sans, so Latin, Greek and Cyrillic names all work. Text is
+    shrunk to fit, down to 6 pt. Characters the font lacks are drawn as `?`, and only their count is
+    logged.
+  - **Tick boxes:** a drawn tick.
+  - **Forms:** any AcroForm is flattened first.
+  - **Rotated and cropped pages are placed correctly.** `@envelope/shared` gains
+    `displayedPointToPdf`, which maps a point on the page as displayed into the page's own space for
+    `/Rotate` 0, 90, 180 and 270 and any CropBox. Every stamp is drawn at that point, turned with
+    the page. Doc 06's reference code only swapped width and height, which placed boxes correctly
+    at one corner only (Correction 4).
+  - The same inputs give byte-identical output, so a retried seal writes the same file.
+  - Tests read every placement back from the saved file and check it to within 0.01 pt, on turned,
+    mixed-size and cropped pages.
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.

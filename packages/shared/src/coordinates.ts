@@ -241,6 +241,110 @@ export function fitPreservingAspect(box: PdfRect, imgWidth: number, imgHeight: n
   };
 }
 
+// ─── Rotated and cropped pages (server, sealing) ───
+
+/** A point in PDF points, Y growing upward. */
+export interface PdfPoint {
+  x: number;
+  y: number;
+}
+
+export type PageRotation = 0 | 90 | 180 | 270;
+
+/**
+ * How a page is shown, which is what every stored ratio is relative to (ADR 0002).
+ *
+ * `visibleBox` is the page's CropBox clipped to its MediaBox, in the page's own
+ * coordinates (PDF user space). `rotation` is its /Rotate. pdf.js applies both
+ * when it renders, so the builder's page is this box, turned by this angle.
+ */
+export interface PageGeometry {
+  visibleBox: PdfRect;
+  rotation: PageRotation;
+}
+
+/**
+ * /Rotate as pdf.js reads it: a multiple of 90 brought into 0..270, anything
+ * else treated as 0. The sealing side must agree with the rendering side exactly.
+ */
+export function normaliseRotation(angle: number): PageRotation {
+  if (!Number.isFinite(angle) || angle % 90 !== 0) return 0;
+  return (((angle % 360) + 360) % 360) as PageRotation;
+}
+
+/** A rectangle with a positive width and height, whichever corners it was given by. */
+function normaliseRect(r: PdfRect): PdfRect {
+  const x = Math.min(r.x, r.x + r.width);
+  const y = Math.min(r.y, r.y + r.height);
+  return { x, y, width: Math.abs(r.width), height: Math.abs(r.height) };
+}
+
+/**
+ * The part of the page a viewer shows: the CropBox clipped to the MediaBox, or
+ * the whole MediaBox when they do not overlap (as pdf.js does).
+ */
+export function visibleBox(mediaBox: PdfRect, cropBox: PdfRect): PdfRect {
+  const media = normaliseRect(mediaBox);
+  const crop = normaliseRect(cropBox);
+  const x = Math.max(media.x, crop.x);
+  const y = Math.max(media.y, crop.y);
+  const right = Math.min(media.x + media.width, crop.x + crop.width);
+  const top = Math.min(media.y + media.height, crop.y + crop.height);
+  if (right <= x || top <= y) return media;
+  return { x, y, width: right - x, height: top - y };
+}
+
+/** The page's size as displayed: width and height trade places at 90 and 270 degrees. */
+export function displayedPageSize(page: PageGeometry): PageSize {
+  const { width, height } = page.visibleBox;
+  return page.rotation === 90 || page.rotation === 270
+    ? { widthPt: height, heightPt: width }
+    : { widthPt: width, heightPt: height };
+}
+
+/**
+ * A point on the page as displayed (points, origin at its bottom-left corner,
+ * the space `ratiosToPdfRect` returns) -> the same point in the page's own
+ * coordinates, where pdf-lib draws.
+ *
+ * Swapping the width and height of a rotated page is not enough (docs/06,
+ * Correction 4): that draws in the page's unturned space, which matches the
+ * displayed page only at one corner. Anything drawn at the returned point must
+ * also be turned by `rotation` degrees (pdf-lib's `rotate`, anticlockwise), so
+ * that it reads upright once the viewer turns the page clockwise.
+ */
+export function displayedPointToPdf(point: PdfPoint, page: PageGeometry): PdfPoint {
+  const { x: left, y: bottom, width, height } = page.visibleBox;
+  const { x: u, y: v } = point;
+  switch (page.rotation) {
+    case 0:
+      return { x: left + u, y: bottom + v };
+    case 90:
+      return { x: left + width - v, y: bottom + u };
+    case 180:
+      return { x: left + width - u, y: bottom + height - v };
+    case 270:
+      return { x: left + v, y: bottom + height - u };
+  }
+}
+
+/** The inverse of `displayedPointToPdf`. Used to read a placement back out of a sealed page. */
+export function pdfPointToDisplayed(point: PdfPoint, page: PageGeometry): PdfPoint {
+  const { x: left, y: bottom, width, height } = page.visibleBox;
+  const x = point.x - left;
+  const y = point.y - bottom;
+  switch (page.rotation) {
+    case 0:
+      return { x, y };
+    case 90:
+      return { x: y, y: width - x };
+    case 180:
+      return { x: width - x, y: height - y };
+    case 270:
+      return { x: height - y, y: x };
+  }
+}
+
 /**
  * Rounds a length in points to the placement grid.
  *

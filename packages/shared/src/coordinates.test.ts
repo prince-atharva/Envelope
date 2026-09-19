@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   clampRectToPage,
   defaultRectAt,
+  displayedPageSize,
+  displayedPointToPdf,
   enforceMinSize,
   findAlignmentGuides,
   fitPreservingAspect,
+  normaliseRotation,
+  type PageGeometry,
   type PageSize,
+  pdfPointToDisplayed,
   pixelsToRatios,
   pointsToRatios,
   type Ratios,
@@ -15,6 +20,7 @@ import {
   roundRatio,
   snapToGrid,
   validateRatios,
+  visibleBox,
 } from './coordinates';
 
 const A4: PageSize = { widthPt: 595.28, heightPt: 841.89 };
@@ -402,5 +408,88 @@ describe('roundRatio', () => {
 
   it('makes two nearly equal placements compare exactly equal', () => {
     expect(roundRatio(0.1 + 0.2)).toBe(roundRatio(0.3));
+  });
+});
+
+describe('rotated and cropped pages', () => {
+  const a4 = { x: 0, y: 0, width: 595.28, height: 841.89 };
+  const at = (rotation: PageGeometry['rotation'], box = a4): PageGeometry => ({
+    visibleBox: box,
+    rotation,
+  });
+
+  it('reads /Rotate as pdf.js does', () => {
+    expect(normaliseRotation(0)).toBe(0);
+    expect(normaliseRotation(-90)).toBe(270);
+    expect(normaliseRotation(450)).toBe(90);
+    expect(normaliseRotation(360)).toBe(0);
+    expect(normaliseRotation(45)).toBe(0);
+    expect(normaliseRotation(Number.NaN)).toBe(0);
+  });
+
+  it('shows the CropBox clipped to the MediaBox', () => {
+    expect(visibleBox(a4, { x: 50, y: 60, width: 300, height: 400 })).toEqual({
+      x: 50,
+      y: 60,
+      width: 300,
+      height: 400,
+    });
+    // Reversed corners, and a CropBox reaching past the page.
+    const clipped = visibleBox(a4, { x: 700, y: 900, width: -200, height: -100 });
+    expect(clipped.x).toBe(500);
+    expect(clipped.y).toBe(800);
+    expect(clipped.width).toBeCloseTo(95.28, 9);
+    expect(clipped.height).toBeCloseTo(41.89, 9);
+    // No overlap at all: the whole page, as pdf.js does.
+    expect(visibleBox(a4, { x: 1000, y: 1000, width: 10, height: 10 })).toEqual(a4);
+  });
+
+  it('swaps width and height only at 90 and 270 degrees', () => {
+    expect(displayedPageSize(at(0))).toEqual({ widthPt: 595.28, heightPt: 841.89 });
+    expect(displayedPageSize(at(90))).toEqual({ widthPt: 841.89, heightPt: 595.28 });
+    expect(displayedPageSize(at(180))).toEqual({ widthPt: 595.28, heightPt: 841.89 });
+    expect(displayedPageSize(at(270))).toEqual({ widthPt: 841.89, heightPt: 595.28 });
+  });
+
+  it('maps the displayed corners onto the right corners of the page', () => {
+    // The viewer turns the page clockwise. At 90 degrees the page's own
+    // bottom-left corner is shown at the top-left, its top-left at the
+    // top-right, and its bottom-right at the bottom-left.
+    const shown = displayedPageSize(at(90));
+    expect(displayedPointToPdf({ x: 0, y: shown.heightPt }, at(90))).toEqual({ x: 0, y: 0 });
+    expect(displayedPointToPdf({ x: shown.widthPt, y: shown.heightPt }, at(90))).toEqual({
+      x: 0,
+      y: 841.89,
+    });
+    expect(displayedPointToPdf({ x: 0, y: 0 }, at(90))).toEqual({ x: 595.28, y: 0 });
+
+    // At 180 degrees the page is upside down; at 270 its bottom-left is shown
+    // at the bottom-right.
+    expect(displayedPointToPdf({ x: 0, y: 0 }, at(180))).toEqual({ x: 595.28, y: 841.89 });
+    expect(displayedPointToPdf({ x: 841.89, y: 0 }, at(270))).toEqual({ x: 0, y: 0 });
+  });
+
+  it('adds the CropBox origin, so a cropped page is measured from what is shown', () => {
+    const cropped = { x: 40, y: 30, width: 500, height: 700 };
+    expect(displayedPointToPdf({ x: 0, y: 0 }, at(0, cropped))).toEqual({ x: 40, y: 30 });
+    expect(displayedPointToPdf({ x: 10, y: 20 }, at(0, cropped))).toEqual({ x: 50, y: 50 });
+  });
+
+  it('round-trips every point at every angle', () => {
+    const cropped = { x: 40, y: 30, width: 500, height: 700 };
+    for (const rotation of [0, 90, 180, 270] as const) {
+      for (const point of [
+        { x: 0, y: 0 },
+        { x: 123.4, y: 56.7 },
+        { x: 480, y: 12 },
+      ]) {
+        const back = pdfPointToDisplayed(displayedPointToPdf(point, at(rotation, cropped)), {
+          visibleBox: cropped,
+          rotation,
+        });
+        expect(back.x).toBeCloseTo(point.x, 9);
+        expect(back.y).toBeCloseTo(point.y, 9);
+      }
+    }
   });
 });
