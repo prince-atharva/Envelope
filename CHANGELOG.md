@@ -10,7 +10,8 @@ Phase 3 (Signer Portal) in progress. See
 [docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
 Phase 4 (Sealing Engine) built; the real-phone check and the release are to come. See
 [docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
-Phase 5 (Envelope Lifecycle) in progress. See
+Phase 5 (Envelope Lifecycle) built. Its release, `v0.5.0`, waits with `v0.3.0` and `v0.4.0` on the
+WebKit libraries and the real-phone check. See
 [docs/16-phase-5-envelope-lifecycle-plan.md](docs/16-phase-5-envelope-lifecycle-plan.md).
 
 ### Added

@@ -210,18 +210,23 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 
 **Goal:** production-ready.
 
+> **As built.** This block became three phases (docs/16). Phase 5, Envelope Lifecycle, is built:
+> the reminder scheduler and expiry sweep, cancelling with every link stopped at once, the
+> "needs attention" dashboard, the nightly audit-chain check with alerts, and rate limits in Redis
+> on every route. Phases 6 (compliance and integrations) and 7 (launch readiness) cover the rest.
+
 - [ ] Parallel routing alongside sequential
-- [ ] Reminder scheduler and expiry sweeper
-- [ ] Void flow with synchronous token invalidation
+- [x] Reminder scheduler and expiry sweeper
+- [x] Void flow with synchronous token invalidation
 - [ ] Delegation and in-person signing
 - [ ] Webhooks: HMAC signing, retry, redrive
-- [ ] Sender dashboard sorted by "needs attention"
+- [x] Sender dashboard sorted by "needs attention"
 - [ ] `JurisdictionPolicy` resolution, frozen at envelope creation
 - [ ] Blocked document category enforcement
 - [ ] Retention sweeper with legal hold
-- [ ] Nightly audit chain verification job with alerting
+- [x] Nightly audit chain verification job with alerting
 - [ ] Cross-tenant isolation test suite
-- [ ] Rate limiting across all surfaces
+- [x] Rate limiting across all surfaces
 - [ ] Accessibility audit: WCAG 2.2 AA, keyboard-only signing
 - [ ] Full Playwright matrix on real devices
 - [ ] Load test: 100 envelopes/min, 50-page seal p95 under 15s

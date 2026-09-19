@@ -393,7 +393,7 @@ any request, not only the first: someone else may decline while this person is h
 | You declined, now or earlier | "You declined this document" | `200`, then `409 ENVELOPE_TERMINAL` with `reason: YOU_DECLINED` |
 | Another recipient declined | "This document is no longer available for signature" | `409 ENVELOPE_TERMINAL`, `reason: DECLINED` |
 | Envelope voided | "This document has been cancelled by the sender" | `409 ENVELOPE_TERMINAL`, `reason: VOIDED` |
-| Expired | "This signing link has expired", and a request to ask the sender to send it again. **Request a new link** arrives in Phase 5 | `401 TOKEN_EXPIRED` |
+| Expired | "This signing link has expired", that anything already done is kept, and **Ask for more time**, which emails the sender (once a day; built in Phase 5) | `401 TOKEN_EXPIRED` |
 | **Link replaced, or never issued** | "This link does not work". It explains that a newer email, such as a reminder, may have replaced the link, and asks the signer to use the most recent one | `401 TOKEN_INVALID` |
 | Closed for any other reason | "This document is no longer open for signing" | `409 ENVELOPE_TERMINAL` |
 

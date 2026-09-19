@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | In progress |
-| **Version** | 0.1.0 |
+| **Status** | Built. The `v0.5.0` release waits, with `v0.3.0` and `v0.4.0`, on the WebKit libraries and the real-phone check |
+| **Version** | 1.0.0 |
 | **Last updated** | 19 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 5 deliver, how is each part built, and how do we check it? |
@@ -54,18 +54,22 @@ along the way:
 
 ## The Phase 5 Finish Line
 
-- [ ] A cancelled document's links are refused on the very next request, and everyone already
+Each item below is proven by a test: `cancel`, `expiry`, `extend`, `more-time`, `auto-reminders`,
+`dashboard`, `rate-limits`, `alerts`, `audit-chain-check`, `transitions` and `token-leak` in
+`apps/api/test`, and `cancel`, `expiry`, `dashboard` and `token-leak` in `apps/web/e2e`.
+
+- [x] A cancelled document's links are refused on the very next request, and everyone already
       emailed is told.
-- [ ] An overdue document becomes Expired within 5 minutes and the sender is emailed. Extending it
+- [x] An overdue document becomes Expired within 5 minutes and the sender is emailed. Extending it
       resumes signing with fresh links, and signatures made before the deadline are kept.
-- [ ] A signer on an expired link can ask for more time.
-- [ ] Reminders go out on schedule, only to the person whose turn it is, and never while they have
+- [x] A signer on an expired link can ask for more time.
+- [x] Reminders go out on schedule, only to the person whose turn it is, and never while they have
       the document open. "Expires soon" is sent once.
-- [ ] Needs attention lists what to chase, longest-waiting first.
-- [ ] Request limits hold across two API servers, and still apply if Redis is down.
-- [ ] An altered audit trail produces exactly one alert email, and every change of status writes
+- [x] Needs attention lists what to chase, longest-waiting first.
+- [x] Request limits hold across two API servers, and still apply if Redis is down.
+- [x] An altered audit trail produces exactly one alert email, and every change of status writes
       exactly one audit event, in the same transaction.
-- [ ] No signing link appears in any log, table, Redis key or email we did not mean it to.
+- [x] No signing link appears in any log, table, Redis key or email we did not mean it to.
 
 ## Progress
 
@@ -87,13 +91,13 @@ along the way:
 | 13 | Request limits in Redis, on every route | ✅ Done |
 | 14 | Dashboard views | ✅ Done |
 | 15 | Tests: the finish line | ✅ Done |
-| 16 | Documentation and release `v0.5.0` | ⬜ |
+| 16 | Documentation and release `v0.5.0` | ✅ Docs done; the release tag waits with `v0.3.0` and `v0.4.0` |
 
 ## What We Need From You
 
 | Needed | Why | When |
 |---|---|---|
-| An address for alert emails (`ALERT_EMAIL`) | Where urgent problems are sent | Step 11 |
+| An address for alert emails (`ALERT_EMAIL`) | Alerts are only logged until it is set in `.env` | Any time |
 | The WebKit libraries and the real-phone check (doc 15, step 10) | Releases `v0.3.0` and `v0.4.0` wait on them | Now |
 | Logo and colours, the lawyer's consent wording, the 7-year retention confirmation | Still placeholders from earlier phases | Before real use |
 

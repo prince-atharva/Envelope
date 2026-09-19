@@ -146,10 +146,18 @@ enum EnvelopeStatus {
   SENT
   DELIVERED
   PARTIALLY_SIGNED
+  EXPIRED     // As built (Phase 5): paused by its deadline; can be extended or cancelled (ADR 0013)
   COMPLETED
   DECLINED
   VOIDED
 }
+
+// As built (Phase 5, docs/16 step 3). Envelope gains voidedAt, voidReason and
+// voidedByUserId (who cancelled, when and why), expiredAt, and
+// reminderIntervalDays (automatic reminders; null is off). Recipient gains
+// expiryWarnedAt, moreTimeRequestedAt and lastSeenAt. Checks keep them
+// consistent: a cancelled envelope has a time and, if it was sent, a reason;
+// an expired one has a time; reminders are every 1 to 30 days.
 
 enum RecipientRole {
   SIGNER      // must sign
