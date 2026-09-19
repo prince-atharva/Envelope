@@ -170,6 +170,51 @@ export function renderVoidedEmail(notice: VoidedNotice): RenderedEmail {
   return { to: notice.to, subject, html, text };
 }
 
+export interface ExpiredNotice {
+  to: string;
+  senderName: string;
+  envelopeTitle: string;
+  deadline: Date;
+  /** Signers and approvers who had not finished. */
+  waitingFor: string[];
+  envelopeUrl: string;
+}
+
+/** To the sender: the deadline passed with signatures missing, so it is paused (ADR 0013). */
+export function renderExpiredEmail(notice: ExpiredNotice): RenderedEmail {
+  const title = oneLine(notice.envelopeTitle);
+  const people = notice.waitingFor.map(oneLine);
+  const waiting =
+    people.length <= 1 ? people.join('') : `${people.slice(0, -1).join(', ')} and ${people.at(-1)}`;
+  const subject = `${title} expired before everyone signed`;
+  const intro = `"${title}" reached its deadline on ${formatDate(notice.deadline)} while ${waiting || 'someone'} still had to sign.`;
+  const paused =
+    'Nothing is lost: signatures already made are kept. Nobody can sign until you give more time, or you can cancel it.';
+  const footer = `You received this email because you sent this document using ${BRAND.fullName}.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.senderName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(paused)}</p>
+     ${button(notice.envelopeUrl, 'Open the document')}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.senderName)},`,
+    '',
+    intro,
+    '',
+    paused,
+    '',
+    `Open the document: ${notice.envelopeUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
 export interface SigningLinkEmail {
   kind: 'invitation' | 'reminder';
   to: string;

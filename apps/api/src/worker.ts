@@ -6,7 +6,7 @@ import { exitWithFatal, installProcessHandlers } from './bootstrap/process-handl
 import { AppConfig, describeConfig } from './config/app-config';
 import { NestLogger } from './logging/nest-logger';
 import { MailTransportService } from './mail/mail-transport.service';
-import { EMAIL_QUEUE, SEAL_QUEUE } from './queue/queue.module';
+import { EMAIL_QUEUE, MAINTENANCE_QUEUE, SEAL_QUEUE } from './queue/queue.module';
 import { WorkerModule } from './worker.module';
 
 async function bootstrap(): Promise<void> {
@@ -27,7 +27,7 @@ async function bootstrap(): Promise<void> {
 
   const smtpReady = await app.get(MailTransportService).verify();
   logger[smtpReady ? 'info' : 'warn'](
-    { queues: [EMAIL_QUEUE, SEAL_QUEUE], smtpReady },
+    { queues: [EMAIL_QUEUE, SEAL_QUEUE, MAINTENANCE_QUEUE], smtpReady },
     smtpReady ? 'Worker ready' : 'Worker ready, but email cannot be sent until SMTP is fixed',
   );
 }

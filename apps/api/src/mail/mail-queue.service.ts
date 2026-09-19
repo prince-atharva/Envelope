@@ -9,6 +9,7 @@ import type {
   CompletedEmailJob,
   DeclinedNoticeJob,
   EmailJobData,
+  ExpiredNoticeJob,
   SigningLinkEmailJob,
   VoidedNoticeJob,
   WelcomeEmailJob,
@@ -145,6 +146,26 @@ export class MailQueueService implements OnModuleInit {
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /**
+   * Tells the sender the envelope expired. One job per expiry: an envelope
+   * extended and later expired again gets a second notice.
+   */
+  async enqueueExpired(envelopeId: string, expiredAt: Date): Promise<string | undefined> {
+    const data: ExpiredNoticeJob = {
+      template: 'expired',
+      envelopeId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `expired-${envelopeId}-${expiredAt.getTime()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId },
       'Email job enqueued',
     );
     return job.id;

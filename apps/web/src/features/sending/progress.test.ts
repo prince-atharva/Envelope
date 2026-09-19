@@ -74,6 +74,20 @@ describe('reminderState', () => {
     expect(reminderState(waiting, [waiting], open, NOW)).toEqual({ can: true });
   });
 
+  it('offers no reminder once the deadline has passed or the envelope is paused', () => {
+    const waiting = person('a', { status: 'SENT', notifiedAt: '2026-10-01T09:00:00Z' });
+    const overdue = { ...open, expiresAt: '2026-10-01T09:30:00Z' };
+    expect(reminderState(waiting, [waiting], overdue, NOW)).toEqual({
+      can: false,
+      reason: 'closed',
+    });
+    const paused = { ...open, status: 'EXPIRED' as const };
+    expect(reminderState(waiting, [waiting], paused, NOW)).toEqual({
+      can: false,
+      reason: 'closed',
+    });
+  });
+
   it('waits a day after the last reminder', () => {
     const reminded = person('a', {
       status: 'VIEWED',

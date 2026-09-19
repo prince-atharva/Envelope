@@ -55,12 +55,20 @@ export interface VoidedNoticeJob {
   requestId?: string;
 }
 
+/** Tells the sender their envelope passed its deadline and is paused (ADR 0013). */
+export interface ExpiredNoticeJob {
+  template: 'expired';
+  envelopeId: string;
+  requestId?: string;
+}
+
 export type EmailJobData =
   | WelcomeEmailJob
   | SigningLinkEmailJob
   | DeclinedNoticeJob
   | CompletedEmailJob
-  | VoidedNoticeJob;
+  | VoidedNoticeJob
+  | ExpiredNoticeJob;
 export type EmailTemplate = EmailJobData['template'];
 
 export interface EmailAttachment {

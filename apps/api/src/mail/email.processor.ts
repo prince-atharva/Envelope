@@ -38,6 +38,8 @@ export class EmailProcessor extends WorkerHost {
         return this.signingLinks.send(data);
       case 'declined':
         return this.senderNotices.sendDeclined(data);
+      case 'expired':
+        return this.senderNotices.sendExpired(data);
       case 'completed':
         return this.completions.send(data);
       case 'voided':

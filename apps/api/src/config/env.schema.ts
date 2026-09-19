@@ -101,6 +101,13 @@ export const envSchema = z
       .default(15 * 1024 * 1024),
     /** How long a completion download link works. */
     COMPLETION_LINK_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    /**
+     * Whether this worker registers the scheduled maintenance jobs (docs/16
+     * step 6). Off in the API e2e suite, which runs each job directly.
+     */
+    MAINTENANCE_SCHEDULES_ENABLED: flag.default(true),
+    /** How often the expiry sweep looks for envelopes past their deadline. */
+    EXPIRY_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(300_000),
     /** First retry delay for a failed email; each later retry waits twice as long. */
     EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),

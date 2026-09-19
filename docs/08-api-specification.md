@@ -337,6 +337,8 @@ reminded. `200 OK`:
 - `reason` is `TOO_SOON`, `NOT_THEIR_TURN` or `FINISHED`. If nobody could be reminded and at least
   one person was reminded within the last 24 hours, the answer is 429 `REMINDER_TOO_SOON`, with
   `Retry-After` for the soonest of them.
+- Past the deadline, whether or not the envelope has been paused as `EXPIRED` yet, the answer is
+  409 `ENVELOPE_EXPIRED`: a reminder's link would not work. Extend it first (Phase 5).
 - If no email has reached the person yet, a reminder may be retried after 10 minutes. This is also
   how a failed invitation is sent again.
 - **Every reminder carries a new link, and the previous one stops working.** Only the link's HMAC
@@ -640,6 +642,7 @@ RFC 7807:
 | `INVALID_SIGNATURE_IMAGE` | 422 | Not a transparent PNG, or too large |
 | `REQUIRED_FIELDS_INCOMPLETE` | 422 | Required fields unfilled |
 | `REMINDER_TOO_SOON` | 429 | Reminded within 24 hours. Includes `Retry-After` |
+| `ENVELOPE_EXPIRED` | 409 | Past its deadline or paused as `EXPIRED`; extend it first |
 | `IDEMPOTENCY_KEY_REQUIRED` | 400 | `Idempotency-Key` missing or malformed |
 | `IDEMPOTENCY_KEY_MISMATCH` | 422 | The same key was sent with a different body |
 | `FILE_TOO_LARGE` | 413 | Over 25 MB |

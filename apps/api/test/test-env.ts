@@ -31,6 +31,9 @@ export const TEST_ENV: Record<string, string> = {
   // digitalsign-test-sealed, created with Object Lock. One day, so test files do not stay locked.
   SEALED_RETENTION_DAYS: '1',
 
+  // Each suite runs the maintenance jobs itself, with the time it needs.
+  MAINTENANCE_SCHEDULES_ENABLED: 'false',
+
   MAIL_TRANSPORT: 'memory',
   EMAIL_RETRY_BASE_DELAY_MS: '20',
   SMTP_FROM: 'Envelope by HealthProHub <no-reply@test.local>',

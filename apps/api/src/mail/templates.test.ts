@@ -3,6 +3,7 @@ import {
   escapeHtml,
   renderCompletedEmail,
   renderDeclinedEmail,
+  renderExpiredEmail,
   renderSigningLinkEmail,
   renderVoidedEmail,
   renderWelcomeEmail,
@@ -97,6 +98,26 @@ describe('cancellation notice', () => {
     expect(email.text).toContain('Their reason:\nTerms <changed>.');
     expect(email.text).toContain('Links in earlier emails about this document no longer work.');
     expect(email.html).not.toContain('href=');
+  });
+});
+
+describe('expiry notice', () => {
+  it('tells the sender who is still to sign, that nothing is lost, and where to act', () => {
+    const email = renderExpiredEmail({
+      to: 'raj@example.com',
+      senderName: 'Raj Kumar',
+      envelopeTitle: 'Lease',
+      deadline: new Date('2026-10-01T09:00:00Z'),
+      waitingFor: ['Priya Sharma', 'Dev <Rao>'],
+      envelopeUrl: 'https://sign.example.com/dashboard/envelopes/e-1',
+    });
+    expect(email.subject).toBe('Lease expired before everyone signed');
+    expect(email.text).toContain(
+      '1 October 2026 while Priya Sharma and Dev <Rao> still had to sign',
+    );
+    expect(email.html).toContain('Dev &lt;Rao&gt;');
+    expect(email.text).toContain('signatures already made are kept');
+    expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
   });
 });
 

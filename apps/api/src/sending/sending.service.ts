@@ -201,6 +201,18 @@ export class SendingService {
       if (envelope.status === 'DRAFT') {
         throw new AppException('CONFLICT', 'This envelope has not been sent yet.');
       }
+      // Overdue, whether or not the sweep has paused it yet: a reminder would
+      // carry a link that does not work (docs/16 step 6).
+      if (
+        envelope.status === 'EXPIRED' ||
+        (isOpenEnvelope(envelope.status) && envelope.expiresAt && envelope.expiresAt <= now)
+      ) {
+        this.logger.info({ envelopeId }, 'Reminder refused: envelope expired');
+        throw new AppException(
+          'ENVELOPE_EXPIRED',
+          'This document has passed its deadline. Give more time before sending a reminder.',
+        );
+      }
       if (!isOpenEnvelope(envelope.status)) {
         throw new AppException('ENVELOPE_TERMINAL', 'This envelope is closed.');
       }

@@ -45,6 +45,14 @@ Phase 5 (Envelope Lifecycle) in progress. See
   emailed and requires the reason they will read; discarding asks for nothing and returns to the
   dashboard. A cancelled envelope shows who cancelled it, when and why. The status badge reads
   "Cancelled" instead of "Voided". Browser test: `e2e/cancel.spec.ts`.
+- The maintenance queue and the expiry sweep (docs/16 step 6). The worker registers BullMQ job
+  schedulers on a third queue, `maintenance`, one schedule per job id however many workers run
+  (`MAINTENANCE_SCHEDULES_ENABLED`, `EXPIRY_SWEEP_EVERY_MS`, default 5 minutes). The sweep claims
+  each overdue envelope under its row lock, checks the deadline and the unsigned count again there,
+  and pauses it as `EXPIRED` with `ENVELOPE_EXPIRED` (system actor). The sender is emailed once per
+  expiry (`expired`). An envelope whose last signature is only waiting for the seal is left alone.
+- Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing
+  sent. The web app no longer offers Remind there.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their

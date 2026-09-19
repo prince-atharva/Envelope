@@ -77,7 +77,7 @@ along the way:
 | 3 | Database: Expired status, cancel and reminder columns | ✅ Done |
 | 4 | Cancel and discard (API and emails) | ✅ Done |
 | 5 | Cancel and discard (screens) | ✅ Done |
-| 6 | The maintenance queue and the expiry sweep | ⬜ |
+| 6 | The maintenance queue and the expiry sweep | ✅ Done |
 | 7 | Extend and resume | ⬜ |
 | 8 | Ask for more time | ⬜ |
 | 9 | Extend and expiry on the envelope page | ⬜ |

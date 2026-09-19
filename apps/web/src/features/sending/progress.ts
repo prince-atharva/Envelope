@@ -84,11 +84,16 @@ export function reminderState(
   envelope: {
     status: EnvelopeStatus;
     sequentialSigning: boolean;
+    /** Past it, a reminder's link would not work, so the API refuses (ENVELOPE_EXPIRED). */
+    expiresAt?: string | null;
     versions: readonly { createdByRecipientId: string | null }[];
   },
   now = Date.now(),
 ): ReminderState {
   if (!isOpenEnvelope(envelope.status)) return { can: false, reason: 'closed' };
+  if (envelope.expiresAt && new Date(envelope.expiresAt).getTime() <= now) {
+    return { can: false, reason: 'closed' };
+  }
   if (recipient.status === 'SIGNED' || recipient.status === 'DECLINED') {
     return { can: false, reason: 'finished' };
   }

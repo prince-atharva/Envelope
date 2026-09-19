@@ -5,6 +5,8 @@ import { AppConfig } from '../config/app-config';
 export const EMAIL_QUEUE = 'email';
 /** Stamps signatures into document versions and seals the final one (ADR 0006). */
 export const SEAL_QUEUE = 'seal';
+/** Scheduled housekeeping: the expiry sweep, and later reminders and the audit check (docs/16). */
+export const MAINTENANCE_QUEUE = 'maintenance';
 
 /** Days a finished job's data is kept in Redis (for inspection), then removed. */
 const KEEP_COMPLETED_SECONDS = 24 * 3600;
@@ -47,6 +49,15 @@ const SEAL_RETRY_BASE_DELAY_MS = 5000;
         attempts: SEAL_MAX_ATTEMPTS,
         backoff: { type: 'exponential', delay: SEAL_RETRY_BASE_DELAY_MS },
         removeOnComplete: { age: KEEP_COMPLETED_SECONDS },
+        removeOnFail: { age: KEEP_FAILED_SECONDS },
+      },
+    }),
+    BullModule.registerQueue({
+      name: MAINTENANCE_QUEUE,
+      defaultJobOptions: {
+        // A failed run is not retried: the next tick does the same work.
+        attempts: 1,
+        removeOnComplete: { count: 100 },
         removeOnFail: { age: KEEP_FAILED_SECONDS },
       },
     }),
