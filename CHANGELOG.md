@@ -63,6 +63,15 @@ Phase 5 (Envelope Lifecycle) in progress. See
   `moreTimeRequestedAt`; a repeat answers 200 with `alreadyRequested: true` and emails nobody. It
   records `EXTENSION_REQUESTED` and emails the sender (`more-time-requested`). The expired-link
   screen has an **Ask for more time** button.
+- Deadlines on the envelope page (docs/16 step 9). **Give more time** (a dialog with 3, 7, 14 or 30
+  days, naming who gets a fresh link) for a sent or expired envelope. An expired envelope shows a
+  banner: when the deadline passed, who still has to sign, who asked for more time, and **Give more
+  time** or **Cancel document**. People waiting for their turn on a paused envelope read "Waiting
+  for their turn", not "Not reached". The envelope detail gains `expiredAt` and each recipient's
+  `moreTimeRequestedAt`. Browser test `e2e/expiry.spec.ts` walks the whole path: expire, ask for
+  more time, give it, sign with the new link. The browser stack sweeps every 2 seconds.
+- Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule
+  slot, so a restarted worker's first sweep could come many intervals late.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing
   sent. The web app no longer offers Remind there.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:

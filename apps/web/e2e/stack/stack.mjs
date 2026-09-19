@@ -64,6 +64,10 @@ export const STACK_ENV = {
   // digitalsign-test-sealed, created with Object Lock. One day, so test files do not stay locked.
   SEALED_RETENTION_DAYS: '1',
 
+  // The expiry sweep runs every 2 seconds, so a test that moves a deadline
+  // into the past sees the envelope paused almost at once.
+  EXPIRY_SWEEP_EVERY_MS: '2000',
+
   MAIL_TRANSPORT: 'file',
   MAIL_OUTBOX_DIR: OUTBOX_DIR,
   EMAIL_RETRY_BASE_DELAY_MS: '50',

@@ -62,7 +62,8 @@ export function progressOf(recipient: RecipientDetail, envelopeStatus: EnvelopeS
         ? { label: 'Email sent', tone: 'active', at: recipient.notifiedAt }
         : { label: 'Sending email…', tone: 'active', at: null };
     case 'PENDING':
-      return isOpenEnvelope(envelopeStatus)
+      // A paused envelope carries on once the sender gives more time.
+      return isOpenEnvelope(envelopeStatus) || envelopeStatus === 'EXPIRED'
         ? { label: 'Waiting for their turn', tone: 'waiting', at: null }
         : { label: 'Not reached', tone: 'muted', at: null };
   }

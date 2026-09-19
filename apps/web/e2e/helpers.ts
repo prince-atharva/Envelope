@@ -2,7 +2,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page } from '@playwright/test';
-import { OUTBOX_DIR } from './stack/stack.mjs';
+import pg from 'pg';
+import { OUTBOX_DIR, STACK_ENV } from './stack/stack.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -221,7 +222,11 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
     const files = (await outboxMessages()).reverse();
     for (const file of files) {
       const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
-      if (message.to !== email || !['invitation', 'reminder'].includes(message.template)) continue;
+      if (
+        message.to !== email ||
+        !['invitation', 'reminder', 'extended'].includes(message.template)
+      )
+        continue;
       const link = /https?:\/\/\S+\/sign\/[0-9a-f]{64}/.exec(message.text)?.[0];
       if (link) return link;
     }
@@ -328,4 +333,22 @@ export async function signOnlyBoxes(page: Page, link: string): Promise<void> {
   await page.getByRole('checkbox', { name: 'Tick box field, required, page 1 of 12' }).check();
   await page.getByRole('button', { name: 'Finish' }).click();
   await expect(page.getByRole('heading', { name: 'Signed' })).toBeVisible();
+}
+
+/**
+ * Moves an envelope's deadline into the past, straight in the stack's test
+ * database. The stack's expiry sweep (every 2 seconds) then pauses it.
+ */
+export async function passDeadline(envelopeId: string): Promise<void> {
+  const client = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE "Envelope" SET "expiresAt" = now() AT TIME ZONE 'UTC' - interval '1 minute'
+        WHERE id = $1`,
+      [envelopeId],
+    );
+  } finally {
+    await client.end();
+  }
 }

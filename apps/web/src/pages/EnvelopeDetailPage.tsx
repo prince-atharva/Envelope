@@ -17,6 +17,9 @@ import { CancelledBanner } from '../features/envelope/CancelledBanner';
 import { CompletionBanner } from '../features/envelope/CompletionBanner';
 import { cancelModeFor } from '../features/envelope/cancel';
 import { downloadName } from '../features/envelope/document-files';
+import { ExpiredBanner } from '../features/envelope/ExpiredBanner';
+import { ExtendDialog } from '../features/envelope/ExtendDialog';
+import { canExtend } from '../features/envelope/extend';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
@@ -44,6 +47,7 @@ export function EnvelopeDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const [copied, setCopied] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [extending, setExtending] = useState(false);
   const sent = (useLocation().state as SentState | null)?.sentTo;
 
   const {
@@ -158,13 +162,23 @@ export function EnvelopeDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {cancelModeFor(envelope.status) && (
+          {/* An expired envelope offers both choices in its banner instead. */}
+          {cancelModeFor(envelope.status) && envelope.status !== 'EXPIRED' && (
             <Button
               onClick={() => setCancelling(true)}
               variant="ghost"
               className="text-xs py-1.5 px-3.5 text-red-700 hover:bg-red-50"
             >
               {cancelModeFor(envelope.status) === 'discard' ? 'Discard draft' : 'Cancel document'}
+            </Button>
+          )}
+          {canExtend(envelope.status) && envelope.status !== 'EXPIRED' && (
+            <Button
+              onClick={() => setExtending(true)}
+              variant="secondary"
+              className="text-xs py-1.5 px-3.5"
+            >
+              Give more time
             </Button>
           )}
           {envelope.status === 'DRAFT' && (
@@ -193,6 +207,14 @@ export function EnvelopeDetailPage() {
 
       <CompletionBanner envelope={envelope} onDownload={handleDownload} downloading={!pdfData} />
       <CancelledBanner envelope={envelope} />
+      <ExpiredBanner
+        envelope={envelope}
+        onExtend={() => setExtending(true)}
+        onCancel={() => setCancelling(true)}
+      />
+      {canExtend(envelope.status) && (
+        <ExtendDialog envelope={envelope} open={extending} onClose={() => setExtending(false)} />
+      )}
       <CancelDialog envelope={envelope} open={cancelling} onClose={() => setCancelling(false)} />
 
       {envelope.sentAt && <RecipientProgress envelope={envelope} />}

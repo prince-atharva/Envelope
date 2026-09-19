@@ -101,6 +101,8 @@ export interface RecipientDetail extends RecipientInfo {
   declinedReason: string | null;
   /** When the finished document was emailed to them (docs/15 step 6). */
   copySentAt: string | null;
+  /** When they last asked for more time from an expired link (docs/16 step 8). */
+  moreTimeRequestedAt: string | null;
 }
 
 export interface EnvelopeDetail extends EnvelopeSummary {
@@ -128,6 +130,8 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   sentAt: string | null;
   /** When every signing link stops working. Null for a draft. */
   expiresAt: string | null;
+  /** When the expiry sweep last paused it. Kept after an extension, as history. */
+  expiredAt: string | null;
   /** When it was cancelled or discarded, by whom and why. Null unless VOIDED. */
   voidedAt: string | null;
   voidReason: string | null;

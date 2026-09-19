@@ -19,6 +19,7 @@ function person(overrides: Partial<RecipientDetail>): RecipientDetail {
     declinedAt: null,
     declinedReason: null,
     copySentAt: null,
+    moreTimeRequestedAt: null,
     ...overrides,
   };
 }

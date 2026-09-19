@@ -80,7 +80,7 @@ along the way:
 | 6 | The maintenance queue and the expiry sweep | ✅ Done |
 | 7 | Extend and resume | ✅ Done |
 | 8 | Ask for more time | ✅ Done |
-| 9 | Extend and expiry on the envelope page | ⬜ |
+| 9 | Extend and expiry on the envelope page | ✅ Done |
 | 10 | Automatic reminders and the "expires soon" email | ⬜ |
 | 11 | Alert emails | ⬜ |
 | 12 | The nightly audit-chain check | ⬜ |
@@ -250,6 +250,11 @@ services directly, with an injected `now`).
 | `audit-chain-check` | 02:00 UTC | The nightly check (step 12) |
 
 Each run logs one summary line (job, scanned, changed, duration).
+
+**As built:** finished maintenance jobs are not kept (`removeOnComplete: true`). BullMQ's `every`
+scheduler puts a restarted worker's next run in the old slot and walks forward past every slot a
+kept job still occupies, which delayed the first sweep after a restart by many intervals (found by
+the browser tests, whose stack restarts every run with a 2-second sweep).
 
 **Expiry sweep.** For each candidate: `lockEnvelope`, then count the unsigned signers and approvers
 in a new statement (so it sees fresh data), then `EXPIRED`, `expiredAt` and `ENVELOPE_EXPIRED`

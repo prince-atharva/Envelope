@@ -5,6 +5,8 @@ import {
   type EnvelopeDetail,
   type EnvelopeListResponse,
   type ErrorCode,
+  type ExtendEnvelopeInput,
+  type ExtendEnvelopeResponse,
   type FieldInput,
   isErrorCode,
   type LoginInput,
@@ -374,6 +376,18 @@ export const api = {
 
   remind: (id: string, input: RemindInput = {}) =>
     json<RemindResponse>(`/envelopes/${encodeURIComponent(id)}/remind`, jsonBody(input)),
+
+  /**
+   * Gives more time. One key per open dialog, so a retry after a dropped
+   * connection is answered rather than emailing everyone twice.
+   */
+  extendEnvelope: (id: string, input: ExtendEnvelopeInput, idempotencyKey: string) => {
+    const init = jsonBody(input);
+    return json<ExtendEnvelopeResponse>(`/envelopes/${encodeURIComponent(id)}/extend`, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
+    });
+  },
 
   /** Cancels a sent envelope (a reason is required), or discards a draft. */
   voidEnvelope: (id: string, input: VoidEnvelopeInput = {}) =>

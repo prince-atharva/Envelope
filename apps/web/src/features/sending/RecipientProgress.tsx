@@ -13,6 +13,7 @@ import { describeError } from '../../lib/errors';
 import { formatDate, formatDateTime, formatRelative } from '../../lib/format';
 import { queryKeys } from '../../lib/query-keys';
 import { recipientColor } from '../builder/recipient-colors';
+import { canExtend } from '../envelope/extend';
 import { type ProgressTone, progressOf, reminderState } from './progress';
 
 const TONE: Record<ProgressTone, string> = {
@@ -136,6 +137,11 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
                 </span>
                 {progress.at && (
                   <span className="text-[11px] text-slate-400">{formatDateTime(progress.at)}</span>
+                )}
+                {recipient.moreTimeRequestedAt && canExtend(envelope.status) && (
+                  <span className="text-[11px] font-medium text-orange-800">
+                    Asked for more time {formatRelative(recipient.moreTimeRequestedAt)}
+                  </span>
                 )}
                 {receivesSigningLink(recipient.role) && recipient.copySentAt && (
                   <span className="text-[11px] text-slate-500">

@@ -238,6 +238,7 @@ export class EnvelopesService {
       draftRevision: envelope.draftRevision,
       sentAt: envelope.sentAt?.toISOString() ?? null,
       expiresAt: envelope.expiresAt?.toISOString() ?? null,
+      expiredAt: envelope.expiredAt?.toISOString() ?? null,
       voidedAt: envelope.voidedAt?.toISOString() ?? null,
       voidReason: envelope.voidReason,
       voidedBy: envelope.voidedBy,
@@ -257,6 +258,7 @@ export class EnvelopesService {
         declinedAt: recipient.declinedAt?.toISOString() ?? null,
         declinedReason: recipient.declinedReason,
         copySentAt: copySentAt(recipient.id),
+        moreTimeRequestedAt: recipient.moreTimeRequestedAt?.toISOString() ?? null,
       })),
       // Ordered by page, then down the page: the same order the builder walks
       // fields in, so "next field" means the same thing on both sides.

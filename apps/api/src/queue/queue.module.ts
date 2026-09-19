@@ -57,7 +57,10 @@ const SEAL_RETRY_BASE_DELAY_MS = 5000;
       defaultJobOptions: {
         // A failed run is not retried: the next tick does the same work.
         attempts: 1,
-        removeOnComplete: { count: 100 },
+        // Not kept: each run logs its own summary. A kept job occupies its
+        // schedule slot, and a restarted worker's scheduler skips forward past
+        // every occupied slot, which delayed the first run by many intervals.
+        removeOnComplete: true,
         removeOnFail: { age: KEEP_FAILED_SECONDS },
       },
     }),
