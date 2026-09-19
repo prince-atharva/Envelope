@@ -238,6 +238,7 @@ export class EnvelopesService {
       draftRevision: envelope.draftRevision,
       sentAt: envelope.sentAt?.toISOString() ?? null,
       expiresAt: envelope.expiresAt?.toISOString() ?? null,
+      reminderIntervalDays: envelope.reminderIntervalDays,
       expiredAt: envelope.expiredAt?.toISOString() ?? null,
       voidedAt: envelope.voidedAt?.toISOString() ?? null,
       voidReason: envelope.voidReason,

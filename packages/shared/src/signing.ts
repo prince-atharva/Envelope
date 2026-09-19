@@ -8,6 +8,7 @@ import {
   MAX_FIELDS_PER_ENVELOPE,
   MAX_MESSAGE_LENGTH,
   MAX_RECIPIENTS_PER_ENVELOPE,
+  MAX_REMINDER_INTERVAL_DAYS,
   MAX_SIGNATURE_IMAGE_BYTES,
   MAX_TEXT_VALUE_LENGTH,
   MAX_VOID_REASON_LENGTH,
@@ -34,6 +35,17 @@ export const sendEnvelopeSchema = z.strictObject({
   expiresInDays: z.number().int().min(1).max(MAX_EXPIRY_DAYS).optional(),
   /** Replaces the envelope's message, if given. Null clears it. */
   message: z.string().trim().max(MAX_MESSAGE_LENGTH).nullable().optional(),
+  /**
+   * Automatic reminders every this many days, and an "expires soon" email.
+   * Null turns both off. Defaults to the server setting.
+   */
+  reminderIntervalDays: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_REMINDER_INTERVAL_DAYS)
+    .nullable()
+    .optional(),
 });
 export type SendEnvelopeInput = z.infer<typeof sendEnvelopeSchema>;
 
@@ -88,6 +100,17 @@ export interface ExtendEnvelopeResponse {
   resumed: boolean;
   /** Everyone whose turn it is, emailed a fresh link now. */
   notified: string[];
+}
+
+/** PATCH /envelopes/:id/reminders (docs/16 step 10). Null turns automatic emails off. */
+export const reminderSettingsSchema = z.strictObject({
+  intervalDays: z.number().int().min(1).max(MAX_REMINDER_INTERVAL_DAYS).nullable(),
+});
+export type ReminderSettingsInput = z.infer<typeof reminderSettingsSchema>;
+
+export interface ReminderSettingsResponse {
+  id: string;
+  reminderIntervalDays: number | null;
 }
 
 export type ReminderSkipReason = 'TOO_SOON' | 'NOT_THEIR_TURN' | 'FINISHED';

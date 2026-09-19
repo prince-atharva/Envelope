@@ -106,6 +106,15 @@ export const envSchema = z
      * step 6). Off in the API e2e suite, which runs each job directly.
      */
     MAINTENANCE_SCHEDULES_ENABLED: flag.default(true),
+    /**
+     * Automatic reminders for envelopes sent without choosing: every this many
+     * days. 0 means off unless the sender turns them on.
+     */
+    AUTO_REMINDER_DEFAULT_DAYS: z.coerce.number().int().min(0).max(30).default(3),
+    /** How long before the deadline the one "expires soon" email goes out. */
+    EXPIRY_WARNING_HOURS: z.coerce.number().int().min(1).max(720).default(48),
+    /** How often the reminder job looks for people due an automatic email. */
+    REMINDER_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(900_000),
     /** How often the expiry sweep looks for envelopes past their deadline. */
     EXPIRY_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(300_000),
     /** First retry delay for a failed email; each later retry waits twice as long. */

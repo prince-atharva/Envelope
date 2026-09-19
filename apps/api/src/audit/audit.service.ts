@@ -56,7 +56,9 @@ export type AuditAction =
   | 'ENVELOPE_VOIDED'
   | 'ENVELOPE_EXPIRED'
   | 'ENVELOPE_EXTENDED'
-  | 'EXTENSION_REQUESTED';
+  | 'EXTENSION_REQUESTED'
+  | 'REMINDERS_CHANGED'
+  | 'REMINDER_SCHEDULED';
 
 /** Recorded on events the system itself causes, with no client behind them. */
 export const SYSTEM_ACTOR = { ipAddress: 'system', userAgent: 'envelope-worker' } as const;

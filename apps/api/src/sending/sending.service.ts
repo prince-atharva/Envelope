@@ -72,6 +72,10 @@ export class SendingService {
     const sentAt = new Date();
     const expiresInDays = input.expiresInDays ?? this.config.SIGNING_DEFAULT_EXPIRY_DAYS;
     const expiresAt = new Date(sentAt.getTime() + expiresInDays * DAY_MS);
+    const reminderIntervalDays =
+      input.reminderIntervalDays === undefined
+        ? this.config.AUTO_REMINDER_DEFAULT_DAYS || null
+        : input.reminderIntervalDays;
 
     const { invited, sequential, recipientCount } = await this.db.$transaction(async (tx) => {
       // Takes the envelope's row lock, so a draft edit racing this send waits
@@ -118,6 +122,7 @@ export class SendingService {
           status: 'SENT',
           sentAt,
           expiresAt,
+          reminderIntervalDays,
           ...(input.message === undefined ? {} : { message: input.message }),
         },
       });
@@ -136,6 +141,7 @@ export class SendingService {
           invited: due.length,
           sequential: envelope.sequentialSigning,
           expiresInDays,
+          reminderIntervalDays,
         },
       });
 

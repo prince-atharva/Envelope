@@ -16,8 +16,11 @@ export interface WelcomeEmailJob {
  * (ADR 0009).
  */
 export interface SigningLinkEmailJob {
-  /** `extended`: the sender gave more time (docs/16 step 7). */
-  template: 'invitation' | 'reminder' | 'extended';
+  /**
+   * `extended`: the sender gave more time (docs/16 step 7). `expiry-warning`:
+   * the deadline is close (docs/16 step 10).
+   */
+  template: 'invitation' | 'reminder' | 'extended' | 'expiry-warning';
   envelopeId: string;
   recipientId: string;
   requestId?: string;

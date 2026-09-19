@@ -70,6 +70,15 @@ Phase 5 (Envelope Lifecycle) in progress. See
   for their turn", not "Not reached". The envelope detail gains `expiredAt` and each recipient's
   `moreTimeRequestedAt`. Browser test `e2e/expiry.spec.ts` walks the whole path: expire, ask for
   more time, give it, sign with the new link. The browser stack sweeps every 2 seconds.
+- Automatic reminders and the "expires soon" email (docs/16 step 10). A second maintenance job,
+  `auto-reminders` (every 15 minutes), emails a new link to each person whose turn it is once the
+  envelope's interval has passed since they were last emailed, and one "{title} expires in N days"
+  email within `EXPIRY_WARNING_HOURS` (48) of the deadline, but never while they have had the
+  document open in the last hour (`lastSeenAt`, written by signing reads at most every 10
+  minutes). Each is claimed under the envelope lock with a compare-and-set, recorded as
+  `REMINDER_SCHEDULED`, and makes the sender's Remind button wait a day. The interval is chosen
+  when sending (`reminderIntervalDays`, default `AUTO_REMINDER_DEFAULT_DAYS` = 3; null is off) and
+  changed with `PATCH /v1/envelopes/:id/reminders`, from the send dialog and the envelope page.
 - Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule
   slot, so a restarted worker's first sweep could come many intervals late.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing

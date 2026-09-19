@@ -14,6 +14,8 @@ import {
   type ProblemFieldError,
   type RecipientResponse,
   type RegisterInput,
+  type ReminderSettingsInput,
+  type ReminderSettingsResponse,
   type RemindInput,
   type RemindResponse,
   type SaveFieldsResponse,
@@ -388,6 +390,12 @@ export const api = {
       headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
     });
   },
+
+  updateReminders: (id: string, input: ReminderSettingsInput) =>
+    json<ReminderSettingsResponse>(
+      `/envelopes/${encodeURIComponent(id)}/reminders`,
+      jsonBody(input, 'PATCH'),
+    ),
 
   /** Cancels a sent envelope (a reason is required), or discards a draft. */
   voidEnvelope: (id: string, input: VoidEnvelopeInput = {}) =>

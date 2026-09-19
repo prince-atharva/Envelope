@@ -1,5 +1,6 @@
 import {
   DEFAULT_EXPIRY_DAYS,
+  DEFAULT_REMINDER_INTERVAL_DAYS,
   type EnvelopeDetail,
   MAX_MESSAGE_LENGTH,
   type RecipientInfo,
@@ -14,6 +15,7 @@ import { describeError } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { queryKeys } from '../../lib/query-keys';
 import { summariseSend } from './progress';
+import { ReminderChoice } from './ReminderChoice';
 
 const EXPIRY_CHOICES = [7, 14, 30] as const;
 
@@ -49,6 +51,9 @@ export function SendDialog({
   const keyRef = useRef<string>(crypto.randomUUID());
   const [expiresInDays, setExpiresInDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [message, setMessage] = useState(envelope.message ?? '');
+  const [reminderIntervalDays, setReminderIntervalDays] = useState<number | null>(
+    DEFAULT_REMINDER_INTERVAL_DAYS,
+  );
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const titleId = useId();
@@ -62,7 +67,11 @@ export function SendDialog({
     mutationFn: () =>
       api.sendEnvelope(
         envelope.id,
-        { expiresInDays, message: message.trim() === '' ? null : message.trim() },
+        {
+          expiresInDays,
+          message: message.trim() === '' ? null : message.trim(),
+          reminderIntervalDays,
+        },
         keyRef.current,
       ),
     onSuccess: async () => {
@@ -150,6 +159,8 @@ export function SendDialog({
           </select>
           <p className="text-xs text-slate-500">That is {expiresOn}.</p>
         </div>
+
+        <ReminderChoice value={reminderIntervalDays} onChange={setReminderIntervalDays} />
 
         <div className="space-y-1">
           <label htmlFor={messageId} className="block text-sm font-medium text-slate-800">

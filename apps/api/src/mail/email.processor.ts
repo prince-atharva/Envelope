@@ -36,6 +36,7 @@ export class EmailProcessor extends WorkerHost {
       case 'invitation':
       case 'reminder':
       case 'extended':
+      case 'expiry-warning':
         return this.signingLinks.send(data);
       case 'declined':
         return this.senderNotices.sendDeclined(data);

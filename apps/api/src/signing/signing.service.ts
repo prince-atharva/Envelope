@@ -56,6 +56,8 @@ function requireConsent(signer: SignerContext): void {
  */
 /** One request for more time per person per day. */
 const MORE_TIME_COOLDOWN_MS = 24 * 3600 * 1000;
+/** lastSeenAt is written at most this often while someone reads. */
+const SEEN_WRITE_EVERY_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class SigningService {
@@ -73,6 +75,7 @@ export class SigningService {
   async session(rawToken: string, client: ClientInfo): Promise<SigningSession> {
     const signer = await this.guardian.resolve(rawToken);
     const { recipient, envelope } = signer;
+    await this.markSeen(recipient.id);
 
     if (!recipient.viewedAt) {
       const now = new Date();
@@ -143,6 +146,7 @@ export class SigningService {
     const signer = await this.guardian.resolve(rawToken);
     requireConsent(signer);
     const { recipient, envelope } = signer;
+    await this.markSeen(recipient.id);
 
     const version = await this.prisma.documentVersion.findFirst({
       where: { envelopeId: envelope.id, isFinal: false },
@@ -556,6 +560,30 @@ export class SigningService {
       this.logger.error({ err: error, alert: true }, 'More-time request could not be queued');
     }
     return { requested: true, alreadyRequested: false };
+  }
+
+  /**
+   * Records that the signer has the document open, at most every 10 minutes.
+   * Automatic reminders wait while they do: every reminder carries a new link,
+   * which would break the page they are on (docs/16 step 10). Best effort: a
+   * failure here never stops them reading.
+   */
+  private async markSeen(recipientId: string): Promise<void> {
+    const now = new Date();
+    try {
+      await this.prisma.recipient.updateMany({
+        where: {
+          id: recipientId,
+          OR: [
+            { lastSeenAt: null },
+            { lastSeenAt: { lt: new Date(now.getTime() - SEEN_WRITE_EVERY_MS) } },
+          ],
+        },
+        data: { lastSeenAt: now },
+      });
+    } catch (error) {
+      this.logger.warn({ err: error }, 'Could not record that the signer is reading');
+    }
   }
 
   /** Removes an image nothing refers to. A failure only leaves an orphan behind. */

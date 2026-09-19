@@ -81,7 +81,7 @@ along the way:
 | 7 | Extend and resume | ✅ Done |
 | 8 | Ask for more time | ✅ Done |
 | 9 | Extend and expiry on the envelope page | ✅ Done |
-| 10 | Automatic reminders and the "expires soon" email | ⬜ |
+| 10 | Automatic reminders and the "expires soon" email | ✅ Done |
 | 11 | Alert emails | ⬜ |
 | 12 | The nightly audit-chain check | ⬜ |
 | 13 | Request limits in Redis, on every route | ⬜ |
@@ -304,6 +304,19 @@ A person is due when:
 was contacted in the last 24 hours. If both are due, only the warning is sent. Each is claimed with
 compare-and-set on `lastRemindedAt`, writes `REMINDER_SCHEDULED` (`{ kind: interval | expiry-warning }`,
 system actor), and sets `lastRemindedAt`, so the sender's own Remind button waits 24 hours after it.
+
+**As built:**
+
+- A null interval turns off both automatic emails, the reminders and "expires soon", as the decision
+  table's "null is off" reads.
+- The query selects only people who could be due (`GREATEST(invitedAt, notifiedAt, lastRemindedAt)`
+  past the interval, or in the warning window and not yet warned), oldest contact first, 500 a run,
+  so people not yet due never fill a batch. Each is decided again by `automaticEmailFor` under
+  `lockOpenEnvelope` and claimed with a compare-and-set on `lastRemindedAt`.
+- The send dialog chooses the interval (every 1, 2, 3, 5 or 7 days, or off; 3 by default), and
+  `PATCH /v1/envelopes/:id/reminders { intervalDays }` changes it on a sent or expired envelope,
+  recording `REMINDERS_CHANGED` (a new audit action). The envelope page has the same choice.
+- The "expires soon" email's subject is "{title} expires in N days", as doc 09 lists it.
 
 ## Step 11: Alerts
 

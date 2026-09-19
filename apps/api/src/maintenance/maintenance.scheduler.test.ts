@@ -2,7 +2,11 @@ import type { Queue } from 'bullmq';
 import type { PinoLogger } from 'nestjs-pino';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '../config/app-config';
-import { EXPIRY_SWEEP_JOB, MaintenanceScheduler } from './maintenance.scheduler';
+import {
+  AUTO_REMINDERS_JOB,
+  EXPIRY_SWEEP_JOB,
+  MaintenanceScheduler,
+} from './maintenance.scheduler';
 
 function scheduler(config: Partial<AppConfig>) {
   const queue = { upsertJobScheduler: vi.fn().mockResolvedValue(undefined) };
@@ -20,12 +24,18 @@ describe('MaintenanceScheduler', () => {
     const { instance, queue } = scheduler({
       MAINTENANCE_SCHEDULES_ENABLED: true,
       EXPIRY_SWEEP_EVERY_MS: 300_000,
+      REMINDER_SWEEP_EVERY_MS: 900_000,
     });
     await instance.onApplicationBootstrap();
     expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
       EXPIRY_SWEEP_JOB,
       { every: 300_000 },
       { name: EXPIRY_SWEEP_JOB },
+    );
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+      AUTO_REMINDERS_JOB,
+      { every: 900_000 },
+      { name: AUTO_REMINDERS_JOB },
     );
   });
 

@@ -15,6 +15,7 @@ import { queryKeys } from '../../lib/query-keys';
 import { recipientColor } from '../builder/recipient-colors';
 import { canExtend } from '../envelope/extend';
 import { type ProgressTone, progressOf, reminderState } from './progress';
+import { ReminderChoice } from './ReminderChoice';
 
 const TONE: Record<ProgressTone, string> = {
   waiting: 'bg-slate-100 text-slate-700 ring-slate-200',
@@ -73,6 +74,31 @@ function ReminderButton({
   );
 }
 
+/** Changes automatic reminders on a sent envelope, saving as soon as a choice is made. */
+function ReminderSetting({ envelope }: { envelope: EnvelopeDetail }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (intervalDays: number | null) => api.updateReminders(envelope.id, { intervalDays }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.envelope(envelope.id) }),
+  });
+  const failure = mutation.error ? describeError(mutation.error).message : null;
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <ReminderChoice
+        compact
+        value={mutation.isPending ? (mutation.variables ?? null) : envelope.reminderIntervalDays}
+        disabled={mutation.isPending}
+        onChange={(days) => mutation.mutate(days)}
+      />
+      {failure && (
+        <span role="alert" className="text-xs text-red-700">
+          {failure}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Who has done what, for a sent envelope. The sender watches this instead of
  * wondering whether the email arrived.
@@ -94,6 +120,7 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
           {envelope.sequentialSigning ? 'One after another' : 'Everyone at once'}
           {open && envelope.expiresAt && ` · Links work until ${formatDate(envelope.expiresAt)}`}
         </p>
+        {canExtend(envelope.status) && <ReminderSetting envelope={envelope} />}
       </div>
 
       {declined && (

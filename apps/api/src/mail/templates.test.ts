@@ -43,6 +43,21 @@ describe('signing-link emails', () => {
     expect(email.text).toContain('Links in earlier emails about this document no longer work.');
   });
 
+  it('warns before the deadline, counting the days left', () => {
+    const now = new Date('2026-09-30T09:00:00Z');
+    const email = renderSigningLinkEmail({ ...base, kind: 'expiry-warning', now });
+    expect(email.subject).toBe('Lease <2026> expires in 2 days');
+    expect(email.text).toContain(
+      'Raj Kumar is still waiting for your signature on "Lease <2026>", and it expires in 2 days.',
+    );
+    const lastDay = renderSigningLinkEmail({
+      ...base,
+      kind: 'expiry-warning',
+      now: new Date('2026-10-01T20:00:00Z'),
+    });
+    expect(lastDay.subject).toBe('Lease <2026> expires in 1 day');
+  });
+
   it('includes the sender message, escaped in HTML and as typed in text', () => {
     const email = renderSigningLinkEmail({ ...base, message: '<b>Hi</b> & thanks' });
     expect(email.html).toContain('&lt;b&gt;Hi&lt;/b&gt; &amp; thanks');

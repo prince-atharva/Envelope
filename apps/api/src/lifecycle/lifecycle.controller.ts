@@ -2,11 +2,14 @@ import {
   type ExtendEnvelopeInput,
   type ExtendEnvelopeResponse,
   extendEnvelopeSchema,
+  type ReminderSettingsInput,
+  type ReminderSettingsResponse,
+  reminderSettingsSchema,
   type VoidEnvelopeInput,
   type VoidEnvelopeResponse,
   voidEnvelopeSchema,
 } from '@envelope/shared';
-import { Body, Controller, Headers, HttpCode, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, Param, Patch, Post, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Client, CurrentUser } from '../auth/auth.decorators';
@@ -17,6 +20,7 @@ import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { CancelService } from './cancel.service';
 import { ExtendService } from './extend.service';
+import { ReminderSettingsService } from './reminder-settings.service';
 
 @ApiTags('lifecycle')
 @ApiBearerAuth()
@@ -26,7 +30,20 @@ export class LifecycleController {
     private readonly cancel: CancelService,
     private readonly extension: ExtendService,
     private readonly idempotency: IdempotencyService,
+    private readonly reminders: ReminderSettingsService,
   ) {}
+
+  @Patch(':id/reminders')
+  @ApiOperation({ summary: 'Turn automatic reminders on or off, or change how often' })
+  @ApiBody({ schema: openApiSchema(reminderSettingsSchema) })
+  updateReminders(
+    @Param('id', UuidParamPipe) id: string,
+    @Body(new ZodValidationPipe(reminderSettingsSchema)) body: ReminderSettingsInput,
+    @CurrentUser() user: AuthenticatedUser,
+    @Client() client: ClientInfo,
+  ): Promise<ReminderSettingsResponse> {
+    return this.reminders.update(id, body, user, client);
+  }
 
   @Post(':id/void')
   @HttpCode(200)

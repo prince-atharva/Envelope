@@ -258,7 +258,9 @@ export function renderMoreTimeEmail(notice: MoreTimeNotice): RenderedEmail {
 }
 
 export interface SigningLinkEmail {
-  kind: 'invitation' | 'reminder' | 'extended';
+  kind: 'invitation' | 'reminder' | 'extended' | 'expiry-warning';
+  /** For "expires in N days". Defaults to the time of rendering. */
+  now?: Date;
   to: string;
   recipientName: string;
   /** Approvers are asked to approve rather than sign. */
@@ -294,15 +296,22 @@ export function renderSigningLinkEmail(email: SigningLinkEmail): RenderedEmail {
   const expires = formatDate(email.expiresAt);
 
   const noun = email.action === 'approve' ? 'approval' : 'signature';
+  const daysLeft = Math.max(
+    1,
+    Math.round((email.expiresAt.getTime() - (email.now ?? new Date()).getTime()) / 86_400_000),
+  );
+  const inDays = daysLeft === 1 ? 'in 1 day' : `in ${daysLeft} days`;
   const subject = {
     invitation: `${sender} has sent you a document to ${verb}`,
     reminder: `Reminder: ${title} awaits your ${noun}`,
     extended: `More time to ${verb} ${title}`,
+    'expiry-warning': `${title} expires ${inDays}`,
   }[email.kind];
   const intro = {
     invitation: `${sender} has sent you "${title}" to ${verb}.`,
     reminder: `This is a reminder that ${sender} is waiting for you to ${verb} "${title}".`,
     extended: `${sender} has given you more time to ${verb} "${title}". Anything you already did is kept.`,
+    'expiry-warning': `${sender} is still waiting for your ${noun} on "${title}", and it expires ${inDays}.`,
   }[email.kind];
   const replaced =
     email.kind === 'invitation'

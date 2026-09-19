@@ -130,6 +130,8 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   sentAt: string | null;
   /** When every signing link stops working. Null for a draft. */
   expiresAt: string | null;
+  /** Automatic reminders every this many days, with an "expires soon" email. Null is off. */
+  reminderIntervalDays: number | null;
   /** When the expiry sweep last paused it. Kept after an extension, as history. */
   expiredAt: string | null;
   /** When it was cancelled or discarded, by whom and why. Null unless VOIDED. */

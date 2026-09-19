@@ -2,8 +2,9 @@ import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { MAINTENANCE_QUEUE } from '../queue/queue.module';
+import { AutoReminderService } from './auto-reminder.service';
 import { ExpirySweepService, type SweepResult } from './expiry-sweep.service';
-import { EXPIRY_SWEEP_JOB } from './maintenance.scheduler';
+import { AUTO_REMINDERS_JOB, EXPIRY_SWEEP_JOB } from './maintenance.scheduler';
 
 /**
  * Worker side of the scheduled jobs, one at a time. Each run logs one summary
@@ -13,6 +14,7 @@ import { EXPIRY_SWEEP_JOB } from './maintenance.scheduler';
 export class MaintenanceProcessor extends WorkerHost {
   constructor(
     private readonly expiry: ExpirySweepService,
+    private readonly reminders: AutoReminderService,
     @InjectPinoLogger(MaintenanceProcessor.name) private readonly logger: PinoLogger,
   ) {
     super();
@@ -22,6 +24,8 @@ export class MaintenanceProcessor extends WorkerHost {
     switch (name) {
       case EXPIRY_SWEEP_JOB:
         return this.expiry.run();
+      case AUTO_REMINDERS_JOB:
+        return this.reminders.run();
       default:
         throw new Error(`Unknown maintenance job "${name}"`);
     }

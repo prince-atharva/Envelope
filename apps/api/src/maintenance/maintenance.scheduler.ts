@@ -6,6 +6,7 @@ import { AppConfig } from '../config/app-config';
 import { MAINTENANCE_QUEUE } from '../queue/queue.module';
 
 export const EXPIRY_SWEEP_JOB = 'expiry-sweep';
+export const AUTO_REMINDERS_JOB = 'auto-reminders';
 
 /**
  * Registers the scheduled jobs when a worker starts. BullMQ job schedulers are
@@ -21,7 +22,10 @@ export class MaintenanceScheduler implements OnApplicationBootstrap {
   ) {}
 
   schedules(): { id: string; everyMs: number }[] {
-    return [{ id: EXPIRY_SWEEP_JOB, everyMs: this.config.EXPIRY_SWEEP_EVERY_MS }];
+    return [
+      { id: EXPIRY_SWEEP_JOB, everyMs: this.config.EXPIRY_SWEEP_EVERY_MS },
+      { id: AUTO_REMINDERS_JOB, everyMs: this.config.REMINDER_SWEEP_EVERY_MS },
+    ];
   }
 
   async onApplicationBootstrap(): Promise<void> {

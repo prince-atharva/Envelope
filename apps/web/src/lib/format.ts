@@ -53,6 +53,8 @@ const AUDIT_ACTIONS: Record<string, string> = {
   ENVELOPE_EXPIRED: 'Deadline passed; paused',
   ENVELOPE_EXTENDED: 'Deadline extended',
   EXTENSION_REQUESTED: 'More time requested',
+  REMINDERS_CHANGED: 'Automatic reminders changed',
+  REMINDER_SCHEDULED: 'Automatic reminder sent',
 };
 
 /** Audit actions as people read them. */

@@ -292,6 +292,7 @@ Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at leas
 | `GET` | `/v1/envelopes?status=&cursor=&limit=` | List, filterable |
 | `POST` | `/v1/envelopes/:id/void` | Cancel, or discard a draft. Body: `{ "reason": "..." }`, required unless a draft. Invalidates all tokens synchronously. Built in Phase 5; see below. |
 | `POST` | `/v1/sign/:token/request-more-time` | The one route an expired link can use: emails the sender, once a day. `200 { requested, alreadyRequested }`; a link that still works gets 409 `CONFLICT`. Phase 5. |
+| `PATCH` | `/v1/envelopes/:id/reminders` | Automatic reminders. Body: `{ "intervalDays": 1–30 \| null }`; null is off. Sent or expired envelopes only. Phase 5. |
 | `POST` | `/v1/envelopes/:id/extend` | More time. Body: `{ "expiresInDays": 1–90 }`, with `Idempotency-Key`. Reopens an `EXPIRED` envelope and emails fresh links to whoever's turn it is. Phase 5. |
 | `POST` | `/v1/envelopes/:id/remind` | Nudge outstanding recipients. Rate-limited to 1/recipient/24h. Built in Phase 3; see below. |
 | `GET` | `/v1/envelopes/:id/documents/original` | The untouched upload |

@@ -37,6 +37,9 @@ export const MAX_TEXT_VALUE_LENGTH = 500;
 /** How long signing links last unless the sender chooses otherwise (docs/10: 14 days). */
 export const DEFAULT_EXPIRY_DAYS = 14;
 export const MAX_EXPIRY_DAYS = 90;
+/** Automatic reminders (docs/16 step 10): the choice the send dialog starts on, and the range. */
+export const DEFAULT_REMINDER_INTERVAL_DAYS = 3;
+export const MAX_REMINDER_INTERVAL_DAYS = 30;
 
 /** docs/08: reminders are limited to one per recipient per 24 hours. */
 export const REMINDER_COOLDOWN_HOURS = 24;

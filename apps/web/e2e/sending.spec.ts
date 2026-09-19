@@ -13,6 +13,8 @@ test.describe('Sending', () => {
     await expect(dialog.getByText('Emailed now: Priya Sharma')).toBeVisible();
     await expect(dialog.getByText(/Then, one after another: Raj Patel/)).toBeVisible();
     await dialog.getByLabel('Links stop working after').selectOption('7');
+    await expect(dialog.getByLabel('Automatic reminders')).toHaveValue('3');
+    await dialog.getByLabel('Automatic reminders').selectOption('2');
     await dialog.getByLabel(/Message in the email/).fill('Please sign by Friday.');
     await dialog.getByRole('button', { name: 'Send', exact: true }).click();
 
@@ -31,6 +33,14 @@ test.describe('Sending', () => {
 
     await priyaRow.getByRole('button', { name: 'Send a reminder to Priya Sharma' }).click();
     await expect(priyaRow.getByText(/Reminder sent|Reminded/)).toBeVisible();
+
+    // Automatic reminders, as chosen when sending, can be turned off afterwards.
+    const reminders = progress.getByLabel('Automatic reminders');
+    await expect(reminders).toHaveValue('2');
+    await reminders.selectOption('off');
+    await expect(reminders).toBeEnabled();
+    await page.reload();
+    await expect(progress.getByLabel('Automatic reminders')).toHaveValue('off');
 
     // A sent document can no longer be prepared or reviewed.
     await page.goto(`/dashboard/envelopes/${envelopeId}/prepare`);
