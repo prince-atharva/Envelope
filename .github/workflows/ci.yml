@@ -91,13 +91,20 @@ jobs:
       - name: API end-to-end tests
         run: pnpm --filter @envelope/api test:e2e
 
-      - name: Install Playwright Chromium
-        run: pnpm --filter @envelope/web exec playwright install --with-deps chromium
+      - name: Install Playwright Chromium and WebKit
+        run: pnpm --filter @envelope/web exec playwright install --with-deps chromium webkit
 
       # Playwright builds and starts its own isolated stack (apps/web/e2e/stack):
       # test database, Redis db 2, file-only email, ports 4100 and 5174.
       - name: Browser tests
         run: pnpm --filter @envelope/web test:e2e --project=desktop-chrome
+
+      # Signers mostly use Safari on a phone, so the signing tests and the
+      # token-leak audit also run on iPhone 14 under WebKit.
+      - name: Signing browser tests on iPhone (WebKit)
+        run: >
+          pnpm --filter @envelope/web test:e2e --project=mobile-iphone14
+          e2e/signing.spec.ts e2e/token-leak.spec.ts
 
       - name: Browser-test stack logs
         if: failure()

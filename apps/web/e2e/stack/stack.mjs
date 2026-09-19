@@ -67,7 +67,9 @@ export const STACK_ENV = {
   EMAIL_RETRY_BASE_DELAY_MS: '50',
   SMTP_FROM: 'Envelope by HealthProHub <no-reply@e2e.local>',
 
-  LOG_LEVEL: env.E2E_LOG_LEVEL ?? 'info',
+  // Debug by default, so the token-leak audit (token-leak.spec.ts) searches
+  // every line the API and worker could ever write, not only the usual ones.
+  LOG_LEVEL: env.E2E_LOG_LEVEL ?? 'debug',
   LOG_PRETTY: 'false',
   LOG_FILES_ENABLED: 'true',
   LOG_DIR,

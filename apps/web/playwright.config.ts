@@ -41,7 +41,8 @@ export default defineConfig({
     },
     {
       name: 'mobile-iphone14',
-      use: { ...devices['iPhone 14'], defaultBrowserType: 'chromium' },
+      // WebKit, the engine of Safari on iOS, which is what signers mostly use.
+      use: { ...devices['iPhone 14'] },
     },
   ],
   webServer: [

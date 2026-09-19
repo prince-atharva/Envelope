@@ -171,6 +171,20 @@ Phase 3 (Signer Portal) in progress. See
 - Browser tests for signing (`apps/web/e2e/signing.spec.ts`): typed and drawn signatures, finishing
   and returning to a spent link, a draft restored after reloading, declining before consent, and
   links that are not valid. The helpers read signing links from the test outbox.
+- **The signing-link leak audit**, run in two places. Each runs a full flow, collects every link that
+  was emailed (including links a reminder replaced), and fails if any of them is found. On failure it
+  shows where, with the link itself masked.
+  - `apps/api/test/token-leak.e2e.test.ts` covers send and a replayed send, view, the document
+    before and after consent, adopt, submit and submitting again, a reminder and the replaced link,
+    the per-link rate limit, decline, and links that were never issued. It searches everything handed
+    to a logger, every response body and header, every row of every table, and every Redis key and
+    value.
+  - `apps/web/e2e/token-leak.spec.ts` does the same through the real screens, against the API and
+    worker running as real processes. It searches their log files, which include one line per HTTP
+    request, as well as the database, Redis, and the `Referer` header of every request the signing
+    pages make.
+  - Both check first that they found something to search, so neither can pass on an empty log,
+    table or cache. Both were shown to fail when a token was planted in each of these places.
 
 ### Fixed
 
@@ -222,6 +236,11 @@ Phase 3 (Signer Portal) in progress. See
 - API request ids fall back to `crypto.getRandomValues` where `crypto.randomUUID` is missing, which
   is the case on plain HTTP away from localhost, such as a phone testing against a laptop.
 - New `danger` button style, for Decline.
+- **Browser tests for iPhone 14 now run on WebKit**, the engine of Safari on iOS, instead of
+  Chromium dressed as an iPhone. CI installs WebKit and runs the signing tests and the leak audit on
+  it, as well as every test on desktop Chrome.
+- The browser-test stack logs at `debug` by default, so the leak audit searches every line the API
+  and worker could write. `E2E_LOG_LEVEL` still overrides it.
 
 ## [0.2.0] - 2026-09-18
 

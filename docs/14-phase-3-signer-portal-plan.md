@@ -90,7 +90,7 @@ From doc 11, Phase 3 is finished when:
 | 7 | Reminders, and progress for the sender | ✅ Done |
 | 8 | Send dialog and progress screen | ✅ Done |
 | 9 | The signing screens | ✅ Done |
-| 10 | Browser tests and the link-leak audit | ⬜ |
+| 10 | Browser tests and the link-leak audit | ✅ Done |
 | 11 | Real-phone check, documentation and release `v0.3.0` | ⬜ |
 
 ## What We Need From You
@@ -267,6 +267,31 @@ with the workspace, plus 132 KB of PDF.js, within the 150 KB budget. The build m
   files, any database row, any Redis key or any error body.
 - Playwright: draw and type signing, decline, draft restore and the already-signed screen, on
   desktop Chrome and on iPhone 14 **under WebKit**.
+
+### Step 10 as built
+
+The API cases were written with each API step, in `apps/api/test/signing.e2e.test.ts`. Step 10 added
+the leak audit, in two places. Each one runs a full flow, collects every link that was emailed
+(including links that a reminder replaced), and searches for them:
+
+| Audit | Flow | Searched |
+|---|---|---|
+| `apps/api/test/token-leak.e2e.test.ts` | Send and a replayed send; view; document before and after consent; adopt both kinds; submit, then submit again; reminder; the replaced link, then its rate limit; decline; links that were never issued | Everything handed to a logger (before redaction); every response body and header; every row of every table; every Redis key and value |
+| `apps/web/e2e/token-leak.spec.ts` | The same, through the real screens, with the API and worker running as real processes, logging at `debug` | Their log files, which include one line per HTTP request; the database; Redis; the `Referer` header of every request the signing pages make |
+
+Each audit first checks that it has something to search. For example, the log files must contain
+`/sign/[redacted]` request lines, and the database must contain the token's HMAC. So neither can
+pass on an empty log, table or cache. Both were run once with a token planted in each place, and
+failed each time. The failure names the place and shows an excerpt with the link masked.
+
+The `mobile-iphone14` project now runs on WebKit. CI installs WebKit, runs every test on desktop
+Chrome, and runs the signing tests and the audit on iPhone 14. Drawing is tested with mouse pointer
+events. Real touch drawing is part of the step 11 phone check.
+
+**Still to run locally:** the WebKit run. The development machine lacks WebKit's system libraries, and
+installing them needs `sudo`
+(`sudo pnpm --filter @envelope/web exec playwright install-deps webkit`). Desktop Chrome and Pixel 7
+pass: 36 of 36.
 
 ## Open Points Found in Step 9
 

@@ -224,6 +224,18 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
   throw new Error(`No signing link was emailed to ${email}`);
 }
 
+/** Every signing token emailed so far in this run, from any email in the outbox. */
+export async function allSigningTokens(): Promise<string[]> {
+  const tokens = new Set<string>();
+  for (const file of await readdir(OUTBOX_DIR).catch(() => [] as string[])) {
+    const message = await readFile(join(OUTBOX_DIR, file), 'utf8');
+    for (const match of message.matchAll(/\/sign\/([0-9a-f]{64})/g)) {
+      if (match[1]) tokens.add(match[1]);
+    }
+  }
+  return [...tokens];
+}
+
 /** Sends the envelope on the review screen, with the dialog's defaults. */
 export async function sendFromReview(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Send for signing' }).click();
