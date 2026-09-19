@@ -7,6 +7,7 @@ import {
   type ConsentResponse,
   type DeclineInput,
   type DeclineResponse,
+  type MoreTimeResponse,
   OPEN_ENVELOPE_STATUSES,
   orderFieldsForSigning,
   type SigningSession,
@@ -53,6 +54,9 @@ function requireConsent(signer: SignerContext): void {
  * are conditional updates, so a second tab, a double tap or a decline landing
  * at the same moment cannot sign twice or sign a closed envelope.
  */
+/** One request for more time per person per day. */
+const MORE_TIME_COOLDOWN_MS = 24 * 3600 * 1000;
+
 @Injectable()
 export class SigningService {
   constructor(
@@ -500,6 +504,58 @@ export class SigningService {
       this.logger.error({ err: error, alert: true }, 'Decline notice could not be queued');
     }
     return { status: 'DECLINED', declinedAt: declinedAt.toISOString() };
+  }
+
+  /**
+   * A signer whose link expired asks the sender for more time (docs/16 step
+   * 8). The only thing an expired link can still do. Once a day per person: a
+   * second request in that time answers the same, but the sender is not
+   * emailed again, so a reload is never an error.
+   */
+  async requestMoreTime(rawToken: string, client: ClientInfo): Promise<MoreTimeResponse> {
+    const now = new Date();
+    const signer = await this.guardian.resolve(rawToken, now, { allowExpired: true });
+    if (!signer.expired) {
+      throw new AppException('CONFLICT', 'Your link still works, so you can sign now.');
+    }
+    const { recipient, envelope } = signer;
+
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const claim = await tx.recipient.updateMany({
+        where: {
+          id: recipient.id,
+          OR: [
+            { moreTimeRequestedAt: null },
+            { moreTimeRequestedAt: { lt: new Date(now.getTime() - MORE_TIME_COOLDOWN_MS) } },
+          ],
+        },
+        data: { moreTimeRequestedAt: now },
+      });
+      if (claim.count === 0) return false;
+      await this.audit.record(tx, {
+        envelopeId: envelope.id,
+        recipientId: recipient.id,
+        action: 'EXTENSION_REQUESTED',
+        ipAddress: client.ip,
+        userAgent: client.userAgent,
+        metadata: { envelopeStatus: envelope.status },
+      });
+      return true;
+    });
+
+    if (!claimed) {
+      this.logger.info('More time already requested in the last day');
+      return { requested: true, alreadyRequested: true };
+    }
+
+    this.logger.info({ envelopeStatus: envelope.status }, 'More time requested');
+    try {
+      await this.mail.enqueueMoreTimeRequested(envelope.id, recipient.id, now);
+    } catch (error) {
+      // Recorded either way; the sender sees the envelope as expired on their dashboard.
+      this.logger.error({ err: error, alert: true }, 'More-time request could not be queued');
+    }
+    return { requested: true, alreadyRequested: false };
   }
 
   /** Removes an image nothing refers to. A failure only leaves an orphan behind. */

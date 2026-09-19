@@ -215,6 +215,48 @@ export function renderExpiredEmail(notice: ExpiredNotice): RenderedEmail {
   return { to: notice.to, subject, html, text };
 }
 
+export interface MoreTimeNotice {
+  to: string;
+  senderName: string;
+  recipientName: string;
+  recipientEmail: string;
+  envelopeTitle: string;
+  envelopeUrl: string;
+}
+
+/** To the sender: someone whose link expired asked for more time (docs/16 step 8). */
+export function renderMoreTimeEmail(notice: MoreTimeNotice): RenderedEmail {
+  const who = oneLine(notice.recipientName);
+  const title = oneLine(notice.envelopeTitle);
+  const subject = `${who} asked for more time to sign ${title}`;
+  const intro = `${who} (${oneLine(notice.recipientEmail)}) opened "${title}" after its deadline and asked for more time to sign.`;
+  const next =
+    'Open the document and choose Give more time. They will get a new link, and nothing already signed is lost.';
+  const footer = `You received this email because you sent this document using ${BRAND.fullName}.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.senderName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(next)}</p>
+     ${button(notice.envelopeUrl, 'Open the document')}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.senderName)},`,
+    '',
+    intro,
+    '',
+    next,
+    '',
+    `Open the document: ${notice.envelopeUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
 export interface SigningLinkEmail {
   kind: 'invitation' | 'reminder' | 'extended';
   to: string;

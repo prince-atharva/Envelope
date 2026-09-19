@@ -10,6 +10,7 @@ import type {
   DeclinedNoticeJob,
   EmailJobData,
   ExpiredNoticeJob,
+  MoreTimeRequestedJob,
   SigningLinkEmailJob,
   VoidedNoticeJob,
   WelcomeEmailJob,
@@ -166,6 +167,28 @@ export class MailQueueService implements OnModuleInit {
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** Tells the sender someone asked for more time. One job per request, at most one a day. */
+  async enqueueMoreTimeRequested(
+    envelopeId: string,
+    recipientId: string,
+    requestedAt: Date,
+  ): Promise<string | undefined> {
+    const data: MoreTimeRequestedJob = {
+      template: 'more-time-requested',
+      envelopeId,
+      recipientId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `more-time-${recipientId}-${requestedAt.getTime()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
       'Email job enqueued',
     );
     return job.id;

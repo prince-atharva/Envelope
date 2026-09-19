@@ -84,7 +84,7 @@ export default function SigningPage() {
   }, [session.error]);
 
   const finished = ended ?? endStateFor(session.error);
-  if (finished) return <EndScreen state={finished} />;
+  if (finished) return <EndScreen state={finished} token={wellFormed ? token : undefined} />;
 
   if (session.isPending) return <FullPageSpinner label="Opening your document…" />;
 

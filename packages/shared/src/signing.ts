@@ -201,6 +201,13 @@ export interface SubmitSigningResponse {
   message: string;
 }
 
+/** POST /sign/:token/request-more-time (docs/16 step 8). */
+export interface MoreTimeResponse {
+  requested: true;
+  /** They had already asked in the last day: the sender was not emailed again. */
+  alreadyRequested: boolean;
+}
+
 export interface DeclineResponse {
   status: 'DECLINED';
   declinedAt: string;

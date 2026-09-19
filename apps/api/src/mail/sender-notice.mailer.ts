@@ -1,12 +1,12 @@
-import { receivesSigningLink } from '@envelope/shared';
+import { isTerminalEnvelope, receivesSigningLink } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
-import type { DeclinedNoticeJob, ExpiredNoticeJob } from './mail.types';
+import type { DeclinedNoticeJob, ExpiredNoticeJob, MoreTimeRequestedJob } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import type { SigningLinkResult } from './signing-link.mailer';
-import { renderDeclinedEmail, renderExpiredEmail } from './templates';
+import { renderDeclinedEmail, renderExpiredEmail, renderMoreTimeEmail } from './templates';
 
 /** Emails to the sender about their envelope: someone declined, or it expired. */
 @Injectable()
@@ -78,6 +78,37 @@ export class SenderNoticeMailer {
         waitingFor: envelope.recipients
           .filter((r) => receivesSigningLink(r.role) && r.status !== 'SIGNED')
           .map((r) => r.name),
+        envelopeUrl: envelopeUrl.toString(),
+      }),
+      job.template,
+    );
+  }
+
+  /** Someone asked for more time. Skipped if the envelope has closed since. */
+  async sendMoreTimeRequested(job: MoreTimeRequestedJob): Promise<SigningLinkResult> {
+    const recipient = await this.prisma.recipient.findFirst({
+      where: { id: job.recipientId, envelopeId: job.envelopeId },
+      include: {
+        envelope: { include: { owner: { select: { email: true, fullName: true } } } },
+      },
+    });
+    if (!recipient || isTerminalEnvelope(recipient.envelope.status)) {
+      this.logger.info(
+        { envelopeId: job.envelopeId, recipientId: job.recipientId },
+        'More-time notice not sent: envelope closed',
+      );
+      return { skipped: 'envelope closed' };
+    }
+
+    const { envelope } = recipient;
+    const envelopeUrl = new URL(`/dashboard/envelopes/${envelope.id}`, this.config.APP_URL);
+    return this.transport.send(
+      renderMoreTimeEmail({
+        to: envelope.owner.email,
+        senderName: envelope.owner.fullName,
+        recipientName: recipient.name,
+        recipientEmail: recipient.email,
+        envelopeTitle: envelope.title,
         envelopeUrl: envelopeUrl.toString(),
       }),
       job.template,

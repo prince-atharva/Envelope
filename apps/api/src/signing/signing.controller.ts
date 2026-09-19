@@ -8,6 +8,7 @@ import {
   type DeclineInput,
   type DeclineResponse,
   declineSchema,
+  type MoreTimeResponse,
   type SigningSession,
   type SubmitSigningInput,
   type SubmitSigningResponse,
@@ -145,5 +146,18 @@ export class SigningController {
     @Client() client: ClientInfo,
   ): Promise<DeclineResponse> {
     return this.signing.decline(token, body, client);
+  }
+
+  @Post('request-more-time')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Ask the sender for more time. The one route an expired link can use.',
+  })
+  @ApiParam(TOKEN_PARAM)
+  requestMoreTime(
+    @Param('token') token: string,
+    @Client() client: ClientInfo,
+  ): Promise<MoreTimeResponse> {
+    return this.signing.requestMoreTime(token, client);
   }
 }

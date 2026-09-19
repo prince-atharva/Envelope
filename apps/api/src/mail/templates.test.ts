@@ -4,6 +4,7 @@ import {
   renderCompletedEmail,
   renderDeclinedEmail,
   renderExpiredEmail,
+  renderMoreTimeEmail,
   renderSigningLinkEmail,
   renderVoidedEmail,
   renderWelcomeEmail,
@@ -125,6 +126,24 @@ describe('expiry notice', () => {
     );
     expect(email.html).toContain('Dev &lt;Rao&gt;');
     expect(email.text).toContain('signatures already made are kept');
+    expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
+  });
+});
+
+describe('more-time notice', () => {
+  it('names who asked, with their address, and where to give more time', () => {
+    const email = renderMoreTimeEmail({
+      to: 'raj@example.com',
+      senderName: 'Raj Kumar',
+      recipientName: 'Priya\nSharma',
+      recipientEmail: 'priya@example.com',
+      envelopeTitle: 'Lease',
+      envelopeUrl: 'https://sign.example.com/dashboard/envelopes/e-1',
+    });
+    expect(email.subject).toBe('Priya Sharma asked for more time to sign Lease');
+    expect(email.text).toContain(
+      'Priya Sharma (priya@example.com) opened "Lease" after its deadline',
+    );
     expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
   });
 });

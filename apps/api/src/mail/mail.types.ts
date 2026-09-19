@@ -63,13 +63,22 @@ export interface ExpiredNoticeJob {
   requestId?: string;
 }
 
+/** Tells the sender a signer with an expired link asked for more time. */
+export interface MoreTimeRequestedJob {
+  template: 'more-time-requested';
+  envelopeId: string;
+  recipientId: string;
+  requestId?: string;
+}
+
 export type EmailJobData =
   | WelcomeEmailJob
   | SigningLinkEmailJob
   | DeclinedNoticeJob
   | CompletedEmailJob
   | VoidedNoticeJob
-  | ExpiredNoticeJob;
+  | ExpiredNoticeJob
+  | MoreTimeRequestedJob;
 export type EmailTemplate = EmailJobData['template'];
 
 export interface EmailAttachment {

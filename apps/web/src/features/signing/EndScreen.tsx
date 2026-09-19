@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useDocumentTitle } from '../../lib/use-document-title';
 import type { EndState } from './end-states';
+import { MoreTimeRequest } from './MoreTimeRequest';
 import { SigningFrame } from './SigningFrame';
 
 type Tone = 'done' | 'neutral' | 'stopped';
@@ -48,7 +49,7 @@ function screenFor(state: EndState): Screen {
       return {
         tone: 'stopped',
         title: 'This signing link has expired',
-        body: 'Links stop working after a set time, to keep documents safe. Ask the sender to send it to you again.',
+        body: 'Links stop working after a set time, to keep documents safe. Anything you already did is kept, and you can ask the sender for more time.',
       };
     case 'invalid':
       return {
@@ -76,7 +77,7 @@ const ICONS: Record<Tone, { className: string; path: string }> = {
  * A plain explanation, never an error code: finishing, or finding the link
  * already used, is a normal outcome.
  */
-export function EndScreen({ state }: { state: EndState }) {
+export function EndScreen({ state, token }: { state: EndState; token?: string }) {
   const screen = screenFor(state);
   const icon = ICONS[screen.tone];
   useDocumentTitle(screen.title);
@@ -104,6 +105,7 @@ export function EndScreen({ state }: { state: EndState }) {
         </span>
         <h1 className="text-xl font-semibold text-slate-900">{screen.title}</h1>
         <p className="max-w-md text-sm text-slate-600">{screen.body}</p>
+        {state.kind === 'expired' && token && <MoreTimeRequest token={token} />}
       </div>
     </SigningFrame>
   );

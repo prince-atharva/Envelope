@@ -57,6 +57,12 @@ Phase 5 (Envelope Lifecycle) in progress. See
   as `PARTIALLY_SIGNED` or `SENT`. Whoever holds the turn gets an `extended` email with a fresh
   link; on reopening, a `resume` seal job stamps signatures made before the deadline and invites
   whoever is due next. Drafts answer 409 `CONFLICT`, closed envelopes 409 `ENVELOPE_TERMINAL`.
+- Ask for more time (docs/16 step 8): `POST /v1/sign/:token/request-more-time`, the one route an
+  expired link can use (`TokenGuardianService.resolve(..., { allowExpired: true })`, which still
+  refuses a cancelled, declined, finished or unknown link). Once a day per person, claimed on
+  `moreTimeRequestedAt`; a repeat answers 200 with `alreadyRequested: true` and emails nobody. It
+  records `EXTENSION_REQUESTED` and emails the sender (`more-time-requested`). The expired-link
+  screen has an **Ask for more time** button.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing
   sent. The web app no longer offers Remind there.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:

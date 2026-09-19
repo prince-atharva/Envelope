@@ -41,6 +41,8 @@ export class EmailProcessor extends WorkerHost {
         return this.senderNotices.sendDeclined(data);
       case 'expired':
         return this.senderNotices.sendExpired(data);
+      case 'more-time-requested':
+        return this.senderNotices.sendMoreTimeRequested(data);
       case 'completed':
         return this.completions.send(data);
       case 'voided':

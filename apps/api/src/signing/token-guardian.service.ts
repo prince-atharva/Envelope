@@ -1,4 +1,14 @@
 import { isOpenEnvelope, SIGNING_TOKEN_PATTERN, type TerminalReason } from '@envelope/shared';
+
+export interface ResolveOptions {
+  /**
+   * Accept a link whose only fault is that it expired, on an envelope that is
+   * open or paused (docs/16 step 8). Used by exactly one route: asking the
+   * sender for more time.
+   */
+  allowExpired?: boolean;
+}
+
 import { Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -14,6 +24,8 @@ export interface SignerContext {
   envelope: Envelope & { owner: { fullName: string } };
   /** For log lines. Never the token itself. */
   tokenRef: string;
+  /** True when the link was accepted only because `allowExpired` was set. */
+  expired: boolean;
 }
 
 export type AccessRefusal =
@@ -102,7 +114,11 @@ export class TokenGuardianService {
     return hashSigningToken(this.config.SIGNING_TOKEN_SECRET, rawToken);
   }
 
-  async resolve(rawToken: string, now = new Date()): Promise<SignerContext> {
+  async resolve(
+    rawToken: string,
+    now = new Date(),
+    options: ResolveOptions = {},
+  ): Promise<SignerContext> {
     if (!SIGNING_TOKEN_PATTERN.test(rawToken)) {
       this.logger.info('Signing link rejected: not a token');
       throw invalidLink();
@@ -133,6 +149,13 @@ export class TokenGuardianService {
     }
 
     const refusal = checkSignerAccess(recipient, envelope, now);
+    if (
+      refusal?.code === 'TOKEN_EXPIRED' &&
+      options.allowExpired &&
+      (isOpenEnvelope(envelope.status) || envelope.status === 'EXPIRED')
+    ) {
+      return { recipient, envelope, tokenRef: ref, expired: true };
+    }
     if (refusal) {
       const level = refusal.code === 'ENVELOPE_NOT_OPEN' ? 'warn' : 'info';
       this.logger[level](
@@ -142,7 +165,7 @@ export class TokenGuardianService {
       throw refusalException(refusal);
     }
 
-    return { recipient, envelope, tokenRef: ref };
+    return { recipient, envelope, tokenRef: ref, expired: false };
   }
 }
 

@@ -79,7 +79,7 @@ along the way:
 | 5 | Cancel and discard (screens) | ✅ Done |
 | 6 | The maintenance queue and the expiry sweep | ✅ Done |
 | 7 | Extend and resume | ✅ Done |
-| 8 | Ask for more time | ⬜ |
+| 8 | Ask for more time | ✅ Done |
 | 9 | Extend and expiry on the envelope page | ⬜ |
 | 10 | Automatic reminders and the "expires soon" email | ⬜ |
 | 11 | Alert emails | ⬜ |
