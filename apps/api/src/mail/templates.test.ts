@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   escapeHtml,
+  renderAlertEmail,
   renderCompletedEmail,
   renderDeclinedEmail,
   renderExpiredEmail,
@@ -160,6 +161,26 @@ describe('more-time notice', () => {
       'Priya Sharma (priya@example.com) opened "Lease" after its deadline',
     );
     expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
+  });
+});
+
+describe('alert email', () => {
+  it('lists the key, the service, the time and the ids, escaped', () => {
+    const email = renderAlertEmail({
+      to: 'ops@example.com',
+      key: 'seal-job-failed',
+      summary: 'Seal job failed permanently',
+      fields: { envelopeId: 'e-1', attemptsMade: 5, note: '<b>' },
+      service: 'worker',
+      raisedAt: new Date('2026-09-19T12:00:00Z'),
+      appUrl: 'https://sign.example.com',
+    });
+    expect(email.subject).toBe('[Envelope by HealthProHub alert] Seal job failed permanently');
+    expect(email.text).toContain('Alert: seal-job-failed');
+    expect(email.text).toContain('Service: worker');
+    expect(email.text).toContain('Raised at: 2026-09-19T12:00:00.000Z (UTC)');
+    expect(email.text).toContain('attemptsMade: 5');
+    expect(email.html).toContain('&lt;b&gt;');
   });
 });
 

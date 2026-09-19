@@ -257,6 +257,48 @@ export function renderMoreTimeEmail(notice: MoreTimeNotice): RenderedEmail {
   return { to: notice.to, subject, html, text };
 }
 
+export interface AlertEmail {
+  to: string;
+  key: string;
+  summary: string;
+  /** Ids, codes and counts only. */
+  fields: Record<string, string | number | boolean | null>;
+  service: string;
+  raisedAt: Date;
+  appUrl: string;
+}
+
+/** To the operator: something needs a person (docs/16 step 11). Plain, for reading on a phone. */
+export function renderAlertEmail(alert: AlertEmail): RenderedEmail {
+  const summary = oneLine(alert.summary);
+  const subject = `[${BRAND.fullName} alert] ${summary}`;
+  const rows: [string, string][] = [
+    ['Alert', alert.key],
+    ['Service', alert.service],
+    ['Raised at', `${alert.raisedAt.toISOString()} (UTC)`],
+    ['Environment', alert.appUrl],
+    ...Object.entries(alert.fields).map(([name, value]): [string, string] => [name, String(value)]),
+  ];
+  const footer =
+    'The same alert is not emailed again for a while; search the logs for alert: true to see every occurrence.';
+
+  const html = layout(
+    summary,
+    `<p style="margin:0 0 16px;font-weight:600;">${escapeHtml(summary)}</p>
+     <table style="border-collapse:collapse;font-size:13px;">${rows
+       .map(
+         ([name, value]) =>
+           `<tr><td style="padding:2px 12px 2px 0;color:#6b7785;">${escapeHtml(name)}</td><td style="padding:2px 0;font-family:monospace;">${escapeHtml(value)}</td></tr>`,
+       )
+       .join('')}</table>`,
+    footer,
+  );
+  const text = [summary, '', ...rows.map(([name, value]) => `${name}: ${value}`), '', footer].join(
+    '\n',
+  );
+  return { to: alert.to, subject, html, text };
+}
+
 export interface SigningLinkEmail {
   kind: 'invitation' | 'reminder' | 'extended' | 'expiry-warning';
   /** For "expires in N days". Defaults to the time of rendering. */

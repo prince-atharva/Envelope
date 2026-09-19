@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AlertService } from '../alert/alert.service';
 import type { AuditTrail, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { type ChainVerification, computeEventHash, verifyChain } from './audit-chain';
@@ -82,6 +83,7 @@ export interface AuditEventInput {
 export class AuditService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly alerts: AlertService,
     @InjectPinoLogger(AuditService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -125,15 +127,17 @@ export class AuditService {
       return event;
     } catch (error) {
       // An audit write failure means the evidence trail is at risk: page someone.
-      this.logger.error(
-        { err: error, alert: true, envelopeId: input.envelopeId, action: input.action },
+      await this.alerts.raise(
+        'audit-write-failed',
         'Audit event could not be recorded',
+        { envelopeId: input.envelopeId, action: input.action },
+        error,
       );
       throw error;
     }
   }
 
-  /** Recomputes an envelope's chain. Breaks are logged as errors with `alert: true`. */
+  /** Recomputes an envelope's chain. A break raises an alert. */
   async verify(envelopeId: string): Promise<ChainVerification> {
     const events = await this.prisma.auditTrail.findMany({
       where: { envelopeId },
@@ -141,10 +145,11 @@ export class AuditService {
     });
     const result = verifyChain(events);
     if (!result.valid) {
-      this.logger.error(
-        { alert: true, envelopeId, brokenAt: result.brokenAt },
-        'Audit chain verification failed',
-      );
+      await this.alerts.raise('audit-chain-broken', 'Audit chain verification failed', {
+        envelopeId,
+        brokenAtSequence: result.brokenAt.sequence,
+        reason: result.brokenAt.reason,
+      });
     }
     return result;
   }

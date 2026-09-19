@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ClsModule } from 'nestjs-cls';
+import { AlertModule } from './alert/alert.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
@@ -48,6 +49,7 @@ import { VerifyModule } from './verify/verify.module';
     StorageModule,
     QueueModule,
     AuditModule,
+    AlertModule.forRoot('queued'),
     AuthModule,
     EnvelopesModule,
     DraftsModule,

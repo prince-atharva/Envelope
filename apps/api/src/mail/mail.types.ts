@@ -74,6 +74,23 @@ export interface MoreTimeRequestedJob {
   requestId?: string;
 }
 
+/** Values an alert may carry: ids, codes and counts, never personal data or secrets. */
+export type AlertFields = Record<string, string | number | boolean | null>;
+
+/**
+ * An alert raised in the API, emailed by the worker (docs/16 step 11). The
+ * worker's own alerts skip the queue and are sent directly.
+ */
+export interface AlertEmailJob {
+  template: 'alert';
+  key: string;
+  summary: string;
+  fields: AlertFields;
+  service: string;
+  raisedAt: string;
+  requestId?: string;
+}
+
 export type EmailJobData =
   | WelcomeEmailJob
   | SigningLinkEmailJob
@@ -81,7 +98,8 @@ export type EmailJobData =
   | CompletedEmailJob
   | VoidedNoticeJob
   | ExpiredNoticeJob
-  | MoreTimeRequestedJob;
+  | MoreTimeRequestedJob
+  | AlertEmailJob;
 export type EmailTemplate = EmailJobData['template'];
 
 export interface EmailAttachment {

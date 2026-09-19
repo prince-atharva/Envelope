@@ -117,6 +117,13 @@ export const envSchema = z
     REMINDER_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(900_000),
     /** How often the expiry sweep looks for envelopes past their deadline. */
     EXPIRY_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(300_000),
+    /**
+     * Where urgent problems are emailed (docs/16 step 11). Unset: alerts are
+     * only logged, with `alert: true`.
+     */
+    ALERT_EMAIL: z.email().optional(),
+    /** The same alert is emailed at most this often; repeats in between are only logged. */
+    ALERT_EMAIL_MIN_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
     /** First retry delay for a failed email; each later retry waits twice as long. */
     EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),

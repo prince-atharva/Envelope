@@ -82,7 +82,7 @@ along the way:
 | 8 | Ask for more time | ✅ Done |
 | 9 | Extend and expiry on the envelope page | ✅ Done |
 | 10 | Automatic reminders and the "expires soon" email | ✅ Done |
-| 11 | Alert emails | ⬜ |
+| 11 | Alert emails | ✅ Done |
 | 12 | The nightly audit-chain check | ⬜ |
 | 13 | Request limits in Redis, on every route | ⬜ |
 | 14 | Dashboard views | ⬜ |
@@ -326,6 +326,13 @@ gate). Alert emails hold ids, codes and counts only. On the worker the email is 
 stuck email queue cannot swallow its own alert; the API queues an `alert` job. Raised by: a failed
 audit write, a chain break, a seal or email job that failed its last attempt, and a completion hash
 mismatch.
+
+**As built:** `AlertModule.forRoot('queued' | 'direct')` in the API and the worker; the worker now
+loads the Redis module for the gate (`{QUEUE_PREFIX}:alert-gate:{key}`). Keys are per problem kind:
+`audit-write-failed`, `audit-chain-broken`, `seal-job-failed`, `email-job-failed:{template}`,
+`maintenance-job-failed:{job}`, `completion-hash-mismatch`. The error itself is logged, never
+emailed. Raising never throws. Other `alert: true` log lines (a job that could not be queued) stay
+log-only: they mean Redis is unreachable, which would stop the email too.
 
 ## Step 12: The Nightly Audit-Chain Check
 

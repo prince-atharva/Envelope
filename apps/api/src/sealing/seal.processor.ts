@@ -1,6 +1,7 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AlertService } from '../alert/alert.service';
 import { SEAL_QUEUE } from '../queue/queue.module';
 import type { SealJobData } from './seal-queue.service';
 import { type CatchUpResult, SealingService } from './sealing.service';
@@ -14,6 +15,7 @@ import { type CatchUpResult, SealingService } from './sealing.service';
 export class SealProcessor extends WorkerHost {
   constructor(
     private readonly sealing: SealingService,
+    private readonly alerts: AlertService,
     @InjectPinoLogger(SealProcessor.name) private readonly logger: PinoLogger,
   ) {
     super();
@@ -63,7 +65,18 @@ export class SealProcessor extends WorkerHost {
       this.logger.warn(fields, 'Seal job failed; it will be retried');
     } else {
       // The next signer is not invited until this version exists.
-      this.logger.error({ ...fields, alert: true }, 'Seal job failed permanently');
+      void this.alerts.raise(
+        'seal-job-failed',
+        'Seal job failed permanently',
+        {
+          queue: SEAL_QUEUE,
+          jobId: job?.id ?? null,
+          envelopeId: job?.data.envelopeId ?? null,
+          requestId: job?.data.requestId ?? null,
+          attemptsMade,
+        },
+        error,
+      );
     }
   }
 

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AlertService } from '../alert/alert.service';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -36,6 +37,7 @@ export class CompletionMailer {
     private readonly audit: AuditService,
     private readonly transport: MailTransportService,
     private readonly config: AppConfig,
+    private readonly alerts: AlertService,
     @InjectPinoLogger(CompletionMailer.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -98,8 +100,13 @@ export class CompletionMailer {
       const sha256 = createHash('sha256').update(attachment).digest('hex');
       if (sha256 !== envelope.finalHash) {
         this.logger.error(
-          { ...ids, alert: true, expected: envelope.finalHash, actual: sha256 },
+          { ...ids, expected: envelope.finalHash, actual: sha256 },
           'Sealed file does not match its recorded fingerprint',
+        );
+        await this.alerts.raise(
+          'completion-hash-mismatch',
+          'Sealed file does not match its recorded fingerprint',
+          { envelopeId: envelope.id },
         );
         throw new Error(`Sealed file for envelope ${envelope.id} does not match finalHash`);
       }

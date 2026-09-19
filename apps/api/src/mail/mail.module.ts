@@ -7,6 +7,16 @@ import { MailTransportService, MemoryMailbox } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer } from './signing-link.mailer';
 
+/**
+ * The SMTP transport on its own, for the worker's alerts: they are sent
+ * directly, never through the email queue (docs/16 step 11).
+ */
+@Module({
+  providers: [MailTransportService, MemoryMailbox],
+  exports: [MailTransportService, MemoryMailbox],
+})
+export class MailTransportModule {}
+
 /** Imported by the API: queues email. */
 @Module({
   providers: [MailQueueService],
@@ -20,15 +30,14 @@ export class MailProducerModule {}
  * worker needs the database, storage and the audit trail (see WorkerModule).
  */
 @Module({
+  imports: [MailTransportModule],
   providers: [
     EmailProcessor,
-    MailTransportService,
-    MemoryMailbox,
     SigningLinkMailer,
     SenderNoticeMailer,
     CompletionMailer,
     LifecycleMailer,
   ],
-  exports: [MailTransportService, MemoryMailbox],
+  exports: [MailTransportModule],
 })
 export class MailWorkerModule {}

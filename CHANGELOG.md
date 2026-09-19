@@ -79,6 +79,13 @@ Phase 5 (Envelope Lifecycle) in progress. See
   `REMINDER_SCHEDULED`, and makes the sender's Remind button wait a day. The interval is chosen
   when sending (`reminderIntervalDays`, default `AUTO_REMINDER_DEFAULT_DAYS` = 3; null is off) and
   changed with `PATCH /v1/envelopes/:id/reminders`, from the send dialog and the envelope page.
+- Alerts (docs/16 step 11). `AlertService.raise(key, summary, ids)` always logs with `alert: true`
+  and, with `ALERT_EMAIL` set, emails at most once per key every `ALERT_EMAIL_MIN_INTERVAL_MINUTES`
+  (15), gated in Redis across processes. The worker sends alert emails directly through SMTP, so a
+  stuck email queue cannot hold its own alert; the API queues an `alert` job. Raised for a failed
+  audit write, a broken audit chain, a seal, email or maintenance job that failed its last attempt,
+  and a sealed file that does not match its fingerprint. Alert emails carry ids, codes and counts
+  only.
 - Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule
   slot, so a restarted worker's first sweep could come many intervals late.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing

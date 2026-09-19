@@ -1,6 +1,7 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AlertService } from '../alert/alert.service';
 import { AppConfig } from '../config/app-config';
 import { EMAIL_QUEUE } from '../queue/queue.module';
 import { CompletionMailer } from './completion.mailer';
@@ -9,7 +10,7 @@ import type { EmailJobData } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer, type SigningLinkResult } from './signing-link.mailer';
-import { renderWelcomeEmail } from './templates';
+import { renderAlertEmail, renderWelcomeEmail } from './templates';
 
 /**
  * Worker side of email. Every log line written while a job runs carries the job
@@ -24,6 +25,7 @@ export class EmailProcessor extends WorkerHost {
     private readonly completions: CompletionMailer,
     private readonly lifecycle: LifecycleMailer,
     private readonly config: AppConfig,
+    private readonly alerts: AlertService,
     @InjectPinoLogger(EmailProcessor.name) private readonly logger: PinoLogger,
   ) {
     super();
@@ -44,6 +46,19 @@ export class EmailProcessor extends WorkerHost {
         return this.senderNotices.sendExpired(data);
       case 'more-time-requested':
         return this.senderNotices.sendMoreTimeRequested(data);
+      case 'alert':
+        // Queued by the API, which checked the gate and that ALERT_EMAIL is set.
+        return this.config.ALERT_EMAIL
+          ? this.transport.send(
+              renderAlertEmail({
+                ...data,
+                to: this.config.ALERT_EMAIL,
+                raisedAt: new Date(data.raisedAt),
+                appUrl: this.config.APP_URL,
+              }),
+              data.template,
+            )
+          : Promise.resolve({ skipped: 'ALERT_EMAIL not set' });
       case 'completed':
         return this.completions.send(data);
       case 'voided':
@@ -94,7 +109,19 @@ export class EmailProcessor extends WorkerHost {
     if (attemptsMade < maxAttempts) {
       this.logger.warn(fields, 'Email job failed; it will be retried');
     } else {
-      this.logger.error({ ...fields, alert: true }, 'Email job failed permanently');
+      void this.alerts.raise(
+        `email-job-failed:${job?.data.template ?? 'unknown'}`,
+        'Email job failed permanently',
+        {
+          queue: EMAIL_QUEUE,
+          jobId: job?.id ?? null,
+          template: job?.data.template ?? null,
+          envelopeId: job && 'envelopeId' in job.data ? job.data.envelopeId : null,
+          requestId: job?.data.requestId ?? null,
+          attemptsMade,
+        },
+        error,
+      );
     }
   }
 

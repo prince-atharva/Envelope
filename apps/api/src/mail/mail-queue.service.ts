@@ -3,9 +3,11 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import type { AlertMessage } from '../alert/alert.service';
 import { maskEmail } from '../logging/redact';
 import { EMAIL_QUEUE } from '../queue/queue.module';
 import type {
+  AlertEmailJob,
   CompletedEmailJob,
   DeclinedNoticeJob,
   EmailJobData,
@@ -189,6 +191,27 @@ export class MailQueueService implements OnModuleInit {
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** An alert raised in the API, for the worker to email. Gated before it gets here. */
+  async enqueueAlert(alert: AlertMessage): Promise<string | undefined> {
+    const data: AlertEmailJob = {
+      template: 'alert',
+      key: alert.key,
+      summary: alert.summary,
+      fields: alert.fields,
+      service: alert.service,
+      raisedAt: alert.raisedAt.toISOString(),
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `alert-${alert.key}-${alert.raisedAt.getTime()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, alertKey: alert.key },
       'Email job enqueued',
     );
     return job.id;

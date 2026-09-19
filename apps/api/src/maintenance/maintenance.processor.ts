@@ -1,6 +1,7 @@
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { AlertService } from '../alert/alert.service';
 import { MAINTENANCE_QUEUE } from '../queue/queue.module';
 import { AutoReminderService } from './auto-reminder.service';
 import { ExpirySweepService, type SweepResult } from './expiry-sweep.service';
@@ -15,6 +16,7 @@ export class MaintenanceProcessor extends WorkerHost {
   constructor(
     private readonly expiry: ExpirySweepService,
     private readonly reminders: AutoReminderService,
+    private readonly alerts: AlertService,
     @InjectPinoLogger(MaintenanceProcessor.name) private readonly logger: PinoLogger,
   ) {
     super();
@@ -51,9 +53,11 @@ export class MaintenanceProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   onFailed(job: Job | undefined, error: Error): void {
-    this.logger.error(
-      { queue: MAINTENANCE_QUEUE, jobId: job?.id, job: job?.name, err: error, alert: true },
+    void this.alerts.raise(
+      `maintenance-job-failed:${job?.name ?? 'unknown'}`,
       'Maintenance job failed; the next scheduled run will try again',
+      { queue: MAINTENANCE_QUEUE, jobId: job?.id ?? null, job: job?.name ?? null },
+      error,
     );
   }
 

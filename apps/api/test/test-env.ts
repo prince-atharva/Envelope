@@ -35,6 +35,8 @@ export const TEST_ENV: Record<string, string> = {
   MAINTENANCE_SCHEDULES_ENABLED: 'false',
 
   MAIL_TRANSPORT: 'memory',
+  // Alerts go to the in-memory mailbox like every other test email.
+  ALERT_EMAIL: 'alerts@test.local',
   EMAIL_RETRY_BASE_DELAY_MS: '20',
   SMTP_FROM: 'Envelope by HealthProHub <no-reply@test.local>',
 
