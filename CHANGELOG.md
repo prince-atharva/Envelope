@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Phase 3 (Signer Portal) in progress. See
 [docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
-Phase 4 (Sealing Engine) started. See
+Phase 4 (Sealing Engine) built; the real-phone check and the release are to come. See
 [docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
 
 ### Added
@@ -64,6 +64,54 @@ Phase 4 (Sealing Engine) started. See
   - **The next signer is invited once the version before them exists**, not on submit. The routing
     helpers take the set of stamped signers, so a reminder cannot invite anyone early either.
   - A declined or closed envelope is not stamped further.
+- **Certificate of Completion, sealing and locking.** Once every signer and approver is in a
+  version, the worker:
+  - adds a certificate to the end of the document, on US Letter pages in Noto Sans, running onto
+    more pages as needed. It lists each party's name, email, role, signing and consent times,
+    signature method, the version they were shown, IP address and device, then every version's
+    SHA-256 and the event history.
+  - stores the result in the locked bucket as the final version;
+  - completes the envelope with `finalHash`, `completedFileUrl` and `completedAt`, and writes
+    `ENVELOPE_COMPLETED`.
+
+  The certificate's dates come from the records, never the clock, so a retried seal writes the same
+  bytes. The final fingerprint is not printed in the file (Correction 3).
+- **Completion emails with the finished document.** Every recipient, whatever their role, and the
+  sender get it attached, with its SHA-256 and how to check it (Verify, or `sha256sum`).
+  - The worker reads the sealed file by its locked version id, and will not send anything whose hash
+    is not `finalHash`.
+  - Above `COMPLETION_ATTACHMENT_MAX_BYTES` (15 MB), the email carries a private download link
+    instead, valid for `COMPLETION_LINK_DAYS` (30). It is served by the new
+    `GET /v1/download/:token`. The token is minted by the worker and stored only as an HMAC, in the
+    new `CompletionDownload` table, under a label that keeps it apart from signing tokens.
+  - Each person is sent one copy, and a sender who is also a recipient gets one email.
+  - `COMPLETION_SENT` is recorded for each person.
+- **Verify** (`POST /v1/verify` and the public `/verify` page).
+  - Anyone uploads a PDF, which is hashed in memory and never stored. The answer says whether it is
+    exactly the sealed document or a copy made while signing was under way. A match comes with the
+    signers, the version chain and the history.
+  - A mismatch says both things it can mean: never signed here, or changed since.
+  - A file that matches only an unsigned original says so and reveals nothing about any envelope,
+    because originals are often shared templates.
+  - Limited to 30 checks a minute per IP. `DocumentVersion.hash` is indexed.
+- **The sender's Completed screen.** A completed envelope's page shows:
+  - when it was sealed;
+  - the finished document's fingerprint, with a copy button;
+  - **Download signed document**;
+  - how anyone can check a copy.
+
+  The viewer and download show the newest version, so the sender sees the signatures so far while
+  people sign. Each version says who signed it, and each person shows when their finished copy was
+  emailed. The envelope detail in the API gains `completedAt`, `senderCopySentAt`, `copySentAt` for
+  each recipient and `createdByRecipientId` for each version.
+- **Phase 4 tests.** One API e2e test runs three signers, one after another, to the sealed v4. It
+  covers the whole sprint 8 gate: an unbroken chain, a download that hashes to `finalHash`, Verify
+  accepting it and refusing a one-byte change, and the certificate (read back with pdf.js) listing
+  every version and event. Both leak audits now cover a completed envelope's seal jobs and download
+  links. They also check that the fingerprint of a file that matched nothing on Verify is never
+  logged.
+- `WEB_HOST` (optional) makes the development web server listen beyond localhost, for trying the
+  signing portal on a phone on the same network.
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.
@@ -241,6 +289,11 @@ Phase 4 (Sealing Engine) started. See
 
 ### Fixed
 
+- The sender's reminder button now applies the server's rule that a signature not yet stamped keeps
+  the turn, so it is no longer offered for someone the server would skip.
+- The "Sent. We are emailing…" notice no longer reappears when a finished envelope's page is
+  reloaded.
+- nodemailer rewrote attachment objects as it encoded them. The transport now hands it copies.
 - **Browser tests no longer touch the developer's setup.** They used to reuse the running `pnpm dev`
   server, so each run wrote test accounts into the dev database and, once `.env` was switched to
   Gmail SMTP, sent real welcome, invitation and reminder emails to made-up addresses, which bounced.
@@ -267,6 +320,9 @@ Phase 4 (Sealing Engine) started. See
 ### Security
 
 - Logs now redact `rawToken`, `signingUrl` and `SIGNING_TOKEN_SECRET` wherever they appear as keys.
+- `/download/<token>` is scrubbed from every logged URL, message and stack trace, like
+  `/sign/<token>`, and `downloadUrl` is a redacted key. Download responses send `Cache-Control:
+  no-store` and `Referrer-Policy: no-referrer`, and their problem details never echo the token.
 - Browser error reports have their stack trace scrubbed before logging. Previously only the message
   and URL were, and a stack from the signing page would have carried the token.
 - The signing-link pattern in the scrubber stops at `:` and `)`, so a scrubbed stack frame keeps its

@@ -22,6 +22,9 @@ function setting(name: string): string | undefined {
 export default defineConfig(() => {
   const apiTarget = `http://localhost:${setting('API_PORT') || '4000'}`;
   const port = Number(setting('WEB_PORT') || 5173);
+  // Localhost only unless WEB_HOST says otherwise, e.g. 0.0.0.0 to try the
+  // signing portal from a phone on the same network.
+  const host = setting('WEB_HOST') || 'localhost';
 
   // The browser only ever talks to this origin; /api is forwarded to the API, so
   // the refresh cookie stays first-party and no CORS is needed. xfwd passes the
@@ -33,8 +36,8 @@ export default defineConfig(() => {
     // The web app uses no VITE_ variables, so no .env file is loaded for it.
     envDir: false as const,
     resolve: { alias: { '@envelope/shared': sharedSource } },
-    server: { port, strictPort: true, proxy },
-    preview: { port, strictPort: true, proxy },
+    server: { host, port, strictPort: true, proxy },
+    preview: { host, port, strictPort: true, proxy },
     build: { sourcemap: true, target: 'es2022' },
   };
 });

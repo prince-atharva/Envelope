@@ -85,7 +85,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 7 | Verify | ✅ Done |
 | 8 | The sender's Completed screen | ✅ Done |
 | 9 | Tests: three signers end to end, and the leak audits | ✅ Done |
-| 10 | Real-phone check, documentation and release `v0.4.0` | ⬜ |
+| 10 | Real-phone check, documentation and release `v0.4.0` | 🟡 Documentation done; phone check and release to come |
 
 ## What We Need From You
 
@@ -449,6 +449,38 @@ Tests:
 | `apps/web/e2e/completed.spec.ts` (step 8) | The browser flow, ending with the downloaded file's hash compared with the value on the envelope page and in the email |
 
 `pdfjs-dist` is now a dev dependency of the API, the same version the web app uses, and is used only by the tests. The certificate is drawn in an embedded subset font, and reading its text needs a real PDF text extractor.
+
+## Step 10: Real-Phone Check and Release
+
+Documentation is done: the changelog records Phase 4, and every step above has its "as built"
+section. Doc 08 describes the download and Verify routes.
+
+**The phone check.** It must use a real phone, ideally an iPhone in Safari, since desktop emulation
+does not reproduce touch drawing (doc 09). Run the development app so the phone can reach it:
+
+```bash
+# Stop any running `pnpm dev` first. Nothing in .env needs to change.
+export PATH="$HOME/.nvm/versions/node/v22.22.0/bin:$HOME/.local/share/pnpm:$PATH"
+APP_URL=http://<LAN address>:5173 WEB_HOST=0.0.0.0 pnpm dev
+```
+
+On the computer, sign in at `http://localhost:5173`, upload one of the real documents, and send it
+to three people, one after another, at least one of them at an address read on the phone. Then check:
+
+- [ ] On the phone: the link opens, the consent screen, a **drawn** signature, the tick box and
+      Finish all work without the page scrolling under the finger.
+- [ ] Each signer sees the signatures before theirs.
+- [ ] The completion email arrives with the PDF attached. The signature on the phone's copy sits in
+      its box, and the certificate is on the last page.
+- [ ] On the phone, `/verify` with the attachment says **This is the sealed, finished document**.
+- [ ] On the computer: the envelope page says Completed and sealed, and `sha256sum` on the
+      downloaded file matches the fingerprint shown.
+
+The signing pages work over plain `http://` on the network. Sender pages are meant for localhost or
+HTTPS, because they use `crypto.randomUUID`.
+
+**Release.** Once the check passes, the version goes to `0.4.0` and `v0.4.0` is tagged. Phase 3's
+`v0.3.0` also waits on a phone check (doc 14, step 11), and this one covers the same signing flow.
 
 ## Deliberate Simplifications
 
