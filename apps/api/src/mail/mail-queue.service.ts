@@ -10,6 +10,7 @@ import type {
   DeclinedNoticeJob,
   EmailJobData,
   SigningLinkEmailJob,
+  VoidedNoticeJob,
   WelcomeEmailJob,
 } from './mail.types';
 
@@ -120,6 +121,27 @@ export class MailQueueService implements OnModuleInit {
     };
     const job = await this.queue.add(data.template, data, {
       jobId: `completed-${envelopeId}-${recipientId ?? 'sender'}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /**
+   * Tells one person the envelope was cancelled. One job per person and
+   * envelope: an envelope is cancelled at most once.
+   */
+  async enqueueVoided(envelopeId: string, recipientId: string): Promise<string | undefined> {
+    const data: VoidedNoticeJob = {
+      template: 'voided',
+      envelopeId,
+      recipientId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `voided-${envelopeId}-${recipientId}`,
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },

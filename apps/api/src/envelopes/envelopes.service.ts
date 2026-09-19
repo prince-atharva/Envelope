@@ -209,6 +209,7 @@ export class EnvelopesService {
       where: { id },
       include: {
         owner: { select: { id: true, fullName: true } },
+        voidedBy: { select: { id: true, fullName: true } },
         versions: { orderBy: { versionNumber: 'asc' } },
         auditLogs: { orderBy: { sequence: 'asc' }, take: AUDIT_EVENTS_IN_DETAIL },
         recipients: { orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }] },
@@ -237,6 +238,9 @@ export class EnvelopesService {
       draftRevision: envelope.draftRevision,
       sentAt: envelope.sentAt?.toISOString() ?? null,
       expiresAt: envelope.expiresAt?.toISOString() ?? null,
+      voidedAt: envelope.voidedAt?.toISOString() ?? null,
+      voidReason: envelope.voidReason,
+      voidedBy: envelope.voidedBy,
       recipients: envelope.recipients.map((recipient) => ({
         id: recipient.id,
         name: recipient.name,

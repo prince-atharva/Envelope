@@ -128,6 +128,10 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   sentAt: string | null;
   /** When every signing link stops working. Null for a draft. */
   expiresAt: string | null;
+  /** When it was cancelled or discarded, by whom and why. Null unless VOIDED. */
+  voidedAt: string | null;
+  voidReason: string | null;
+  voidedBy: { id: string; fullName: string } | null;
   recipients: RecipientDetail[];
   fields: FieldInfo[];
 }

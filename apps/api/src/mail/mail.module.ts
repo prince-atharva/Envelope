@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CompletionMailer } from './completion.mailer';
 import { EmailProcessor } from './email.processor';
+import { LifecycleMailer } from './lifecycle.mailer';
 import { MailQueueService } from './mail-queue.service';
 import { MailTransportService, MemoryMailbox } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
@@ -26,6 +27,7 @@ export class MailProducerModule {}
     SigningLinkMailer,
     SenderNoticeMailer,
     CompletionMailer,
+    LifecycleMailer,
   ],
   exports: [MailTransportService, MemoryMailbox],
 })

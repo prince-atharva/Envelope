@@ -4,6 +4,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config';
 import { EMAIL_QUEUE } from '../queue/queue.module';
 import { CompletionMailer } from './completion.mailer';
+import { LifecycleMailer } from './lifecycle.mailer';
 import type { EmailJobData } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
@@ -21,6 +22,7 @@ export class EmailProcessor extends WorkerHost {
     private readonly signingLinks: SigningLinkMailer,
     private readonly senderNotices: SenderNoticeMailer,
     private readonly completions: CompletionMailer,
+    private readonly lifecycle: LifecycleMailer,
     private readonly config: AppConfig,
     @InjectPinoLogger(EmailProcessor.name) private readonly logger: PinoLogger,
   ) {
@@ -38,6 +40,8 @@ export class EmailProcessor extends WorkerHost {
         return this.senderNotices.sendDeclined(data);
       case 'completed':
         return this.completions.send(data);
+      case 'voided':
+        return this.lifecycle.sendVoided(data);
     }
   }
 

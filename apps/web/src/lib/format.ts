@@ -39,7 +39,7 @@ const AUDIT_ACTIONS: Record<string, string> = {
   RECIPIENT_REMOVED: 'Person removed',
   FIELDS_SAVED: 'Fields saved',
   ENVELOPE_SENT: 'Sent for signing',
-  EMAIL_SENT: 'Signing email sent',
+  EMAIL_SENT: 'Email sent',
   REMINDER_REQUESTED: 'Reminder requested',
   ENVELOPE_VIEWED: 'Opened by a signer',
   CONSENT_GIVEN: 'Agreed to sign electronically',
@@ -49,6 +49,7 @@ const AUDIT_ACTIONS: Record<string, string> = {
   VERSION_CREATED: 'Signature stamped into a new version',
   ENVELOPE_COMPLETED: 'Completed and sealed',
   COMPLETION_SENT: 'Finished copy sent',
+  ENVELOPE_VOIDED: 'Cancelled',
 };
 
 /** Audit actions as people read them. */

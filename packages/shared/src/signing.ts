@@ -10,6 +10,7 @@ import {
   MAX_RECIPIENTS_PER_ENVELOPE,
   MAX_SIGNATURE_IMAGE_BYTES,
   MAX_TEXT_VALUE_LENGTH,
+  MAX_VOID_REASON_LENGTH,
   REMINDER_COOLDOWN_HOURS,
 } from './limits';
 
@@ -50,6 +51,24 @@ export const remindSchema = z.strictObject({
   recipientIds: z.array(z.uuid()).min(1).max(MAX_RECIPIENTS_PER_ENVELOPE).optional(),
 });
 export type RemindInput = z.infer<typeof remindSchema>;
+
+/**
+ * POST /envelopes/:id/void (docs/16 step 4). Cancels a sent envelope, or
+ * discards a draft. The reason is required unless it is a draft; the people
+ * who were emailed are told it.
+ */
+export const voidEnvelopeSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(MAX_VOID_REASON_LENGTH).optional(),
+});
+export type VoidEnvelopeInput = z.infer<typeof voidEnvelopeSchema>;
+
+export interface VoidEnvelopeResponse {
+  id: string;
+  status: 'VOIDED';
+  voidedAt: string;
+  /** True when a draft was discarded: nobody had been emailed. */
+  discarded: boolean;
+}
 
 export type ReminderSkipReason = 'TOO_SOON' | 'NOT_THEIR_TURN' | 'FINISHED';
 

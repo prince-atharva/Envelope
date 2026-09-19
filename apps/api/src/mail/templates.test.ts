@@ -4,6 +4,7 @@ import {
   renderCompletedEmail,
   renderDeclinedEmail,
   renderSigningLinkEmail,
+  renderVoidedEmail,
   renderWelcomeEmail,
   signedFilename,
 } from './templates';
@@ -77,6 +78,25 @@ describe('declined notice', () => {
     expect(email.html).toContain('The fee is &lt;wrong&gt;.');
     expect(email.text).toContain('Their reason:\nThe fee is <wrong>.');
     expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
+  });
+});
+
+describe('cancellation notice', () => {
+  it('tells a signer who cancelled and why, and carries no link', () => {
+    const email = renderVoidedEmail({
+      to: 'priya@example.com',
+      recipientName: 'Priya Sharma',
+      senderName: 'Raj Kumar',
+      envelopeTitle: 'Lease\nrenewal',
+      reason: 'Terms <changed>.',
+    });
+    expect(email.to).toBe('priya@example.com');
+    // A title cannot add lines to the subject.
+    expect(email.subject).toBe('Raj Kumar cancelled Lease renewal');
+    expect(email.html).toContain('Terms &lt;changed&gt;.');
+    expect(email.text).toContain('Their reason:\nTerms <changed>.');
+    expect(email.text).toContain('Links in earlier emails about this document no longer work.');
+    expect(email.html).not.toContain('href=');
   });
 });
 

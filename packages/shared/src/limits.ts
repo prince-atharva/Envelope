@@ -31,6 +31,7 @@ export const MAX_RECIPIENT_NAME_LENGTH = 200;
 export const MAX_SIGNATURE_IMAGE_BYTES = 500 * 1024;
 export const MAX_SIGNATURE_IMAGE_DIMENSION = 4096;
 export const MAX_DECLINE_REASON_LENGTH = 1000;
+export const MAX_VOID_REASON_LENGTH = 1000;
 export const MAX_TEXT_VALUE_LENGTH = 500;
 
 /** How long signing links last unless the sender chooses otherwise (docs/10: 14 days). */

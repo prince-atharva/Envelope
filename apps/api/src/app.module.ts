@@ -13,6 +13,7 @@ import { ConfigModule } from './config/config.module';
 import { DraftsModule } from './drafts/drafts.module';
 import { EnvelopesModule } from './envelopes/envelopes.module';
 import { HealthModule } from './health/health.module';
+import { LifecycleModule } from './lifecycle/lifecycle.module';
 import { LoggingModule } from './logging/logging.module';
 import { RoutePatternInterceptor } from './logging/route-pattern.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
@@ -51,6 +52,7 @@ import { VerifyModule } from './verify/verify.module';
     EnvelopesModule,
     DraftsModule,
     SendingModule,
+    LifecycleModule,
     SigningModule,
     CompletionModule,
     VerifyModule,

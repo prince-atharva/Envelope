@@ -43,11 +43,24 @@ export interface CompletedEmailJob {
   requestId?: string;
 }
 
+/**
+ * Tells one signer or approver the sender cancelled the envelope (docs/16
+ * step 4). Ids only; the worker reads the reason and sends it only to someone
+ * who had been emailed.
+ */
+export interface VoidedNoticeJob {
+  template: 'voided';
+  envelopeId: string;
+  recipientId: string;
+  requestId?: string;
+}
+
 export type EmailJobData =
   | WelcomeEmailJob
   | SigningLinkEmailJob
   | DeclinedNoticeJob
-  | CompletedEmailJob;
+  | CompletedEmailJob
+  | VoidedNoticeJob;
 export type EmailTemplate = EmailJobData['template'];
 
 export interface EmailAttachment {

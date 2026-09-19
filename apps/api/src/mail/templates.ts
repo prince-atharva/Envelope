@@ -125,6 +125,51 @@ export function renderDeclinedEmail(notice: DeclinedNotice): RenderedEmail {
 }
 
 /** Everything an invitation or reminder needs, read by the worker from the database. */
+export interface VoidedNotice {
+  to: string;
+  recipientName: string;
+  senderName: string;
+  envelopeTitle: string;
+  /** The sender's reason, shown as they wrote it. */
+  reason: string;
+}
+
+/** To someone asked to sign or approve: the sender cancelled. It carries no link. */
+export function renderVoidedEmail(notice: VoidedNotice): RenderedEmail {
+  const sender = oneLine(notice.senderName);
+  const title = oneLine(notice.envelopeTitle);
+  const subject = `${sender} cancelled ${title}`;
+  const intro = `${sender} cancelled "${title}", so it no longer needs anything from you.`;
+  const links = 'Links in earlier emails about this document no longer work.';
+  const footer =
+    `You received this email because ${sender} had sent you this document using ${BRAND.fullName}. ` +
+    `If you have questions, contact ${sender} directly.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.recipientName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 8px;">Their reason:</p>
+     <blockquote style="margin:0 0 16px;padding:12px 16px;background:#f4f6f8;border-left:3px solid ${BRAND_COLOR};white-space:pre-line;">${escapeHtml(notice.reason)}</blockquote>
+     <p style="margin:0;color:#6b7785;font-size:13px;">${escapeHtml(links)}</p>`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.recipientName)},`,
+    '',
+    intro,
+    '',
+    'Their reason:',
+    notice.reason,
+    '',
+    links,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
 export interface SigningLinkEmail {
   kind: 'invitation' | 'reminder';
   to: string;

@@ -34,6 +34,12 @@ Phase 5 (Envelope Lifecycle) in progress. See
   - Checks: a cancelled envelope has a time, and a reason if it was sent; an expired one has a time;
     the reminder interval is 1–30 days. A discarded draft may have no send time. Index
     `(status, expiresAt)` for the expiry sweep.
+- Cancel and discard (docs/16 step 4): `POST /v1/envelopes/:id/void`. A sent envelope needs a reason
+  and a draft does not. Links stop the moment it commits. Each signer or approver who had been
+  emailed gets a `voided` email with the reason and no link, recorded as `EMAIL_SENT`
+  (`kind: voided`). The audit event `ENVELOPE_VOIDED` keeps the previous status and the reason's
+  length, not the reason. The envelope detail now includes `voidedAt`, `voidReason` and `voidedBy`.
+  The web audit list reads "Email sent" for every kind of email.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their

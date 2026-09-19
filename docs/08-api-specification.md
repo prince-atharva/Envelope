@@ -290,12 +290,33 @@ Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at leas
 |---|---|---|
 | `GET` | `/v1/envelopes/:id` | Full state including recipients, fields, versions |
 | `GET` | `/v1/envelopes?status=&cursor=&limit=` | List, filterable |
-| `POST` | `/v1/envelopes/:id/void` | Cancel. Body: `{ "reason": "..." }`. Invalidates all tokens synchronously. |
+| `POST` | `/v1/envelopes/:id/void` | Cancel, or discard a draft. Body: `{ "reason": "..." }`, required unless a draft. Invalidates all tokens synchronously. Built in Phase 5; see below. |
 | `POST` | `/v1/envelopes/:id/remind` | Nudge outstanding recipients. Rate-limited to 1/recipient/24h. Built in Phase 3; see below. |
 | `GET` | `/v1/envelopes/:id/documents/original` | The untouched upload |
 | `GET` | `/v1/envelopes/:id/documents/completed` | The sealed document. `409` if not `COMPLETED`. |
 | `GET` | `/v1/envelopes/:id/documents/versions/:n` | A specific version from the chain |
 | `GET` | `/v1/envelopes/:id/audit` | Full audit trail |
+
+#### `POST /v1/envelopes/:id/void` (Phase 5)
+
+```json
+{ "reason": "The fee schedule changed; a new version is on its way." }
+```
+
+`reason` is 1–1000 characters, required for a sent or expired envelope and optional for a draft.
+`200 OK`:
+
+```json
+{ "id": "3f2a...", "status": "VOIDED", "voidedAt": "2026-09-19T12:00:00.000Z", "discarded": false }
+```
+
+- `discarded` is true when a draft was thrown away. Nobody is emailed.
+- Otherwise every signer and approver who had been emailed gets the reason, with no link. Their
+  links answer `409 ENVELOPE_TERMINAL` with `reason: VOIDED` from the moment this commits.
+- A completed, declined or already cancelled envelope answers `409 ENVELOPE_TERMINAL`, with `reason`
+  naming which. Another workspace's envelope answers 404.
+- The audit trail records `ENVELOPE_VOIDED` with the previous status and the reason's length, never
+  the reason itself.
 
 #### `POST /v1/envelopes/:id/remind` (Phase 3)
 

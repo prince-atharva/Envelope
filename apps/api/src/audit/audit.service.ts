@@ -51,7 +51,9 @@ export type AuditAction =
   // Sealing (Phase 4)
   | 'VERSION_CREATED'
   | 'ENVELOPE_COMPLETED'
-  | 'COMPLETION_SENT';
+  | 'COMPLETION_SENT'
+  // Lifecycle (Phase 5)
+  | 'ENVELOPE_VOIDED';
 
 /** Recorded on events the system itself causes, with no client behind them. */
 export const SYSTEM_ACTOR = { ipAddress: 'system', userAgent: 'envelope-worker' } as const;
