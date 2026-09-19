@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Page, test } from '@playwright/test';
 import {
-  agreeToSign,
   completedCopyFor,
-  openAsSigner,
   prepareToSend,
   sendFromReview,
   signingLinkFor,
+  signOnlyBoxes,
   signUp,
   TWELVE_PAGE_PDF,
   uniqueEmail,
@@ -31,16 +30,7 @@ test.describe('Verify', () => {
     await prepareToSend(page, [{ name: 'Vera Fied', email }]);
     await sendFromReview(page);
 
-    await openAsSigner(page, await signingLinkFor(email));
-    await agreeToSign(page);
-    await page.getByRole('button', { name: /^Signature field, required, page 1 of 12/ }).click();
-    await page
-      .getByRole('dialog', { name: 'Adopt your signature' })
-      .getByRole('button', { name: 'Adopt and sign' })
-      .click();
-    await page.getByRole('checkbox', { name: 'Tick box field, required, page 1 of 12' }).check();
-    await page.getByRole('button', { name: 'Finish' }).click();
-    await expect(page.getByRole('heading', { name: 'Signed' })).toBeVisible();
+    await signOnlyBoxes(page, await signingLinkFor(email));
 
     const copy = await completedCopyFor(email);
     await verify(page, copy.file);

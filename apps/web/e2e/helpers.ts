@@ -295,3 +295,20 @@ export async function agreeToSign(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Review document' }).click();
   await expect(page.locator('[data-pdf-overlay="1"]')).toBeAttached({ timeout: 20_000 });
 }
+
+/**
+ * Signs as the only signer of a `prepareToSend` envelope: agree, adopt the
+ * typed signature, tick the box and finish.
+ */
+export async function signOnlyBoxes(page: Page, link: string): Promise<void> {
+  await openAsSigner(page, link);
+  await agreeToSign(page);
+  await page.getByRole('button', { name: /^Signature field, required, page 1 of 12/ }).click();
+  await page
+    .getByRole('dialog', { name: 'Adopt your signature' })
+    .getByRole('button', { name: 'Adopt and sign' })
+    .click();
+  await page.getByRole('checkbox', { name: 'Tick box field, required, page 1 of 12' }).check();
+  await page.getByRole('button', { name: 'Finish' }).click();
+  await expect(page.getByRole('heading', { name: 'Signed' })).toBeVisible();
+}

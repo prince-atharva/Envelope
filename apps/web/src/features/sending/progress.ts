@@ -42,7 +42,9 @@ const OPEN: ReadonlySet<EnvelopeStatus> = new Set(['SENT', 'DELIVERED', 'PARTIAL
 /** How far one person has got, as the sender reads it. */
 export function progressOf(recipient: RecipientDetail, envelopeStatus: EnvelopeStatus): Progress {
   if (!receivesSigningLink(recipient.role)) {
-    return { label: 'Gets the finished copy', tone: 'muted', at: null };
+    return recipient.copySentAt
+      ? { label: 'Finished copy sent', tone: 'done', at: recipient.copySentAt }
+      : { label: 'Gets the finished copy', tone: 'muted', at: null };
   }
   switch (recipient.status) {
     case 'SIGNED':
@@ -72,18 +74,29 @@ export type ReminderState =
   | { can: false; reason: 'not-their-turn' | 'finished' | 'closed' }
   | { can: false; reason: 'too-soon'; availableAt: number };
 
-/** Whether the sender may remind this person now. Mirrors the API's rules. */
+/**
+ * Whether the sender may remind this person now. Mirrors the API's rules,
+ * including that one after another, a signature not yet stamped into a version
+ * keeps the turn: the next person is not invited until it is (docs/15 step 4).
+ */
 export function reminderState(
   recipient: RecipientDetail,
   everyone: RecipientDetail[],
-  envelope: { status: EnvelopeStatus; sequentialSigning: boolean },
+  envelope: {
+    status: EnvelopeStatus;
+    sequentialSigning: boolean;
+    versions: readonly { createdByRecipientId: string | null }[];
+  },
   now = Date.now(),
 ): ReminderState {
   if (!OPEN.has(envelope.status)) return { can: false, reason: 'closed' };
   if (recipient.status === 'SIGNED' || recipient.status === 'DECLINED') {
     return { can: false, reason: 'finished' };
   }
-  const turn = currentRoutingGroup(everyone, envelope.sequentialSigning);
+  const stamped = new Set(
+    envelope.versions.flatMap((v) => (v.createdByRecipientId ? [v.createdByRecipientId] : [])),
+  );
+  const turn = currentRoutingGroup(everyone, envelope.sequentialSigning, stamped);
   if (!turn.some((r) => r.id === recipient.id)) return { can: false, reason: 'not-their-turn' };
   const availableAt = nextReminderAt(recipient);
   if (availableAt > now) return { can: false, reason: 'too-soon', availableAt };

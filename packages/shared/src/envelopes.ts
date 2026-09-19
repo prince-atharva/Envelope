@@ -38,7 +38,10 @@ export interface DocumentVersionInfo {
   sha256: string;
   pageCount: number;
   sizeBytes: number;
+  /** The sealed, finished document: the certificate appended, the file locked. */
   isFinal: boolean;
+  /** Whose signature made this version. Null for the original and the sealed file. */
+  createdByRecipientId: string | null;
   createdAt: string;
 }
 
@@ -66,12 +69,19 @@ export interface RecipientDetail extends RecipientInfo {
   declinedAt: string | null;
   /** Shown to the sender only. */
   declinedReason: string | null;
+  /** When the finished document was emailed to them (docs/15 step 6). */
+  copySentAt: string | null;
 }
 
 export interface EnvelopeDetail extends EnvelopeSummary {
   /** SHA-256 of DocumentVersion 0, the document as uploaded (after sanitising). */
   originalHash: string;
+  /** SHA-256 of the sealed, finished document. Not printed in it (docs/06, Correction 3). */
   finalHash: string | null;
+  /** When the envelope was sealed. */
+  completedAt: string | null;
+  /** When the sender was emailed the finished document, unless they got it as a recipient. */
+  senderCopySentAt: string | null;
   owner: { id: string; fullName: string };
   versions: DocumentVersionInfo[];
   auditTrail: AuditEventInfo[];

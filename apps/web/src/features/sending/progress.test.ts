@@ -18,12 +18,13 @@ function person(id: string, overrides: Partial<RecipientDetail> = {}): Recipient
     signedAt: null,
     declinedAt: null,
     declinedReason: null,
+    copySentAt: null,
     ...overrides,
   };
 }
 
 const NOW = new Date('2026-10-01T12:00:00Z').getTime();
-const open = { status: 'SENT' as const, sequentialSigning: false };
+const open = { status: 'SENT' as const, sequentialSigning: false, versions: [] };
 
 describe('summariseSend', () => {
   const team = [
@@ -61,6 +62,9 @@ describe('progressOf', () => {
     expect(progressOf(person('a', { status: 'DECLINED' }), 'DECLINED').tone).toBe('stopped');
     expect(progressOf(person('a', { role: 'CC' }), 'SENT').label).toBe('Gets the finished copy');
     expect(progressOf(person('a'), 'DECLINED').label).toBe('Not reached');
+    expect(
+      progressOf(person('a', { role: 'CC', copySentAt: '2026-10-02T09:00:00Z' }), 'COMPLETED'),
+    ).toEqual({ label: 'Finished copy sent', tone: 'done', at: '2026-10-02T09:00:00Z' });
   });
 });
 
@@ -86,7 +90,7 @@ describe('reminderState', () => {
   it('refuses people who are finished, not yet due, or on a closed envelope', () => {
     const first = person('a', { status: 'SENT', routingOrder: 1 });
     const second = person('b', { routingOrder: 2 });
-    const inOrder = { status: 'SENT' as const, sequentialSigning: true };
+    const inOrder = { status: 'SENT' as const, sequentialSigning: true, versions: [] };
     expect(reminderState(second, [first, second], inOrder, NOW)).toEqual({
       can: false,
       reason: 'not-their-turn',
@@ -96,6 +100,32 @@ describe('reminderState', () => {
     expect(reminderState(first, [first], { ...open, status: 'DECLINED' }, NOW)).toEqual({
       can: false,
       reason: 'closed',
+    });
+  });
+
+  it('keeps the turn with a signature until it is stamped, as the server does', () => {
+    const first = person('a', { status: 'SIGNED', routingOrder: 1 });
+    const second = person('b', { status: 'PENDING', routingOrder: 2 });
+    const unstamped = {
+      status: 'PARTIALLY_SIGNED' as const,
+      sequentialSigning: true,
+      versions: [],
+    };
+    expect(reminderState(second, [first, second], unstamped, NOW)).toEqual({
+      can: false,
+      reason: 'not-their-turn',
+    });
+    // Once it is stamped, the second person is invited, and can be reminded.
+    const invited = { ...second, status: 'SENT' as const, notifiedAt: '2026-09-29T09:00:00Z' };
+    const stamped = {
+      ...unstamped,
+      versions: [{ createdByRecipientId: null }, { createdByRecipientId: 'a' }],
+    };
+    expect(reminderState(invited, [first, invited], stamped, NOW)).toEqual({ can: true });
+    // Invited already, but the version before them not recorded yet: still not their turn.
+    expect(reminderState(invited, [first, invited], unstamped, NOW)).toEqual({
+      can: false,
+      reason: 'not-their-turn',
     });
   });
 });

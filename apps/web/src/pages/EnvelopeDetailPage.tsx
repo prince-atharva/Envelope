@@ -1,4 +1,4 @@
-import type { AuditEventInfo, DocumentVersionInfo } from '@envelope/shared';
+import type { AuditEventInfo, DocumentVersionInfo, EnvelopeDetail } from '@envelope/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
@@ -7,6 +7,8 @@ import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { FullPageSpinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { CompletionBanner } from '../features/envelope/CompletionBanner';
+import { downloadName } from '../features/envelope/document-files';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
@@ -17,7 +19,19 @@ import { useDocumentTitle } from '../lib/use-document-title';
 
 /** While people are signing, the page checks for progress this often. */
 const PROGRESS_REFRESH_MS = 15_000;
+/** The completion emails go out just after sealing: keep checking this long for them. */
+const AFTER_COMPLETION_MS = 2 * 60_000;
 const IN_PROGRESS = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
+
+function stillChanging(envelope: EnvelopeDetail | undefined): boolean {
+  if (!envelope) return false;
+  if (IN_PROGRESS.has(envelope.status)) return true;
+  return (
+    envelope.status === 'COMPLETED' &&
+    !!envelope.completedAt &&
+    Date.now() - new Date(envelope.completedAt).getTime() < AFTER_COMPLETION_MS
+  );
+}
 
 export function EnvelopeDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
@@ -32,21 +46,27 @@ export function EnvelopeDetailPage() {
     queryKey: queryKeys.envelope(id),
     queryFn: () => api.getEnvelope(id),
     enabled: id.length > 0,
-    refetchInterval: (query) =>
-      query.state.data && IN_PROGRESS.has(query.state.data.status) ? PROGRESS_REFRESH_MS : false,
+    refetchInterval: (query) => (stillChanging(query.state.data) ? PROGRESS_REFRESH_MS : false),
   });
 
+  // The newest version: the signatures so far while people sign, then the
+  // sealed document with its certificate (ADR 0003).
+  const latest = envelope?.versions.at(-1);
+  const shownVersion = latest?.versionNumber ?? 0;
   const {
     data: pdfData,
     isLoading: isLoadingPdf,
     error: pdfError,
   } = useQuery({
-    queryKey: queryKeys.document(id, 0),
-    queryFn: () => api.downloadDocument(id, 0),
+    queryKey: queryKeys.document(id, shownVersion),
+    queryFn: () => api.downloadDocument(id, shownVersion),
     enabled: id.length > 0 && !!envelope,
   });
 
   useDocumentTitle(envelope?.title);
+
+  const signerName = (recipientId: string) =>
+    envelope?.recipients.find((r) => r.id === recipientId)?.name ?? 'a recipient';
 
   const handleCopyHash = async () => {
     if (envelope?.originalHash) {
@@ -62,7 +82,10 @@ export function EnvelopeDetailPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = envelope.originalFilename;
+      a.download = downloadName(
+        envelope.originalFilename,
+        latest ?? { versionNumber: 0, isFinal: false },
+      );
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -142,17 +165,32 @@ export function EnvelopeDetailPage() {
             variant={envelope.status === 'DRAFT' ? 'secondary' : 'primary'}
             className="text-xs py-1.5 px-3.5"
           >
-            Download PDF
+            {envelope.status === 'COMPLETED' ? 'Download signed PDF' : 'Download PDF'}
           </Button>
         </div>
       </div>
 
-      {sent && <Alert tone="success">Sent. We are emailing {sent} a link to sign.</Alert>}
+      {sent && IN_PROGRESS.has(envelope.status) && (
+        <Alert tone="success">Sent. We are emailing {sent} a link to sign.</Alert>
+      )}
+
+      <CompletionBanner envelope={envelope} onDownload={handleDownload} downloading={!pdfData} />
 
       {envelope.status !== 'DRAFT' && <RecipientProgress envelope={envelope} />}
 
       {/* 2. Main Hero Document Viewer */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col h-[75vh] min-h-[600px] max-h-[850px]">
+        {latest && latest.versionNumber > 0 && (
+          <p
+            className="border-b border-slate-100 px-4 py-2 text-xs text-slate-600"
+            data-testid="shown-version"
+          >
+            Showing v{latest.versionNumber}
+            {latest.isFinal
+              ? ': the sealed document, with its certificate on the last page'
+              : ': the document with the signatures made so far'}
+          </p>
+        )}
         {isLoadingPdf ? (
           <div className="flex-1 flex items-center justify-center bg-slate-100">
             <span className="text-slate-500 text-sm font-medium">Loading document...</span>
@@ -192,7 +230,9 @@ export function EnvelopeDetailPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">Document Fingerprint (SHA-256)</h3>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Original Document Fingerprint (SHA-256)
+                </h3>
                 <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2 py-0.5 rounded-full">
                   Tamper-Evident SHA-256
                 </span>
@@ -279,7 +319,7 @@ export function EnvelopeDetailPage() {
                           </span>
                         ) : (
                           <span className="text-[10px] bg-slate-200 text-slate-700 font-medium px-2 py-0.5 rounded-full">
-                            Revision
+                            {version.versionNumber === 0 ? 'Original' : 'Signed'}
                           </span>
                         )}
                       </div>
@@ -287,6 +327,14 @@ export function EnvelopeDetailPage() {
                         {formatDateTime(version.createdAt)}
                       </span>
                     </div>
+
+                    <p className="text-slate-700">
+                      {version.isFinal
+                        ? 'Certificate added, sealed and locked'
+                        : version.createdByRecipientId
+                          ? `Signed by ${signerName(version.createdByRecipientId)}`
+                          : 'As uploaded'}
+                    </p>
 
                     <div className="flex items-center justify-between text-slate-600 text-xs pt-1 border-t border-slate-200/50">
                       <span>

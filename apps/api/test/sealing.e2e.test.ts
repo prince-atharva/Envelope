@@ -313,6 +313,26 @@ describe('sealing: one version per signature (e2e)', () => {
       ]),
     );
 
+    // The sender's envelope page has all of it (docs/15 step 8).
+    const detail = await request(t.http)
+      .get(`/api/v1/envelopes/${envelope.id}`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .expect(200);
+    expect(detail.body).toMatchObject({
+      status: 'COMPLETED',
+      finalHash: final.hash,
+      completedAt: expect.stringMatching(/Z$/),
+      senderCopySentAt: expect.any(String),
+    });
+    expect(
+      detail.body.versions.map(
+        (v: { createdByRecipientId: string | null }) => v.createdByRecipientId,
+      ),
+    ).toEqual([null, ...envelope.recipients.map((r) => r.id), null]);
+    expect(
+      detail.body.recipients.every((r: { copySentAt: string | null }) => r.copySentAt !== null),
+    ).toBe(true);
+
     // Running again changes nothing.
     const sealing = worker.module.get(SealingService);
     expect(await sealing.catchUp(envelope.id)).toEqual({

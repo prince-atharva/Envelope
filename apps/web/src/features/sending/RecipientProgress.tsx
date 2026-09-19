@@ -1,4 +1,4 @@
-import type { EnvelopeDetail, RecipientDetail } from '@envelope/shared';
+import { type EnvelopeDetail, type RecipientDetail, receivesSigningLink } from '@envelope/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Alert } from '../../components/ui/Alert';
@@ -131,6 +131,11 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
                 </span>
                 {progress.at && (
                   <span className="text-[11px] text-slate-400">{formatDateTime(progress.at)}</span>
+                )}
+                {receivesSigningLink(recipient.role) && recipient.copySentAt && (
+                  <span className="text-[11px] text-slate-500">
+                    Finished copy sent {formatDateTime(recipient.copySentAt)}
+                  </span>
                 )}
               </div>
               <ReminderButton envelope={envelope} recipient={recipient} />

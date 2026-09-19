@@ -81,7 +81,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 5 | The certificate page, sealing and locking | ✅ Done |
 | 6 | Completion emails with the finished copy | ✅ Done |
 | 7 | Verify | ✅ Done |
-| 8 | The sender's Completed screen | ⬜ |
+| 8 | The sender's Completed screen | ✅ Done |
 | 9 | Tests: three signers end to end, and the leak audits | ⬜ |
 | 10 | Real-phone check, documentation and release `v0.4.0` | ⬜ |
 
@@ -248,6 +248,7 @@ Decisions made while building it:
 
 The web app's progress list does not yet know about stamping. For the few seconds before a version
 exists, it may offer a reminder that the server then skips as `NOT_THEIR_TURN`. Step 8 fixes this.
+*(Fixed in step 8: the page now applies the same rule as the server.)*
 
 ## Step 5: Certificate, Seal and Lock
 
@@ -402,6 +403,27 @@ Tests:
   - one person signs in the browser, and the PDF attached to their completion email is confirmed as sealed, with the email's fingerprint;
   - an unknown PDF;
   - an unsigned upload.
+
+## Step 8: The Sender's Completed Screen (as built)
+
+| File | What it does |
+|---|---|
+| `packages/shared/src/envelopes.ts` | `EnvelopeDetail` gains `completedAt` and `senderCopySentAt`. Each version gains `createdByRecipientId`, and each recipient gains `copySentAt`. |
+| `apps/api/src/envelopes/envelopes.service.ts` | Fills them in. The copy times come from their own query of `COMPLETION_SENT`, because the detail's event list stops at 100 events and these come last. |
+| `apps/web/src/features/envelope/CompletionBanner.tsx` | For a completed envelope: when it was sealed and that it is locked, whether everyone was emailed, the finished document's fingerprint with a Copy button, **Download signed document**, and how to check a copy (Verify or `sha256sum`) |
+| `apps/web/src/pages/EnvelopeDetailPage.tsx` | Shows and downloads the newest version: the signatures so far while people sign, then the sealed document. The file is named as in the email, `name (signed).pdf`. Each version says who signed it. The page keeps checking for two minutes after sealing, so the "Finished copy sent" marks appear by themselves. |
+| `apps/web/src/features/sending/progress.ts` | `reminderState` passes the set of stamped signatures to `currentRoutingGroup`, as the server does. A reminder is no longer offered before the previous signature is in a version (the step 4 note). A CC recipient reads "Finished copy sent" once theirs has gone out. |
+
+Also fixed: the "Sent. We are emailing…" notice came from the page's navigation state, so it survived a reload. It now shows only while the envelope is out for signing.
+
+Tests:
+- Unit tests cover the stamp-aware reminder rule and the "Finished copy sent" status for CC recipients. They also cover the download names: `document-files.test.ts` checks the original, `(vN)` and `(signed)`.
+- `test/sealing.e2e.test.ts` checks the detail's new fields for a completed envelope.
+- `apps/web/e2e/completed.spec.ts` (Chromium and Pixel):
+  - one person signs in a browser of their own;
+  - the sender's page then shows Completed and sealed, with the same fingerprint as the email;
+  - it shows the sealed version, who signed v1, and the finished copy sent;
+  - the downloaded `test-12-pages (signed).pdf` has the recorded fingerprint and is byte for byte the file that was emailed.
 
 ## Step 9: Tests
 

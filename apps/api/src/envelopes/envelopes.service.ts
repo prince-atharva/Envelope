@@ -217,10 +217,20 @@ export class EnvelopesService {
     });
     if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
 
+    // Read on their own: the detail's event list is capped, and these come last.
+    const copies = await this.db.auditTrail.findMany({
+      where: { envelopeId: id, action: 'COMPLETION_SENT' },
+      select: { recipientId: true, timestamp: true },
+    });
+    const copySentAt = (recipientId: string | null) =>
+      copies.find((copy) => copy.recipientId === recipientId)?.timestamp.toISOString() ?? null;
+
     return {
       ...toSummary(envelope),
       originalHash: envelope.originalHash,
       finalHash: envelope.finalHash,
+      completedAt: envelope.completedAt?.toISOString() ?? null,
+      senderCopySentAt: copySentAt(null),
       owner: envelope.owner,
       message: envelope.message,
       sequentialSigning: envelope.sequentialSigning,
@@ -242,6 +252,7 @@ export class EnvelopesService {
         signedAt: recipient.signedAt?.toISOString() ?? null,
         declinedAt: recipient.declinedAt?.toISOString() ?? null,
         declinedReason: recipient.declinedReason,
+        copySentAt: copySentAt(recipient.id),
       })),
       // Ordered by page, then down the page: the same order the builder walks
       // fields in, so "next field" means the same thing on both sides.
@@ -262,6 +273,7 @@ export class EnvelopesService {
         pageCount: version.pageCount,
         sizeBytes: version.sizeBytes,
         isFinal: version.isFinal,
+        createdByRecipientId: version.createdByRecipientId,
         createdAt: version.createdAt.toISOString(),
       })),
       auditTrail: envelope.auditLogs.map((event) => ({
