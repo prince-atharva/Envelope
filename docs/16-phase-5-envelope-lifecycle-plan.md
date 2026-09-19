@@ -85,7 +85,7 @@ along the way:
 | 11 | Alert emails | ✅ Done |
 | 12 | The nightly audit-chain check | ✅ Done |
 | 13 | Request limits in Redis, on every route | ✅ Done |
-| 14 | Dashboard views | ⬜ |
+| 14 | Dashboard views | ✅ Done |
 | 15 | Tests: the finish line | ⬜ |
 | 16 | Documentation and release `v0.5.0` | ⬜ |
 
@@ -398,6 +398,20 @@ It is ordered in SQL, with keyset paging on `(rank, waitingSince, id)`. The curs
 the first page was evaluated at, so rows do not move between pages. Raw SQL is not scoped by the
 tenant extension, so the tenant id is passed explicitly and a test checks isolation. Other tabs keep
 newest first. The dashboard opens on Needs attention when it is not empty, otherwise All.
+
+**As built:**
+
+- An open envelope already past its deadline, which the sweep has not paused yet, ranks as
+  expired: its links already refuse. It read "Expires 1 minute ago" until the browser test caught
+  it.
+- The Cancelled tab also lists declined envelopes, which the plan gave no tab; a discarded draft
+  (never sent) is left out of it, but stays in All.
+- "Not opened" needs the email to have been accepted (`notifiedAt` set); an invitation no mail server
+  took is "email not delivered", never "not opened".
+- `since` is how long it has waited for ranks 1, 2, 3 and 5, and the deadline itself for rank 4, so
+  the soonest deadline comes first.
+- The attention cursor is base64url JSON of `{ at, rank, since, id }`, and `status=` narrows any
+  view. The web dashboard keeps the tab in `?view=`.
 
 ## Step 15: Tests
 

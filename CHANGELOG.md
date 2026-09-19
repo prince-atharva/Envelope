@@ -97,6 +97,13 @@ Phase 5 (Envelope Lifecycle) in progress. See
   minute per account, as well as 10 per address. Limited responses carry `X-RateLimit-Limit`,
   `-Remaining` and `-Reset`. If Redis is down, each server counts in memory and one alert is
   raised.
+- Dashboard views (docs/16 step 14). `GET /v1/envelopes?view=attention|waiting|completed|cancelled|drafts|all`
+  (with doc 08's `status=`) and `GET /v1/envelopes/counts`. **Needs attention** is ranked in SQL:
+  expired; not opened two days after it was emailed; an email not delivered within an hour;
+  expiring within two days; declined in the last week. Longest-waiting first, with a cursor that
+  keeps rows in place between pages. Rows show how many have signed, who it waits on and the
+  deadline. The dashboard has a tab for each view, with counts, and opens on Needs attention when
+  anything needs it.
 - Fixed: `Retry-After` on the signing and upload limits was always 1 second; it divided a time
   already in seconds by 1000.
 - Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule

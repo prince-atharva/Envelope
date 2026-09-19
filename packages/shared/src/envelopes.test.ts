@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ENVELOPE_STATUSES,
   type EnvelopeStatus,
   isOpenEnvelope,
   isTerminalEnvelope,
@@ -7,16 +8,7 @@ import {
   TERMINAL_ENVELOPE_STATUSES,
 } from './envelopes';
 
-const ALL: EnvelopeStatus[] = [
-  'DRAFT',
-  'SENT',
-  'DELIVERED',
-  'PARTIALLY_SIGNED',
-  'EXPIRED',
-  'COMPLETED',
-  'DECLINED',
-  'VOIDED',
-];
+const ALL: EnvelopeStatus[] = [...ENVELOPE_STATUSES];
 
 describe('envelope status sets', () => {
   it('knows which statuses are open and which are terminal', () => {

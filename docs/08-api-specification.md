@@ -289,7 +289,8 @@ Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at leas
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/v1/envelopes/:id` | Full state including recipients, fields, versions |
-| `GET` | `/v1/envelopes?status=&cursor=&limit=` | List, filterable |
+| `GET` | `/v1/envelopes?view=&status=&cursor=&limit=` | List by dashboard view (`attention`, `waiting`, `completed`, `cancelled`, `drafts`, `all`), optionally one status. Needs attention is ranked; the rest are newest first. Rows carry `progress`, `expiresAt` and, in Needs attention, `attention { reason, since }`. Phase 5. |
+| `GET` | `/v1/envelopes/counts` | Every view's count, in one query. Phase 5. |
 | `POST` | `/v1/envelopes/:id/void` | Cancel, or discard a draft. Body: `{ "reason": "..." }`, required unless a draft. Invalidates all tokens synchronously. Built in Phase 5; see below. |
 | `POST` | `/v1/sign/:token/request-more-time` | The one route an expired link can use: emails the sender, once a day. `200 { requested, alreadyRequested }`; a link that still works gets 409 `CONFLICT`. Phase 5. |
 | `PATCH` | `/v1/envelopes/:id/reminders` | Automatic reminders. Body: `{ "intervalDays": 1–30 \| null }`; null is off. Sent or expired envelopes only. Phase 5. |

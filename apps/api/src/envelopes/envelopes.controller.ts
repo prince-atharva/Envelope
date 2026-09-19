@@ -1,6 +1,9 @@
 import {
   type CreateEnvelopeInput,
   createEnvelopeSchema,
+  ENVELOPE_STATUSES,
+  ENVELOPE_VIEWS,
+  type EnvelopeCounts,
   type EnvelopeDetail,
   type EnvelopeListResponse,
   type ListEnvelopesQuery,
@@ -96,8 +99,26 @@ export class EnvelopesController {
     return this.envelopes.create(user, file, body, client);
   }
 
+  @Get('counts')
+  @ApiOperation({ summary: 'How many envelopes each dashboard view holds' })
+  counts(@CurrentUser() user: AuthenticatedUser): Promise<EnvelopeCounts> {
+    return this.envelopes.counts(user.tenantId);
+  }
+
   @Get()
-  @ApiOperation({ summary: 'List envelopes, newest first' })
+  @ApiOperation({
+    summary: 'List envelopes: Needs attention ranked by what to chase, other views newest first',
+  })
+  @ApiQuery({
+    name: 'view',
+    required: false,
+    schema: { type: 'string', enum: [...ENVELOPE_VIEWS], default: 'all' },
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    schema: { type: 'string', enum: [...ENVELOPE_STATUSES] },
+  })
   @ApiQuery({
     name: 'limit',
     required: false,
@@ -106,8 +127,9 @@ export class EnvelopesController {
   @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string' } })
   list(
     @Query(new ZodValidationPipe(listEnvelopesQuerySchema)) query: ListEnvelopesQuery,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<EnvelopeListResponse> {
-    return this.envelopes.list(query);
+    return this.envelopes.list(query, user.tenantId);
   }
 
   @Get(':id')

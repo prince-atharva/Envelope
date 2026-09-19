@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import type {
   CreateEnvelopeInput,
+  EnvelopeCounts,
   EnvelopeDetail,
   EnvelopeListResponse,
   EnvelopeSummary,
@@ -12,10 +13,31 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
-import type { Envelope } from '../generated/prisma/client';
+import type { Envelope, Recipient } from '../generated/prisma/client';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 import { envelopeDocumentKey, StorageService } from '../storage/storage.service';
 import { PdfValidatorService } from '../uploads/pdf-validator.service';
+import {
+  attentionPageQuery,
+  attentionReason,
+  countsQuery,
+  decodeAttentionCursor,
+  encodeAttentionCursor,
+  progressOf,
+  viewWhere,
+} from './envelope-views';
+
+/** What a list row needs from each recipient, for its progress. */
+const PROGRESS_FIELDS = {
+  name: true,
+  role: true,
+  status: true,
+  invitedAt: true,
+  notifiedAt: true,
+  viewedAt: true,
+  signedAt: true,
+  declinedAt: true,
+} as const;
 
 const MAX_FILENAME_LENGTH = 255;
 const REPLACEMENT_CHARACTER = String.fromCodePoint(0xfffd);
@@ -61,7 +83,10 @@ function decodeCursor(cursor: string): Cursor {
   return { createdAt, id };
 }
 
-function toSummary(envelope: Envelope): EnvelopeSummary {
+function toSummary(
+  envelope: Envelope,
+  recipients: Parameters<typeof progressOf>[1],
+): EnvelopeSummary {
   return {
     id: envelope.id,
     title: envelope.title,
@@ -70,8 +95,14 @@ function toSummary(envelope: Envelope): EnvelopeSummary {
     pageCount: envelope.pageCount,
     createdAt: envelope.createdAt.toISOString(),
     updatedAt: envelope.updatedAt.toISOString(),
+    expiresAt: envelope.expiresAt?.toISOString() ?? null,
+    progress: progressOf(envelope, recipients),
   };
 }
+
+type WithProgressRecipients = Envelope & {
+  recipients: Pick<Recipient, keyof typeof PROGRESS_FIELDS>[];
+};
 
 export interface OpenedDocument {
   body: Readable;
@@ -181,27 +212,85 @@ export class EnvelopesService {
     return this.get(envelopeId);
   }
 
-  /** Newest first, with an opaque cursor for the next page. */
-  async list(query: ListEnvelopesQuery): Promise<EnvelopeListResponse> {
+  /**
+   * One page of a dashboard view (docs/16 step 14). Needs attention is ranked
+   * in SQL; every other view is newest first, with an opaque cursor.
+   */
+  async list(query: ListEnvelopesQuery, tenantId: string): Promise<EnvelopeListResponse> {
+    if (query.view === 'attention') return this.listAttention(query, tenantId);
+
     const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
-    const rows = await this.db.envelope.findMany({
-      where: cursor
-        ? {
-            OR: [
-              { createdAt: { lt: cursor.createdAt } },
-              { createdAt: cursor.createdAt, id: { lt: cursor.id } },
-            ],
-          }
-        : {},
+    const rows: WithProgressRecipients[] = await this.db.envelope.findMany({
+      where: {
+        AND: [
+          viewWhere(query.view, query.status),
+          cursor
+            ? {
+                OR: [
+                  { createdAt: { lt: cursor.createdAt } },
+                  { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+                ],
+              }
+            : {},
+        ],
+      },
+      include: { recipients: { select: PROGRESS_FIELDS } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
     });
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
     return {
-      items: page.map(toSummary),
+      items: page.map((envelope) => toSummary(envelope, envelope.recipients)),
       nextCursor: rows.length > query.limit && last ? encodeCursor(last) : null,
     };
+  }
+
+  /**
+   * Needs attention: ranked by what to chase first, longest-waiting first
+   * within each rank, paged on (rank, since, id). The cursor carries the time
+   * the first page was evaluated at, so no row moves between pages.
+   */
+  private async listAttention(
+    query: ListEnvelopesQuery,
+    tenantId: string,
+  ): Promise<EnvelopeListResponse> {
+    const after = query.cursor ? decodeAttentionCursor(query.cursor) : undefined;
+    const now = after?.at ?? new Date();
+    const rows = await this.db.$queryRaw<{ id: string; rank: number; since: Date }[]>(
+      attentionPageQuery(tenantId, now, query.limit + 1, query.status, after),
+    );
+    const page = rows.slice(0, query.limit);
+    // Through the tenant filter as well, so a row can only ever be this tenant's.
+    const envelopes: WithProgressRecipients[] = await this.db.envelope.findMany({
+      where: { id: { in: page.map((row) => row.id) } },
+      include: { recipients: { select: PROGRESS_FIELDS } },
+    });
+    const byId = new Map(envelopes.map((envelope) => [envelope.id, envelope]));
+    const last = page.at(-1);
+    return {
+      items: page.flatMap((row) => {
+        const envelope = byId.get(row.id);
+        if (!envelope) return [];
+        return [
+          {
+            ...toSummary(envelope, envelope.recipients),
+            attention: { reason: attentionReason(row.rank), since: row.since.toISOString() },
+          },
+        ];
+      }),
+      nextCursor:
+        rows.length > query.limit && last
+          ? encodeAttentionCursor({ at: now, rank: last.rank, since: last.since, id: last.id })
+          : null,
+    };
+  }
+
+  /** Every dashboard tab's count, in one query. */
+  async counts(tenantId: string): Promise<EnvelopeCounts> {
+    const [row] = await this.db.$queryRaw<EnvelopeCounts[]>(countsQuery(tenantId, new Date()));
+    if (!row) throw new Error('The counts query returned no row');
+    return row;
   }
 
   async get(id: string): Promise<EnvelopeDetail> {
@@ -227,7 +316,7 @@ export class EnvelopesService {
       copies.find((copy) => copy.recipientId === recipientId)?.timestamp.toISOString() ?? null;
 
     return {
-      ...toSummary(envelope),
+      ...toSummary(envelope, envelope.recipients),
       originalHash: envelope.originalHash,
       finalHash: envelope.finalHash,
       completedAt: envelope.completedAt?.toISOString() ?? null,

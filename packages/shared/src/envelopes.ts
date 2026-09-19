@@ -1,15 +1,17 @@
 import { z } from 'zod';
 import type { FieldInfo, RecipientInfo } from './draft';
 
-export type EnvelopeStatus =
-  | 'DRAFT'
-  | 'SENT'
-  | 'DELIVERED'
-  | 'PARTIALLY_SIGNED'
-  | 'EXPIRED'
-  | 'COMPLETED'
-  | 'DECLINED'
-  | 'VOIDED';
+export const ENVELOPE_STATUSES = [
+  'DRAFT',
+  'SENT',
+  'DELIVERED',
+  'PARTIALLY_SIGNED',
+  'EXPIRED',
+  'COMPLETED',
+  'DECLINED',
+  'VOIDED',
+] as const;
+export type EnvelopeStatus = (typeof ENVELOPE_STATUSES)[number];
 
 /**
  * Sent and not finished: signers can act, reminders go out and signatures are
@@ -47,11 +49,55 @@ export const createEnvelopeSchema = z.strictObject({
 });
 export type CreateEnvelopeInput = z.infer<typeof createEnvelopeSchema>;
 
+/**
+ * The dashboard's tabs (docs/16 step 14). Needs attention is ranked by what
+ * to chase first; every other view is newest first.
+ */
+export const ENVELOPE_VIEWS = [
+  'attention',
+  'waiting',
+  'completed',
+  'cancelled',
+  'drafts',
+  'all',
+] as const;
+export type EnvelopeView = (typeof ENVELOPE_VIEWS)[number];
+
 export const listEnvelopesQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  cursor: z.string().max(200).optional(),
+  cursor: z.string().max(400).optional(),
+  view: z.enum(ENVELOPE_VIEWS).default('all'),
+  /** Only this status, within the view (docs/08). */
+  status: z.enum(ENVELOPE_STATUSES).optional(),
 });
 export type ListEnvelopesQuery = z.infer<typeof listEnvelopesQuerySchema>;
+
+/**
+ * Why a document is in Needs attention, in the order they are listed:
+ * paused by its deadline; someone emailed two days ago has not opened it; an
+ * email was not accepted by the mail server; the deadline is close; someone
+ * declined recently.
+ */
+export const ATTENTION_REASONS = [
+  'EXPIRED',
+  'NOT_OPENED',
+  'EMAIL_NOT_DELIVERED',
+  'EXPIRING_SOON',
+  'DECLINED',
+] as const;
+export type AttentionReason = (typeof ATTENTION_REASONS)[number];
+
+/** How far a sent document has got. Signers and approvers only. */
+export interface EnvelopeProgress {
+  signed: number;
+  total: number;
+  /** Whose turn it is and who has not finished yet. */
+  waitingOn: string[];
+  /** The earliest invitation still not opened. */
+  oldestUnviewedSince: string | null;
+  /** The latest thing anyone did: opened, signed, declined, was emailed. */
+  lastActivityAt: string | null;
+}
 
 export interface EnvelopeSummary {
   id: string;
@@ -61,7 +107,16 @@ export interface EnvelopeSummary {
   pageCount: number;
   createdAt: string;
   updatedAt: string;
+  /** When the signing links stop working. Null for a draft. */
+  expiresAt: string | null;
+  /** Null for a draft. */
+  progress: EnvelopeProgress | null;
+  /** Only in Needs attention: why it is there, and since when. */
+  attention?: { reason: AttentionReason; since: string };
 }
+
+/** GET /envelopes/counts: every tab's count, in one query. */
+export type EnvelopeCounts = Record<EnvelopeView, number>;
 
 export interface DocumentVersionInfo {
   versionNumber: number;

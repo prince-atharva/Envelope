@@ -2,8 +2,10 @@ import {
   type AddRecipientInput,
   type AuthResponse,
   type DraftRevisionResponse,
+  type EnvelopeCounts,
   type EnvelopeDetail,
   type EnvelopeListResponse,
+  type EnvelopeView,
   type ErrorCode,
   type ExtendEnvelopeInput,
   type ExtendEnvelopeResponse,
@@ -305,10 +307,12 @@ export const api = {
 
   me: () => json<UserProfile>('/auth/me'),
 
-  listEnvelopes: (cursor?: string) =>
+  listEnvelopes: (view: EnvelopeView = 'all', cursor?: string) =>
     json<EnvelopeListResponse>(
-      `/envelopes?limit=20${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+      `/envelopes?limit=20&view=${view}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
     ),
+
+  envelopeCounts: () => json<EnvelopeCounts>('/envelopes/counts'),
 
   getEnvelope: (id: string) => json<EnvelopeDetail>(`/envelopes/${encodeURIComponent(id)}`),
 
