@@ -9,10 +9,13 @@ import { PrismaService } from '../prisma/prisma.service';
 /** Envelopes paused per run. Any more wait for the next run, a few minutes later. */
 const SWEEP_BATCH = 200;
 
+/** What one maintenance run did, for its summary log line. */
 export interface SweepResult {
   scanned: number;
   changed: number;
   failed: number;
+  /** Problems found rather than fixed: audit chains that do not check out. */
+  broken?: number;
 }
 
 type Outcome =

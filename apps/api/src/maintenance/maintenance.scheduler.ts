@@ -7,6 +7,10 @@ import { MAINTENANCE_QUEUE } from '../queue/queue.module';
 
 export const EXPIRY_SWEEP_JOB = 'expiry-sweep';
 export const AUTO_REMINDERS_JOB = 'auto-reminders';
+export const AUDIT_CHAIN_CHECK_JOB = 'audit-chain-check';
+
+/** A job on a fixed interval, or at the times a cron pattern names (UTC). */
+export type Schedule = { id: string; everyMs: number } | { id: string; pattern: string };
 
 /**
  * Registers the scheduled jobs when a worker starts. BullMQ job schedulers are
@@ -21,10 +25,11 @@ export class MaintenanceScheduler implements OnApplicationBootstrap {
     @InjectPinoLogger(MaintenanceScheduler.name) private readonly logger: PinoLogger,
   ) {}
 
-  schedules(): { id: string; everyMs: number }[] {
+  schedules(): Schedule[] {
     return [
       { id: EXPIRY_SWEEP_JOB, everyMs: this.config.EXPIRY_SWEEP_EVERY_MS },
       { id: AUTO_REMINDERS_JOB, everyMs: this.config.REMINDER_SWEEP_EVERY_MS },
+      { id: AUDIT_CHAIN_CHECK_JOB, pattern: this.config.AUDIT_CHAIN_CHECK_CRON },
     ];
   }
 
@@ -35,8 +40,12 @@ export class MaintenanceScheduler implements OnApplicationBootstrap {
       );
       return;
     }
-    for (const { id, everyMs } of this.schedules()) {
-      await this.queue.upsertJobScheduler(id, { every: everyMs }, { name: id });
+    for (const schedule of this.schedules()) {
+      const repeat =
+        'pattern' in schedule
+          ? { pattern: schedule.pattern, tz: 'UTC' }
+          : { every: schedule.everyMs };
+      await this.queue.upsertJobScheduler(schedule.id, repeat, { name: schedule.id });
     }
     this.logger.info({ schedules: this.schedules() }, 'Maintenance schedules registered');
   }

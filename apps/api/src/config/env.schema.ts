@@ -115,6 +115,8 @@ export const envSchema = z
     EXPIRY_WARNING_HOURS: z.coerce.number().int().min(1).max(720).default(48),
     /** How often the reminder job looks for people due an automatic email. */
     REMINDER_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(900_000),
+    /** When the nightly audit-chain check runs: a cron pattern, in UTC. */
+    AUDIT_CHAIN_CHECK_CRON: z.string().trim().min(9).default('0 2 * * *'),
     /** How often the expiry sweep looks for envelopes past their deadline. */
     EXPIRY_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(300_000),
     /**

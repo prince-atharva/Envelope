@@ -86,6 +86,11 @@ Phase 5 (Envelope Lifecycle) in progress. See
   audit write, a broken audit chain, a seal, email or maintenance job that failed its last attempt,
   and a sealed file that does not match its fingerprint. Alert emails carry ids, codes and counts
   only.
+- The nightly audit-chain check (docs/16 step 12, ADR 0004): a third maintenance job at 02:00 UTC
+  (`AUDIT_CHAIN_CHECK_CRON`) walks every envelope 100 at a time, recomputes its chain and checks
+  that a completed, cancelled, expired or declined envelope has the event its status requires. All
+  breaks of a run go into one alert (`chain-check-{date}`). `pnpm --filter @envelope/api audit:check`
+  runs it on demand and exits with 1 on a break.
 - Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule
   slot, so a restarted worker's first sweep could come many intervals late.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing

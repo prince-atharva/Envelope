@@ -16,7 +16,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "audit:check": "tsc -p tsconfig.build.json --outDir .audit-check-dist && node --enable-source-maps .audit-check-dist/audit-check.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1134.0",

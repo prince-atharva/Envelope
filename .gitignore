@@ -41,3 +41,4 @@ apps/web/e2e/.auth-state.json
 # The isolated browser-test stack (apps/web/e2e/stack): its build, logs and outbox.
 apps/web/.e2e/
 apps/api/.e2e-dist/
+apps/api/.audit-check-dist/

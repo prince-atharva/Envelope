@@ -83,7 +83,7 @@ along the way:
 | 9 | Extend and expiry on the envelope page | ✅ Done |
 | 10 | Automatic reminders and the "expires soon" email | ✅ Done |
 | 11 | Alert emails | ✅ Done |
-| 12 | The nightly audit-chain check | ⬜ |
+| 12 | The nightly audit-chain check | ✅ Done |
 | 13 | Request limits in Redis, on every route | ⬜ |
 | 14 | Dashboard views | ⬜ |
 | 15 | Tests: the finish line | ⬜ |
@@ -342,6 +342,11 @@ with `verifyChain`. It also checks each status has the event that must exist for
 run go into one alert (`chain-check-{date}`), repeated every night while they last. Sending is not
 halted automatically; doc 10's "halt sending" stays a manual decision. `pnpm --filter @envelope/api
 audit:check` runs the same check and exits with 1 on a break.
+
+**As built:** `DECLINED` also requires `RECIPIENT_DECLINED`. The job is a third BullMQ scheduler,
+`audit-chain-check`, on the cron pattern `AUDIT_CHAIN_CHECK_CRON` in UTC, and always logs its
+summary. `audit:check` compiles into `apps/api/.audit-check-dist` rather than `dist`, which the dev
+server runs from; it prints the breaks as JSON and raises no alert.
 
 ## Step 13: Request Limits in Redis
 
