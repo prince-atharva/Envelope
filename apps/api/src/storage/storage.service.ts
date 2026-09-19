@@ -63,6 +63,14 @@ export function signedVersionKey(
   return `tenants/${tenantId}/envelopes/${envelopeId}/versions/v${versionNumber}.pdf`;
 }
 
+/**
+ * Where the sealed, final document is kept, in the locked bucket (ADR 0007).
+ * One key per envelope. Reads always name the version id recorded with it.
+ */
+export function sealedVersionKey(tenantId: string, envelopeId: string): string {
+  return `tenants/${tenantId}/envelopes/${envelopeId}/sealed.pdf`;
+}
+
 /** Where the sealed, final document is kept, in the locked bucket (ADR 0007). */
 export function sealedDocumentKey(tenantId: string, envelopeId: string): string {
   return `tenants/${tenantId}/envelopes/${envelopeId}/sealed.pdf`;

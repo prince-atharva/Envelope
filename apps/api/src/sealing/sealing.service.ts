@@ -3,25 +3,39 @@ import { receivesSigningLink, recipientsDueInvitation } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
-import type { DocumentField, Recipient } from '../generated/prisma/client';
+import type {
+  AuditTrail,
+  DocumentField,
+  DocumentVersion,
+  Envelope,
+  Recipient,
+} from '../generated/prisma/client';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { StorageService, signedVersionKey } from '../storage/storage.service';
+import { StorageService, sealedVersionKey, signedVersionKey } from '../storage/storage.service';
+import type { CertificateData } from './certificate';
 import { PdfSealingService, type StampField, type StampImages } from './pdf-sealing.service';
 
 /** Envelope statuses in which signatures are still being stamped. */
 const SEALABLE = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
 /** A round holds the envelope's seal lock while it reads, stamps and stores one version. */
 const ROUND_TIMEOUT_MS = 120_000;
+const NOTHING_TO_STAMP = 'nothing to stamp';
 
 export type RoundResult =
   | { kind: 'stamped'; versionNumber: number; recipientId: string; invited: string[] }
+  | { kind: 'idle'; reason: string };
+
+export type SealResult =
+  | { kind: 'sealed'; versionNumber: number; sha256: string }
   | { kind: 'idle'; reason: string };
 
 export interface CatchUpResult {
   stamped: number;
   /** Why the last round found nothing more to do. */
   reason: string;
+  /** Present when this run sealed the envelope. */
+  sealed?: { versionNumber: number; sha256: string };
 }
 
 async function bytesOf(body: Readable): Promise<Buffer> {
@@ -75,7 +89,17 @@ export class SealingService {
     let stamped = 0;
     for (;;) {
       const round = await this.stampNext(envelopeId);
-      if (round.kind === 'idle') return { stamped, reason: round.reason };
+      if (round.kind === 'idle') {
+        if (round.reason !== NOTHING_TO_STAMP) return { stamped, reason: round.reason };
+        // Every signature so far is in a version: if that is everyone, seal.
+        const seal = await this.sealFinal(envelopeId);
+        if (seal.kind === 'idle') return { stamped, reason: round.reason };
+        return {
+          stamped,
+          reason: 'sealed',
+          sealed: { versionNumber: seal.versionNumber, sha256: seal.sha256 },
+        };
+      }
       stamped += 1;
       for (const recipientId of round.invited) {
         try {
@@ -129,7 +153,7 @@ export class SealingService {
               (a.signedAt?.getTime() ?? 0) - (b.signedAt?.getTime() ?? 0) ||
               a.id.localeCompare(b.id),
           )[0];
-        if (!next) return { kind: 'idle', reason: 'nothing to stamp' } as const;
+        if (!next) return { kind: 'idle', reason: NOTHING_TO_STAMP } as const;
 
         const latest = envelope.versions.at(-1);
         if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
@@ -203,6 +227,173 @@ export class SealingService {
       },
       { timeout: ROUND_TIMEOUT_MS, maxWait: 15_000 },
     );
+  }
+
+  /**
+   * Once every signer and approver is in a version: appends the certificate to
+   * the newest version, stores the result in the locked bucket as the final
+   * version, and completes the envelope (docs/15 step 5, ADR 0007).
+   *
+   * Takes the same lock as a round. A second run finds the envelope completed
+   * and does nothing. A retry after the file was stored but before the commit
+   * stores it again: the lock keeps the first copy as an unreferenced object
+   * version, with the same bytes, and reads always name the recorded version.
+   */
+  sealFinal(envelopeId: string): Promise<SealResult> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`seal:${envelopeId}`}, 0))`;
+
+        const envelope = await tx.envelope.findUnique({
+          where: { id: envelopeId },
+          include: {
+            owner: { select: { fullName: true } },
+            recipients: true,
+            versions: { orderBy: { versionNumber: 'asc' } },
+            auditLogs: { orderBy: { sequence: 'asc' } },
+          },
+        });
+        if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
+        if (!SEALABLE.has(envelope.status)) {
+          return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
+        }
+        const latest = envelope.versions.at(-1);
+        if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
+        if (latest.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
+
+        const parties = envelope.recipients.filter((r) => receivesSigningLink(r.role));
+        const stamped = new Set(envelope.versions.map((v) => v.createdByRecipientId));
+        const waiting = parties.filter((r) => !hasSigned(r) || !stamped.has(r.id)).length;
+        if (parties.length === 0 || waiting > 0) {
+          return { kind: 'idle', reason: 'waiting for signatures' } as const;
+        }
+
+        const data = this.certificateData(envelope, parties);
+        const source = await bytesOf((await this.storage.get(latest.fileUrl)).body);
+        const result = await this.pdf.appendCertificate(source, data);
+
+        const versionNumber = latest.versionNumber + 1;
+        const key = sealedVersionKey(envelope.tenantId, envelopeId);
+        const { versionId, retainUntil } = await this.storage.putSealed(key, result.buffer, {
+          contentType: 'application/pdf',
+          metadata: { sha256: result.sha256 },
+        });
+        const completedAt = new Date();
+        await tx.documentVersion.create({
+          data: {
+            envelopeId,
+            versionNumber,
+            fileUrl: key,
+            hash: result.sha256,
+            pageCount: result.pageCount,
+            sizeBytes: result.buffer.length,
+            isFinal: true,
+            storageVersionId: versionId,
+          },
+        });
+        await tx.envelope.update({
+          where: { id: envelopeId },
+          data: {
+            status: 'COMPLETED',
+            finalHash: result.sha256,
+            completedFileUrl: key,
+            completedAt,
+          },
+        });
+        await this.audit.record(tx, {
+          envelopeId,
+          action: 'ENVELOPE_COMPLETED',
+          ...SYSTEM_ACTOR,
+          metadata: {
+            versionNumber,
+            sha256: result.sha256,
+            basedOn: latest.versionNumber,
+            certificatePages: result.certificatePages,
+          },
+        });
+
+        this.logger.info(
+          {
+            envelopeId,
+            versionNumber,
+            sha256: result.sha256,
+            bytes: result.buffer.length,
+            certificatePages: result.certificatePages,
+            retainUntil: retainUntil.toISOString(),
+          },
+          'Envelope sealed',
+        );
+        return { kind: 'sealed', versionNumber, sha256: result.sha256 } as const;
+      },
+      { timeout: ROUND_TIMEOUT_MS, maxWait: 15_000 },
+    );
+  }
+
+  /** What the certificate prints, taken from the records only (never the clock). */
+  private certificateData(
+    envelope: Envelope & {
+      owner: { fullName: string };
+      recipients: Recipient[];
+      versions: DocumentVersion[];
+      auditLogs: AuditTrail[];
+    },
+    parties: Recipient[],
+  ): CertificateData {
+    const names = new Map(envelope.recipients.map((r) => [r.id, r.name]));
+    const signedEvents = new Map(
+      envelope.auditLogs
+        .filter((event) => event.action === 'RECIPIENT_SIGNED' && event.recipientId)
+        .map((event) => [event.recipientId, event]),
+    );
+    const actor = (event: AuditTrail) => {
+      if (event.recipientId) return names.get(event.recipientId) ?? 'Recipient';
+      if (event.actorUserId) {
+        return event.actorUserId === envelope.ownerId ? envelope.owner.fullName : 'Sender';
+      }
+      return 'System';
+    };
+
+    const ordered = [...parties].sort(
+      (a, b) => (a.signedAt?.getTime() ?? 0) - (b.signedAt?.getTime() ?? 0),
+    );
+    return {
+      envelopeId: envelope.id,
+      title: envelope.title,
+      originalFilename: envelope.originalFilename,
+      sender: envelope.owner.fullName,
+      sentAt: envelope.sentAt,
+      signedByAllAt: ordered.at(-1)?.signedAt ?? envelope.versions.at(-1)?.createdAt ?? new Date(0),
+      parties: ordered.map((party) => {
+        const signed = signedEvents.get(party.id);
+        const metadata = (signed?.metadata ?? {}) as { documentVersion?: number | null };
+        return {
+          name: party.name,
+          email: party.email,
+          role: party.role === 'APPROVER' ? 'APPROVER' : 'SIGNER',
+          signedAt: party.signedAt ?? signed?.timestamp ?? new Date(0),
+          consentGivenAt: party.consentGivenAt,
+          ipAddress: signed?.ipAddress ?? 'Not recorded',
+          userAgent: signed?.userAgent ?? 'Not recorded',
+          signatureMethod: party.signatureMethod,
+          documentVersion: metadata.documentVersion ?? null,
+        };
+      }),
+      versions: envelope.versions.map((version) => ({
+        versionNumber: version.versionNumber,
+        sha256: version.hash,
+        createdBy: version.createdByRecipientId
+          ? (names.get(version.createdByRecipientId) ?? 'Recipient')
+          : null,
+        createdAt: version.createdAt,
+      })),
+      events: envelope.auditLogs.map((event) => ({
+        sequence: event.sequence,
+        timestamp: event.timestamp,
+        action: event.action,
+        actor: actor(event),
+        ipAddress: event.ipAddress === SYSTEM_ACTOR.ipAddress ? '' : event.ipAddress,
+      })),
+    };
   }
 
   /** The signer's adopted images, for the kinds their filled fields need. */

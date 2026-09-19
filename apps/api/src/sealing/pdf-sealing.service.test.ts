@@ -13,6 +13,12 @@ import { degrees, PDFDocument, StandardFonts } from 'pdf-lib';
 import sharp from 'sharp';
 import { describe, expect, it, vi } from 'vitest';
 import { apply, placementsOnPage } from '../../test/helpers/pdf-placements';
+import {
+  type CertificateBlock,
+  type CertificateData,
+  certificateBlocks,
+  wrap,
+} from './certificate';
 import { PdfSealingService, pageGeometry, type StampField } from './pdf-sealing.service';
 
 /** The builder's tolerance is 1 pt (docs/11, sprint 8 gate). The maths here is exact. */
@@ -317,5 +323,146 @@ describe('PdfSealingService.burnFields', () => {
     expect(second.sha256).toBe(first.sha256);
     expect(first.sha256).toBe(service.fingerprint(first.buffer));
     expect(first.pageCount).toBe(1);
+  });
+});
+
+describe('PdfSealingService.appendCertificate', () => {
+  const at = (minute: number) => new Date(Date.UTC(2026, 8, 19, 10, minute, 0));
+  const hash = (n: number) => String(n).repeat(64).slice(0, 64);
+
+  function certificate(events = 12): CertificateData {
+    return {
+      envelopeId: '7d1f9c7e-4a53-4bb9-9e5c-1f2a3b4c5d6e',
+      title: 'Consent form',
+      originalFilename: 'consent.pdf',
+      sender: 'Dr Sender',
+      sentAt: at(0),
+      signedByAllAt: at(20),
+      parties: [
+        {
+          name: 'Łucja Müller-Ødegård',
+          email: 'lucja@example.com',
+          role: 'SIGNER',
+          signedAt: at(10),
+          consentGivenAt: at(9),
+          ipAddress: '203.0.113.7',
+          userAgent:
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+          signatureMethod: 'DRAWN',
+          documentVersion: 0,
+        },
+        {
+          name: 'Ελένη Юрий',
+          email: 'eleni@example.com',
+          role: 'APPROVER',
+          signedAt: at(20),
+          consentGivenAt: at(19),
+          ipAddress: '198.51.100.4',
+          userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
+          signatureMethod: 'TYPED',
+          documentVersion: 1,
+        },
+      ],
+      versions: [
+        { versionNumber: 0, sha256: hash(0), createdBy: null, createdAt: at(0) },
+        { versionNumber: 1, sha256: hash(1), createdBy: 'Łucja Müller-Ødegård', createdAt: at(11) },
+        { versionNumber: 2, sha256: hash(2), createdBy: 'Ελένη Юрий', createdAt: at(21) },
+      ],
+      events: Array.from({ length: events }, (_, index) => ({
+        sequence: index + 1,
+        timestamp: at(index % 60),
+        action: index % 2 ? 'RECIPIENT_SIGNED' : 'ENVELOPE_VIEWED',
+        actor: 'Łucja Müller-Ødegård',
+        ipAddress: '203.0.113.7',
+      })),
+    };
+  }
+
+  const text = (blocks: CertificateBlock[]) =>
+    blocks
+      .map((block) =>
+        block.kind === 'field'
+          ? `${block.label} ${block.value}`
+          : block.kind === 'row'
+            ? block.cells.join(' ')
+            : 'text' in block
+              ? block.text
+              : '',
+      )
+      .join('\n');
+
+  it('adds Letter pages after the document and leaves its pages as they were', async () => {
+    const { service } = sealing();
+    const source = await pdfWith([{ size: [595.28, 841.89], rotation: 90 }, { size: [300, 400] }]);
+    const result = await service.appendCertificate(source, certificate());
+
+    expect(result.pageCount).toBe(2 + result.certificatePages);
+    expect(result.sha256).toBe(service.fingerprint(result.buffer));
+    const sealed = await PDFDocument.load(result.buffer);
+    const original = await PDFDocument.load(source);
+    for (const index of [0, 1]) {
+      const [before, after] = [original.getPage(index), sealed.getPage(index)];
+      expect(after.getSize()).toEqual(before.getSize());
+      expect(after.getRotation().angle).toBe(before.getRotation().angle);
+    }
+    expect(sealed.getPage(2).getSize()).toEqual({ width: 612, height: 792 });
+    expect(sealed.getPage(2).getRotation().angle).toBe(0);
+  });
+
+  it('runs onto more pages when the history is long', async () => {
+    const { service } = sealing();
+    const source = await pdfWith([{ size: [612, 792] }]);
+    const result = await service.appendCertificate(source, certificate(150));
+    expect(result.certificatePages).toBeGreaterThan(1);
+    expect(result.pageCount).toBe(1 + result.certificatePages);
+  });
+
+  it('prints every party, every version fingerprint and every event', () => {
+    const data = certificate(3);
+    const printed = text(certificateBlocks(data));
+    for (const party of data.parties) {
+      for (const value of [party.name, party.email, party.ipAddress, party.userAgent]) {
+        expect(printed).toContain(value);
+      }
+    }
+    expect(printed).toContain('Consent given 2026-09-19 10:09:00 UTC');
+    expect(printed).toContain('Signature Drawn');
+    expect(printed).toContain('Role Approver');
+    for (const version of data.versions) expect(printed).toContain(version.sha256);
+    expect(printed).toContain('1 2026-09-19 10:00:00 UTC Signing link opened');
+    expect(printed).toContain('2 2026-09-19 10:01:00 UTC Signed');
+  });
+
+  it('draws names outside Latin-1, marks what the font lacks, and never logs them', async () => {
+    const { service, logger } = sealing();
+    const source = await pdfWith([{ size: [612, 792] }]);
+    const data = certificate();
+    data.title = 'सहमति Consent';
+    await service.appendCertificate(source, data);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { replaced: 5 },
+      'Certificate characters the font cannot draw were replaced',
+    );
+    const logged = JSON.stringify([...logger.warn.mock.calls, ...logger.info.mock.calls]);
+    for (const secret of ['Łucja', 'lucja@example.com', '203.0.113.7', 'Consent']) {
+      expect(logged).not.toContain(secret);
+    }
+  });
+
+  it('gives the same bytes for the same records, so a retried seal writes the same file', async () => {
+    const { service } = sealing();
+    const source = await pdfWith([{ size: [612, 792] }]);
+    const first = await service.appendCertificate(source, certificate(40));
+    const second = await service.appendCertificate(source, certificate(40));
+    expect(second.sha256).toBe(first.sha256);
+  });
+
+  it('wraps a long unbroken value inside its column', async () => {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const lines = wrap(`${'a'.repeat(64)} short words\nnext`, font, 9, 100);
+    expect(lines.length).toBeGreaterThan(3);
+    for (const line of lines) expect(font.widthOfTextAtSize(line, 9)).toBeLessThanOrEqual(100);
+    expect(lines.join('').replaceAll(' ', '')).toBe(`${'a'.repeat(64)}shortwordsnext`);
   });
 });

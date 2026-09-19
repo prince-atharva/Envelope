@@ -283,16 +283,26 @@ export class EnvelopesService {
         originalFilename: true,
         versions: {
           where: { versionNumber },
-          select: { fileUrl: true, hash: true, sizeBytes: true },
+          select: {
+            fileUrl: true,
+            hash: true,
+            sizeBytes: true,
+            isFinal: true,
+            storageVersionId: true,
+          },
         },
       },
     });
     const version = envelope?.versions[0];
     if (!envelope || !version) throw new AppException('NOT_FOUND', 'Document not found.');
 
-    const object = await this.storage.get(version.fileUrl);
+    // The sealed file is read by the version id recorded when it was locked (ADR 0007).
+    const object =
+      version.isFinal && version.storageVersionId
+        ? await this.storage.getSealed(version.fileUrl, version.storageVersionId)
+        : await this.storage.get(version.fileUrl);
     this.logger.info(
-      { envelopeId: id, versionNumber, sizeBytes: version.sizeBytes },
+      { envelopeId: id, versionNumber, sizeBytes: version.sizeBytes, sealed: version.isFinal },
       'Document opened',
     );
     return {

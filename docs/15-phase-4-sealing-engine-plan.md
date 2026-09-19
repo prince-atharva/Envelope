@@ -78,7 +78,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 2 | Database, settings and the locked storage bucket | ✅ Done |
 | 3 | Stamping signatures and answers into the page | ✅ Done |
 | 4 | One version per signature, in order | ✅ Done |
-| 5 | The certificate page, sealing and locking | ⬜ |
+| 5 | The certificate page, sealing and locking | ✅ Done |
 | 6 | Completion emails with the finished copy | ⬜ |
 | 7 | Verify | ⬜ |
 | 8 | The sender's Completed screen | ⬜ |
@@ -265,6 +265,49 @@ It runs onto more pages as needed. The result is stored in the sealed bucket as 
 - the audit event `ENVELOPE_COMPLETED`.
 
 The final hash is not printed in the file (Correction 3).
+
+### Step 5 as built
+
+| File | What it does |
+|---|---|
+| `apps/api/src/sealing/certificate.ts` | `certificateBlocks(data)` decides what the certificate says, as plain blocks (title, field, table row). `drawCertificate()` lays them out on Letter pages, wraps long values, starts a page when one is full, repeats the table header on a new page and adds "Page x of y" footers. |
+| `apps/api/src/sealing/pdf-sealing.service.ts` | `appendCertificate(source, data)`: the certificate pages after the last page, in embedded Noto Sans Regular and Bold |
+| `apps/api/src/sealing/sealing.service.ts` | `sealFinal(envelopeId)`, called by `catchUp` once nothing is left to stamp. Under the same advisory lock it checks that every signer and approver is in a version, appends the certificate, writes the file to the locked bucket with `putSealed`, inserts the final `DocumentVersion` with `storageVersionId`, completes the envelope and writes `ENVELOPE_COMPLETED`. |
+| `apps/api/src/storage/storage.service.ts` | `sealedVersionKey()`: `tenants/{t}/envelopes/{e}/sealed.pdf` in the locked bucket |
+| `apps/api/src/envelopes/envelopes.service.ts` | The sender's download reads a final version with `getSealed(key, storageVersionId)` |
+
+The certificate shows:
+- the document, the file name, the envelope id, the sender, and when it was sent and when everyone had signed;
+- for each signer and approver, in signing order: name, email, role, signing time, consent time, signature method (drawn or typed), the version they were shown, IP address and full user agent;
+- v0…vN, each with its SHA-256, who produced it and when;
+- every audit event up to sealing, with its number, time, event, who and IP address.
+
+Decisions made while building it:
+
+| Question | Decision | Why |
+|---|---|---|
+| Where the certificate's dates come from | The records only: signing times, version times, event times. Nothing reads the clock. | A retry after a failure draws exactly the same page, so it writes the same bytes. The unit test checks this. |
+| A retry after the file is locked but before the commit | It stores the file again. The first copy stays as an unreferenced locked version with the same bytes. | A locked version cannot be removed, and reads always name the recorded `storageVersionId` (ADR 0007). No second `DocumentVersion` row can appear: the unique `(envelopeId, versionNumber)` and the `COMPLETED` status prevent it. |
+| `Envelope.completedAt` | The time of sealing | The certificate prints when the last person signed ("Signed by all"). The envelope records when the sealed file came into being. |
+| Device | The full user agent, wrapped | It is the evidence as recorded. Turning it into "Safari on iPhone" would be a guess. |
+| Characters the fonts lack | `?`, counted in the log, as in stamping. Only characters that both Regular and Bold contain are drawn. | Names and emails never go to the log |
+| `CatchUpResult` | Gains `sealed: { versionNumber, sha256 }` when a run seals | Step 6 queues the completion emails from it |
+| Sealing result for an envelope still waiting | `catchUp` still reports `nothing to stamp`, and `sealFinal` reports `waiting for signatures` | Existing callers and logs keep their meaning |
+
+Tests:
+- Unit tests in `pdf-sealing.service.test.ts` check that:
+  - the certificate pages follow the document, whose pages keep their size and rotation;
+  - a long history runs onto more pages;
+  - every party, version fingerprint and event is printed;
+  - Latin, Greek and Cyrillic names are drawn, and what the font lacks is marked without logging names;
+  - a second run gives identical bytes;
+  - wrapping keeps every line inside its column.
+- `test/sealing.e2e.test.ts` checks that:
+  - two signers make v0–v2 and then the sealed v3;
+  - the envelope is `COMPLETED` with `finalHash` equal to the SHA-256 of the file read by its version id from the locked bucket, in `GOVERNANCE` mode with a retention date;
+  - the sender's download matches the hash;
+  - `ENVELOPE_COMPLETED` is written once, and a second run does nothing;
+  - an approver is waited for, and a CC is not.
 
 ## Step 6: Completion Emails
 

@@ -24,7 +24,7 @@ import {
   prepareEnvelope,
   sendEnvelope,
 } from './helpers/signing';
-import { readStoredObject } from './helpers/storage';
+import { readSealedObject, readStoredObject } from './helpers/storage';
 
 const sha256 = (buffer: Buffer) => createHash('sha256').update(buffer).digest('hex');
 
@@ -42,7 +42,16 @@ interface VersionRow {
   hash: string;
   createdByRecipientId: string | null;
   isFinal: boolean;
+  storageVersionId: string | null;
+  pageCount: number;
   createdAt: Date;
+}
+
+interface EnvelopeRow {
+  status: string;
+  finalHash: string | null;
+  completedFileUrl: string | null;
+  completedAt: Date | null;
 }
 
 /**
@@ -61,7 +70,8 @@ describe('sealing: one version per signature (e2e)', () => {
 
   async function versions(envelopeId: string): Promise<VersionRow[]> {
     const { rows } = await ownerQuery<VersionRow>(
-      `SELECT "versionNumber", "fileUrl", hash, "createdByRecipientId", "isFinal", "createdAt"
+      `SELECT "versionNumber", "fileUrl", hash, "createdByRecipientId", "isFinal",
+              "storageVersionId", "pageCount", "createdAt"
          FROM "DocumentVersion" WHERE "envelopeId" = $1 ORDER BY "versionNumber"`,
       [envelopeId],
     );
@@ -70,6 +80,18 @@ describe('sealing: one version per signature (e2e)', () => {
 
   const untilVersions = (envelopeId: string, count: number) =>
     waitFor(async () => ((await versions(envelopeId)).length >= count ? true : undefined), 20_000);
+
+  /** The versions made by signatures: the original and one per signer, not the sealed file. */
+  const stampedVersions = async (envelopeId: string) =>
+    (await versions(envelopeId)).filter((v) => !v.isFinal);
+
+  async function envelopeRow(envelopeId: string): Promise<EnvelopeRow | undefined> {
+    const { rows } = await ownerQuery<EnvelopeRow>(
+      `SELECT status, "finalHash", "completedFileUrl", "completedAt" FROM "Envelope" WHERE id = $1`,
+      [envelopeId],
+    );
+    return rows[0];
+  }
 
   /** Agree, open the document, adopt, tick the box and finish. Returns the document served. */
   async function sign(token: string, envelope: PreparedEnvelope, recipientId: string) {
@@ -132,8 +154,10 @@ describe('sealing: one version per signature (e2e)', () => {
       served.push(await sign(token, envelope, recipientId));
       await untilVersions(envelope.id, index + 2);
     }
+    // After the third signature: v3, then the sealed v4.
+    await untilVersions(envelope.id, 5);
 
-    const chain = await versions(envelope.id);
+    const chain = await stampedVersions(envelope.id);
     expect(chain.map((v) => v.versionNumber)).toEqual([0, 1, 2, 3]);
     expect(chain.map((v) => v.createdByRecipientId)).toEqual([
       null,
@@ -186,6 +210,116 @@ describe('sealing: one version per signature (e2e)', () => {
     expect((await t.app.get(AuditService).verify(envelope.id)).valid).toBe(true);
   });
 
+  it('seals once everyone has signed: certificate appended, file locked, envelope completed', async () => {
+    const team = people('Sealed One', 'Sealed Two');
+    const envelope = await prepareEnvelope(t.http, owner, team, { sequential: true });
+    await sendEnvelope(t.http, owner, envelope.id).expect(200);
+    for (const [index, person] of team.entries()) {
+      const token = await linkFor(worker.mailbox, person.email);
+      await sign(token, envelope, envelope.recipients[index]?.id ?? '');
+      await untilVersions(envelope.id, index + 2);
+    }
+    await untilVersions(envelope.id, 4);
+
+    const all = await versions(envelope.id);
+    const last = all[2];
+    const final = all[3];
+    expect(all.map((v) => [v.versionNumber, v.isFinal])).toEqual([
+      [0, false],
+      [1, false],
+      [2, false],
+      [3, true],
+    ]);
+    if (!last || !final?.storageVersionId) throw new Error('no sealed version');
+    expect(final.createdByRecipientId).toBeNull();
+    expect(final.fileUrl).toBe(
+      `tenants/${owner.body.user.tenant.id}/envelopes/${envelope.id}/sealed.pdf`,
+    );
+    // The certificate adds at least one page after the signed document's two.
+    expect(final.pageCount).toBeGreaterThan(last.pageCount);
+
+    // The envelope records the seal, and the locked file is exactly what it says.
+    const row = await envelopeRow(envelope.id);
+    expect(row).toMatchObject({
+      status: 'COMPLETED',
+      finalHash: final.hash,
+      completedFileUrl: final.fileUrl,
+    });
+    expect(row?.completedAt?.getTime()).toBeGreaterThanOrEqual(last.createdAt.getTime());
+    const sealed = await readSealedObject(final.fileUrl, final.storageVersionId);
+    expect(sha256(sealed.body)).toBe(final.hash);
+    expect(sealed.mode).toBe('GOVERNANCE');
+    expect(sealed.retainUntil?.getTime()).toBeGreaterThan(Date.now() + 23 * 3600_000);
+    // The signed pages are carried over unchanged: v2's signatures are all there.
+    const { placements } = await placementsOnPage(sealed.body, 1);
+    expect(placements.filter((p) => p.kind === 'image')).toHaveLength(4);
+
+    // The sender downloads the sealed file through the API.
+    const download = await request(t.http)
+      .get(`/api/v1/envelopes/${envelope.id}/file?version=3`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .buffer(true)
+      .parse((res, done) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => done(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(sha256(download.body as Buffer)).toBe(final.hash);
+
+    const { rows: completed } = await ownerQuery<{ metadata: Record<string, unknown> }>(
+      `SELECT metadata FROM "AuditTrail" WHERE "envelopeId" = $1 AND action = 'ENVELOPE_COMPLETED'`,
+      [envelope.id],
+    );
+    expect(completed).toHaveLength(1);
+    expect(completed[0]?.metadata).toMatchObject({
+      versionNumber: 3,
+      sha256: final.hash,
+      basedOn: 2,
+    });
+    expect((await t.app.get(AuditService).verify(envelope.id)).valid).toBe(true);
+
+    // Running again changes nothing.
+    const sealing = worker.module.get(SealingService);
+    expect(await sealing.catchUp(envelope.id)).toEqual({
+      stamped: 0,
+      reason: 'envelope completed',
+    });
+    expect(await sealing.sealFinal(envelope.id)).toEqual({
+      kind: 'idle',
+      reason: 'envelope completed',
+    });
+    expect(await versions(envelope.id)).toHaveLength(4);
+  });
+
+  it('waits for an approver, and leaves people who only get a copy out of it', async () => {
+    const [signer, approver, copy] = people('Needs Approval', 'The Approver', 'Just Copied');
+    if (!signer || !approver || !copy) throw new Error('people');
+    const envelope = await prepareEnvelope(t.http, owner, [
+      signer,
+      { ...approver, role: 'APPROVER' },
+      { ...copy, role: 'CC' },
+    ]);
+    await sendEnvelope(t.http, owner, envelope.id).expect(200);
+    const [signerId, approverId] = envelope.recipients.map((r) => r.id);
+
+    await sign(await linkFor(worker.mailbox, signer.email), envelope, signerId ?? '');
+    await untilVersions(envelope.id, 2);
+    const sealing = worker.module.get(SealingService);
+    expect(await sealing.sealFinal(envelope.id)).toEqual({
+      kind: 'idle',
+      reason: 'waiting for signatures',
+    });
+    expect((await envelopeRow(envelope.id))?.status).toBe('PARTIALLY_SIGNED');
+
+    await sign(await linkFor(worker.mailbox, approver.email), envelope, approverId ?? '');
+    await untilVersions(envelope.id, 4);
+    const all = await versions(envelope.id);
+    expect(all.map((v) => v.createdByRecipientId)).toEqual([null, signerId, approverId, null]);
+    expect(all.at(-1)?.isFinal).toBe(true);
+    expect((await envelopeRow(envelope.id))?.status).toBe('COMPLETED');
+  });
+
   it('two people finishing at the same moment are stamped one after the other', async () => {
     const team = people('Parallel One', 'Parallel Two');
     const envelope = await prepareEnvelope(t.http, owner, team);
@@ -197,7 +331,7 @@ describe('sealing: one version per signature (e2e)', () => {
     );
     await untilVersions(envelope.id, 3);
 
-    const chain = await versions(envelope.id);
+    const chain = await stampedVersions(envelope.id);
     expect(chain.map((v) => v.versionNumber)).toEqual([0, 1, 2]);
     expect(new Set(chain.map((v) => v.createdByRecipientId))).toEqual(
       new Set([null, ...envelope.recipients.map((r) => r.id)]),

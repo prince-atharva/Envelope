@@ -25,6 +25,7 @@ import {
   rgb,
 } from 'pdf-lib';
 import sharp from 'sharp';
+import { type CertificateData, certificateBlocks, drawCertificate } from './certificate';
 import { fontBytes } from './fonts';
 
 /** One field to write into the document, as stored (ratios of the displayed page). */
@@ -139,6 +140,63 @@ export class PdfSealingService {
         durationMs: elapsed(started),
       },
       'Fields stamped',
+    );
+    return result;
+  }
+
+  /**
+   * The final step: the Certificate of Completion added after the last page,
+   * making the file that is sealed and locked (docs/06, ADR 0007).
+   * Deterministic, like `burnFields`, so a retried seal writes the same bytes.
+   */
+  async appendCertificate(
+    source: Buffer,
+    data: CertificateData,
+  ): Promise<StampResult & { certificatePages: number }> {
+    const started = performance.now();
+    const pdf = await PDFDocument.load(source, { updateMetadata: false });
+    pdf.registerFontkit(fontkit);
+    const regular = await pdf.embedFont(fontBytes('regular'), { subset: true });
+    const bold = await pdf.embedFont(fontBytes('bold'), { subset: true });
+    // Labels are bold and values regular: only what both can draw is kept.
+    const inBold = new Set(bold.getCharacterSet());
+    const supported = new Set(regular.getCharacterSet().filter((code) => inBold.has(code)));
+
+    let replaced = 0;
+    const drawable = (value: string) => {
+      const result = replaceMissing(value.replace(/[\r\t]+/g, ' '), supported);
+      replaced += result.replaced;
+      return result.text;
+    };
+    const certificatePages = drawCertificate(
+      pdf,
+      certificateBlocks(data),
+      { regular, bold, drawable },
+      data.envelopeId,
+    );
+    if (replaced > 0) {
+      // Only the count: names and emails never go to the log.
+      this.logger.warn({ replaced }, 'Certificate characters the font cannot draw were replaced');
+    }
+
+    const buffer = Buffer.from(await pdf.save());
+    const result = {
+      buffer,
+      sha256: sha256(buffer),
+      pageCount: pdf.getPageCount(),
+      certificatePages,
+    };
+    this.logger.info(
+      {
+        certificatePages,
+        parties: data.parties.length,
+        versions: data.versions.length,
+        events: data.events.length,
+        bytesIn: source.length,
+        bytesOut: buffer.length,
+        durationMs: elapsed(started),
+      },
+      'Certificate appended',
     );
     return result;
   }
@@ -267,22 +325,29 @@ class Stamper {
    * Only the count is logged, never the text.
    */
   private drawable(value: string, fieldId: string): string {
-    const supported = this.supported ?? new Set<number>();
-    let replaced = 0;
-    const text = Array.from(value.replace(/[\r\n\t]+/g, ' '))
-      .map((char) => {
-        const code = char.codePointAt(0) ?? 0;
-        if (supported.has(code)) return char;
-        replaced += 1;
-        return '?';
-      })
-      .join('')
-      .trim();
+    const { text, replaced } = replaceMissing(
+      value.replace(/[\r\n\t]+/g, ' '),
+      this.supported ?? new Set<number>(),
+    );
     if (replaced > 0) {
       this.logger.warn({ fieldId, replaced }, 'Characters the font cannot draw were replaced');
     }
-    return text;
+    return text.trim();
   }
+}
+
+/** Swaps every character the font lacks for "?". Line breaks are kept for the caller. */
+function replaceMissing(value: string, supported: Set<number>): { text: string; replaced: number } {
+  let replaced = 0;
+  const text = Array.from(value)
+    .map((char) => {
+      if (char === '\n') return char;
+      if (supported.has(char.codePointAt(0) ?? 0)) return char;
+      replaced += 1;
+      return '?';
+    })
+    .join('');
+  return { text, replaced };
 }
 
 /**
