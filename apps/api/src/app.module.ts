@@ -21,6 +21,7 @@ import { RedisModule } from './redis/redis.module';
 import { SendingModule } from './sending/sending.module';
 import { SigningModule } from './signing/signing.module';
 import { StorageModule } from './storage/storage.module';
+import { VerifyModule } from './verify/verify.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { StorageModule } from './storage/storage.module';
     SendingModule,
     SigningModule,
     CompletionModule,
+    VerifyModule,
     HealthModule,
     ClientLogsModule,
   ],

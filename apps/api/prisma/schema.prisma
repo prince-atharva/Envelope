@@ -334,6 +334,8 @@ model DocumentVersion {
 
   @@unique([envelopeId, versionNumber])
   @@index([envelopeId])
+  /// Verify looks a file up by its fingerprint, across every tenant (docs/15 step 7).
+  @@index([hash])
 }
 
 /// A private link to the finished document, emailed instead of an attachment

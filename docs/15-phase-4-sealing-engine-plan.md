@@ -80,7 +80,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 4 | One version per signature, in order | ✅ Done |
 | 5 | The certificate page, sealing and locking | ✅ Done |
 | 6 | Completion emails with the finished copy | ✅ Done |
-| 7 | Verify | ⬜ |
+| 7 | Verify | ✅ Done |
 | 8 | The sender's Completed screen | ⬜ |
 | 9 | Tests: three signers end to end, and the leak audits | ⬜ |
 | 10 | Real-phone check, documentation and release `v0.4.0` | ⬜ |
@@ -364,6 +364,44 @@ Tests:
   been changed since. The answer says both honestly (doc 06).
 
 A public **Verify** page in the web app sends the file and shows the answer.
+
+### Step 7 as built
+
+| File | What it does |
+|---|---|
+| `apps/api/src/verify/` | `POST /v1/verify`. The public route reuses the upload size guard and error mapping. Multer keeps the file in memory. It is limited to 30 requests a minute per IP and answers with `Cache-Control: no-store`. |
+| `packages/shared/src/verify.ts` | `VerifyResponse` and the wording for both kinds of no-match answer |
+| `apps/api/prisma/migrations/20260919160000_verify_by_hash` | An index on `DocumentVersion.hash`, because a lookup covers every tenant |
+| `apps/web/src/features/verify/` | The `/verify` page, public like `/sign`. `describeOutcome()` turns an answer into plain words. |
+| `apps/web/src/components/layout/PublicFrame.tsx` | The card that public pages sit in, now shared by the signer portal and Verify |
+
+Decisions made while building it:
+
+| Question | Decision | Why |
+|---|---|---|
+| A match on version 0, the unsigned original | `verified: false`, reason `UNSIGNED_ORIGINAL`, and nothing about any envelope | An original is often a shared template. Answering with an envelope would show anyone holding a blank form who signed it, with their emails and IPs. |
+| Which versions are reported on | v1…vN and the sealed file | Anyone holding one has already seen the signatures on it. It is also what the certificate prints. |
+| No match | `200`, `verified: false`, `NO_MATCHING_DOCUMENT`, with both possible meanings (doc 08). The page never says "fake". | The system cannot tell a changed copy from one that was never signed here |
+| A copy made during signing | Found as "version n of N", with what became of the envelope: finished, stopped, or still being signed | The sealed file is the one to keep, and the page says so |
+| Not a PDF | 415 `UNSUPPORTED_FILE_TYPE` if `%PDF-` is missing from the first 1 KB | Nothing else is checked: a damaged PDF is still worth hashing |
+| What is logged | The outcome, size and duration. Envelope id and version only on a match. | The fingerprint of an unknown file could identify a private document, so it is never logged |
+| The same bytes in two envelopes (possible only in theory for signed versions) | The sealed one first, then the newest | Deterministic |
+| Recording a check in the audit trail | No | An anonymous visitor would be writing into someone else's evidence chain |
+
+Tests:
+- `test/verify.e2e.test.ts` covers:
+  - the sealed file, with its signers, version chain and events;
+  - a copy with one byte changed, which is not matched;
+  - an in-progress v1, found as that version;
+  - v0, which gets `UNSIGNED_ORIGINAL` with no envelope id;
+  - a PDF never seen before;
+  - a file that is not a PDF, a missing file and an oversized one;
+  - the 30-a-minute limit.
+- `apps/web/src/features/verify/outcome.test.ts` checks every outcome's wording, including that a mismatch is never called fake.
+- `apps/web/e2e/verify.spec.ts` (Chromium and Pixel) covers:
+  - one person signs in the browser, and the PDF attached to their completion email is confirmed as sealed, with the email's fingerprint;
+  - an unknown PDF;
+  - an unsigned upload.
 
 ## Step 9: Tests
 

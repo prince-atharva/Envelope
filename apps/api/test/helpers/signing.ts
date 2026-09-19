@@ -4,6 +4,7 @@ import type { EnvelopeDetail, FieldInfo, RecipientResponse } from '@envelope/sha
 import request from 'supertest';
 import type { MemoryMailbox, SentEmail } from '../../src/mail/mail-transport.service';
 import { makePdf } from '../fixtures/pdfs';
+import { makePng, pngDataUrl } from '../fixtures/png';
 import { waitFor } from './app';
 import type { SignedInUser } from './auth';
 import { ownerQuery } from './db';
@@ -168,4 +169,37 @@ export function tokenIn(message: SentEmail): string {
 /** Messages of one template to one address. */
 export function emailsTo(mailbox: MemoryMailbox, email: string, template?: string): SentEmail[] {
   return mailbox.messages.filter((m) => m.to === email && (!template || m.template === template));
+}
+
+/**
+ * Signs as one recipient through the public signer API: agree, open the
+ * document, adopt a drawn signature and typed initials, tick their box and
+ * finish.
+ */
+export async function signAs(
+  http: Server,
+  token: string,
+  envelope: PreparedEnvelope,
+  recipientId: string,
+): Promise<void> {
+  const path = (suffix = '') => `/api/v1/sign/${token}${suffix}`;
+  const session = await request(http).get(path()).expect(200);
+  await request(http)
+    .post(path('/consent'))
+    .send({ agreed: true, consentTextHash: session.body.consentTextHash })
+    .expect(200);
+  await request(http).get(path('/document')).expect(200);
+  await request(http)
+    .post(path('/adopt'))
+    .send({ kind: 'SIGNATURE', method: 'DRAWN', image: pngDataUrl() })
+    .expect(200);
+  await request(http)
+    .post(path('/adopt'))
+    .send({ kind: 'INITIALS', method: 'TYPED', image: pngDataUrl(makePng(120, 60)) })
+    .expect(200);
+  const box = envelope.fields.find((f) => f.type === 'CHECKBOX' && f.recipientId === recipientId);
+  await request(http)
+    .post(path('/submit'))
+    .send({ fields: [{ id: box?.id, value: 'true' }] })
+    .expect(202);
 }

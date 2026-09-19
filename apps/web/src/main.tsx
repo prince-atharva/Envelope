@@ -13,6 +13,8 @@ installGlobalErrorHandlers();
 // a phone over a poor connection, and gets only the signing portal: no sender
 // pages, and no attempt to restore a sender session (docs/09, performance budget).
 const SigningPage = lazy(() => import('./features/signing/SigningPage'));
+// Verify is public too: anyone holding a copy can check it (docs/15 step 7).
+const VerifyPage = lazy(() => import('./features/verify/VerifyPage'));
 const SenderApp = lazy(() => import('./SenderApp'));
 
 const queryClient = new QueryClient({
@@ -36,6 +38,7 @@ createRoot(root).render(
           <Suspense fallback={<FullPageSpinner />}>
             <Routes>
               <Route path="/sign/:token" element={<SigningPage />} />
+              <Route path="/verify" element={<VerifyPage />} />
               <Route path="*" element={<SenderApp />} />
             </Routes>
           </Suspense>

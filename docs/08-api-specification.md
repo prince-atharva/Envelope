@@ -518,6 +518,12 @@ No match:
 }
 ```
 
+> **As built (Phase 4).** A match also carries `status`, `matched` (`versionNumber`,
+> `isFinal`) and `events`, and every answer carries `documentHash`. A file matching only an
+> unsigned original (version 0) is answered `verified: false` with reason `UNSIGNED_ORIGINAL`
+> and nothing about the envelope, because originals are often shared templates. A file that is
+> not a PDF gets 415 `UNSUPPORTED_FILE_TYPE`. Limited to 30 checks a minute per IP.
+
 The `detail` wording is deliberate. The system genuinely cannot distinguish between the two cases, and claiming otherwise would be dishonest in exactly the setting where honesty matters most.
 
 ## Webhooks

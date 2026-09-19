@@ -230,6 +230,34 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
   throw new Error(`No signing link was emailed to ${email}`);
 }
 
+export interface CompletedCopy {
+  /** Path of the attached sealed PDF in the outbox. */
+  file: string;
+  /** The fingerprint the email gives for it. */
+  sha256: string;
+}
+
+/**
+ * The finished document emailed to this address once everyone has signed
+ * (docs/15 step 6): the attachment the outbox wrote beside the message.
+ */
+export async function completedCopyFor(email: string, timeoutMs = 30_000): Promise<CompletedCopy> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const name of (await outboxMessages()).reverse()) {
+      const message = JSON.parse(await readFile(join(OUTBOX_DIR, name), 'utf8')) as OutboxEmail & {
+        attachments?: { file: string }[];
+      };
+      if (message.to !== email || message.template !== 'completed') continue;
+      const attached = message.attachments?.[0]?.file;
+      const sha256 = /\b[0-9a-f]{64}\b/.exec(message.text)?.[0];
+      if (attached && sha256) return { file: join(OUTBOX_DIR, attached), sha256 };
+    }
+    await new Promise((done) => setTimeout(done, 250));
+  }
+  throw new Error(`No completed document was emailed to ${email}`);
+}
+
 /** Every signing token emailed so far in this run, from any email in the outbox. */
 export async function allSigningTokens(): Promise<string[]> {
   const tokens = new Set<string>();

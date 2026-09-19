@@ -7,3 +7,4 @@ export * from './envelopes';
 export * from './errors';
 export * from './limits';
 export * from './signing';
+export * from './verify';
