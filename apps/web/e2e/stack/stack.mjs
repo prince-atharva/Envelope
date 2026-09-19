@@ -40,13 +40,15 @@ export const STACK_ENV = {
   API_PORT: String(API_PORT),
   API_DOCS_ENABLED: 'false',
 
-  // The shared test database, the same one the API e2e suite uses. Never the dev one.
+  // Its own database, never the dev one, and not the API e2e suite's either:
+  // this stack's scheduler expires and reminds whatever it finds (docs/16
+  // step 15). start-api.mjs creates it if it is missing.
   DATABASE_URL:
-    env.TEST_DATABASE_URL ??
-    'postgresql://digitalsign_app:digitalsign_app_dev_password@localhost:5545/digitalsign_test?schema=public',
+    env.TEST_BROWSER_DATABASE_URL ??
+    'postgresql://digitalsign_app:digitalsign_app_dev_password@localhost:5545/digitalsign_browser_test?schema=public',
   DIRECT_DATABASE_URL:
-    env.TEST_DIRECT_DATABASE_URL ??
-    'postgresql://digitalsign:digitalsign_dev_password@localhost:5545/digitalsign_test?schema=public',
+    env.TEST_BROWSER_DIRECT_DATABASE_URL ??
+    'postgresql://digitalsign:digitalsign_dev_password@localhost:5545/digitalsign_browser_test?schema=public',
   // Redis database 2 with its own prefix: dev uses 0, the API e2e suite uses 1.
   REDIS_URL: env.TEST_REDIS_URL ?? 'redis://localhost:6391/2',
   QUEUE_PREFIX: 'digitalsign-browser-e2e',

@@ -1,16 +1,16 @@
 import { expect, test } from '@playwright/test';
 import {
-  agreeToSign,
   passDeadline,
   prepareToSend,
   sendFromReview,
   signingLinkFor,
+  signOnlyBoxes,
   signUp,
   uniqueEmail,
 } from './helpers';
 
 test.describe('Deadlines', () => {
-  test('an expired document: the signer asks for more time, the sender gives it, the signer signs', async ({
+  test('an expired document: the signer asks for more time, the sender gives it, it completes', async ({
     page,
     browser,
   }) => {
@@ -57,8 +57,14 @@ test.describe('Deadlines', () => {
       freshLink = await signingLinkFor(priya.email, 1000);
       expect(freshLink).not.toBe(firstLink);
     }).toPass({ timeout: 20_000 });
-    await signer.goto(freshLink);
-    await agreeToSign(signer);
+    // Signing now finishes the document, as if the deadline had never passed.
+    await signOnlyBoxes(signer, freshLink);
     await signerContext.close();
+    await expect(async () => {
+      await page.reload();
+      await expect(page.getByRole('heading', { name: 'Completed and sealed' })).toBeVisible({
+        timeout: 1000,
+      });
+    }).toPass({ timeout: 30_000 });
   });
 });

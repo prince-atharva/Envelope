@@ -4,6 +4,9 @@ import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import request, { type Response } from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { AlertService } from '../src/alert/alert.service';
+import { AutoReminderService } from '../src/maintenance/auto-reminder.service';
+import { ExpirySweepService } from '../src/maintenance/expiry-sweep.service';
 import { EMAIL_QUEUE, SEAL_QUEUE } from '../src/queue/queue.module';
 import { RedisService } from '../src/redis/redis.service';
 import { hashDownloadToken } from '../src/signing/signing-token';
@@ -59,6 +62,9 @@ function readRedisValue(redis: Redis, key: string, type: string): Promise<unknow
       return redis.zrange(key, '0', '-1');
     case 'stream':
       return redis.xrange(key, '-', '+');
+    case 'none':
+      // Removed between the scan and the read, as a finished job is.
+      return Promise.resolve(null);
     default:
       throw new Error(`Redis key ${key} has type ${type}, which the audit cannot read`);
   }
@@ -70,7 +76,9 @@ function readRedisValue(redis: Redis, key: string, type: string): Promise<unknow
  * decline; a second that is signed, sealed and completed, whose completion
  * emails carry download links that are then used; then a search for every
  * signing and download token ever emailed in everything the system keeps or
- * returns. Verified, not assumed.
+ * returns. Verified, not assumed. A third (docs/16 step 15) goes through every
+ * Phase 5 email: "expires soon", expired, more time asked for and given, an
+ * automatic reminder, cancelled, and alerts.
  *
  * The real log files are audited by the browser tests (apps/web/e2e/token-leak.spec.ts),
  * which run the API and worker as real processes that write them.
@@ -269,6 +277,59 @@ describe('signing-link leak audit (e2e)', () => {
         .set('Authorization', bearer(owner)),
     );
 
+    // A third envelope through every Phase 5 email. The maintenance jobs are
+    // run with the time they need; each email with a link replaces the last.
+    const late = { name: 'Audit Late', email: 'audit.late@example.com' };
+    const lifecycle = await prepareEnvelope(t.http, owner, [late], { upload: true });
+    expect(keep(await sendEnvelope(t.http, owner, lifecycle.id, { expiresInDays: 3 })).status).toBe(
+      200,
+    );
+    await linkFor(worker.mailbox, late.email);
+    const later = (hours: number) => new Date(Date.now() + hours * 3600_000);
+    expect((await worker.module.get(AutoReminderService).run(later(30))).changed).toBe(1);
+    const warned = tokenIn(
+      await waitFor(() => emailsTo(worker.mailbox, late.email, 'expiry-warning')[0]),
+    );
+    expect((await worker.module.get(ExpirySweepService).run(later(4 * 24))).changed).toBe(1);
+    await waitFor(() => emailsTo(worker.mailbox, owner.email, 'expired')[0]);
+    expect((await post(warned, '/request-more-time', {})).status).toBe(200);
+    await waitFor(() => emailsTo(worker.mailbox, owner.email, 'more-time-requested')[0]);
+    const extended = keep(
+      await request(t.http)
+        .post(`/api/v1/envelopes/${lifecycle.id}/extend`)
+        .set('Authorization', bearer(owner))
+        .set('Idempotency-Key', randomUUID())
+        .send({ expiresInDays: 7 }),
+    );
+    expect(extended.status).toBe(200);
+    const fresh = tokenIn(await waitFor(() => emailsTo(worker.mailbox, late.email, 'extended')[0]));
+    expect((await get(fresh)).status).toBe(200);
+    // Three days after the last automatic email, which the earlier run stamped at +30 hours.
+    expect((await worker.module.get(AutoReminderService).run(later(30 + 3 * 24 + 2))).changed).toBe(
+      1,
+    );
+    await waitFor(() => emailsTo(worker.mailbox, late.email, 'reminder')[0]);
+    const cancelled = keep(
+      await request(t.http)
+        .post(`/api/v1/envelopes/${lifecycle.id}/void`)
+        .set('Authorization', bearer(owner))
+        .send({ reason: 'Replaced by a new version.' }),
+    );
+    expect(cancelled.status).toBe(200);
+    await waitFor(() => emailsTo(worker.mailbox, late.email, 'voided')[0]);
+    // Alerts, from the API (queued) and from the worker (sent directly). Keys
+    // unique to the run: the email gate outlives it.
+    const run = randomUUID().slice(0, 8);
+    await t.app.get(AlertService).raise(`leak-audit-api-${run}`, 'Leak audit alert', {
+      envelopeId: lifecycle.id,
+    });
+    await worker.module.get(AlertService).raise(`leak-audit-worker-${run}`, 'Leak audit alert', {
+      envelopeId: lifecycle.id,
+    });
+    await waitFor(() =>
+      worker.mailbox.messages.filter((m) => m.template === 'alert').length >= 2 ? true : undefined,
+    );
+
     logged = logs.calls();
     loggedText = logs.text();
     const emailed = (pattern: RegExp) => [
@@ -290,8 +351,9 @@ describe('signing-link leak audit (e2e)', () => {
   });
 
   it('found every link it is looking for', () => {
-    // Invitation to each signer, the reminder's replacement, and the closer's invitation.
-    expect(signingTokens).toHaveLength(4);
+    // Invitation to each signer, the reminder's replacement, and the closer's invitation;
+    // then the late signer's invitation, "expires soon", extension and automatic reminder.
+    expect(signingTokens).toHaveLength(8);
     expect(signingTokens).toContain(rotated);
     // A download link each for the closer and the sender.
     expect(downloadTokens).toHaveLength(2);
@@ -366,6 +428,8 @@ describe('signing-link leak audit (e2e)', () => {
     expect(text).toContain(`${TEST_ENV.QUEUE_PREFIX}:${EMAIL_QUEUE}:`);
     // Seal jobs too: they carry only ids.
     expect(text).toContain(`${TEST_ENV.QUEUE_PREFIX}:${SEAL_QUEUE}:`);
+    // And the rate-limit counters, keyed on a hash of each link (docs/16 step 13).
+    expect(text).toContain(':rl:signing-writes:');
     expectNoToken('Redis', text);
   });
 });

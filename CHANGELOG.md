@@ -104,6 +104,12 @@ Phase 5 (Envelope Lifecycle) in progress. See
   keeps rows in place between pages. Rows show how many have signed, who it waits on and the
   deadline. The dashboard has a tab for each view, with counts, and opens on Needs attention when
   anything needs it.
+- The Phase 5 finish-line tests (docs/16 step 15): every status change writes exactly one audit
+  event, and none when that write fails (`transitions.e2e.test.ts`); the leak audit covers every
+  Phase 5 email and the rate-limit keys; browser tests for the deadline path through to Completed
+  and for the dashboard tabs. The browser stack now has its own database,
+  `digitalsign_browser_test`, created by the stack if missing and by the Postgres init script on new
+  volumes, so its scheduler never touches the API suite's data.
 - Fixed: `Retry-After` on the signing and upload limits was always 1 second; it divided a time
   already in seconds by 1000.
 - Fixed: finished maintenance jobs are no longer kept in Redis. A kept job blocked its schedule

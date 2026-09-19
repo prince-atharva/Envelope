@@ -92,6 +92,9 @@ function readRedisValue(redis: Redis, key: string, type: string): Promise<unknow
       return redis.zrange(key, '0', '-1');
     case 'stream':
       return redis.xrange(key, '-', '+');
+    case 'none':
+      // Removed between the scan and the read, as a finished job is.
+      return Promise.resolve(null);
     default:
       throw new Error(`Redis key ${key} has type ${type}, which the audit cannot read`);
   }

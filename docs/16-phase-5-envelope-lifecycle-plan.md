@@ -86,7 +86,7 @@ along the way:
 | 12 | The nightly audit-chain check | ✅ Done |
 | 13 | Request limits in Redis, on every route | ✅ Done |
 | 14 | Dashboard views | ✅ Done |
-| 15 | Tests: the finish line | ⬜ |
+| 15 | Tests: the finish line | ✅ Done |
 | 16 | Documentation and release `v0.5.0` | ⬜ |
 
 ## What We Need From You
@@ -424,6 +424,14 @@ newest first. The dashboard opens on Needs attention when it is not empty, other
 - **Isolation.** The browser stack gets its own database, `digitalsign_browser_test`, so its
   scheduler can never expire or remind the API suite's envelopes in `digitalsign_test`. The stack
   creates it if missing; the Postgres init script creates it on new volumes.
+
+**As built:** `transitions.e2e.test.ts` runs each change twice, first with that action's audit write
+failing (the status stays, nothing is written, the API answers 500), then for real (one event). The
+seal's `ENVELOPE_COMPLETED` is checked to be written once but not made to fail: a failed seal is
+retried by its job, which `sealing.e2e` covers. The leak audit's third envelope goes through
+"expires soon", expired, asking for more time, extending, an automatic reminder, cancelling and an
+alert from each process. Browser: `cancel.spec.ts`, `expiry.spec.ts` (now signed through to
+Completed) and `dashboard.spec.ts`.
 
 ## New Settings
 
