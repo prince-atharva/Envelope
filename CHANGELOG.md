@@ -205,6 +205,11 @@ Phase 3 (Signer Portal) in progress. See
 - **The document viewer now fits the page to the screen.** Its resize observer was set up before the
   document had loaded, when there was nothing to observe, so pages kept a width guessed at the first
   render: too narrow on a phone, and never refitted when the window was resized.
+- **`vite build` from a plain shell now makes a production build.** Vite took `NODE_ENV=development`
+  from the root `.env`, which belongs to the API, and bundled development React: 124 KB instead of
+  69 KB gzipped for the main chunk. The web app no longer has Vite load any `.env` file (it uses no
+  `VITE_` variables), and `vite.config.ts` reads `API_PORT` and `WEB_PORT` from the root `.env` by
+  hand. The browser tests and CI already set `NODE_ENV=production` and were not affected.
 
 ### Security
 

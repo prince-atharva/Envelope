@@ -256,8 +256,7 @@ Decisions made while building it:
 | Error reports | The web app masks `/sign/<token>` in URL, message and stack before sending | Belt and braces with the server's scrubbing |
 
 Measured in a production build: before consent a signer loads ~131 KB of JavaScript (gzipped), ~143 KB
-with the workspace, plus 132 KB of PDF.js, within the 150 KB budget. The build must run with
-`NODE_ENV=production`; see "Open points" below.
+with the workspace, plus 132 KB of PDF.js, within the 150 KB budget.
 
 ## Step 10: Tests
 
@@ -295,10 +294,11 @@ pass: 36 of 36.
 
 ## Open Points Found in Step 9
 
-- **Local `vite build` makes a development React build.** Vite reads `NODE_ENV` from the root
-  `.env`, which the API sets to `development`, and a build run from a plain shell then bundles
-  development React (125 KB instead of 70 KB gzipped). The browser-test stack and CI set
-  `NODE_ENV=production`, so they are not affected. Worth fixing before any real deployment.
+- ~~**Local `vite build` makes a development React build.**~~ Fixed after step 10. Vite took
+  `NODE_ENV=development` from the root `.env`, which belongs to the API, so a build run from a plain
+  shell bundled development React (124 KB instead of 69 KB gzipped for the main chunk). The web app
+  now loads no `.env` file through Vite (`envDir: false`; it uses no `VITE_` variables), and
+  `vite.config.ts` reads `API_PORT` and `WEB_PORT` from that file by hand.
 - **The web host's access log will contain `/sign/<token>`.** The page's own URL is requested from
   whatever serves the web app. The production hosting config (Phase 5) must drop or scrub that path
   from access logs, and send `Referrer-Policy: no-referrer` for `/sign/*` as a header as well.
