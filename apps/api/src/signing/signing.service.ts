@@ -8,7 +8,6 @@ import {
   type DeclineInput,
   type DeclineResponse,
   orderFieldsForSigning,
-  recipientsDueInvitation,
   type SigningSession,
   type SubmitSigningInput,
   type SubmitSigningResponse,
@@ -20,6 +19,7 @@ import type { ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SealQueueService } from '../sealing/seal-queue.service';
 import { StorageService, signatureImageKey } from '../storage/storage.service';
 import { CONSENT_TEXT_IS_DRAFT, consentNoticeFor } from './consent-text';
 import { resolveFieldValues } from './field-values';
@@ -60,6 +60,7 @@ export class SigningService {
     private readonly audit: AuditService,
     private readonly storage: StorageService,
     private readonly mail: MailQueueService,
+    private readonly seals: SealQueueService,
     @InjectPinoLogger(SigningService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -129,21 +130,35 @@ export class SigningService {
   }
 
   /**
-   * GET /sign/:token/document: the original PDF, only after consent.
-   * Later signers seeing earlier signatures stamped in is Phase 4.
+   * GET /sign/:token/document, only after consent: the newest version, with
+   * every signature stamped so far (ADR 0003). The version served is recorded
+   * on the recipient, and their signature records it as what they attested to.
    */
   async document(rawToken: string): Promise<SignerDocument> {
     const signer = await this.guardian.resolve(rawToken);
     requireConsent(signer);
+    const { recipient, envelope } = signer;
 
     const version = await this.prisma.documentVersion.findFirst({
-      where: { envelopeId: signer.envelope.id, versionNumber: 0 },
-      select: { fileUrl: true, sizeBytes: true },
+      where: { envelopeId: envelope.id, isFinal: false },
+      orderBy: { versionNumber: 'desc' },
+      select: { versionNumber: true, fileUrl: true, sizeBytes: true },
     });
     if (!version) throw new AppException('NOT_FOUND', 'Document not found.');
 
+    if (recipient.servedVersionNumber !== version.versionNumber) {
+      // Only while they can still sign: a signature, once given, names its version.
+      await this.prisma.recipient.updateMany({
+        where: { id: recipient.id, tokenUsedAt: null },
+        data: { servedVersionNumber: version.versionNumber },
+      });
+    }
+
     const object = await this.storage.get(version.fileUrl);
-    this.logger.info({ sizeBytes: version.sizeBytes }, 'Signer opened the document');
+    this.logger.info(
+      { versionNumber: version.versionNumber, sizeBytes: version.sizeBytes },
+      'Signer opened the document',
+    );
     return { body: object.body, sizeBytes: version.sizeBytes };
   }
 
@@ -351,6 +366,19 @@ export class SigningService {
         where: { id: envelope.id, status: { in: ['SENT', 'DELIVERED'] } },
         data: { status: 'PARTIALLY_SIGNED' },
       });
+      // The version this person was shown, and so attested to (ADR 0003).
+      const served =
+        recipient.servedVersionNumber === null
+          ? null
+          : await tx.documentVersion.findUnique({
+              where: {
+                envelopeId_versionNumber: {
+                  envelopeId: envelope.id,
+                  versionNumber: recipient.servedVersionNumber,
+                },
+              },
+              select: { versionNumber: true, hash: true },
+            });
       await this.audit.record(tx, {
         envelopeId: envelope.id,
         recipientId: recipient.id,
@@ -361,32 +389,19 @@ export class SigningService {
           fields: resolved.values.filter((field) => field.isCompleted).length,
           signatureMethod: recipient.signatureMethod,
           initialsMethod: recipient.initialsMethod,
+          documentVersion: served?.versionNumber ?? null,
+          documentSha256: served?.hash ?? null,
         },
       });
 
-      // One after another: when this group is done, the next one's turn begins.
-      const everyone = await tx.recipient.findMany({
-        where: { envelopeId: envelope.id },
-        select: { id: true, role: true, status: true, routingOrder: true },
+      const waiting = await tx.recipient.count({
+        where: {
+          envelopeId: envelope.id,
+          role: { in: ['SIGNER', 'APPROVER'] },
+          status: { notIn: ['SIGNED', 'DECLINED'] },
+        },
       });
-      const due = recipientsDueInvitation(everyone, envelope.sequentialSigning);
-      if (due.length > 0) {
-        await tx.recipient.updateMany({
-          where: {
-            envelopeId: envelope.id,
-            id: { in: due.map((next) => next.id) },
-            status: 'PENDING',
-          },
-          data: { status: 'SENT', invitedAt: signedAt },
-        });
-      }
-      const waiting = everyone.filter(
-        (other) =>
-          (other.role === 'SIGNER' || other.role === 'APPROVER') &&
-          other.status !== 'SIGNED' &&
-          other.status !== 'DECLINED',
-      ).length;
-      return { next: due.map((next) => next.id), waiting };
+      return { waiting };
     });
 
     if (!outcome) {
@@ -394,27 +409,25 @@ export class SigningService {
       throw new AppException('CONFLICT', 'Please reload and try again.');
     }
 
-    for (const recipientId of outcome.next) {
-      try {
-        await this.mail.enqueueSigningLink('invitation', envelope.id, recipientId);
-      } catch (error) {
-        this.logger.error(
-          { err: error, alert: true, nextRecipientId: recipientId },
-          'Next invitation could not be queued; a reminder will send it',
-        );
-      }
+    // The worker stamps the signature into the next version and then, one after
+    // another, invites whoever is next (ADR 0006).
+    try {
+      await this.seals.enqueue(envelope.id, recipient.id);
+    } catch (error) {
+      this.logger.error(
+        { err: error, alert: true },
+        'Seal job could not be queued; the signature is saved but not yet stamped',
+      );
     }
 
     this.logger.info(
       {
         fields: resolved.values.length,
-        nextInvited: outcome.next.length,
+        documentVersion: recipient.servedVersionNumber,
         stillToSign: outcome.waiting,
         durationMs: Math.round(performance.now() - started),
       },
-      outcome.waiting === 0
-        ? 'Recipient signed; everyone has now signed (sealing is Phase 4)'
-        : 'Recipient signed',
+      outcome.waiting === 0 ? 'Recipient signed; everyone has now signed' : 'Recipient signed',
     );
 
     return {

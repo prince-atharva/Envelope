@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import type { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 import { PinoLogger } from 'nestjs-pino';
 import { vi } from 'vitest';
 import { AppModule } from '../../src/app.module';
@@ -30,6 +30,8 @@ export async function createTestApp(): Promise<TestApp> {
 
 export interface TestWorker {
   mailbox: MemoryMailbox;
+  /** The worker's own providers, for tests that call a worker service directly. */
+  module: TestingModule;
   close(): Promise<void>;
 }
 
@@ -39,6 +41,7 @@ export async function createTestWorker(): Promise<TestWorker> {
   await moduleRef.init();
   return {
     mailbox: moduleRef.get(MemoryMailbox),
+    module: moduleRef,
     close: () => moduleRef.close(),
   };
 }

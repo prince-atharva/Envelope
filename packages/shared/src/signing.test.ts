@@ -97,6 +97,17 @@ describe('routing', () => {
     expect(ids(recipientsDueInvitation(mixed, true))).toEqual(['signer', 'approver']);
   });
 
+  it('keeps the turn with a group until its signatures are stamped into a version', () => {
+    const list = [person('a', 1, 'SIGNED'), person('b', 2)];
+    // Signed but not yet stamped: the next person would see the document without it.
+    expect(recipientsDueInvitation(list, true, new Set())).toEqual([]);
+    expect(currentRoutingGroup(list, true, new Set())).toEqual([]);
+    // Stamped: now it is their turn.
+    expect(ids(recipientsDueInvitation(list, true, new Set(['a'])))).toEqual(['b']);
+    // Everyone at once is not affected.
+    expect(ids(recipientsDueInvitation(list, false, new Set()))).toEqual(['b']);
+  });
+
   it('is empty once everyone has finished', () => {
     const list = [person('a', 1, 'SIGNED'), person('b', 2, 'SIGNED')];
     expect(currentRoutingGroup(list, true)).toEqual([]);

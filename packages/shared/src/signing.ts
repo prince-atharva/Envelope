@@ -228,24 +228,36 @@ function hasFinished(recipient: RoutingRecipient): boolean {
  * - Everyone at once: every signer who has not finished.
  * - One after another: the signers who share the lowest `routingOrder` among
  *   those who have not finished. Equal numbers sign in parallel (docs/05).
+ *
+ * `stamped` is the ids of signers whose signature is already in a document
+ * version. When it is given, one after another, a group keeps the turn until
+ * every signature in it is stamped, so the next person always sees them
+ * (ADR 0003). Without it, signing alone passes the turn on.
  */
 export function currentRoutingGroup<T extends RoutingRecipient>(
   recipients: readonly T[],
   sequential: boolean,
+  stamped?: ReadonlySet<string>,
 ): T[] {
-  const waiting = recipients.filter((r) => receivesSigningLink(r.role) && !hasFinished(r));
-  if (!sequential || waiting.length === 0) return waiting;
-  const turn = Math.min(...waiting.map((r) => r.routingOrder));
+  const signers = recipients.filter((r) => receivesSigningLink(r.role));
+  const waiting = signers.filter((r) => !hasFinished(r));
+  if (!sequential) return waiting;
+  const holding = stamped ? signers.filter((r) => r.status === 'SIGNED' && !stamped.has(r.id)) : [];
+  const candidates = [...waiting, ...holding];
+  if (candidates.length === 0) return [];
+  const turn = Math.min(...candidates.map((r) => r.routingOrder));
   return waiting.filter((r) => r.routingOrder === turn);
 }
 
 /**
  * Whom to email now: people whose turn it is and who have never been invited.
- * Used at send, and again after each signature to move to the next group.
+ * Used at send, and again each time a signature is stamped, to move to the next
+ * group.
  */
 export function recipientsDueInvitation<T extends RoutingRecipient>(
   recipients: readonly T[],
   sequential: boolean,
+  stamped?: ReadonlySet<string>,
 ): T[] {
-  return currentRoutingGroup(recipients, sequential).filter((r) => r.status === 'PENDING');
+  return currentRoutingGroup(recipients, sequential, stamped).filter((r) => r.status === 'PENDING');
 }

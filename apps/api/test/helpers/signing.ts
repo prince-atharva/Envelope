@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import type { EnvelopeDetail, FieldInfo, RecipientResponse } from '@envelope/shared';
 import request from 'supertest';
@@ -7,6 +7,7 @@ import { makePdf } from '../fixtures/pdfs';
 import { waitFor } from './app';
 import type { SignedInUser } from './auth';
 import { ownerQuery } from './db';
+import { putStoredObject } from './storage';
 
 export const bearer = (user: SignedInUser) => `Bearer ${user.accessToken}`;
 
@@ -53,9 +54,10 @@ function fieldsFor(recipientId: string, column: number): FieldInfo[] {
  * A draft ready to send, built through the real API: people added in order,
  * one of every field type for each signer or approver.
  *
- * `upload` sends a real PDF (needed when the signer will open the document);
- * otherwise the envelope row is inserted directly, which keeps suites clear of
- * the per-tenant upload limit.
+ * `upload` sends a real PDF through the upload endpoint. Otherwise the same
+ * thing is written directly (a real PDF in storage, the envelope row and its
+ * version 0), which keeps suites clear of the per-tenant upload limit. Either
+ * way the worker can stamp signatures into it.
  */
 export async function prepareEnvelope(
   http: Server,
@@ -76,12 +78,22 @@ export async function prepareEnvelope(
     id = (res.body as EnvelopeDetail).id;
   } else {
     id = randomUUID();
+    const pdf = await makePdf(2);
+    const hash = createHash('sha256').update(pdf).digest('hex');
+    const key = `tenants/${owner.body.user.tenant.id}/envelopes/${id}/v0-test.pdf`;
+    await putStoredObject(key, pdf);
     await ownerQuery(
       `INSERT INTO "Envelope"
          (id, "tenantId", "ownerId", title, status, "originalFileUrl", "originalFilename",
           "pageCount", "originalHash", "updatedAt")
        VALUES ($1, $2, $3, 'Agreement under test', 'DRAFT', $4, 'agreement.pdf', 2, $5, now())`,
-      [id, owner.body.user.tenant.id, owner.body.user.id, `tenants/test/${id}.pdf`, 'a'.repeat(64)],
+      [id, owner.body.user.tenant.id, owner.body.user.id, key, hash],
+    );
+    await ownerQuery(
+      `INSERT INTO "DocumentVersion"
+         (id, "envelopeId", "versionNumber", "fileUrl", hash, "pageCount", "sizeBytes")
+       VALUES ($1, $2, 0, $3, $4, 2, $5)`,
+      [randomUUID(), id, key, hash, pdf.length],
     );
   }
 

@@ -269,8 +269,8 @@ Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at leas
 > - **`invited`, not `recipients` with `notifiedAt`.** Emails are sent by the worker after the
 >   response, so no delivery time is known yet. `invited` lists everyone emailed now: every signer and
 >   approver when signing is *everyone at once*, only the lowest `routingOrder` group when it is
->   *one after another*. The next group is invited when every signer and approver in the current one
->   has signed. VIEWER and CC are not emailed until the finished copy exists (Phase 4). Progress
+>   *one after another*. The next group is invited when every signature in the current one has
+>   been stamped into a document version (Phase 4), so they see those signatures. VIEWER and CC are not emailed until the finished copy exists (Phase 4). Progress
 >   comes from `GET /v1/envelopes/:id`, below.
 > - **Idempotency.** The key is 8 to 128 letters, digits, dots, dashes or colons, and is scoped to
 >   the tenant and the envelope. Without it the request gets 400 `IDEMPOTENCY_KEY_REQUIRED`. The
@@ -438,8 +438,9 @@ On submit the token is invalidated. `DATE_SIGNED` fields are **server-generated*
 > **As built (Phase 3).** One transaction claims the recipient with a guarded update, so two
 > submits cannot both succeed; the loser gets 410 `TOKEN_ALREADY_USED`. The same transaction stores
 > the values, records the IP address and browser, moves the envelope to `PARTIALLY_SIGNED` and
-> writes `RECIPIENT_SIGNED`. With *one after another*, the next group is invited once the current
-> one has finished. Sealing, and the move to `COMPLETED`, arrive in Phase 4.
+> writes `RECIPIENT_SIGNED`, whose metadata names the version the signer was served
+> (`documentVersion`, `documentSha256`). A `seal` job then stamps the signature into the next
+> version (Phase 4), and with *one after another* the next group is invited once it exists.
 
 `POST /v1/sign/:token/decline` is allowed before consent. The reason is required, up to 1000
 characters. In one transaction it moves the recipient and the envelope to `DECLINED` and writes

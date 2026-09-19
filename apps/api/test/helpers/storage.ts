@@ -1,4 +1,4 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 /** A client for the test buckets, with the same credentials as the API, bypassing it. */
 export function testS3Client(): S3Client {
@@ -24,6 +24,23 @@ export async function readStoredObject(key: string): Promise<Buffer> {
       new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
     );
     return Buffer.from((await result.Body?.transformToByteArray()) ?? []);
+  } finally {
+    client.destroy();
+  }
+}
+
+/** Writes an object straight into the test bucket, bypassing the API. */
+export async function putStoredObject(key: string, body: Buffer): Promise<void> {
+  const client = testS3Client();
+  try {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET,
+        Key: key,
+        Body: body,
+        ContentType: 'application/pdf',
+      }),
+    );
   } finally {
     client.destroy();
   }

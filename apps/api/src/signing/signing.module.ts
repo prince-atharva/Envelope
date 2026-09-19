@@ -1,6 +1,7 @@
 import { Module, type OnModuleInit } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { MailProducerModule } from '../mail/mail.module';
+import { SealProducerModule } from '../sealing/sealing.module';
 import { CONSENT_TEXT_IS_DRAFT } from './consent-text';
 import { SigningController } from './signing.controller';
 import { SigningService } from './signing.service';
@@ -9,7 +10,7 @@ import { TokenGuardianService } from './token-guardian.service';
 
 /** The public signing surface: everything a signer reaches through their link. */
 @Module({
-  imports: [MailProducerModule],
+  imports: [MailProducerModule, SealProducerModule],
   controllers: [SigningController],
   providers: [TokenGuardianService, SigningService, SigningRateLimitGuard],
   exports: [TokenGuardianService],

@@ -16,10 +16,12 @@ same signature twice either (doc 06, gotcha 11).
 
 - **Submit returns 202 and queues a `seal` job** that carries only the envelope id. The signer's
   values are already stored.
-- **The worker locks the envelope row** for the whole run, so one envelope is sealed by one worker
-  at a time.
-- **Under the lock**, it stamps every signer who has signed but has no version yet, oldest first.
-  Then, if everyone required has signed, it seals the final version.
+- **The worker takes a per-envelope lock**, a Postgres advisory lock held for the length of one
+  round's transaction, so one envelope is stamped by one worker at a time. It is an advisory lock
+  rather than a row lock, so a decline, a reminder or a page load is not held up by a long stamp.
+- **Round by round**, it stamps the oldest signer who has signed but has no version yet, commits,
+  and repeats. Then, if everyone required has signed, it seals the final version. Each round
+  re-reads the state under the lock, so two jobs for one envelope interleave safely.
 - **Idempotency.** Each version's file is written to a fixed key, `versions/v{n}.pdf`, before its
   row is inserted. The unique `(envelopeId, versionNumber)` is the commit point. A retry that finds
   the row moves on. A retry that failed before the insert overwrites the same key. Nothing is
@@ -39,7 +41,8 @@ same signature twice either (doc 06, gotcha 11).
 
 - The next signer's invitation now waits for the previous version to be stamped: seconds, not
   milliseconds.
-- A long seal holds the envelope's row lock, so other changes to that envelope wait for it.
+- A decline can commit while a round is stamping. The version is still made, because the person did
+  sign, but the next round sees the declined envelope and stops.
 
 **Accepted:**
 

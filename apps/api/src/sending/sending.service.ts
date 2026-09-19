@@ -196,7 +196,7 @@ export class SendingService {
 
       const envelope = await tx.envelope.findUnique({
         where: { id: envelopeId },
-        include: { recipients: true },
+        include: { recipients: true, versions: { select: { createdByRecipientId: true } } },
       });
       if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
       if (envelope.status === 'DRAFT') {
@@ -210,8 +210,15 @@ export class SendingService {
       const unknown = (input.recipientIds ?? []).filter((id) => !byId.has(id));
       if (unknown.length > 0) throw new AppException('NOT_FOUND', 'Recipient not found.');
 
+      // A signature not yet stamped into a version keeps the turn, so nobody is
+      // reminded (or first invited) before they can see it (ADR 0003).
+      const stamped = new Set(
+        envelope.versions.flatMap((v) => (v.createdByRecipientId ? [v.createdByRecipientId] : [])),
+      );
       const turn = new Set(
-        currentRoutingGroup(envelope.recipients, envelope.sequentialSigning).map((r) => r.id),
+        currentRoutingGroup(envelope.recipients, envelope.sequentialSigning, stamped).map(
+          (r) => r.id,
+        ),
       );
       const targets = input.recipientIds ?? [...turn];
 

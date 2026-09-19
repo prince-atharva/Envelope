@@ -279,9 +279,8 @@ be edited afterwards, so personal data does not go into it.
 >   committed. Every reminder (`REMINDER_REQUESTED`) creates a new link and stops the old one.
 > - **Adopting a signature is its own event**, `SIGNATURE_ADOPTED`, separate from `RECIPIENT_SIGNED`
 >   (doc 07). Neither changes the envelope's status.
-> - **The next signer is invited on submit**, not when a version is created: versions arrive with
->   sealing in Phase 4, and the trigger moves then. Until then the envelope stops at
->   `PARTIALLY_SIGNED`; it never reaches `COMPLETED`.
+> - **The next signer is invited when the version is created** (Phase 4), as the table says. In
+>   Phase 3, before versions existed, it happened on submit.
 > - **Decline stops links by state.** The links are not deleted. The envelope moves to `DECLINED`
 >   in the same transaction as the decline, and every link check refuses a terminal envelope
 >   first. So invariant 3 below holds, and the portal can still tell a signer what happened.

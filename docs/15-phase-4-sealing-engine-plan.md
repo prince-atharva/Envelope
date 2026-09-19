@@ -77,7 +77,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 1 | This plan and the sealing ADRs | ✅ Done |
 | 2 | Database, settings and the locked storage bucket | ✅ Done |
 | 3 | Stamping signatures and answers into the page | ✅ Done |
-| 4 | One version per signature, in order | ⬜ |
+| 4 | One version per signature, in order | ✅ Done |
 | 5 | The certificate page, sealing and locking | ⬜ |
 | 6 | Completion emails with the finished copy | ⬜ |
 | 7 | Verify | ⬜ |
@@ -220,6 +220,34 @@ copy `apps/api/assets` (Phase 5).
   same key.
 - **Signers see the latest version.** `GET /sign/:token/document` serves the newest version and
   records its number on the recipient.
+
+### Step 4 as built
+
+| File | What it does |
+|---|---|
+| `apps/api/src/sealing/seal-queue.service.ts` | Queues `{ envelopeId, recipientId }` on the new `seal` queue, one job per signature (`jobId: seal-<recipientId>`) |
+| `apps/api/src/sealing/sealing.service.ts` | `catchUp(envelopeId)` runs rounds until nothing is left. Each round takes `pg_advisory_xact_lock`, stamps the oldest unstamped signature onto the newest version, stores `versions/v{n}.pdf`, inserts the row, writes `VERSION_CREATED` and invites whoever is now due. |
+| `apps/api/src/sealing/seal.processor.ts` | The worker, concurrency 2, 5 attempts with backoff. A permanent failure is logged with `alert: true`, because the next signer waits for it. |
+| `packages/shared/src/signing.ts` | `currentRoutingGroup` and `recipientsDueInvitation` take the set of stamped signers. One after another, a group keeps the turn until its signatures are stamped. |
+
+Decisions made while building it:
+
+| Question | Decision | Why |
+|---|---|---|
+| Row lock or advisory lock | Advisory, per envelope, per round | A long stamp must not hold up a decline or a page load. Each round commits its version, so progress survives a failure. |
+| Where the next invitation comes from | The seal worker, after the version commits | The next signer must see the signature before theirs. A reminder uses the same rule, so it cannot invite anyone early either. |
+| What a signer attests to | `servedVersionNumber`, set when the document is served, copied with the hash into `RECIPIENT_SIGNED` | Recorded by the server. It is frozen once they have signed. |
+| Test envelopes without an upload | The helper stores a real PDF and writes version 0 | Every suite's envelopes can be stamped, and the upload rate limit is not touched |
+
+`test/sealing.e2e.test.ts` shows:
+- three signers one after another make v0 to v3, each signer's stored hash matching the version they
+  were served;
+- each invitation comes after the version before it, and each file carries one more set of signatures;
+- two simultaneous signers are stamped in turn;
+- a second run does nothing, and a declined envelope stops.
+
+The web app's progress list does not yet know about stamping. For the few seconds before a version
+exists, it may offer a reminder that the server then skips as `NOT_THEIR_TURN`. Step 8 fixes this.
 
 ## Step 5: Certificate, Seal and Lock
 

@@ -52,6 +52,18 @@ Phase 4 (Sealing Engine) started. See
   - The same inputs give byte-identical output, so a retried seal writes the same file.
   - Tests read every placement back from the saved file and check it to within 0.01 pt, on turned,
     mixed-size and cropped pages.
+- **One document version per signature** (ADR 0003, ADR 0006):
+  - Finishing queues a `seal` job. On the worker, each signature is stamped onto the newest version,
+    stored as `versions/v{n}.pdf` and committed as `DocumentVersion n`, with `VERSION_CREATED` in the
+    audit trail.
+  - One envelope is stamped by one job at a time, under a per-envelope advisory lock. Rounds commit
+    one by one, and retries and duplicate jobs cannot leave a gap or a second copy.
+  - **Signers now see every earlier signature.** The signing page serves the newest version.
+    `RECIPIENT_SIGNED` records which version and hash the signer was shown, from the new
+    `Recipient.servedVersionNumber`.
+  - **The next signer is invited once the version before them exists**, not on submit. The routing
+    helpers take the set of stamped signers, so a reminder cannot invite anyone early either.
+  - A declined or closed envelope is not stamped further.
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.
