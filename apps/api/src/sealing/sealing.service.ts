@@ -11,6 +11,7 @@ import type {
   Recipient,
 } from '../generated/prisma/client';
 import { MailQueueService } from '../mail/mail-queue.service';
+import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService, sealedVersionKey, signedVersionKey } from '../storage/storage.service';
 import type { CertificateData } from './certificate';
@@ -22,7 +23,13 @@ const NOTHING_TO_STAMP = 'nothing to stamp';
 const ENVELOPE_COMPLETED = 'envelope completed';
 
 export type RoundResult =
-  | { kind: 'stamped'; versionNumber: number; recipientId: string; invited: string[] }
+  | {
+      kind: 'stamped';
+      versionNumber: number;
+      recipientId: string;
+      invited: string[];
+      invitedAt: Date;
+    }
   | { kind: 'idle'; reason: string };
 
 export type SealResult =
@@ -108,7 +115,12 @@ export class SealingService {
       stamped += 1;
       for (const recipientId of round.invited) {
         try {
-          await this.mail.enqueueSigningLink('invitation', envelopeId, recipientId);
+          await this.mail.enqueueSigningLink(
+            'invitation',
+            envelopeId,
+            recipientId,
+            round.invitedAt,
+          );
         } catch (error) {
           this.logger.error(
             { err: error, alert: true, envelopeId, nextRecipientId: recipientId },
@@ -202,6 +214,16 @@ export class SealingService {
           contentType: 'application/pdf',
           metadata: { sha256: result.sha256 },
         });
+        // The envelope may have been cancelled while the file was stamped. The row
+        // lock is taken only now, so a cancel never waits for storage work.
+        const current = await lockEnvelope(tx, envelopeId);
+        if (!current || !isOpenEnvelope(current)) {
+          this.logger.info(
+            { envelopeId, recipientId: next.id, status: current },
+            'Envelope closed while stamping; version not created',
+          );
+          return { kind: 'idle', reason: `envelope ${current?.toLowerCase() ?? 'gone'}` } as const;
+        }
         await tx.documentVersion.create({
           data: {
             envelopeId,
@@ -229,10 +251,11 @@ export class SealingService {
           envelope.sequentialSigning,
           stamped,
         );
+        const invitedAt = new Date();
         if (due.length > 0) {
           await tx.recipient.updateMany({
             where: { envelopeId, id: { in: due.map((r) => r.id) }, status: 'PENDING' },
-            data: { status: 'SENT', invitedAt: new Date() },
+            data: { status: 'SENT', invitedAt },
           });
         }
 
@@ -252,6 +275,7 @@ export class SealingService {
           versionNumber,
           recipientId: next.id,
           invited: due.map((r) => r.id),
+          invitedAt,
         } as const;
       },
       { timeout: ROUND_TIMEOUT_MS, maxWait: 15_000 },
@@ -307,6 +331,17 @@ export class SealingService {
           contentType: 'application/pdf',
           metadata: { sha256: result.sha256 },
         });
+        // Checked again under the row lock: a cancel committed during the storage
+        // work above must win, or a cancelled envelope would become COMPLETED. The
+        // locked copy just stored is then an unreferenced object; that is accepted.
+        const current = await lockEnvelope(tx, envelopeId);
+        if (!current || !isOpenEnvelope(current)) {
+          this.logger.warn(
+            { envelopeId, status: current, storageVersionId: versionId },
+            'Envelope closed while sealing; sealed copy left unreferenced',
+          );
+          return { kind: 'idle', reason: `envelope ${current?.toLowerCase() ?? 'gone'}` } as const;
+        }
         const completedAt = new Date();
         await tx.documentVersion.create({
           data: {

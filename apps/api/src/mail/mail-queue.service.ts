@@ -54,13 +54,17 @@ export class MailQueueService implements OnModuleInit {
    * Queues an invitation or a reminder. Only ids go on the queue: the worker
    * mints the link when it sends (ADR 0009).
    *
-   * An invitation is queued at most once per recipient, however many times this
-   * is called. Reminders are each their own job.
+   * An invitation is queued at most once per invitation (the recipient and the
+   * time their turn began), however many times this is called. A later,
+   * genuine re-invite has a new `invitedAt` and so a new job: finished jobs stay
+   * in Redis for a day, and would otherwise swallow it. Reminders are each their
+   * own job.
    */
   async enqueueSigningLink(
     template: SigningLinkEmailJob['template'],
     envelopeId: string,
     recipientId: string,
+    invitedAt?: Date,
   ): Promise<string | undefined> {
     const data: SigningLinkEmailJob = {
       template,
@@ -70,7 +74,7 @@ export class MailQueueService implements OnModuleInit {
     };
     const jobId =
       template === 'invitation'
-        ? `invitation-${recipientId}`
+        ? `invitation-${recipientId}-${invitedAt?.getTime() ?? 0}`
         : `reminder-${recipientId}-${Date.now()}`;
     const job = await this.queue.add(template, data, { jobId });
     this.logger.info(

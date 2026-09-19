@@ -73,7 +73,7 @@ along the way:
 |---|---|---|
 | 0 | This plan, ADR 0013 (expiry pauses an envelope) and ADR 0004 (the audit hash chain) | ✅ Done |
 | 1 | One definition of "open" and "closed" statuses | ✅ Done |
-| 2 | Lock the envelope before signing, declining, sending a link or sealing commits | ⬜ |
+| 2 | Lock the envelope before signing, declining, sending a link or sealing commits | ✅ Done |
 | 3 | Database: Expired status, cancel and reminder columns | ⬜ |
 | 4 | Cancel and discard (API and emails) | ⬜ |
 | 5 | Cancel and discard (screens) | ⬜ |
@@ -152,7 +152,7 @@ Checking the design against the code turned up these, all fixed in this phase:
 
 | Problem | Effect | Fixed in |
 |---|---|---|
-| Submit, decline, consent and the mailer check the envelope only through a relation filter in `updateMany`, which takes no lock on the envelope row | A cancel committing at the same moment as a signature can leave a signed recipient on a cancelled envelope, with `RECIPIENT_SIGNED` after `ENVELOPE_VOIDED` | Step 2: `lockOpenEnvelope` (`FOR SHARE`, deadline checked at commit) first in each |
+| Submit, decline, consent, adopt and the mailer check the envelope only through a relation filter in `updateMany`, which takes no lock on the envelope row | A cancel committing at the same moment as a signature can leave a signed recipient on a cancelled envelope, with `RECIPIENT_SIGNED` after `ENVELOPE_VOIDED` | Step 2: `lockOpenEnvelope` (row lock, deadline checked at commit) first in each |
 | `sealFinal` sets `COMPLETED` without checking the status again, after up to 120 s of storage work | A cancel during sealing is overwritten, and a `VOIDED` envelope becomes `COMPLETED` | Step 2: re-check under `FOR UPDATE` just before the version insert |
 | The invitation job id is `invitation-{recipientId}`, and finished jobs stay in Redis for 24 hours | A person whose invitation was skipped cannot be invited again for a day | Step 2: the id includes `invitedAt` |
 | Remind checks only the status, not the deadline | On an overdue envelope it answers 200, writes `REMINDER_REQUESTED`, starts the 24-hour wait, and the worker sends nothing | Step 6: 409 `ENVELOPE_EXPIRED` |
@@ -172,19 +172,29 @@ in behaviour; adding `EXPIRED` in step 3 then happens in one place.
 `apps/api/src/prisma/envelope-locks.ts`:
 
 - `lockOpenEnvelope(tx, envelopeId, now)`:
-  `SELECT id FROM "Envelope" WHERE id = $1 AND status IN (open) AND "expiresAt" > $2 FOR SHARE`.
-  It returns false when there is no row. Postgres checks the condition again once the lock is
+  `SELECT id FROM "Envelope" WHERE id = $1 AND status IN (open) AND "expiresAt" > $2 FOR NO KEY UPDATE`.
+  It returns false when there is no row. **As built:** `FOR NO KEY UPDATE`, not the `FOR SHARE`
+  first planned. Submit and decline go on to update the envelope, and two share-lock holders
+  upgrading at once deadlock; two signers of one envelope now commit one after the other, as the
+  audit trail's per-envelope lock already made them. `now` is converted to UTC in the query, because
+  Prisma stores UTC in columns without a zone. Postgres checks the condition again once the lock is
   granted, so whichever of a signature and a cancel commits first wins, cleanly. It also enforces the
   deadline at commit time, not only when the link was checked.
 - `lockEnvelope(tx, envelopeId)`: `FOR UPDATE`, returning the status. Used by cancel, the sweep and
   extend, which then check the status in code.
 
-Used first in consent, submit and decline, and in the mailer's claim before a link is minted. The
+Used first in consent, adopt, submit and decline, and in the mailer's claim before a link is minted. The
 seal round and `sealFinal` take `FOR UPDATE` just before inserting the version and return idle if
 the envelope is no longer sealable. The lock is not taken at the start of a round: cancel, remind and
 the sweep would then wait for the storage work and hit Prisma's 5-second transaction timeout. An
 aborted `sealFinal` leaves one locked, unreferenced object in the sealed bucket. That is rare and
 harmless, and is accepted.
+
+**Tests** (`apps/api/test/envelope-locks.e2e.test.ts`): a signature is refused when the deadline
+passes after the link was checked; a signature and a decline are refused when the envelope is
+cancelled after the check; a round and the final seal leave a cancelled envelope alone, with no new
+version and no `ENVELOPE_COMPLETED`; an invitation is queued again for a new `invitedAt` but not
+twice for one. Removing the locks makes the deadline and both sealing tests fail.
 
 ## Step 3: Database
 

@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import type { ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
 import { MailQueueService } from '../mail/mail-queue.service';
+import { lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { SealQueueService } from '../sealing/seal-queue.service';
 import { StorageService, signatureImageKey } from '../storage/storage.service';
@@ -185,6 +186,7 @@ export class SigningService {
 
     const now = new Date();
     const given = await this.prisma.$transaction(async (tx) => {
+      if (!(await lockOpenEnvelope(tx, envelope.id, now))) return null;
       const claimed = await tx.recipient.updateMany({
         where: { id: recipient.id, consentGivenAt: null },
         data: { consentGivenAt: now, consentText: notice.text },
@@ -210,6 +212,10 @@ export class SigningService {
       });
       return now;
     });
+    if (!given) {
+      await this.guardian.resolve(rawToken); // Throws the reason: closed or expired.
+      throw new AppException('CONFLICT', 'Please reload and try again.');
+    }
 
     this.logger.info({ draftText: CONSENT_TEXT_IS_DRAFT }, 'Signer agreed to sign electronically');
     return { consentGivenAt: given.toISOString() };
@@ -244,6 +250,7 @@ export class SigningService {
         : { initialsImageKey: key, initialsMethod: input.method };
 
     const adopted = await this.prisma.$transaction(async (tx) => {
+      if (!(await lockOpenEnvelope(tx, envelope.id, new Date()))) return false;
       const claimed = await tx.recipient.updateMany({
         where: {
           id: recipient.id,
@@ -334,6 +341,7 @@ export class SigningService {
     }
 
     const outcome = await this.prisma.$transaction(async (tx) => {
+      if (!(await lockOpenEnvelope(tx, envelope.id, signedAt))) return null;
       const claimed = await tx.recipient.updateMany({
         where: {
           id: recipient.id,
@@ -452,6 +460,7 @@ export class SigningService {
     const declinedAt = new Date();
 
     const declined = await this.prisma.$transaction(async (tx) => {
+      if (!(await lockOpenEnvelope(tx, envelope.id, declinedAt))) return false;
       const claimed = await tx.recipient.updateMany({
         where: {
           id: recipient.id,

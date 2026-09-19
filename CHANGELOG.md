@@ -300,6 +300,15 @@ Phase 5 (Envelope Lifecycle) in progress. See
 
 ### Fixed
 
+- **A signature, decline or link could commit against an envelope that had just closed.** Consent,
+  adopt, submit, decline and the invitation mailer checked the envelope only through a relation
+  filter, which takes no lock. They now lock the envelope row first
+  (`apps/api/src/prisma/envelope-locks.ts`), which also enforces the deadline at commit time, not
+  only when the link was checked.
+- **Sealing could complete a cancelled envelope.** A stamping round and the final seal now check the
+  envelope again under a row lock just before they commit, after the storage work.
+- **A person could not be invited again for a day** once an invitation had been skipped: the job id
+  was the recipient alone. It now includes when their turn began.
 - The sender's reminder button now applies the server's rule that a signature not yet stamped keeps
   the turn, so it is no longer offered for someone the server would skip.
 - The "Sent. We are emailing…" notice no longer reappears when a finished envelope's page is

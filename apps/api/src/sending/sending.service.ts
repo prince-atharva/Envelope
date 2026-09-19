@@ -146,7 +146,7 @@ export class SendingService {
       };
     });
 
-    await this.enqueueInvitations(envelopeId, invited);
+    await this.enqueueInvitations(envelopeId, invited, sentAt);
 
     this.logger.info(
       {
@@ -307,10 +307,14 @@ export class SendingService {
    * queue failure is logged for follow-up rather than undoing it: the sender's
    * reminder button re-sends to anyone never emailed.
    */
-  async enqueueInvitations(envelopeId: string, recipientIds: readonly string[]): Promise<void> {
+  async enqueueInvitations(
+    envelopeId: string,
+    recipientIds: readonly string[],
+    invitedAt: Date,
+  ): Promise<void> {
     for (const recipientId of recipientIds) {
       try {
-        await this.mail.enqueueSigningLink('invitation', envelopeId, recipientId);
+        await this.mail.enqueueSigningLink('invitation', envelopeId, recipientId, invitedAt);
       } catch (error) {
         this.logger.error(
           { err: error, alert: true, envelopeId, recipientId },

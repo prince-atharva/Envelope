@@ -4,6 +4,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
 import { AppConfig } from '../config/app-config';
 import type { Envelope, Recipient } from '../generated/prisma/client';
+import { lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { mintSigningToken, signingUrl, tokenRef } from '../signing/signing-token';
 import type { SigningLinkEmailJob } from './mail.types';
@@ -68,6 +69,11 @@ export class SigningLinkMailer {
       const { envelope, ...recipient } = found;
       const reason = whyNotSend(recipient, envelope, now);
       if (reason) return { sent: false, reason } as const;
+      // Holds off a cancel or decline until this link is stored, so a link is
+      // never minted for an envelope that closed in the meantime.
+      if (!(await lockOpenEnvelope(tx, envelope.id, now))) {
+        return { sent: false, reason: 'changed while sending' } as const;
+      }
 
       const { rawToken, tokenHash } = mintSigningToken(this.config.SIGNING_TOKEN_SECRET);
       // Conditional on what was just checked, so a signature or decline that
