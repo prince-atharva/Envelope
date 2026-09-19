@@ -79,6 +79,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 13 | [phase-2-field-builder-plan](13-phase-2-field-builder-plan.md) | What does Phase 2 deliver, and how are fields placed and saved? |
 | 14 | [phase-3-signer-portal-plan](14-phase-3-signer-portal-plan.md) | What does Phase 3 deliver, and how does a signer open, sign and finish? |
 | 15 | [phase-4-sealing-engine-plan](15-phase-4-sealing-engine-plan.md) | What does Phase 4 deliver, and how is a signed document stamped, sealed and verified? |
+| 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12

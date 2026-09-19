@@ -1,6 +1,6 @@
 # 0009. Store Only the HMAC of Signing Tokens
 
-**Status:** Accepted
+**Status:** Accepted, amended by [ADR 0013](0013-expiry-pauses-an-envelope.md) (a link's expiry moves with an extension)
 **Date:** 2026-09-18
 **Deciders:** Engineering
 

@@ -10,9 +10,17 @@ Phase 3 (Signer Portal) in progress. See
 [docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
 Phase 4 (Sealing Engine) built; the real-phone check and the release are to come. See
 [docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
+Phase 5 (Envelope Lifecycle) in progress. See
+[docs/16-phase-5-envelope-lifecycle-plan.md](docs/16-phase-5-envelope-lifecycle-plan.md).
 
 ### Added
 
+- Phase 5 plan (`docs/16`): cancelling, deadlines that pause and can be extended, automatic
+  reminders, the "needs attention" dashboard, request limits in Redis, and the nightly audit-chain
+  check with alert emails. Doc 11's hardening block is split into Phases 5, 6 and 7.
+  - ADR 0013: expiry pauses an envelope, and the sender can extend it. It amends ADR 0009: a link's
+    expiry moves with an extension.
+  - ADR 0004: the audit hash chain, reserved since doc 05 and written now.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their
