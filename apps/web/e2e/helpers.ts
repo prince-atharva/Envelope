@@ -203,7 +203,7 @@ export async function outboxMessages(): Promise<string[]> {
   return files.filter((file) => file.endsWith('.json')).sort();
 }
 
-interface OutboxEmail {
+export interface OutboxEmail {
   to: string;
   template: string;
   text: string;
@@ -228,6 +228,23 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
     await new Promise((done) => setTimeout(done, 250));
   }
   throw new Error(`No signing link was emailed to ${email}`);
+}
+
+/** The newest email of one template to this address, from the outbox. */
+export async function emailFor(
+  email: string,
+  template: string,
+  timeoutMs = 20_000,
+): Promise<OutboxEmail> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const file of (await outboxMessages()).reverse()) {
+      const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
+      if (message.to === email && message.template === template) return message;
+    }
+    await new Promise((done) => setTimeout(done, 250));
+  }
+  throw new Error(`No ${template} email was sent to ${email}`);
 }
 
 export interface CompletedCopy {

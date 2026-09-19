@@ -40,6 +40,11 @@ Phase 5 (Envelope Lifecycle) in progress. See
   (`kind: voided`). The audit event `ENVELOPE_VOIDED` keeps the previous status and the reason's
   length, not the reason. The envelope detail now includes `voidedAt`, `voidReason` and `voidedBy`.
   The web audit list reads "Email sent" for every kind of email.
+- Cancel and discard in the web app (docs/16 step 5). The envelope page has **Cancel document** for a
+  sent or expired envelope and **Discard draft** for a draft. The cancel dialog names who will be
+  emailed and requires the reason they will read; discarding asks for nothing and returns to the
+  dashboard. A cancelled envelope shows who cancelled it, when and why. The status badge reads
+  "Cancelled" instead of "Voided". Browser test: `e2e/cancel.spec.ts`.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their

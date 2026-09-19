@@ -12,7 +12,10 @@ import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { FullPageSpinner } from '../components/ui/Spinner';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { CancelDialog } from '../features/envelope/CancelDialog';
+import { CancelledBanner } from '../features/envelope/CancelledBanner';
 import { CompletionBanner } from '../features/envelope/CompletionBanner';
+import { cancelModeFor } from '../features/envelope/cancel';
 import { downloadName } from '../features/envelope/document-files';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
@@ -40,6 +43,7 @@ function stillChanging(envelope: EnvelopeDetail | undefined): boolean {
 export function EnvelopeDetailPage() {
   const { id = '' } = useParams<{ id: string }>();
   const [copied, setCopied] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const sent = (useLocation().state as SentState | null)?.sentTo;
 
   const {
@@ -154,6 +158,15 @@ export function EnvelopeDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {cancelModeFor(envelope.status) && (
+            <Button
+              onClick={() => setCancelling(true)}
+              variant="ghost"
+              className="text-xs py-1.5 px-3.5 text-red-700 hover:bg-red-50"
+            >
+              {cancelModeFor(envelope.status) === 'discard' ? 'Discard draft' : 'Cancel document'}
+            </Button>
+          )}
           {envelope.status === 'DRAFT' && (
             <ButtonLink
               to={`/dashboard/envelopes/${envelope.id}/prepare`}
@@ -179,8 +192,10 @@ export function EnvelopeDetailPage() {
       )}
 
       <CompletionBanner envelope={envelope} onDownload={handleDownload} downloading={!pdfData} />
+      <CancelledBanner envelope={envelope} />
+      <CancelDialog envelope={envelope} open={cancelling} onClose={() => setCancelling(false)} />
 
-      {envelope.status !== 'DRAFT' && <RecipientProgress envelope={envelope} />}
+      {envelope.sentAt && <RecipientProgress envelope={envelope} />}
 
       {/* 2. Main Hero Document Viewer */}
       <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col h-[75vh] min-h-[600px] max-h-[850px]">

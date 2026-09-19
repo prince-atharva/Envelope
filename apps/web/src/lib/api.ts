@@ -20,6 +20,8 @@ import {
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
   type UserProfile,
+  type VoidEnvelopeInput,
+  type VoidEnvelopeResponse,
 } from '@envelope/shared';
 
 const API_BASE = '/api/v1';
@@ -372,4 +374,8 @@ export const api = {
 
   remind: (id: string, input: RemindInput = {}) =>
     json<RemindResponse>(`/envelopes/${encodeURIComponent(id)}/remind`, jsonBody(input)),
+
+  /** Cancels a sent envelope (a reason is required), or discards a draft. */
+  voidEnvelope: (id: string, input: VoidEnvelopeInput = {}) =>
+    json<VoidEnvelopeResponse>(`/envelopes/${encodeURIComponent(id)}/void`, jsonBody(input)),
 };

@@ -76,7 +76,7 @@ along the way:
 | 2 | Lock the envelope before signing, declining, sending a link or sealing commits | ✅ Done |
 | 3 | Database: Expired status, cancel and reminder columns | ✅ Done |
 | 4 | Cancel and discard (API and emails) | ✅ Done |
-| 5 | Cancel and discard (screens) | ⬜ |
+| 5 | Cancel and discard (screens) | ✅ Done |
 | 6 | The maintenance queue and the expiry sweep | ⬜ |
 | 7 | Extend and resume | ⬜ |
 | 8 | Ask for more time | ⬜ |
