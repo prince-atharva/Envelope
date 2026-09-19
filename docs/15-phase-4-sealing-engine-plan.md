@@ -63,12 +63,14 @@ next signature has to be added to them.
 
 From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 
-- [ ] a signature lands within 1 point (about a third of a millimetre) of its box, on a rotated page, in a
-      document with pages of different sizes;
-- [ ] three people signing one after another produce an unbroken chain of versions, then the sealed file;
-- [ ] `sha256sum` on the downloaded file matches the fingerprint on record, and Verify agrees;
-- [ ] the certificate lists every version and every event;
-- [ ] all of this works end to end with a signature made on a real phone.
+- [x] a signature lands within 1 point (about a third of a millimetre) of its box, on a rotated page, in a
+      document with pages of different sizes *(step 3: the stamping tests measure to 0.01 pt)*;
+- [x] three people signing one after another produce an unbroken chain of versions, then the sealed file
+      *(step 9)*;
+- [x] `sha256sum` on the downloaded file matches the fingerprint on record, and Verify agrees *(steps 8
+      and 9)*;
+- [x] the certificate lists every version and every event *(step 9, read back from the sealed PDF)*;
+- [ ] all of this works end to end with a signature made on a real phone *(step 10)*.
 
 ## Progress
 
