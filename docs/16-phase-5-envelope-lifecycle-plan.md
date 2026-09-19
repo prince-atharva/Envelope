@@ -78,7 +78,7 @@ along the way:
 | 4 | Cancel and discard (API and emails) | ✅ Done |
 | 5 | Cancel and discard (screens) | ✅ Done |
 | 6 | The maintenance queue and the expiry sweep | ✅ Done |
-| 7 | Extend and resume | ⬜ |
+| 7 | Extend and resume | ✅ Done |
 | 8 | Ask for more time | ⬜ |
 | 9 | Extend and expiry on the envelope page | ⬜ |
 | 10 | Automatic reminders and the "expires soon" email | ⬜ |
@@ -266,6 +266,12 @@ in a new statement (so it sees fresh data), then `EXPIRED`, `expiredAt` and `ENV
   a `resume-{envelopeId}-{epoch}` seal job. The seal worker stamps any signature made before the
   deadline, then invites anyone now due (`SealingService.inviteDue`, taken from the invite step of a
   stamping round).
+- **As built:** no separate `inviteDue`. A stamping round already invites whoever becomes due in the
+  same transaction that inserts the version, so the resume job is an ordinary seal job
+  (`catchUp`) with the id `resume-{envelopeId}-{epoch}`. It is queued only when an `EXPIRED`
+  envelope reopens; before the deadline nothing is waiting to be stamped. The `extended` email goes
+  to signers and approvers in `SENT`, `DELIVERED` or `VIEWED` with an unused link. The response is
+  `{ id, status, expiresAt, previousExpiresAt, resumed, notified }`.
 
 ## Step 8: Ask for More Time
 

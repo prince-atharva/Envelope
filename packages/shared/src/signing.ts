@@ -70,6 +70,26 @@ export interface VoidEnvelopeResponse {
   discarded: boolean;
 }
 
+/**
+ * POST /envelopes/:id/extend (docs/16 step 7, ADR 0013). Sets a new deadline,
+ * counted from now. An expired envelope opens again.
+ */
+export const extendEnvelopeSchema = z.strictObject({
+  expiresInDays: z.number().int().min(1).max(MAX_EXPIRY_DAYS),
+});
+export type ExtendEnvelopeInput = z.infer<typeof extendEnvelopeSchema>;
+
+export interface ExtendEnvelopeResponse {
+  id: string;
+  status: EnvelopeStatus;
+  expiresAt: string;
+  previousExpiresAt: string | null;
+  /** True when the envelope was paused as EXPIRED and is open again. */
+  resumed: boolean;
+  /** Everyone whose turn it is, emailed a fresh link now. */
+  notified: string[];
+}
+
 export type ReminderSkipReason = 'TOO_SOON' | 'NOT_THEIR_TURN' | 'FINISHED';
 
 export interface RemindResponse {

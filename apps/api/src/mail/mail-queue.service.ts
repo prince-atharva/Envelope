@@ -77,7 +77,7 @@ export class MailQueueService implements OnModuleInit {
     const jobId =
       template === 'invitation'
         ? `invitation-${recipientId}-${invitedAt?.getTime() ?? 0}`
-        : `reminder-${recipientId}-${Date.now()}`;
+        : `${template}-${recipientId}-${Date.now()}`;
     const job = await this.queue.add(template, data, { jobId });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template, envelopeId, recipientId },

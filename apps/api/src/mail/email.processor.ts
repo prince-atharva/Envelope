@@ -35,6 +35,7 @@ export class EmailProcessor extends WorkerHost {
         return this.transport.send(renderWelcomeEmail(data, this.config.APP_URL), data.template);
       case 'invitation':
       case 'reminder':
+      case 'extended':
         return this.signingLinks.send(data);
       case 'declined':
         return this.senderNotices.sendDeclined(data);

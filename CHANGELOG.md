@@ -51,6 +51,12 @@ Phase 5 (Envelope Lifecycle) in progress. See
   each overdue envelope under its row lock, checks the deadline and the unsigned count again there,
   and pauses it as `EXPIRED` with `ENVELOPE_EXPIRED` (system actor). The sender is emailed once per
   expiry (`expired`). An envelope whose last signature is only waiting for the seal is left alone.
+- Extend and resume (docs/16 step 7): `POST /v1/envelopes/:id/extend` with `{ expiresInDays }` and an
+  `Idempotency-Key`. One transaction sets the new deadline, moves every unused link's expiry to it,
+  clears the "expires soon" markers and records `ENVELOPE_EXTENDED`. An `EXPIRED` envelope reopens
+  as `PARTIALLY_SIGNED` or `SENT`. Whoever holds the turn gets an `extended` email with a fresh
+  link; on reopening, a `resume` seal job stamps signatures made before the deadline and invites
+  whoever is due next. Drafts answer 409 `CONFLICT`, closed envelopes 409 `ENVELOPE_TERMINAL`.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing
   sent. The web app no longer offers Remind there.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:

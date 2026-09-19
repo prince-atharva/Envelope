@@ -291,6 +291,7 @@ Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at leas
 | `GET` | `/v1/envelopes/:id` | Full state including recipients, fields, versions |
 | `GET` | `/v1/envelopes?status=&cursor=&limit=` | List, filterable |
 | `POST` | `/v1/envelopes/:id/void` | Cancel, or discard a draft. Body: `{ "reason": "..." }`, required unless a draft. Invalidates all tokens synchronously. Built in Phase 5; see below. |
+| `POST` | `/v1/envelopes/:id/extend` | More time. Body: `{ "expiresInDays": 1–90 }`, with `Idempotency-Key`. Reopens an `EXPIRED` envelope and emails fresh links to whoever's turn it is. Phase 5. |
 | `POST` | `/v1/envelopes/:id/remind` | Nudge outstanding recipients. Rate-limited to 1/recipient/24h. Built in Phase 3; see below. |
 | `GET` | `/v1/envelopes/:id/documents/original` | The untouched upload |
 | `GET` | `/v1/envelopes/:id/documents/completed` | The sealed document. `409` if not `COMPLETED`. |

@@ -50,6 +50,8 @@ const AUDIT_ACTIONS: Record<string, string> = {
   ENVELOPE_COMPLETED: 'Completed and sealed',
   COMPLETION_SENT: 'Finished copy sent',
   ENVELOPE_VOIDED: 'Cancelled',
+  ENVELOPE_EXPIRED: 'Deadline passed; paused',
+  ENVELOPE_EXTENDED: 'Deadline extended',
 };
 
 /** Audit actions as people read them. */

@@ -34,6 +34,14 @@ describe('signing-link emails', () => {
     expect(email.text).toContain('This link works until 2 October 2026.');
   });
 
+  it('says more time was given, with the new deadline, and that the old link is dead', () => {
+    const email = renderSigningLinkEmail({ ...base, kind: 'extended' });
+    expect(email.subject).toBe('More time to sign Lease <2026>');
+    expect(email.text).toContain('Raj Kumar has given you more time to sign "Lease <2026>".');
+    expect(email.text).toContain('This link works until 2 October 2026.');
+    expect(email.text).toContain('Links in earlier emails about this document no longer work.');
+  });
+
   it('includes the sender message, escaped in HTML and as typed in text', () => {
     const email = renderSigningLinkEmail({ ...base, message: '<b>Hi</b> & thanks' });
     expect(email.html).toContain('&lt;b&gt;Hi&lt;/b&gt; &amp; thanks');

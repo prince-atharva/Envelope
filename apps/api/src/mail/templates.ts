@@ -216,7 +216,7 @@ export function renderExpiredEmail(notice: ExpiredNotice): RenderedEmail {
 }
 
 export interface SigningLinkEmail {
-  kind: 'invitation' | 'reminder';
+  kind: 'invitation' | 'reminder' | 'extended';
   to: string;
   recipientName: string;
   /** Approvers are asked to approve rather than sign. */
@@ -251,18 +251,21 @@ export function renderSigningLinkEmail(email: SigningLinkEmail): RenderedEmail {
   const cta = email.action === 'approve' ? 'Review & Approve' : 'Review & Sign';
   const expires = formatDate(email.expiresAt);
 
-  const subject =
-    email.kind === 'invitation'
-      ? `${sender} has sent you a document to ${verb}`
-      : `Reminder: ${title} awaits your ${email.action === 'approve' ? 'approval' : 'signature'}`;
-  const intro =
-    email.kind === 'invitation'
-      ? `${sender} has sent you "${title}" to ${verb}.`
-      : `This is a reminder that ${sender} is waiting for you to ${verb} "${title}".`;
+  const noun = email.action === 'approve' ? 'approval' : 'signature';
+  const subject = {
+    invitation: `${sender} has sent you a document to ${verb}`,
+    reminder: `Reminder: ${title} awaits your ${noun}`,
+    extended: `More time to ${verb} ${title}`,
+  }[email.kind];
+  const intro = {
+    invitation: `${sender} has sent you "${title}" to ${verb}.`,
+    reminder: `This is a reminder that ${sender} is waiting for you to ${verb} "${title}".`,
+    extended: `${sender} has given you more time to ${verb} "${title}". Anything you already did is kept.`,
+  }[email.kind];
   const replaced =
-    email.kind === 'reminder'
-      ? 'This email has a new link. Links in earlier emails about this document no longer work.'
-      : null;
+    email.kind === 'invitation'
+      ? null
+      : 'This email has a new link. Links in earlier emails about this document no longer work.';
   const footer =
     `You received this email because ${sender} asked you to ${verb} a document using ${BRAND.fullName}. ` +
     'The link is personal to you, so please do not forward this email. ' +

@@ -12,17 +12,10 @@ import type { Response } from 'express';
 import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempotency-header';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { SendingService } from './sending.service';
-
-const IDEMPOTENCY_KEY_HEADER = {
-  name: 'Idempotency-Key',
-  required: true,
-  description:
-    'A value unique to this attempt (a UUID is ideal). Repeating the request with the same key ' +
-    'within 24 hours returns the first response with Idempotency-Replayed: true, and sends nothing.',
-};
 
 @ApiTags('sending')
 @ApiBearerAuth()
