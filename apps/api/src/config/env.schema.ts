@@ -90,6 +90,17 @@ export const envSchema = z
     MAIL_TRANSPORT: z.enum(['smtp', 'memory', 'file']).default('smtp'),
     /** Relative to APP_ROOT_DIR. Only used with MAIL_TRANSPORT=file. */
     MAIL_OUTBOX_DIR: z.string().min(1).default('.mail-outbox'),
+    /**
+     * The largest finished document attached to the completion email. Anything
+     * larger is sent as a private download link instead (docs/15 step 6).
+     */
+    COMPLETION_ATTACHMENT_MAX_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .default(15 * 1024 * 1024),
+    /** How long a completion download link works. */
+    COMPLETION_LINK_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     /** First retry delay for a failed email; each later retry waits twice as long. */
     EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),

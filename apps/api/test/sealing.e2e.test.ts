@@ -279,6 +279,40 @@ describe('sealing: one version per signature (e2e)', () => {
     });
     expect((await t.app.get(AuditService).verify(envelope.id)).valid).toBe(true);
 
+    // Everyone, and the sender, is emailed the sealed file itself (docs/15 step 6).
+    const everyone = [...team.map((person) => person.email), owner.email];
+    const completedMail = await waitFor(() => {
+      // The owner is sent every envelope's copy: only this one's carries this fingerprint.
+      const found = worker.mailbox.messages.filter(
+        (m) => m.template === 'completed' && everyone.includes(m.to) && m.text.includes(final.hash),
+      );
+      return found.length === everyone.length ? found : undefined;
+    }, 20_000);
+    for (const message of completedMail) {
+      expect(message.subject).toBe('Completed: Agreement under test');
+      expect(message.text).toContain(final.hash);
+      const [file] = message.attachments ?? [];
+      expect(file?.filename).toBe('agreement (signed).pdf');
+      expect(sha256(file?.content ?? Buffer.alloc(0))).toBe(final.hash);
+    }
+    expect(completedMail.find((m) => m.to === owner.email)?.text).toContain(
+      `/dashboard/envelopes/${envelope.id}`,
+    );
+    const { rows: sent } = await waitFor(async () => {
+      const result = await ownerQuery<{ recipientId: string | null; metadata: { to: string } }>(
+        `SELECT "recipientId", metadata FROM "AuditTrail"
+          WHERE "envelopeId" = $1 AND action = 'COMPLETION_SENT'`,
+        [envelope.id],
+      );
+      return result.rows.length === everyone.length ? result : undefined;
+    });
+    expect(sent.map((row) => row.metadata)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ to: 'recipient', delivery: 'attachment' }),
+        expect.objectContaining({ to: 'sender', delivery: 'attachment' }),
+      ]),
+    );
+
     // Running again changes nothing.
     const sealing = worker.module.get(SealingService);
     expect(await sealing.catchUp(envelope.id)).toEqual({
@@ -290,6 +324,13 @@ describe('sealing: one version per signature (e2e)', () => {
       reason: 'envelope completed',
     });
     expect(await versions(envelope.id)).toHaveLength(4);
+    // And sends nobody a second copy.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(
+      worker.mailbox.messages.filter(
+        (m) => m.template === 'completed' && everyone.includes(m.to) && m.text.includes(final.hash),
+      ),
+    ).toHaveLength(everyone.length);
   });
 
   it('waits for an approver, and leaves people who only get a copy out of it', async () => {

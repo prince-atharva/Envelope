@@ -1,6 +1,14 @@
 import { SIGNING_TOKEN_PATTERN } from '@envelope/shared';
 import { describe, expect, it } from 'vitest';
-import { hashSigningToken, mintSigningToken, signingUrl, tokenRef } from './signing-token';
+import {
+  downloadUrl,
+  hashDownloadToken,
+  hashSigningToken,
+  mintDownloadToken,
+  mintSigningToken,
+  signingUrl,
+  tokenRef,
+} from './signing-token';
 
 const SECRET = 'unit-test-signing-secret-0123456789abcdef';
 
@@ -32,6 +40,22 @@ describe('signing tokens', () => {
   it('builds the link from the web app URL', () => {
     expect(signingUrl('https://app.example.com/', 'f'.repeat(64))).toBe(
       `https://app.example.com/sign/${'f'.repeat(64)}`,
+    );
+  });
+});
+
+describe('completion download tokens', () => {
+  it('are minted like signing tokens but hashed under their own label', () => {
+    const { rawToken, tokenHash } = mintDownloadToken(SECRET);
+    expect(rawToken).toMatch(SIGNING_TOKEN_PATTERN);
+    expect(tokenHash).toBe(hashDownloadToken(SECRET, rawToken));
+    // A download token can never pass for a signing token, or the reverse.
+    expect(tokenHash).not.toBe(hashSigningToken(SECRET, rawToken));
+  });
+
+  it('link to the API through the web app', () => {
+    expect(downloadUrl('https://app.example.com/', 'f'.repeat(64))).toBe(
+      `https://app.example.com/api/v1/download/${'f'.repeat(64)}`,
     );
   });
 });

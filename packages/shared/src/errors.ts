@@ -54,6 +54,8 @@ export const ERROR_CATALOG = {
   CONSENT_TEXT_CHANGED: { status: 409, title: 'The notice has changed' },
   INVALID_SIGNATURE_IMAGE: { status: 422, title: 'The signature image is not valid' },
   REMINDER_TOO_SOON: { status: 429, title: 'A reminder was sent recently' },
+  /** A completion download link past its date (docs/15 step 6). */
+  DOWNLOAD_LINK_EXPIRED: { status: 410, title: 'Download link expired' },
 
   // Idempotency (docs/08, API-03)
   IDEMPOTENCY_KEY_REQUIRED: { status: 400, title: 'An Idempotency-Key header is required' },

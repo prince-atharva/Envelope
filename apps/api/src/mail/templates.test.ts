@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   escapeHtml,
+  renderCompletedEmail,
   renderDeclinedEmail,
   renderSigningLinkEmail,
   renderWelcomeEmail,
+  signedFilename,
 } from './templates';
 
 describe('signing-link emails', () => {
@@ -113,5 +115,66 @@ describe('welcome email', () => {
     expect(escapeHtml(`<a href="x">'&'</a>`)).toBe(
       '&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;',
     );
+  });
+});
+
+describe('completion emails', () => {
+  const sha256 = 'ab'.repeat(32);
+  const base = {
+    to: 'priya@example.com',
+    name: 'Priya <Sharma>',
+    isSender: false,
+    senderName: 'Raj Kumar',
+    envelopeTitle: 'Lease <2026>',
+    sha256,
+    verifyUrl: 'https://sign.example.com/verify',
+    delivery: { kind: 'attachment' as const, filename: 'Lease (signed).pdf' },
+  };
+
+  it('says the document is attached and gives its fingerprint and how to check it', () => {
+    const email = renderCompletedEmail(base);
+    expect(email.subject).toBe('Completed: Lease <2026>');
+    expect(email.html).toContain('Lease &lt;2026&gt;');
+    expect(email.html).toContain('Priya &lt;Sharma&gt;');
+    expect(email.html).not.toContain('<Sharma>');
+    expect(email.html).toContain(sha256);
+    expect(email.html).toContain('href="https://sign.example.com/verify"');
+    expect(email.text).toContain('The finished document is attached: Lease (signed).pdf.');
+    expect(email.text).toContain(`${sha256}\n`);
+    expect(email.text).toContain('sha256sum');
+    expect(email.text).toContain('which Raj Kumar sent you');
+    expect(email.text).not.toContain('View the envelope');
+  });
+
+  it('gives a large document as a download link with its end date', () => {
+    const url = `https://sign.example.com/api/v1/download/${'d'.repeat(64)}`;
+    const email = renderCompletedEmail({
+      ...base,
+      delivery: { kind: 'link', url, expiresAt: new Date('2026-10-19T12:00:00Z') },
+    });
+    expect(email.html).toContain(`href="${url}"`);
+    expect(email.html).toContain('Download the document');
+    expect(email.text).toContain(`Download: ${url}`);
+    expect(email.text).toContain('the link works until 19 October 2026');
+    expect(email.text).toContain('please do not forward this email');
+  });
+
+  it('gives the sender a link to their envelope', () => {
+    const email = renderCompletedEmail({
+      ...base,
+      isSender: true,
+      envelopeUrl: 'https://sign.example.com/dashboard/envelopes/e1',
+    });
+    expect(email.text).toContain('Everyone has signed "Lease <2026>".');
+    expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e1"');
+    expect(email.text).toContain(
+      'View the envelope: https://sign.example.com/dashboard/envelopes/e1',
+    );
+  });
+
+  it('names the attachment after the original file, with only safe characters', () => {
+    expect(signedFilename('Lease 2026.pdf')).toBe('Lease 2026 (signed).pdf');
+    expect(signedFilename('Øresund "draft"/v2.PDF')).toBe('Øresund _draft_v2 (signed).pdf');
+    expect(signedFilename('.pdf')).toBe('document (signed).pdf');
   });
 });

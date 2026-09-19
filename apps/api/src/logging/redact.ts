@@ -21,6 +21,7 @@ const SENSITIVE_KEYS = [
   'signingToken',
   'rawToken',
   'signingUrl',
+  'downloadUrl',
   'tokenHash',
   'secret',
   'apiKey',
@@ -53,7 +54,8 @@ const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
 // Stops at ':' and ')' as well, so a stack frame keeps its line number. Real
 // tokens are hex and contain neither.
-const SIGNING_PATH = /(\/sign\/)[^/?#\s"':)]+/gi;
+// Signing links and completion download links alike.
+const SIGNING_PATH = /(\/(?:sign|download)\/)[^/?#\s"':)]+/gi;
 const SECRET_QUERY = /([?&](?:token|code|access_token|refresh_token|signature)=)[^&#\s"']+/gi;
 const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^:/?#\s]+:)[^@/?#\s]+@/gi;
 

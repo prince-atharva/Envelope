@@ -100,7 +100,14 @@ export class MailTransportService implements OnModuleDestroy {
     const started = performance.now();
     const fields = { template, to: maskEmail(email.to), transport: this.config.MAIL_TRANSPORT };
     try {
-      const info = (await this.transporter.sendMail({ from: this.from, ...email })) as {
+      // nodemailer rewrites attachment objects as it encodes them: give it
+      // copies, so the originals stay as they were for the outbox and the tests.
+      const attachments = email.attachments?.map((attachment) => ({ ...attachment }));
+      const info = (await this.transporter.sendMail({
+        from: this.from,
+        ...email,
+        attachments,
+      })) as {
         messageId: string;
         accepted?: unknown[];
         rejected?: unknown[];
@@ -115,6 +122,7 @@ export class MailTransportService implements OnModuleDestroy {
       this.logger.info(
         {
           ...fields,
+          attachmentBytes: email.attachments?.reduce((sum, a) => sum + a.content.length, 0),
           messageId: info.messageId,
           accepted: info.accepted?.length ?? 0,
           rejected: info.rejected?.length ?? 0,
@@ -141,14 +149,28 @@ export class MailTransportService implements OnModuleDestroy {
    * MAIL_TRANSPORT=file: one JSON file per message, readable only by this user,
    * named so that a directory listing sorts oldest first. The path is not
    * logged, because the file holds a live signing link.
+   *
+   * Attachments are written beside it as their own files, and the JSON names
+   * them, so it stays readable and the document can be opened.
    */
   private async writeToOutbox(sent: SentEmail): Promise<void> {
     const directory = path.resolve(this.config.APP_ROOT_DIR, this.config.MAIL_OUTBOX_DIR);
     await mkdir(directory, { recursive: true, mode: 0o700 });
-    const name = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}.json`;
+    const base = `${new Date().toISOString().replaceAll(':', '-')}-${randomUUID()}`;
+    const attachments = [];
+    for (const [index, attachment] of (sent.attachments ?? []).entries()) {
+      const file = `${base}-${index + 1}${path.extname(attachment.filename) || '.bin'}`;
+      await writeFile(path.join(directory, file), attachment.content, { mode: 0o600 });
+      attachments.push({
+        filename: attachment.filename,
+        contentType: attachment.contentType,
+        sizeBytes: attachment.content.length,
+        file,
+      });
+    }
     await writeFile(
-      path.join(directory, name),
-      JSON.stringify({ ...sent, sentAt: new Date().toISOString() }, null, 2),
+      path.join(directory, `${base}.json`),
+      JSON.stringify({ ...sent, attachments, sentAt: new Date().toISOString() }, null, 2),
       { mode: 0o600 },
     );
   }

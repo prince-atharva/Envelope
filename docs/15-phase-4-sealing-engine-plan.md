@@ -79,7 +79,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 3 | Stamping signatures and answers into the page | ✅ Done |
 | 4 | One version per signature, in order | ✅ Done |
 | 5 | The certificate page, sealing and locking | ✅ Done |
-| 6 | Completion emails with the finished copy | ⬜ |
+| 6 | Completion emails with the finished copy | ✅ Done |
 | 7 | Verify | ⬜ |
 | 8 | The sender's Completed screen | ⬜ |
 | 9 | Tests: three signers end to end, and the leak audits | ⬜ |
@@ -315,6 +315,44 @@ One `completed` job per person. The finished PDF is attached, with its SHA-256 a
 check it. The worker checks the attachment's size, and above 15 MB sends a download link instead. The
 link's token is created in the worker and only its HMAC is stored. It works for 30 days, and never in
 a log.
+
+### Step 6 as built
+
+| File | What it does |
+|---|---|
+| `apps/api/src/sealing/sealing.service.ts` | Once `catchUp` seals an envelope, it queues one `completed` job for each recipient and one for the sender. A failure to queue fails the seal job, and the retry queues them again. |
+| `apps/api/src/mail/completion.mailer.ts` | Worker side: reads the sealed file by its version id and checks that its SHA-256 equals `finalHash`, then attaches it. Above the size limit it mints a download token instead. Writes `COMPLETION_SENT` with `delivery: attachment` or `link`. |
+| `apps/api/src/mail/templates.ts` | `renderCompletedEmail()`: the fingerprint, how to check it (the Verify page or `sha256sum`), and for the sender a link to the envelope. `signedFilename()`: `agreement.pdf` becomes `agreement (signed).pdf`. |
+| `apps/api/src/completion/` | `GET /v1/download/:token` (doc 08) |
+| `apps/api/prisma/migrations/20260919140000_completion_downloads` | `CompletionDownload`: the envelope, the recipient (null for the sender), the token's HMAC, the expiry, and a download count |
+| `apps/api/src/signing/signing-token.ts` | `mintDownloadToken`, `hashDownloadToken`: the HMAC is taken under the label `completion-download`, so a download token never passes for a signing token |
+
+Decisions made while building it:
+
+| Question | Decision | Why |
+|---|---|---|
+| Sending each person their copy once | The mailer skips anyone who already has a `COMPLETION_SENT` event. Job ids are also fixed (`completed-<envelope>-<recipient or sender>`). | Neither a retried seal job nor a duplicate queue entry can send a second copy. A crash after sending but before the event is recorded can, as with invitations. |
+| The sender is also a recipient | Only the recipient's copy is sent | One email, not two |
+| Where the link points | `APP_URL/api/v1/download/<token>`, the API through the web app's `/api` | No web page is needed to download. An error comes back as problem JSON; a "request a new link" page is Phase 5. |
+| Single use | No. The link can be used until it expires, and each use is counted. | Mail scanners open links before people do |
+| Attachment or link | Decided by `DocumentVersion.sizeBytes` against `COMPLETION_ATTACHMENT_MAX_BYTES` (15 MB by default). The link lasts `COMPLETION_LINK_DAYS` (30 by default). | Both can be configured, so tests can take the link path |
+| nodemailer and attachments | The transport gives nodemailer copies of the attachment objects | nodemailer rewrites attachment objects as it encodes them. This showed up as a wrong fingerprint in the test mailbox. |
+| The `file` transport (browser tests, trying the app locally) | Each attachment is written next to the message's JSON as its own file | The JSON stays readable and the PDF can be opened. The browser helpers read only `.json` files. |
+
+Logs record the delivery method, the size, `tokenRef` for a link, and a masked address. They never
+record the token, the link or the name. `/download/<token>` is scrubbed from every logged URL,
+message and stack trace, like `/sign/<token>`.
+
+Tests:
+- Unit tests check the email template (attachment, link and sender versions, and escaping), the file name, the download token's separate label and URL, and redaction of `/download/` paths.
+- `test/sealing.e2e.test.ts` checks that both signers and the sender each get the sealed file attached, and that its SHA-256 equals `finalHash`. It also checks that the fingerprint is in the text, that `COMPLETION_SENT` is recorded for each person, and that nothing is sent twice.
+- `test/completion.e2e.test.ts` runs with a 1,000-byte limit, so every copy goes out as a link. It checks that:
+  - each person gets their own link, and only the HMACs are stored;
+  - the link expires after 30 days;
+  - the download matches `finalHash`, is private, and can be used again with each use counted;
+  - a second job is skipped;
+  - unknown, malformed, signing-token and expired links are refused (404 and 410), without the token appearing in the response;
+  - a sender who is also a recipient gets one copy.
 
 ## Step 7: Verify
 

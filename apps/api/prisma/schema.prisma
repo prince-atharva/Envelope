@@ -186,6 +186,7 @@ model Envelope {
   fields     DocumentField[]
   versions   DocumentVersion[]
   auditLogs  AuditTrail[]
+  downloads  CompletionDownload[]
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
@@ -258,6 +259,7 @@ model Recipient {
   fields      DocumentField[]
   auditEvents AuditTrail[]
   versions    DocumentVersion[]
+  downloads   CompletionDownload[]
 
   /// Lets DocumentField carry a composite foreign key on (recipientId, envelopeId),
   /// which is what stops a field pointing at a recipient of another envelope
@@ -331,6 +333,27 @@ model DocumentVersion {
   createdAt DateTime @default(now())
 
   @@unique([envelopeId, versionNumber])
+  @@index([envelopeId])
+}
+
+/// A private link to the finished document, emailed instead of an attachment
+/// when the file is too large to attach (docs/15 step 6). The token is minted by
+/// the email worker; only its HMAC is stored, like a signing link (ADR 0009).
+model CompletionDownload {
+  id         String   @id @default(uuid()) @db.Uuid
+  envelopeId String   @db.Uuid
+  envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+
+  /// Who the link was emailed to. Null: the sender, who is not a recipient.
+  recipientId String?    @db.Uuid
+  recipient   Recipient? @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  downloadCount    Int       @default(0)
+  lastDownloadedAt DateTime?
+  createdAt        DateTime  @default(now())
+
   @@index([envelopeId])
 }
 

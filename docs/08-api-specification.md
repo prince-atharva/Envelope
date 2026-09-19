@@ -461,6 +461,27 @@ in the audit metadata, which cannot be edited later. The sender is emailed with 
 `Referrer-Policy: no-referrer`. Problem details never echo the token: `instance` reads
 `/v1/sign/[redacted]`.
 
+## Completion Download (Phase 4)
+
+### `GET /v1/download/:token`
+
+The private link in a completion email when the finished document is too large to attach
+(over `COMPLETION_ATTACHMENT_MAX_BYTES`, 15 MB by default). **No authentication**: the token
+is the credential. It is 32 random bytes in hex, minted by the email worker. Only its HMAC is
+stored, under a label that keeps it apart from signing tokens (ADR 0009). The link works for
+`COMPLETION_LINK_DAYS` (30 by default) and can be used any number of times.
+
+Returns the sealed file as `application/pdf` with `Content-Disposition: attachment`, read by
+its locked storage version id (ADR 0007).
+
+| Situation | Response |
+|---|---|
+| Malformed or unknown token | 404 `NOT_FOUND` |
+| The link has expired | 410 `DOWNLOAD_LINK_EXPIRED` |
+
+Every response sends `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, and
+`instance` reads `/api/v1/download/[redacted]`. Limited to 30 requests a minute per IP.
+
 ## Verification
 
 ### `POST /v1/verify`

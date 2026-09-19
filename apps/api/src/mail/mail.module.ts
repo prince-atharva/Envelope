@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CompletionMailer } from './completion.mailer';
 import { EmailProcessor } from './email.processor';
 import { MailQueueService } from './mail-queue.service';
 import { MailTransportService, MemoryMailbox } from './mail-transport.service';
@@ -13,9 +14,9 @@ import { SigningLinkMailer } from './signing-link.mailer';
 export class MailProducerModule {}
 
 /**
- * Imported by the worker: renders and sends email. Signing links are minted
- * here too (ADR 0009), which is why the worker needs the database and the audit
- * trail (see WorkerModule).
+ * Imported by the worker: renders and sends email. Signing links and
+ * completion download links are minted here too (ADR 0009), which is why the
+ * worker needs the database, storage and the audit trail (see WorkerModule).
  */
 @Module({
   providers: [
@@ -24,6 +25,7 @@ export class MailProducerModule {}
     MemoryMailbox,
     SigningLinkMailer,
     SenderNoticeMailer,
+    CompletionMailer,
   ],
   exports: [MailTransportService, MemoryMailbox],
 })

@@ -21,6 +21,7 @@ const SEALABLE = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
 /** A round holds the envelope's seal lock while it reads, stamps and stores one version. */
 const ROUND_TIMEOUT_MS = 120_000;
 const NOTHING_TO_STAMP = 'nothing to stamp';
+const ENVELOPE_COMPLETED = 'envelope completed';
 
 export type RoundResult =
   | { kind: 'stamped'; versionNumber: number; recipientId: string; invited: string[] }
@@ -90,10 +91,16 @@ export class SealingService {
     for (;;) {
       const round = await this.stampNext(envelopeId);
       if (round.kind === 'idle') {
+        if (round.reason === ENVELOPE_COMPLETED) {
+          // A retry after the emails could not be queued. Queueing is
+          // idempotent, and the mailer skips anyone already sent their copy.
+          await this.queueCompletionEmails(envelopeId);
+        }
         if (round.reason !== NOTHING_TO_STAMP) return { stamped, reason: round.reason };
         // Every signature so far is in a version: if that is everyone, seal.
         const seal = await this.sealFinal(envelopeId);
         if (seal.kind === 'idle') return { stamped, reason: round.reason };
+        await this.queueCompletionEmails(envelopeId);
         return {
           stamped,
           reason: 'sealed',
@@ -112,6 +119,30 @@ export class SealingService {
         }
       }
     }
+  }
+
+  /**
+   * One completion email per recipient, whatever their role, and one for the
+   * sender (docs/15 step 6). A failure is thrown, so the seal job is retried
+   * and queues them again.
+   */
+  private async queueCompletionEmails(envelopeId: string): Promise<void> {
+    const recipients = await this.prisma.recipient.findMany({
+      where: { envelopeId },
+      select: { id: true },
+      orderBy: { routingOrder: 'asc' },
+    });
+    try {
+      for (const { id } of recipients) await this.mail.enqueueCompleted(envelopeId, id);
+      await this.mail.enqueueCompleted(envelopeId, null);
+    } catch (error) {
+      this.logger.error(
+        { err: error, alert: true, envelopeId },
+        'Completion emails could not be queued; the seal job will retry',
+      );
+      throw error;
+    }
+    this.logger.info({ envelopeId, recipients: recipients.length }, 'Completion emails queued');
   }
 
   /** One round: the oldest signature not yet in a version becomes the next version. */

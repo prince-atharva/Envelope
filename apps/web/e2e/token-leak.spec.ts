@@ -6,6 +6,7 @@ import pg from 'pg';
 import {
   agreeToSign,
   allSigningTokens,
+  outboxMessages,
   prepareToSend,
   sendFromReview,
   signingLinkFor,
@@ -37,7 +38,7 @@ function signerContext(browser: Browser, testInfo: TestInfo) {
 }
 
 async function outboxHas(to: string, template: string): Promise<boolean> {
-  for (const file of await readdir(OUTBOX_DIR).catch(() => [] as string[])) {
+  for (const file of await outboxMessages()) {
     const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as {
       to: string;
       template: string;

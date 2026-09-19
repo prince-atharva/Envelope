@@ -103,6 +103,13 @@ describe('redaction helpers', () => {
     expect(redactUrl('/api/v1/envelopes?limit=10')).toBe('/api/v1/envelopes?limit=10');
   });
 
+  it('removes completion download tokens from URLs', () => {
+    expect(redactUrl(`/api/v1/download/${'c'.repeat(64)}`)).toBe('/api/v1/download/[redacted]');
+    expect(scrubSecrets(`Download: https://app.test/api/v1/download/${'c'.repeat(64)}`)).toBe(
+      'Download: https://app.test/api/v1/download/[redacted]',
+    );
+  });
+
   it('scrubs signing links out of a browser stack trace', () => {
     const stack = [
       'TypeError: x is undefined',

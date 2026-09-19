@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
 import { LoggingThrottlerGuard } from './common/throttling/logging-throttler.guard';
+import { CompletionModule } from './completion/completion.module';
 import { ConfigModule } from './config/config.module';
 import { DraftsModule } from './drafts/drafts.module';
 import { EnvelopesModule } from './envelopes/envelopes.module';
@@ -50,6 +51,7 @@ import { StorageModule } from './storage/storage.module';
     DraftsModule,
     SendingModule,
     SigningModule,
+    CompletionModule,
     HealthModule,
     ClientLogsModule,
   ],

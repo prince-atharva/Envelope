@@ -197,6 +197,12 @@ export async function prepareToSend(
   return envelopeId;
 }
 
+/** The outbox's messages. Attachments sit beside them as their own files. */
+export async function outboxMessages(): Promise<string[]> {
+  const files = await readdir(OUTBOX_DIR).catch(() => [] as string[]);
+  return files.filter((file) => file.endsWith('.json')).sort();
+}
+
 interface OutboxEmail {
   to: string;
   template: string;
@@ -212,7 +218,7 @@ interface OutboxEmail {
 export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise<string> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const files = (await readdir(OUTBOX_DIR).catch(() => [] as string[])).sort().reverse();
+    const files = (await outboxMessages()).reverse();
     for (const file of files) {
       const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
       if (message.to !== email || !['invitation', 'reminder'].includes(message.template)) continue;
@@ -227,7 +233,7 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
 /** Every signing token emailed so far in this run, from any email in the outbox. */
 export async function allSigningTokens(): Promise<string[]> {
   const tokens = new Set<string>();
-  for (const file of await readdir(OUTBOX_DIR).catch(() => [] as string[])) {
+  for (const file of await outboxMessages()) {
     const message = await readFile(join(OUTBOX_DIR, file), 'utf8');
     for (const match of message.matchAll(/\/sign\/([0-9a-f]{64})/g)) {
       if (match[1]) tokens.add(match[1]);

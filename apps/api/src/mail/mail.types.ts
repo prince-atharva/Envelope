@@ -31,12 +31,35 @@ export interface DeclinedNoticeJob {
   requestId?: string;
 }
 
-export type EmailJobData = WelcomeEmailJob | SigningLinkEmailJob | DeclinedNoticeJob;
+/**
+ * The finished document, to one person (docs/15 step 6). Ids only: the worker
+ * reads the sealed file and, for a large one, mints the download link itself.
+ */
+export interface CompletedEmailJob {
+  template: 'completed';
+  envelopeId: string;
+  /** Null: the sender, who is not a recipient. */
+  recipientId: string | null;
+  requestId?: string;
+}
+
+export type EmailJobData =
+  | WelcomeEmailJob
+  | SigningLinkEmailJob
+  | DeclinedNoticeJob
+  | CompletedEmailJob;
 export type EmailTemplate = EmailJobData['template'];
+
+export interface EmailAttachment {
+  filename: string;
+  contentType: string;
+  content: Buffer;
+}
 
 export interface RenderedEmail {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: EmailAttachment[];
 }

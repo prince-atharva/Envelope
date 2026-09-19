@@ -210,3 +210,106 @@ export function renderSigningLinkEmail(email: SigningLinkEmail): RenderedEmail {
 
   return { to: email.to, subject, html, text };
 }
+
+/** How the finished document reaches the reader: attached, or behind a private link. */
+export type CompletedDelivery =
+  | { kind: 'attachment'; filename: string }
+  | { kind: 'link'; url: string; expiresAt: Date };
+
+/** Everything the completion email needs, read by the worker. */
+export interface CompletedEmail {
+  to: string;
+  name: string;
+  /** The sender gets a link to their envelope page as well. */
+  isSender: boolean;
+  senderName: string;
+  envelopeTitle: string;
+  /** SHA-256 of the sealed file, as recorded in Envelope.finalHash. */
+  sha256: string;
+  verifyUrl: string;
+  /** Only for the sender. */
+  envelopeUrl?: string;
+  delivery: CompletedDelivery;
+}
+
+/**
+ * The completion email (docs/15 step 6): identical document for everyone, with
+ * its fingerprint and how to check it. The fingerprint is not in the PDF
+ * itself (docs/06, Correction 3), so this email and Verify are where people
+ * find it.
+ */
+export function renderCompletedEmail(email: CompletedEmail): RenderedEmail {
+  const title = oneLine(email.envelopeTitle);
+  const sender = oneLine(email.senderName);
+  const subject = `Completed: ${title}`;
+  const intro = email.isSender
+    ? `Everyone has signed "${title}". The finished document is sealed and can no longer be changed.`
+    : `Everyone has signed "${title}", which ${sender} sent you. The finished document is sealed and can no longer be changed.`;
+  const where =
+    email.delivery.kind === 'attachment'
+      ? `The finished document is attached: ${email.delivery.filename}.`
+      : `The finished document is too large to attach. Download it with the button below; the link works until ${formatDate(email.delivery.expiresAt)}.`;
+  const check =
+    'To check that a copy is exactly the sealed document, upload it on the Verify page, ' +
+    'or run "sha256sum" on the file and compare the result with the fingerprint above.';
+  const footer =
+    `You received this email because you took part in signing this document using ${BRAND.fullName}. ` +
+    (email.delivery.kind === 'link'
+      ? 'The download link is personal to you, so please do not forward this email.'
+      : 'Keep this email: it holds your copy and its fingerprint.');
+
+  const actions =
+    email.delivery.kind === 'link'
+      ? button(email.delivery.url, 'Download the document')
+      : email.envelopeUrl
+        ? button(email.envelopeUrl, 'View the envelope')
+        : '';
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(email.name))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(where)}</p>
+     ${actions}
+     <p style="margin:0 0 4px;">Fingerprint (SHA-256) of the finished document:</p>
+     <p style="margin:0 0 16px;padding:8px 12px;background:#f4f6f8;font-family:Menlo,Consolas,monospace;font-size:12px;word-break:break-all;">${escapeHtml(email.sha256)}</p>
+     <p style="margin:0 0 8px;color:#6b7785;font-size:13px;">${escapeHtml(check)}
+       <a href="${escapeHtml(email.verifyUrl)}" style="color:${BRAND_COLOR};">Open the Verify page</a>.</p>
+     ${
+       email.delivery.kind === 'link' && email.envelopeUrl
+         ? `<p style="margin:0;color:#6b7785;font-size:13px;"><a href="${escapeHtml(email.envelopeUrl)}" style="color:${BRAND_COLOR};">View the envelope</a></p>`
+         : ''
+     }`,
+    footer,
+  );
+
+  const text = [
+    `Hi ${oneLine(email.name)},`,
+    '',
+    intro,
+    '',
+    where,
+    ...(email.delivery.kind === 'link' ? [`Download: ${email.delivery.url}`] : []),
+    '',
+    'Fingerprint (SHA-256) of the finished document:',
+    email.sha256,
+    '',
+    check,
+    `Verify: ${email.verifyUrl}`,
+    ...(email.envelopeUrl ? ['', `View the envelope: ${email.envelopeUrl}`] : []),
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: email.to, subject, html, text };
+}
+
+/** "Agreement.pdf" becomes "Agreement (signed).pdf", with only safe characters. */
+export function signedFilename(originalFilename: string): string {
+  const stem = originalFilename
+    .replace(/\.pdf$/i, '')
+    .replace(/[^\p{L}\p{N} ._()-]+/gu, '_')
+    .trim()
+    .slice(0, 120);
+  return `${stem || 'document'} (signed).pdf`;
+}

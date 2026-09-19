@@ -6,6 +6,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { maskEmail } from '../logging/redact';
 import { EMAIL_QUEUE } from '../queue/queue.module';
 import type {
+  CompletedEmailJob,
   DeclinedNoticeJob,
   EmailJobData,
   SigningLinkEmailJob,
@@ -91,6 +92,31 @@ export class MailQueueService implements OnModuleInit {
       requestId: this.cls.isActive() ? this.cls.getId() : undefined,
     };
     const job = await this.queue.add(data.template, data, { jobId: `declined-${envelopeId}` });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /**
+   * The finished document to one person; `null` is the sender. One job per
+   * person and envelope: calling this again while the job is kept in Redis adds
+   * nothing, and the worker skips anyone already sent their copy.
+   */
+  async enqueueCompleted(
+    envelopeId: string,
+    recipientId: string | null,
+  ): Promise<string | undefined> {
+    const data: CompletedEmailJob = {
+      template: 'completed',
+      envelopeId,
+      recipientId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `completed-${envelopeId}-${recipientId ?? 'sender'}`,
+    });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
       'Email job enqueued',

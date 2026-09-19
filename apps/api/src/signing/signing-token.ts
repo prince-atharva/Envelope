@@ -32,6 +32,27 @@ export function tokenRef(tokenHash: string): string {
   return tokenHash.slice(0, 8);
 }
 
+/**
+ * Completion download links (docs/15 step 6) are made the same way, but hashed
+ * under their own label, so a download token can never pass for a signing
+ * token or the reverse, although both use SIGNING_TOKEN_SECRET.
+ */
+const DOWNLOAD_LABEL = 'completion-download\0';
+
+export function hashDownloadToken(secret: string, rawToken: string): string {
+  return createHmac('sha256', secret).update(DOWNLOAD_LABEL).update(rawToken).digest('hex');
+}
+
+export function mintDownloadToken(secret: string): MintedToken {
+  const rawToken = randomBytes(32).toString('hex');
+  return { rawToken, tokenHash: hashDownloadToken(secret, rawToken) };
+}
+
+/** The link in a completion email. Served by the API, through the web app's /api. */
+export function downloadUrl(appUrl: string, rawToken: string): string {
+  return `${appUrl.replace(/\/+$/, '')}/api/v1/download/${rawToken}`;
+}
+
 /** The link that goes into an invitation or reminder. */
 export function signingUrl(appUrl: string, rawToken: string): string {
   return `${appUrl.replace(/\/+$/, '')}/sign/${rawToken}`;
