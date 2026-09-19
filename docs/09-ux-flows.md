@@ -235,6 +235,12 @@ Optimised for first-time use on a mobile browser over a poor connection.
 
 PDF.js is code-split and loaded after the consent gate, since the document is not visible until consent is given anyway.
 
+> **As built (Phase 3).** Measured in a production build: before consent a signer loads about
+> 131 KB of JavaScript (gzipped), 143 KB once the signing workspace loads, plus 132 KB of PDF.js.
+> The signer portal and the sender app are separate lazy chunks, and a signer's browser never
+> loads the sender pages or calls `/auth/refresh`. Time to interactive and Lighthouse have not been
+> measured yet.
+
 ### Consent gate
 
 ```
@@ -259,6 +265,13 @@ PDF.js is code-split and loaded after the consent gate, since the document is no
 
 The document is **not fetched** until consent is recorded — the gate is a server-side precondition, not a UI overlay. Rendering the document behind a dismissible modal would let a determined user read and sign without consenting, which defeats the legal purpose.
 
+> **As built (Phase 3).** The notice is shown exactly as the server sent it. Until the lawyer's
+> wording arrives it is a placeholder that begins "DRAFT — not legally reviewed". The sender's
+> message, if any, is shown above it. **Review document** stays disabled until the box is ticked.
+> The agreement carries the SHA-256 of the notice on screen. If the wording changed in the
+> meantime, the new text is shown with a request to read it again. **Decline to sign** is available
+> here, before consent.
+
 ### Guided navigation
 
 ```typescript
@@ -274,6 +287,12 @@ const nextField = fields
 
 The floating action button shows `NEXT: {type} — {n} of {total}` and scrolls the field to centre-viewport with a brief highlight pulse. When none remain it becomes `FINISH`.
 
+> **As built (Phase 3).** Ties on the same line are broken left to right (`orderFieldsForSigning`
+> in `@envelope/shared`). The server returns the fields in that order too. The button sits in a bar
+> along the bottom that always shows how many required boxes are done ("1 of 2 required boxes
+> done"). It reads **Start**, then **Next: Signature**, **Next: Tick box** and so on, then
+> **Finish**.
+
 ### Signature capture
 
 | Requirement | Implementation |
@@ -284,6 +303,23 @@ The floating action button shows `NEXT: {type} — {n} of {total}` and scrolls t
 | Payload cap | 500 KB; downscale before upload if exceeded |
 | Typed alternative | Canvas render in an embedded script face, exported identically — one downstream pipeline |
 | Persistence | Adopted signature held in `sessionStorage` for reuse across fields in the same session |
+
+> **As built (Phase 3).**
+>
+> - **Type is the default tab.** It shows the name in three self-hosted handwriting fonts (Dancing
+>   Script, Great Vibes, Caveat), so no request goes to a third party.
+> - **Adopting sends the image to the server** (`POST /sign/:token/adopt`), one per kind, and a
+>   copy stays in `sessionStorage` to show in the boxes for this tab. Which boxes were tapped is part
+>   of the saved draft, and the session says which kinds the server holds, so a signer who comes
+>   back finds those boxes still signed.
+> - **Each signature box is tapped.** The adopted image goes into the boxes the signer taps, which
+>   records their intent box by box, as on paper. Tapping a signed box offers to change the
+>   signature, and an optional box can be cleared. On submit the server fills every required box of
+>   that kind.
+> - The PNG is cropped to the ink before upload, and scaled down only if it is over 500 KB.
+> - **Text boxes are filled in a sheet** with a full-size input, not typed into the box. A box on a
+>   phone is often about 11 px tall, and iOS zooms the page in on any input under 16 px. Tick boxes
+>   toggle in place. Date boxes show today's date, and the server sets the real value.
 
 **iOS Safari — mandatory handling:**
 
@@ -305,6 +341,16 @@ Without both, the page scrolls under the finger and the captured stroke is unusa
 Field values are written to `localStorage` on every change, keyed by token hash. On reload, unsent work is restored with a notice. Cleared on successful submit.
 
 Submission uses exponential backoff with a clear retry affordance — never a silent failure. A signer who loses signal mid-flow and returns to an empty form will not start again.
+
+> **As built (Phase 3).**
+>
+> - **The draft is keyed by the signer's lowest field id, not by a hash of the token.** The token
+>   is then never stored anywhere, even hashed, and a reminder's new link still finds the draft.
+> - Drafts are cleared on finishing or declining, and removed after 90 days.
+> - Adopting and finishing retry a dropped connection or a server error after 1, 2 and 4 seconds,
+>   then offer **Try again**.
+> - A finish that got through but whose answer was lost is recognised: the retry is answered
+>   `410 TOKEN_ALREADY_USED`, which counts as done.
 
 ## Accessibility — WCAG 2.2 AA
 
@@ -334,6 +380,30 @@ Typed signatures being equally prominent is both an accessibility requirement an
 | Delegation | Name and email of the delegate; both parties notified; fully audited | `200` |
 
 `410` for already-signed rather than `401` exists so the portal can distinguish "you are done" from "something is wrong". Conflating them turns a success into an apparent failure.
+
+### As built (Phase 3)
+
+Every screen is shown calmly, as an ordinary situation rather than an error. A refusal can come on
+any request, not only the first: someone else may decline while this person is halfway through.
+
+| State | Heading on screen | HTTP |
+|---|---|---|
+| Just signed | "Signed", with the server's message | `202` |
+| Already signed | "You have already signed this document". No download link until the finished copy exists (Phase 4) | `410 TOKEN_ALREADY_USED` |
+| You declined, now or earlier | "You declined this document" | `200`, then `409 ENVELOPE_TERMINAL` with `reason: YOU_DECLINED` |
+| Another recipient declined | "This document is no longer available for signature" | `409 ENVELOPE_TERMINAL`, `reason: DECLINED` |
+| Envelope voided | "This document has been cancelled by the sender" | `409 ENVELOPE_TERMINAL`, `reason: VOIDED` |
+| Expired | "This signing link has expired", and a request to ask the sender to send it again. **Request a new link** arrives in Phase 5 | `401 TOKEN_EXPIRED` |
+| **Link replaced, or never issued** | "This link does not work". It explains that a newer email, such as a reminder, may have replaced the link, and asks the signer to use the most recent one | `401 TOKEN_INVALID` |
+| Closed for any other reason | "This document is no longer open for signing" | `409 ENVELOPE_TERMINAL` |
+
+- **The replaced-link screen is new.** Every reminder creates a new link and stops the old one
+  (ADR 0009). An old email is therefore an ordinary way to arrive at a dead link, and the screen
+  says so.
+- A link that is not even shaped like a token gets the same screen without asking the server.
+- **Not yet your turn** cannot happen: with *one after another*, a person is emailed only when their
+  turn comes, so they have no link before then.
+- Delegation is not built.
 
 ## In-Person Signing
 

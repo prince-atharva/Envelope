@@ -167,6 +167,12 @@ enum RecipientStatus {
   DECLINED
 }
 
+// As built (Phase 3): how an adopted signature or initials image was made.
+enum SignatureMethod {
+  DRAWN
+  TYPED
+}
+
 enum FieldType {
   SIGNATURE
   INITIALS
@@ -214,6 +220,7 @@ model Envelope {
 
   // Routing
   sequentialSigning Boolean       @default(false)
+  sentAt            DateTime?     // As built (Phase 3): when it left DRAFT
   expiresAt         DateTime?
   completedAt       DateTime?
 
@@ -256,10 +263,22 @@ model Recipient {
   //
   // As built (Phase 2): both are NULLABLE. Tokens are minted when the envelope
   // is sent, and a recipient added while preparing a draft has none yet.
-  tokenHash      String          @unique
-  tokenExpiresAt DateTime
+  //
+  // As built (Phase 3): the email worker mints the token as it sends the
+  // invitation (ADR 0009), and every reminder mints a new one and overwrites
+  // these, so only the newest link works. Decline and void leave the hash in
+  // place: the envelope's status stops the link, and the portal can still say
+  // why (doc 10).
+  tokenHash      String?         @unique
+  tokenExpiresAt DateTime?
   tokenUsedAt    DateTime?       // single-use enforcement
   accessCode     String?         // optional SMS OTP, hashed
+
+  // ── Progress, shown to the sender (As built, Phase 3) ──
+  invitedAt      DateTime?       // their turn began: at send, or when the group before finished
+  notifiedAt     DateTime?       // the mail server last accepted an invitation or reminder
+  lastRemindedAt DateTime?       // limits reminders to one a day
+  viewedAt       DateTime?       // first time they opened the link
 
   // ── Consent (ESIGN requirement — see doc 07) ──
   // The verbatim disclosure text is stored, not a reference to a
@@ -268,7 +287,17 @@ model Recipient {
   consentGivenAt DateTime?
   consentText    String?         @db.Text
 
+  // ── Adopted images (As built, Phase 3) ──
+  // Object-storage keys to transparent PNGs. Submit copies them into every
+  // SIGNATURE and INITIALS field this person owns. The method is what doc 00
+  // calls "how they signed".
+  signatureImageKey String?
+  signatureMethod   SignatureMethod?
+  initialsImageKey  String?
+  initialsMethod    SignatureMethod?
+
   signedAt       DateTime?
+  declinedAt     DateTime?       // As built (Phase 3)
   declinedReason String?
 
   // Signing telemetry
@@ -386,6 +415,7 @@ model AuditTrail {
 | `completedFileUrl` | The final sealed document. Populated only on completion. |
 | `originalHash` / `finalHash` | Convenience copies of version 0 and the final version's fingerprints. `DocumentVersion` is authoritative. |
 | `sequentialSigning` | `true` = one at a time in order; `false` = everyone at once. |
+| `sentAt` | When it was sent. Set once, as it leaves `DRAFT`. |
 | `expiresAt` | After this moment all tokens stop working. |
 | `jurisdictionCode` | Drives which legal rules apply. See doc 07. |
 
@@ -394,9 +424,16 @@ model AuditTrail {
 | Field | Meaning |
 |---|---|
 | `routingOrder` | Position in the queue. Equal values sign in parallel. |
-| `tokenHash` | HMAC-SHA256 of the signing token. The raw token is never stored. |
+| `tokenHash` | HMAC-SHA256 of the signing token. The raw token is never stored. Replaced by every reminder, so only the newest link works. |
 | `tokenUsedAt` | Set on submission. Makes the link single-use. |
+| `invitedAt` | Their turn began: at send, or when the group before them finished. |
+| `notifiedAt` | The mail server last accepted an invitation or reminder for them. There is no delivery confirmation beyond that. |
+| `lastRemindedAt` | The sender last asked for a reminder. One a day at most. |
+| `viewedAt` | They first opened the link. `VIEWED` is a status of the recipient only; the envelope has no such status. |
 | `consentText` | The verbatim disclosure shown. **Not a template reference.** |
+| `signatureImageKey` / `initialsImageKey` | The adopted images, copied into their fields on submit. |
+| `signatureMethod` / `initialsMethod` | `DRAWN` or `TYPED`: how each image was made. |
+| `declinedAt` / `declinedReason` | When and why they declined. The reason is kept here and never in the audit trail, which cannot be edited later. |
 | `signedFromIp` / `signedFromUa` | Evidence of who signed from where. |
 
 ### DocumentField
@@ -424,6 +461,11 @@ These MUST be enforced, and each SHOULD have a test:
 | 8 | Exactly one `DocumentVersion` per envelope has `isFinal = true` | Partial unique index |
 | 9 | Terminal-status envelopes are immutable | Application guard + test over every transition |
 | 10 | `originalFileUrl` never changes after creation | Application guard |
+| 11 | A sent envelope has `sentAt` | **As built (Phase 3):** `CHECK` `Envelope_sent_has_time` |
+| 12 | A `SIGNED` recipient has `signedAt` and a spent token (`tokenUsedAt`) | **As built (Phase 3):** `CHECK` `Recipient_signed_has_evidence` |
+| 13 | A `DECLINED` recipient has `declinedAt` and a reason | **As built (Phase 3):** `CHECK` `Recipient_declined_has_reason` |
+| 14 | Consent is never recorded without its verbatim text | **As built (Phase 3):** `CHECK` `Recipient_consent_has_text` |
+| 15 | An adopted image always records how it was made | **As built (Phase 3):** `CHECK` `Recipient_signature_has_method` and `Recipient_initials_has_method` |
 
 ### Database privileges for the audit table
 

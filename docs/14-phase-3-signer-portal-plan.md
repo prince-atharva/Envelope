@@ -91,7 +91,7 @@ From doc 11, Phase 3 is finished when:
 | 8 | Send dialog and progress screen | ✅ Done |
 | 9 | The signing screens | ✅ Done |
 | 10 | Browser tests and the link-leak audit | ✅ Done |
-| 11 | Real-phone check, documentation and release `v0.3.0` | ⬜ |
+| 11 | Real-phone check, documentation and release `v0.3.0` | 🟡 Documentation done; phone check and release to come |
 
 ## What We Need From You
 

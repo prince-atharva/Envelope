@@ -244,6 +244,13 @@ Phase 3 (Signer Portal) in progress. See
 - **Browser tests for iPhone 14 now run on WebKit**, the engine of Safari on iOS, instead of
   Chromium dressed as an iPhone. CI installs WebKit and runs the signing tests and the leak audit on
   it, as well as every test on desktop Chrome.
+- **The specification now describes Phase 3 as built.** Doc 03: `VIEWED` is a recipient status
+  only, there is no `DELIVERED` step, links are created by the worker, and the next signer is invited
+  on submit. Doc 05: the new columns and CHECK constraints. Doc 08: send, remind, every signing
+  route, the link check order, and the new error codes. Doc 09: the consent gate, guided
+  navigation, signature capture, the saved draft, and every end screen, including the new "this
+  link does not work" screen for replaced links. Doc 10: worker minting, revocation by state, the
+  handling rules and the leak audit.
 - The browser-test stack logs at `debug` by default, so the leak audit searches every line the API
   and worker could write. `E2E_LOG_LEVEL` still overrides it.
 

@@ -243,6 +243,9 @@ transaction, and the response says how many went in `fieldsRemoved`.
 { "message": "Please review and sign by Friday.", "expiresInDays": 14 }
 ```
 
+Both are optional, and so is the body. `expiresInDays` is 1 to 90 and defaults to the server's
+`SIGNING_DEFAULT_EXPIRY_DAYS` (14). `message` replaces the envelope's message; `null` clears it.
+
 `200 OK`:
 
 ```json
@@ -251,8 +254,8 @@ transaction, and the response says how many went in `fieldsRemoved`.
   "status": "SENT",
   "sentAt": "2026-09-10T09:20:00Z",
   "expiresAt": "2026-09-24T09:20:00Z",
-  "recipients": [
-    { "id": "9d4e...", "status": "SENT", "notifiedAt": "2026-09-10T09:20:01Z" }
+  "invited": [
+    { "id": "9d4e...", "status": "SENT" }
   ]
 }
 ```
@@ -261,6 +264,26 @@ Replaying the same `Idempotency-Key` within 24 hours returns the original respon
 
 Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at least one required field; at least one document; status is `DRAFT`.
 
+> **As built (Phase 3).**
+>
+> - **`invited`, not `recipients` with `notifiedAt`.** Emails are sent by the worker after the
+>   response, so no delivery time is known yet. `invited` lists everyone emailed now: every signer and
+>   approver when signing is *everyone at once*, only the lowest `routingOrder` group when it is
+>   *one after another*. The next group is invited when every signer and approver in the current one
+>   has signed. VIEWER and CC are not emailed until the finished copy exists (Phase 4). Progress
+>   comes from `GET /v1/envelopes/:id`, below.
+> - **Idempotency.** The key is 8 to 128 letters, digits, dots, dashes or colons, and is scoped to
+>   the tenant and the envelope. Without it the request gets 400 `IDEMPOTENCY_KEY_REQUIRED`. The
+>   same key with a different body gets 422 `IDEMPOTENCY_KEY_MISMATCH`. A request that fails
+>   releases its key, so it can be retried as it was. Only a hash of the key is stored.
+> - **Refusals list every problem** in `errors`: `RECIPIENT_HAS_NO_FIELDS` when that is the
+>   problem, otherwise 422 `NOT_READY_TO_SEND`. An envelope with only VIEWER and CC recipients is
+>   refused too. A sent envelope gets 409 `ENVELOPE_NOT_DRAFT`.
+> - **Nothing is sent inside the transaction.** One transaction locks the draft, re-checks it, sets
+>   `SENT`, `sentAt` and `expiresAt`, marks the first group invited and writes `ENVELOPE_SENT`. The
+>   invitation jobs are queued after it commits. Each job carries only ids. The worker creates the
+>   signing link, stores its HMAC and sends the email ([ADR 0009](adr/0009-store-only-the-hmac-of-signing-tokens.md)).
+
 ### Other envelope operations
 
 | Method | Path | Purpose |
@@ -268,54 +291,135 @@ Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at leas
 | `GET` | `/v1/envelopes/:id` | Full state including recipients, fields, versions |
 | `GET` | `/v1/envelopes?status=&cursor=&limit=` | List, filterable |
 | `POST` | `/v1/envelopes/:id/void` | Cancel. Body: `{ "reason": "..." }`. Invalidates all tokens synchronously. |
-| `POST` | `/v1/envelopes/:id/remind` | Nudge outstanding recipients. Rate-limited to 1/recipient/24h. |
+| `POST` | `/v1/envelopes/:id/remind` | Nudge outstanding recipients. Rate-limited to 1/recipient/24h. Built in Phase 3; see below. |
 | `GET` | `/v1/envelopes/:id/documents/original` | The untouched upload |
 | `GET` | `/v1/envelopes/:id/documents/completed` | The sealed document. `409` if not `COMPLETED`. |
 | `GET` | `/v1/envelopes/:id/documents/versions/:n` | A specific version from the chain |
 | `GET` | `/v1/envelopes/:id/audit` | Full audit trail |
 
+#### `POST /v1/envelopes/:id/remind` (Phase 3)
+
+```json
+{ "recipientIds": ["9d4e..."] }
+```
+
+The body is optional. Without `recipientIds`, everyone whose turn it is and who has not finished is
+reminded. `200 OK`:
+
+```json
+{
+  "reminded": ["9d4e..."],
+  "skipped": [{ "recipientId": "b71c...", "reason": "NOT_THEIR_TURN" }]
+}
+```
+
+- `reason` is `TOO_SOON`, `NOT_THEIR_TURN` or `FINISHED`. If nobody could be reminded and at least
+  one person was reminded within the last 24 hours, the answer is 429 `REMINDER_TOO_SOON`, with
+  `Retry-After` for the soonest of them.
+- If no email has reached the person yet, a reminder may be retried after 10 minutes. This is also
+  how a failed invitation is sent again.
+- **Every reminder carries a new link, and the previous one stops working.** Only the link's HMAC
+  is stored, so there is nothing to resend (ADR 0009).
+- Each reminder writes `REMINDER_REQUESTED`.
+- A draft gets 409 `CONFLICT`, a closed envelope 409 `ENVELOPE_TERMINAL`, and a recipient id that
+  is not on the envelope 404.
+
+**Progress.** From Phase 3, `GET /v1/envelopes/:id` includes `sentAt` and `expiresAt`, and for
+each recipient `invitedAt`, `notifiedAt` (the mail server accepted the last email), `lastRemindedAt`,
+`viewedAt`, `signedAt`, `declinedAt` and `declinedReason`. The reason is shown to the sender only.
+
 ## Signing Session
 
 Unauthenticated, token-gated. Consumed by the signer portal.
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/v1/sign/:token` | Fetch session: document URL, this recipient's fields, consent requirement |
-| `POST` | `/v1/sign/:token/consent` | Record consent. Body: `{ "agreed": true }` |
-| `POST` | `/v1/sign/:token/submit` | Submit field values and finish |
-| `POST` | `/v1/sign/:token/decline` | Decline. Body: `{ "reason": "..." }` — required |
+| Method | Path | Purpose | Audit event |
+|---|---|---|---|
+| `GET` | `/v1/sign/:token` | Fetch session: this recipient's fields (after consent), consent requirement | `ENVELOPE_VIEWED`, first time only |
+| `GET` | `/v1/sign/:token/document` | The PDF, only after consent | — |
+| `POST` | `/v1/sign/:token/consent` | Record consent. Body: `{ "agreed": true, "consentTextHash": "..." }` | `CONSENT_GIVEN` |
+| `POST` | `/v1/sign/:token/adopt` | Adopt a signature or initials image | `SIGNATURE_ADOPTED` |
+| `POST` | `/v1/sign/:token/submit` | Submit field values and finish | `RECIPIENT_SIGNED` |
+| `POST` | `/v1/sign/:token/decline` | Decline. Body: `{ "reason": "..." }` — required | `RECIPIENT_DECLINED` |
 
-`GET /v1/sign/:token` → `200 OK`:
+`GET /v1/sign/:token` → `200 OK`, before consent:
 
 ```json
 {
   "envelopeTitle": "Consulting Agreement — Acme Corp",
+  "senderName": "Priya Sharma",
   "recipientName": "Raj Patel",
-  "documentUrl": "https://.../signed-url?expires=...",
   "pageCount": 12,
+  "expiresAt": "2026-09-24T09:20:00Z",
+  "message": "Please review and sign by Friday.",
   "consentRequired": true,
-  "consentText": "By checking this box, you agree to sign electronically...",
-  "fields": [
-    { "id": "a1b2...", "type": "SIGNATURE", "pageNumber": 4,
-      "ratioX": 0.43, "ratioY": 0.74, "ratioWidth": 0.25, "ratioHeight": 0.06,
-      "required": true, "isCompleted": false }
-  ],
-  "expiresAt": "2026-09-24T09:20:00Z"
+  "consentText": "DRAFT — not legally reviewed. ...\n\nAgreement to sign electronically\n\nBy ticking the box below, you agree...",
+  "consentTextHash": "5e88...",
+  "fields": [],
+  "adopted": {}
 }
 ```
 
+After consent, `consentRequired` is `false`, `consentText` and `consentTextHash` are `null`, and
+`fields` holds this recipient's fields, in the order the signer is guided through them (page, then
+top to bottom, then left to right):
+
+```json
+  "fields": [
+    { "id": "a1b2...", "type": "SIGNATURE", "pageNumber": 4,
+      "ratioX": 0.43, "ratioY": 0.74, "ratioWidth": 0.25, "ratioHeight": 0.06,
+      "required": true }
+  ],
+  "adopted": { "SIGNATURE": "DRAWN" }
+```
+
 Only **this recipient's** fields are returned. Other recipients' fields are never exposed — that would leak who else is signing and where.
+
+> **As built (Phase 3).** Where this differs from the original design:
+>
+> - **Nothing about the document before consent.** The design returned `documentUrl` and the fields
+>   while `consentRequired` was still true. Doc 07 makes consent a server-side precondition, so the
+>   fields are empty and `GET /v1/sign/:token/document` answers 403 `CONSENT_REQUIRED` until
+>   consent is given. There is no signed storage URL: the document is streamed through the API, so
+>   the token check applies to it as well.
+> - **Consent carries the hash of what was shown.** `consentTextHash` is the SHA-256 of the notice
+>   the portal displayed. If the notice has changed since, the answer is 409
+>   `CONSENT_TEXT_CHANGED`, and the portal shows the new text. The stored text is therefore always
+>   the text the signer saw (doc 07). `200 OK` returns `{ "consentGivenAt": "..." }`; repeating it
+>   changes nothing.
+> - **Signatures are adopted separately from submit.** The design sent a data URL in every
+>   signature field of the submit body. Doc 07 audits *Adopt & Sign* and *Finish* as separate
+>   events, and a 500 KB image per field would not fit in the 1 MB body limit.
+
+`POST /v1/sign/:token/adopt`:
+
+```json
+{ "kind": "SIGNATURE", "method": "DRAWN", "image": "data:image/png;base64,iVBORw0KG..." }
+```
+
+- `kind` is `SIGNATURE` or `INITIALS`, and `method` is `DRAWN` or `TYPED`.
+- The image must be a PNG with an alpha channel (never JPEG, doc 06), at most 500 KB and 4096 px on
+  each side. Otherwise the answer is 400 `VALIDATION_FAILED` or 422 `INVALID_SIGNATURE_IMAGE`.
+- One image is kept per kind. Adopting again replaces it, and the unused image is deleted.
+- It is stored at `tenants/{t}/envelopes/{e}/signatures/{recipientId}/{kind}-{uuid}.png`, and the
+  audit event records the method and the image's SHA-256.
+- `200 OK` returns `{ "kind": "SIGNATURE", "method": "DRAWN" }`.
 
 `POST /v1/sign/:token/submit`:
 
 ```json
 {
   "fields": [
-    { "id": "a1b2...", "value": "data:image/png;base64,iVBORw0KG..." },
-    { "id": "c3d4...", "value": "true" }
+    { "id": "c3d4...", "value": "true" },
+    { "id": "e5f6...", "value": "Acme Corp" }
   ]
 }
 ```
+
+- `TEXT_INPUT` takes the text, up to 500 characters. `CHECKBOX` takes `"true"` or `"false"`.
+- Every required `SIGNATURE` and `INITIALS` field is filled from the adopted image of its kind. An
+  optional one is filled only if it is listed, and any value sent for it is ignored.
+- A field that belongs to someone else is refused with 400 `VALIDATION_FAILED`. Missing required
+  values give 422 `REQUIRED_FIELDS_INCOMPLETE`, listing each one in `errors`.
 
 `202 Accepted`:
 
@@ -323,13 +427,38 @@ Only **this recipient's** fields are returned. Other recipients' fields are neve
 {
   "status": "SIGNED",
   "signedAt": "2026-09-10T14:32:11Z",
-  "message": "Your signature has been recorded. The completed document will be emailed shortly."
+  "message": "Your signature has been recorded. The completed document will be emailed once everyone has signed."
 }
 ```
 
 `202`, not `200`: sealing is asynchronous. The signer gets immediate confirmation; the document is assembled on a worker.
 
 On submit the token is invalidated. `DATE_SIGNED` fields are **server-generated** and any client-supplied value is discarded.
+
+> **As built (Phase 3).** One transaction claims the recipient with a guarded update, so two
+> submits cannot both succeed; the loser gets 410 `TOKEN_ALREADY_USED`. The same transaction stores
+> the values, records the IP address and browser, moves the envelope to `PARTIALLY_SIGNED` and
+> writes `RECIPIENT_SIGNED`. With *one after another*, the next group is invited once the current
+> one has finished. Sealing, and the move to `COMPLETED`, arrive in Phase 4.
+
+`POST /v1/sign/:token/decline` is allowed before consent. The reason is required, up to 1000
+characters. In one transaction it moves the recipient and the envelope to `DECLINED` and writes
+`RECIPIENT_DECLINED`, which stops every link on the envelope. The reason stays on the recipient, not
+in the audit metadata, which cannot be edited later. The sender is emailed with the reason.
+`200 OK` returns `{ "status": "DECLINED", "declinedAt": "..." }`.
+
+**Checking a link.** Every route checks the token in the same order, and the first match wins:
+
+| Check | Answer |
+|---|---|
+| Malformed, unknown, or replaced by a reminder | 401 `TOKEN_INVALID` |
+| The envelope was voided or declined | 409 `ENVELOPE_TERMINAL`, with `reason` `VOIDED`, `DECLINED` or `YOU_DECLINED` |
+| This recipient has already signed | 410 `TOKEN_ALREADY_USED` |
+| The link or the envelope has expired | 401 `TOKEN_EXPIRED` |
+
+**Headers.** Every signing response sends `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer`. Problem details never echo the token: `instance` reads
+`/v1/sign/[redacted]`.
 
 ## Verification
 
@@ -449,15 +578,21 @@ RFC 7807:
 | `PAGE_OUT_OF_RANGE` | 400 | `pageNumber` beyond the document |
 | `DOCUMENT_CATEGORY_BLOCKED` | 422 | Category not permitted in this jurisdiction |
 | `RECIPIENT_HAS_NO_FIELDS` | 422 | A signer has nothing to sign |
+| `NOT_READY_TO_SEND` | 422 | Any other reason a draft cannot be sent; `errors` lists every one |
 | `ENVELOPE_NOT_DRAFT` | 409 | Change attempted on an envelope that has been sent |
 | `RECIPIENT_EMAIL_TAKEN` | 409 | That email is already on this envelope |
 | `DRAFT_REVISION_MISMATCH` | 412 | `If-Match` is behind the draft's current revision |
-| `ENVELOPE_TERMINAL` | 409 | Action attempted on a completed/declined/voided envelope |
-| `TOKEN_INVALID` | 401 | Unrecognised token |
-| `TOKEN_EXPIRED` | 401 | Past `tokenExpiresAt` |
+| `ENVELOPE_TERMINAL` | 409 | Action attempted on a completed/declined/voided envelope. On signing routes `reason` says which: `VOIDED`, `DECLINED` or `YOU_DECLINED` |
+| `TOKEN_INVALID` | 401 | Unrecognised token, including one replaced by a reminder |
+| `TOKEN_EXPIRED` | 401 | Past `tokenExpiresAt` or the envelope's `expiresAt` |
 | `TOKEN_ALREADY_USED` | 410 | Single-use token already consumed |
-| `CONSENT_REQUIRED` | 403 | Submit attempted before consent |
+| `CONSENT_REQUIRED` | 403 | Document, adopt or submit attempted before consent |
+| `CONSENT_TEXT_CHANGED` | 409 | The notice changed after it was shown; show the new one |
+| `INVALID_SIGNATURE_IMAGE` | 422 | Not a transparent PNG, or too large |
 | `REQUIRED_FIELDS_INCOMPLETE` | 422 | Required fields unfilled |
+| `REMINDER_TOO_SOON` | 429 | Reminded within 24 hours. Includes `Retry-After` |
+| `IDEMPOTENCY_KEY_REQUIRED` | 400 | `Idempotency-Key` missing or malformed |
+| `IDEMPOTENCY_KEY_MISMATCH` | 422 | The same key was sent with a different body |
 | `FILE_TOO_LARGE` | 413 | Over 25 MB |
 | `PAGE_LIMIT_EXCEEDED` | 422 | Over 500 pages |
 | `ENCRYPTED_PDF` | 422 | Password-protected upload |
@@ -477,6 +612,11 @@ RFC 7807:
 | Reminders | 1 per recipient per 24h |
 
 Signing-session limits are per token rather than per IP, since legitimate signers may share an IP behind corporate NAT.
+
+> **As built (Phase 3).** The signing limits apply to every signing route: 60 `GET`s and 10 of
+> anything else a minute. They are counted against a hash of the token, never the token, and they
+> apply even to a token that is unknown or was replaced, so guessing is limited too. Counters are
+> held in memory in each API process; Phase 5 moves them to Redis.
 
 ## Deferred
 

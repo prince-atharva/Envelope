@@ -161,6 +161,30 @@ const recipient = await db.recipient.findUnique({ where: { tokenHash: candidateH
 | Expiring | `tokenExpiresAt` checked on every request | Bounds the exposure window |
 | Revocable | Void or decline nulls the hash **synchronously** | Cancellation must take effect immediately, not eventually |
 
+> **As built (Phase 3)** ([ADR 0009](adr/0009-store-only-the-hmac-of-signing-tokens.md)):
+>
+> - **Minted in the email worker, not on send.** The queued job holds only the envelope and
+>   recipient ids. The worker creates the token, stores its HMAC and expiry, renders the link into
+>   the email, sends it and drops the raw value. The raw token never reaches Redis, the database,
+>   the API process or a log. It exists only in the worker's memory while the email is built, and
+>   in the email itself.
+> - **The secret is `SIGNING_TOKEN_SECRET`**, not `TOKEN_SALT`. It must be at least 32 characters
+>   and different from the other secrets, or the service refuses to start.
+> - **Reminders rotate the token.** There is no stored raw token to send again, so each reminder
+>   creates a new one and overwrites the hash. The previous link stops working at once.
+> - **Revocation is by state, not by nulling the hash.** Decline and void move the envelope to a
+>   terminal status in the same transaction, and every check refuses a terminal envelope before
+>   anything else. Revocation is still synchronous. Keeping the hash lets the portal say
+>   *cancelled* or *declined* instead of *invalid link*.
+> - **One check order** for every signing route: unknown → 401 `TOKEN_INVALID`; declined or voided
+>   → 409 `ENVELOPE_TERMINAL`; signed → 410 `TOKEN_ALREADY_USED`; past `tokenExpiresAt` or the
+>   envelope's `expiresAt` → 401 `TOKEN_EXPIRED`.
+> - **Single use is atomic.** Submit claims the recipient with a guarded update on `tokenUsedAt IS
+>   NULL`, so of two simultaneous submits only one succeeds.
+> - **Tenant isolation without a login.** Signing routes have no signed-in tenant, so they look the
+>   token up with the unscoped client. Once it resolves, the request is bound to that tenant,
+>   envelope and recipient, and every later query and log line is scoped to them.
+
 **The salt is HMAC, not a bare hash.** A bare SHA-256 of a 256-bit random value is not realistically reversible either, but HMAC with a server-held secret means an attacker with database read access *and* the ability to compute hashes still cannot verify a guess offline without also stealing the salt. Defence in depth at zero cost.
 
 ### Handling rules
@@ -174,6 +198,29 @@ const recipient = await db.recipient.findUnique({ where: { tokenHash: candidateH
 | Never in error reports | Sanitise URLs in the error handler before dispatch |
 
 Token leakage through observability tooling is the most likely real-world failure of this design. The cryptography is not the weak point; the plumbing around it is.
+
+> **As built (Phase 3).**
+>
+> | Rule | How it is done |
+> |---|---|
+> | Never log a raw token | pino redacts the keys `token`, `rawToken`, `signingToken`, `signingUrl`, `tokenHash` and `SIGNING_TOKEN_SECRET`, at the top level and one level down. Free text (messages, error messages, stack traces) has `/sign/<anything>` masked. Request log lines carry the route pattern and a masked URL. Code logs `tokenRef`, the first 8 characters of the HMAC |
+> | Never in `Referer` | `index.html` sets `strict-origin` for the whole app, from the very first request; the signing page switches to `no-referrer`; every signing API response sends `Referrer-Policy: no-referrer` |
+> | Never in error reports | The web app masks `/sign/<token>` in the URL, message and stack before sending a report, and the server scrubs it again on arrival |
+> | Never in an error body | Problem details give `instance` as `/v1/sign/[redacted]` |
+> | Never cached | Signing responses send `Cache-Control: no-store`. The portal's requests send no cookies and no `Authorization` header, so a sender signed in on the same browser does not lend their session to a link |
+> | Never stored in the browser | The signer's draft is keyed by their first field id, not by the token or its hash |
+>
+> **Verified, not assumed.** A leak audit runs in two places. The API suite
+> (`apps/api/test/token-leak.e2e.test.ts`) searches everything handed to a logger, every response,
+> every table and every Redis key. The browser suite (`apps/web/e2e/token-leak.spec.ts`) searches
+> the log files of the real API and worker, the database, Redis, and the `Referer` of every
+> request the signing pages make. Each audit runs a full flow, including a reminder and a decline,
+> then searches for every link that was emailed. Both were shown to fail when a token was planted
+> in each of those places.
+>
+> **Still open:** the web host's own access log records the page's URL, `/sign/<token>`. The
+> production hosting setup (Phase 5) must drop or mask that path in its access logs, and send
+> `Referrer-Policy: no-referrer` for `/sign/*` as a header as well.
 
 ## STRIDE Analysis
 
@@ -274,6 +321,11 @@ Processing runs on workers with constrained memory and no outbound network acces
 
 Signing limits key on the **token**, not the IP — corporate NAT means many legitimate signers share one address.
 
+> **As built (Phase 3).** The limits cover every signing route, 60 reads and 10 changes a minute. They
+> are counted against a hash of the token, so the counter never holds the token itself. They apply
+> before the token is checked, so a guessed or replaced token is limited as well. Counters are
+> held in each API process's memory until Phase 5 moves them to Redis. SMS codes are not built.
+
 ## Incident Response
 
 | Severity | Examples | Response |
@@ -286,7 +338,7 @@ Signing limits key on the **token**, not the IP — corporate NAT means many leg
 
 ## Pre-Launch Security Checklist
 
-- [ ] Token redaction verified across logs, APM, and error reporting
+- [ ] Token redaction verified across logs, APM, and error reporting *(logs, database, Redis, error bodies and `Referer`: automated leak audit since Phase 3. No APM yet)*
 - [ ] Audit table privileges confirmed in production (`\dp "AuditTrail"`)
 - [ ] Chain verification job running and alerting
 - [ ] Cross-tenant isolation test suite passing against every endpoint

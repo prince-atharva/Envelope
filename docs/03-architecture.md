@@ -113,11 +113,12 @@ Following one document all the way through, with every step the system takes:
       │                        │◄─ 8. Opens the link ──│
       │                        │ 9. Checks the key     │
       │                        │10. Records: VIEWED    │
-      │                        │11. Shows document ───►│
+      │                        │11. Shows the notice ─►│
       │                        │                       │
       │                        │◄─12. Ticks consent ───│
       │                        │13. Stores the exact   │
-      │                        │    wording shown      │
+      │                        │    wording shown, then│
+      │                        │    shows document ───►│
       │                        │                       │
       │                        │◄─14. Draws signature, │
       │                        │      taps Finish      │
@@ -266,6 +267,26 @@ be edited afterwards, so personal data does not go into it.
 | any non-terminal | `DECLINED` | `POST /sign/:token/decline` | Reason provided | Invalidate all tokens, notify sender | `RECIPIENT_DECLINED` |
 | any non-terminal | `VOIDED` | `POST /envelopes/:id/void` | Caller is sender or admin | Invalidate all tokens, notify recipients | `ENVELOPE_VOIDED` |
 
+> **As built (Phase 3).** Sending and signing work as above, with these differences:
+>
+> - **`VIEWED` is a status of the recipient, not the envelope.** The `EnvelopeStatus` enum in doc 05
+>   has no `VIEWED`. Opening a link sets the *recipient* to `VIEWED` and writes `ENVELOPE_VIEWED`
+>   once. The envelope stays `SENT` until the first signature.
+> - **No `SENT → DELIVERED`.** Gmail SMTP has no delivery webhook. The recipient's `notifiedAt`
+>   records when the mail server accepted the email, with `EMAIL_SENT` in the audit trail.
+> - **Links are created by the email worker, not at send** ([ADR 0009](adr/0009-store-only-the-hmac-of-signing-tokens.md)).
+>   Send invites the first routing group and queues their emails once the transaction has
+>   committed. Every reminder (`REMINDER_REQUESTED`) creates a new link and stops the old one.
+> - **Adopting a signature is its own event**, `SIGNATURE_ADOPTED`, separate from `RECIPIENT_SIGNED`
+>   (doc 07). Neither changes the envelope's status.
+> - **The next signer is invited on submit**, not when a version is created: versions arrive with
+>   sealing in Phase 4, and the trigger moves then. Until then the envelope stops at
+>   `PARTIALLY_SIGNED`; it never reaches `COMPLETED`.
+> - **Decline stops links by state.** The links are not deleted. The envelope moves to `DECLINED`
+>   in the same transaction as the decline, and every link check refuses a terminal envelope
+>   first. So invariant 3 below holds, and the portal can still tell a signer what happened.
+> - Void (`POST /envelopes/:id/void`) is not built yet.
+
 **Invariants that MUST hold:**
 
 1. Terminal states (`COMPLETED`, `DECLINED`, `VOIDED`) admit no outbound transitions.
@@ -285,6 +306,11 @@ Anything that takes more than ~200ms or touches an external service runs on a Bu
 | `webhook` | Outbound HMAC-signed delivery | 10 | 6× exponential to 24h | Manual redrive path required |
 | `reminder` | Scheduled nudges | 1 | 1× | Cron-triggered |
 | `retention` | Purge expired data honouring legal holds | 1 | 1× | Nightly |
+
+> **As built (Phase 3).** The mail queue is called `email`, with concurrency 5 and exponential
+> retries. It carries invitations, reminders and the sender's "declined" notice. Each job holds ids
+> only; the invitation and reminder jobs create the signing link inside the worker, so it never
+> sits in Redis. Sealing, certificates, webhooks, scheduled reminders and retention are not built yet.
 
 Sealing MUST be idempotent. A worker retry after a partial failure must not double-burn a signature onto the page. Key the job on `(envelopeId, versionNumber)` and make the version row creation the atomic commit point.
 
