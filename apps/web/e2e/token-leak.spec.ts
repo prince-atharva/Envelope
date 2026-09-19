@@ -1,3 +1,4 @@
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, expect, type Request, type TestInfo, test } from '@playwright/test';
@@ -6,10 +7,12 @@ import pg from 'pg';
 import {
   agreeToSign,
   allSigningTokens,
+  completedCopyFor,
   outboxMessages,
   prepareToSend,
   sendFromReview,
   signingLinkFor,
+  signOnlyBoxes,
   signUp,
   uniqueEmail,
 } from './helpers';
@@ -115,6 +118,34 @@ async function dumpRedis(): Promise<string> {
   }
 }
 
+const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+
+/**
+ * Stores a completion download link for the envelope, the way the email
+ * worker does for a file too large to attach: only the token's HMAC, taken
+ * under the download label (apps/api/src/signing/signing-token.ts). The
+ * browser stack attaches files instead, so the link is made here to put a
+ * real download request through the real API and its log files.
+ */
+async function insertDownloadLink(envelopeId: string, rawToken: string): Promise<string> {
+  const tokenHash = createHmac('sha256', STACK_ENV.SIGNING_TOKEN_SECRET)
+    .update('completion-download\0')
+    .update(rawToken)
+    .digest('hex');
+  const client = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `INSERT INTO "CompletionDownload" (id, "envelopeId", "tokenHash", "expiresAt")
+       VALUES ($1, $2, $3, now() + interval '1 day')`,
+      [randomUUID(), envelopeId, tokenHash],
+    );
+  } finally {
+    await client.end();
+  }
+  return tokenHash;
+}
+
 /** On failure, shows where each link was found, with the link itself masked. */
 function expectNoToken(tokens: string[], where: string, haystack: string) {
   const found = tokens
@@ -123,10 +154,10 @@ function expectNoToken(tokens: string[], where: string, haystack: string) {
       const at = haystack.indexOf(token);
       return haystack.slice(Math.max(0, at - 100), at + 164).replaceAll(token, '<TOKEN>');
     });
-  expect(found, `a signing link was found in ${where}`).toEqual([]);
+  expect(found, `a signing or download link was found in ${where}`).toEqual([]);
 }
 
-test('no signing link reaches a log file, the database, Redis or a Referer header', async ({
+test('no signing or download link reaches a log file, the database, Redis or a Referer header', async ({
   browser,
   page,
 }, testInfo) => {
@@ -187,6 +218,28 @@ test('no signing link reaches a log file, the database, Redis or a Referer heade
   await signerPage.goto('/sign/not-a-real-link');
   await expect(signerPage.getByRole('heading', { name: 'This link does not work' })).toBeVisible();
 
+  // A second envelope goes all the way: sealed by the real worker, and the
+  // finished copy emailed (docs/15 step 9).
+  const closer = { name: 'Leak Closer', email: uniqueEmail('leak.closer') };
+  const sealedId = await prepareToSend(page, [closer]);
+  await sendFromReview(page);
+  await signOnlyBoxes(signerPage, await signingLinkFor(closer.email));
+  const copy = await completedCopyFor(closer.email);
+
+  // Its finished copy, through a download link.
+  const downloadToken = randomBytes(32).toString('hex');
+  const downloadHash = await insertDownloadLink(sealedId, downloadToken);
+  const downloaded = await signer.request.get(`/api/v1/download/${downloadToken}`);
+  expect(downloaded.status()).toBe(200);
+  expect(sha256(await downloaded.body())).toBe(copy.sha256);
+
+  // A PDF nobody signed, checked on Verify: its fingerprint must not be logged.
+  const privatePdf = Buffer.from(`%PDF-1.7\n% private ${randomUUID()}\n%%EOF\n`);
+  const checked = await signer.request.post('/api/v1/verify', {
+    multipart: { file: { name: 'private.pdf', mimeType: 'application/pdf', buffer: privatePdf } },
+  });
+  expect(((await checked.json()) as { verified: boolean }).verified).toBe(false);
+
   // No request from the signing pages told anyone where it came from.
   const headers = await Promise.all(requests.map((request) => request.allHeaders()));
   await signer.close();
@@ -194,7 +247,7 @@ test('no signing link reaches a log file, the database, Redis or a Referer heade
   // The worker has finished: the sender has been told about the decline.
   await expect.poll(() => outboxHas(senderEmail, 'declined'), { timeout: 20_000 }).toBe(true);
 
-  const tokens = await allSigningTokens();
+  const tokens = [...(await allSigningTokens()), downloadToken];
   for (const link of [firstLink, invitation, replacement]) {
     expect(tokens).toContain(link.split('/sign/')[1]);
   }
@@ -211,17 +264,28 @@ test('no signing link reaches a log file, the database, Redis or a Referer heade
   await expect
     .poll(readLogFiles, { timeout: 20_000 })
     .toContain('"url":"/api/v1/sign/[redacted]/decline"');
+  await expect
+    .poll(readLogFiles, { timeout: 20_000 })
+    .toContain('"url":"/api/v1/download/[redacted]"');
   const logs = await readLogFiles();
   expect(logs).toContain('Signing link emailed');
+  // The worker's sealing and the download were logged, by reference only.
+  expect(logs).toContain('Envelope sealed');
+  expect(logs).toContain('Finished document downloaded');
   expectNoToken(tokens, 'the log files', logs);
+  expect(logs).toContain('Document verified');
+  expect(logs, 'the fingerprint of an unmatched file was logged').not.toContain(sha256(privatePdf));
 
   const database = await dumpDatabase();
   expect(database).toContain(envelopeId);
   expect(database).toContain('RECIPIENT_DECLINED');
+  expect(database).toContain('ENVELOPE_COMPLETED');
+  expect(database).toContain(downloadHash);
   expectNoToken(tokens, 'the database', database);
 
   const redis = await dumpRedis();
   expect(redis).toContain(`${STACK_ENV.QUEUE_PREFIX}:idempotency:`);
   expect(redis).toContain(`${STACK_ENV.QUEUE_PREFIX}:email:`);
+  expect(redis).toContain(`${STACK_ENV.QUEUE_PREFIX}:seal:`);
   expectNoToken(tokens, 'Redis', redis);
 });

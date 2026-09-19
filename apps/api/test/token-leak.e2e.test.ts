@@ -1,12 +1,13 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import type { Redis } from 'ioredis';
 import request, { type Response } from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { EmailJobData } from '../src/mail/mail.types';
-import { EMAIL_QUEUE } from '../src/queue/queue.module';
+import { EMAIL_QUEUE, SEAL_QUEUE } from '../src/queue/queue.module';
 import { RedisService } from '../src/redis/redis.service';
+import { hashDownloadToken } from '../src/signing/signing-token';
+import { makePdf } from './fixtures/pdfs';
 import { makePng, pngDataUrl } from './fixtures/png';
 import {
   captureLogs,
@@ -26,9 +27,17 @@ import {
   type PreparedEnvelope,
   prepareEnvelope,
   sendEnvelope,
+  signAs,
   tokenIn,
 } from './helpers/signing';
 import { TEST_ENV } from './test-env';
+
+// Every completion email in this file carries a download link, not the file,
+// so the audit covers those tokens too (docs/15 step 9). Test files run in
+// their own workers, so no other file sees this.
+process.env.COMPLETION_ATTACHMENT_MAX_BYTES = '1000';
+
+const DOWNLOAD_LINK = /\/download\/([0-9a-f]{64})/g;
 
 const hmac = (token: string) =>
   createHmac('sha256', TEST_ENV.SIGNING_TOKEN_SECRET ?? '')
@@ -56,9 +65,12 @@ function readRedisValue(redis: Redis, key: string, type: string): Promise<unknow
 }
 
 /**
- * The token-leak audit (docs/14, step 10): one full signing flow through every
- * route that handles a signing link, then a search for every link ever emailed
- * in everything the system keeps or returns. Verified, not assumed.
+ * The token-leak audit (docs/14, step 10; extended in docs/15 step 9): one
+ * signing flow through every route that handles a signing link, ending in a
+ * decline; a second that is signed, sealed and completed, whose completion
+ * emails carry download links that are then used; then a search for every
+ * signing and download token ever emailed in everything the system keeps or
+ * returns. Verified, not assumed.
  *
  * The real log files are audited by the browser tests (apps/web/e2e/token-leak.spec.ts),
  * which run the API and worker as real processes that write them.
@@ -71,8 +83,12 @@ describe('signing-link leak audit (e2e)', () => {
   const logs = captureLogs();
   /** Every response of the flow: status, headers and body. */
   const responses: string[] = [];
-  /** Every raw token emailed during the flow, including replaced ones. */
+  /** Every raw token emailed during the flows, signing and download, including replaced ones. */
   let tokens: string[] = [];
+  let signingTokens: string[] = [];
+  let downloadTokens: string[] = [];
+  /** The fingerprint of a PDF checked on Verify that matches nothing: never logged. */
+  let unknownFingerprint = '';
   let rotated = '';
   /** What the flow handed to loggers. Taken in beforeAll, since mocks are cleared per test. */
   let logged: LogCall[] = [];
@@ -99,13 +115,15 @@ describe('signing-link leak audit (e2e)', () => {
         const at = haystack.indexOf(token);
         return haystack.slice(Math.max(0, at - 100), at + 164).replaceAll(token, '<TOKEN>');
       });
-    expect(found, `a signing link was found in ${where}`).toEqual([]);
+    expect(found, `a signing or download link was found in ${where}`).toEqual([]);
   }
 
   beforeAll(async () => {
     await truncateAll();
     t = await createTestApp();
-    await t.app.get<Queue<EmailJobData>>(getQueueToken(EMAIL_QUEUE)).obliterate({ force: true });
+    for (const name of [EMAIL_QUEUE, SEAL_QUEUE]) {
+      await t.app.get<Queue>(getQueueToken(name)).obliterate({ force: true });
+    }
     worker = await createTestWorker();
     owner = await registerUser(t.http, { fullName: 'Audit Owner', organization: 'Audit Clinic' });
 
@@ -202,17 +220,67 @@ describe('signing-link leak audit (e2e)', () => {
         .set('Authorization', bearer(owner)),
     );
 
+    // A second envelope goes all the way: signed, sealed, and the finished
+    // document sent to everyone as a download link.
+    const closer = { name: 'Audit Closer', email: 'audit.closer@example.com' };
+    const sealedEnvelope = await prepareEnvelope(t.http, owner, [closer], { upload: true });
+    expect(keep(await sendEnvelope(t.http, owner, sealedEnvelope.id)).status).toBe(200);
+    await signAs(
+      t.http,
+      await linkFor(worker.mailbox, closer.email),
+      sealedEnvelope,
+      sealedEnvelope.recipients[0]?.id ?? '',
+    );
+    const completed = await waitFor(() => {
+      const found = [closer.email, owner.email].map(
+        (to) => emailsTo(worker.mailbox, to, 'completed')[0],
+      );
+      return found.every(Boolean) ? found : undefined;
+    }, 30_000);
+    for (const message of completed) {
+      const [, token] = /\/download\/([0-9a-f]{64})/.exec(message?.text ?? '') ?? [];
+      const download = keep(
+        await request(t.http).get(`/api/v1/download/${token}`).set('User-Agent', UA),
+      );
+      expect(download.status).toBe(200);
+      // And Verify, with the file it gave.
+      const verified = keep(
+        await request(t.http)
+          .post('/api/v1/verify')
+          .attach('file', download.body as Buffer, {
+            filename: 'finished.pdf',
+            contentType: 'application/pdf',
+          }),
+      );
+      expect(verified.body.verified).toBe(true);
+    }
+    expect(keep(await request(t.http).get(`/api/v1/download/${'1'.repeat(64)}`)).status).toBe(404);
+    const unknown = await makePdf(1);
+    unknownFingerprint = createHash('sha256').update(unknown).digest('hex');
+    const noMatch = keep(
+      await request(t.http)
+        .post('/api/v1/verify')
+        .attach('file', unknown, { filename: 'private.pdf', contentType: 'application/pdf' }),
+    );
+    expect(noMatch.body.verified).toBe(false);
+    keep(
+      await request(t.http)
+        .get(`/api/v1/envelopes/${sealedEnvelope.id}`)
+        .set('Authorization', bearer(owner)),
+    );
+
     logged = logs.calls();
     loggedText = logs.text();
-    tokens = [
+    const emailed = (pattern: RegExp) => [
       ...new Set(
         worker.mailbox.messages.flatMap((message) =>
-          [...`${message.text}\n${message.html}`.matchAll(/\/sign\/([0-9a-f]{64})/g)].map(
-            (match) => match[1] ?? '',
-          ),
+          [...`${message.text}\n${message.html}`.matchAll(pattern)].map((match) => match[1] ?? ''),
         ),
       ),
     ];
+    signingTokens = emailed(/\/sign\/([0-9a-f]{64})/g);
+    downloadTokens = emailed(DOWNLOAD_LINK);
+    tokens = [...signingTokens, ...downloadTokens];
   });
 
   afterAll(async () => {
@@ -222,15 +290,27 @@ describe('signing-link leak audit (e2e)', () => {
   });
 
   it('found every link it is looking for', () => {
-    // Invitation to each signer, and the reminder's replacement.
-    expect(tokens).toHaveLength(3);
-    expect(tokens).toContain(rotated);
+    // Invitation to each signer, the reminder's replacement, and the closer's invitation.
+    expect(signingTokens).toHaveLength(4);
+    expect(signingTokens).toContain(rotated);
+    // A download link each for the closer and the sender.
+    expect(downloadTokens).toHaveLength(2);
     for (const token of tokens) expect(token).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('never logs the fingerprint of a file that matched nothing', () => {
+    expect(loggedText).toContain('Document verified');
+    expect(loggedText).not.toContain(unknownFingerprint);
+  });
+
   it('hands no link to a logger', () => {
-    // The signing code did log, by reference.
+    // The signing and download code did log, by reference.
     expect(logged.some((call) => typeof call.fields.tokenRef === 'string')).toBe(true);
+    expect(
+      logged.some(
+        (call) => call.message === 'Finished document downloaded' && call.fields.tokenRef,
+      ),
+    ).toBe(true);
     expectNoToken('the log calls', loggedText);
   });
 
@@ -259,6 +339,11 @@ describe('signing-link leak audit (e2e)', () => {
     );
     expect(text).toContain(hmac(rotated));
     expect(text).toContain('RECIPIENT_DECLINED');
+    // The sealed envelope is there too, its download links kept only as HMACs.
+    expect(text).toContain('ENVELOPE_COMPLETED');
+    for (const token of downloadTokens) {
+      expect(text).toContain(hashDownloadToken(TEST_ENV.SIGNING_TOKEN_SECRET ?? '', token));
+    }
     expectNoToken('the database', text);
   });
 
@@ -279,6 +364,8 @@ describe('signing-link leak audit (e2e)', () => {
     // The idempotency cache and the email queue were both there to search.
     expect(text).toContain(`${TEST_ENV.QUEUE_PREFIX}:idempotency:`);
     expect(text).toContain(`${TEST_ENV.QUEUE_PREFIX}:${EMAIL_QUEUE}:`);
+    // Seal jobs too: they carry only ids.
+    expect(text).toContain(`${TEST_ENV.QUEUE_PREFIX}:${SEAL_QUEUE}:`);
     expectNoToken('Redis', text);
   });
 });

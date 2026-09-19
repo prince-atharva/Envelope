@@ -82,7 +82,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 6 | Completion emails with the finished copy | ✅ Done |
 | 7 | Verify | ✅ Done |
 | 8 | The sender's Completed screen | ✅ Done |
-| 9 | Tests: three signers end to end, and the leak audits | ⬜ |
+| 9 | Tests: three signers end to end, and the leak audits | ✅ Done |
 | 10 | Real-phone check, documentation and release `v0.4.0` | ⬜ |
 
 ## What We Need From You
@@ -436,6 +436,17 @@ Tests:
 - **Leak audits.** Both audits are extended to seal jobs and to the download-link token.
 - **Browser.** The whole flow, ending with the downloaded file's hash compared with the value on the
   envelope page.
+
+### Step 9 as built
+
+| Test | What it shows |
+|---|---|
+| `apps/api/test/sealing.e2e.test.ts`, "three people one after another" | The finish line, in one test. Three signers make v0…v3 and then the sealed v4, each stored file matching its hash. The sender's download hashes to `finalHash`. Verify finds v4 as sealed, refuses a copy with one byte changed, and finds v2 as an in-progress copy. The certificate, read back with pdf.js as a viewer would, prints every earlier version's fingerprint, every event number, and each signer's name and email, but not its own fingerprint. |
+| `apps/api/test/token-leak.e2e.test.ts` | Adds a second envelope that is signed, sealed and completed, with a 1,000-byte attachment limit so both completion emails carry download links. Those links are used, their files go through Verify, a PDF never seen before is checked, and the sender reads the envelope. The audit then searches the log calls, every response, every table and Redis for all 4 signing tokens and 2 download tokens. Seal jobs are in Redis and download links are stored only as HMACs. The fingerprint of the unmatched PDF is never logged. It was checked once by planting a download URL in a log call: the audit failed as it should. |
+| `apps/web/e2e/token-leak.spec.ts` | On the real stack, where the API and worker write real log files: a second envelope is sealed by the real worker, and a download link stored as the worker would store it is fetched through the web proxy. The log files, database, Redis and Referer headers hold neither token. The request line reads `/api/v1/download/[redacted]`, and the unknown file's fingerprint is not logged. |
+| `apps/web/e2e/completed.spec.ts` (step 8) | The browser flow, ending with the downloaded file's hash compared with the value on the envelope page and in the email |
+
+`pdfjs-dist` is now a dev dependency of the API, the same version the web app uses, and is used only by the tests. The certificate is drawn in an embedded subset font, and reading its text needs a real PDF text extractor.
 
 ## Deliberate Simplifications
 

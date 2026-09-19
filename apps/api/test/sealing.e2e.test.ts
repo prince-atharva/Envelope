@@ -17,6 +17,7 @@ import {
 import { registerUser, type SignedInUser } from './helpers/auth';
 import { ownerQuery, truncateAll } from './helpers/db';
 import { placementsOnPage } from './helpers/pdf-placements';
+import { pdfPageTexts } from './helpers/pdf-text';
 import {
   linkFor,
   type PersonSpec,
@@ -208,6 +209,77 @@ describe('sealing: one version per signature (e2e)', () => {
       [3, 2],
     ]);
     expect((await t.app.get(AuditService).verify(envelope.id)).valid).toBe(true);
+
+    // ── The Phase 4 finish line (docs/15, doc 11 sprint 8 gate) ──
+    // After the third signature: the sealed v4, with nothing missing in between.
+    const all = await waitFor(async () => {
+      const rows = await versions(envelope.id);
+      return rows.length === 5 ? rows : undefined;
+    }, 20_000);
+    const final = all[4];
+    if (!final?.storageVersionId) throw new Error('not sealed');
+    expect(all.map((v) => [v.versionNumber, v.isFinal])).toEqual([
+      [0, false],
+      [1, false],
+      [2, false],
+      [3, false],
+      [4, true],
+    ]);
+    const sealedFile = (await readSealedObject(final.fileUrl, final.storageVersionId)).body;
+    expect(sha256(sealedFile)).toBe(final.hash);
+
+    // The sender's download is the file on record: `sha256sum` agrees with finalHash.
+    const downloaded = await request(t.http)
+      .get(`/api/v1/envelopes/${envelope.id}/file?version=4`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .buffer(true)
+      .parse((res, done) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => done(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(sha256(downloaded.body as Buffer)).toBe((await envelopeRow(envelope.id))?.finalHash);
+
+    // Verify agrees, refuses a copy with one byte changed, and finds an in-progress copy.
+    const verify = (file: Buffer) =>
+      request(t.http)
+        .post('/api/v1/verify')
+        .attach('file', file, { filename: 'copy.pdf', contentType: 'application/pdf' })
+        .expect(200);
+    expect((await verify(sealedFile)).body).toMatchObject({
+      verified: true,
+      matched: { versionNumber: 4, isFinal: true },
+    });
+    const tampered = Buffer.from(sealedFile);
+    tampered[200] = (tampered[200] ?? 0) ^ 1;
+    expect((await verify(tampered)).body).toMatchObject({
+      verified: false,
+      reason: 'NO_MATCHING_DOCUMENT',
+    });
+    expect((await verify(await readStoredObject(all[2]?.fileUrl ?? ''))).body).toMatchObject({
+      verified: true,
+      matched: { versionNumber: 2, isFinal: false },
+    });
+
+    // The certificate lists every version and every event, read as a PDF reader reads it.
+    const pages = await pdfPageTexts(sealedFile);
+    const certificate = pages.slice(2).join('\n');
+    expect(pages[2]).toContain('Certificate of Completion');
+    for (const version of all.slice(0, 4)) expect(certificate).toContain(version.hash);
+    // Not its own fingerprint: that would change the bytes it describes.
+    expect(certificate).not.toContain(final.hash);
+    const { rows: history } = await ownerQuery<{ sequence: number; action: string }>(
+      `SELECT sequence, action FROM "AuditTrail" WHERE "envelopeId" = $1
+         AND action <> 'ENVELOPE_COMPLETED' AND action <> 'COMPLETION_SENT' ORDER BY sequence`,
+      [envelope.id],
+    );
+    const eventRows = certificate.match(/^\d+$/gm)?.map(Number) ?? [];
+    for (const event of history) expect(eventRows).toContain(event.sequence);
+    for (const person of team) {
+      expect(certificate).toContain(person.name);
+      expect(certificate).toContain(person.email);
+    }
   });
 
   it('seals once everyone has signed: certificate appended, file locked, envelope completed', async () => {
