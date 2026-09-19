@@ -1,4 +1,4 @@
-import { SIGNING_TOKEN_PATTERN, type TerminalReason } from '@envelope/shared';
+import { isOpenEnvelope, SIGNING_TOKEN_PATTERN, type TerminalReason } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -8,13 +8,6 @@ import { AppConfig } from '../config/app-config';
 import type { Envelope, Recipient } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashSigningToken, tokenRef } from './signing-token';
-
-/** Envelope statuses in which a signer can still act. */
-const OPEN_STATUSES: ReadonlySet<Envelope['status']> = new Set([
-  'SENT',
-  'DELIVERED',
-  'PARTIALLY_SIGNED',
-]);
 
 export interface SignerContext {
   recipient: Recipient;
@@ -57,7 +50,7 @@ export function checkSignerAccess(
   if (expiresAt && expiresAt <= now) return { code: 'TOKEN_EXPIRED', expiredAt: expiresAt };
 
   // COMPLETED with this person unsigned, or DRAFT with a token: neither should exist.
-  if (!OPEN_STATUSES.has(envelope.status)) return { code: 'ENVELOPE_NOT_OPEN' };
+  if (!isOpenEnvelope(envelope.status)) return { code: 'ENVELOPE_NOT_OPEN' };
   return null;
 }
 

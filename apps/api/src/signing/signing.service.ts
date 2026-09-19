@@ -7,6 +7,7 @@ import {
   type ConsentResponse,
   type DeclineInput,
   type DeclineResponse,
+  OPEN_ENVELOPE_STATUSES,
   orderFieldsForSigning,
   type SigningSession,
   type SubmitSigningInput,
@@ -29,7 +30,6 @@ import { type SignerContext, TokenGuardianService } from './token-guardian.servi
 /** Invited and not yet finished. */
 const AWAITING = ['SENT', 'DELIVERED', 'VIEWED'] as const;
 /** Envelope statuses in which a signer can act. */
-const OPEN = ['SENT', 'DELIVERED', 'PARTIALLY_SIGNED'] as const;
 const MAX_USER_AGENT_LENGTH = 500;
 
 export interface SignerDocument {
@@ -249,7 +249,7 @@ export class SigningService {
           id: recipient.id,
           tokenUsedAt: null,
           status: { in: [...AWAITING] },
-          envelope: { status: { in: [...OPEN] } },
+          envelope: { status: { in: [...OPEN_ENVELOPE_STATUSES] } },
         },
         data,
       });
@@ -340,7 +340,7 @@ export class SigningService {
           tokenUsedAt: null,
           consentGivenAt: { not: null },
           status: { in: [...AWAITING] },
-          envelope: { status: { in: [...OPEN] } },
+          envelope: { status: { in: [...OPEN_ENVELOPE_STATUSES] } },
         },
         data: {
           status: 'SIGNED',
@@ -457,13 +457,13 @@ export class SigningService {
           id: recipient.id,
           tokenUsedAt: null,
           status: { in: [...AWAITING] },
-          envelope: { status: { in: [...OPEN] } },
+          envelope: { status: { in: [...OPEN_ENVELOPE_STATUSES] } },
         },
         data: { status: 'DECLINED', declinedAt, declinedReason: input.reason },
       });
       if (claimed.count === 0) return false;
       await tx.envelope.updateMany({
-        where: { id: envelope.id, status: { in: [...OPEN] } },
+        where: { id: envelope.id, status: { in: [...OPEN_ENVELOPE_STATUSES] } },
         data: { status: 'DECLINED' },
       });
       await this.audit.record(tx, {

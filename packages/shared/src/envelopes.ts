@@ -10,6 +10,32 @@ export type EnvelopeStatus =
   | 'DECLINED'
   | 'VOIDED';
 
+/**
+ * Sent and not finished: signers can act, reminders go out and signatures are
+ * stamped (docs/03). The one definition every check uses.
+ */
+export const OPEN_ENVELOPE_STATUSES = [
+  'SENT',
+  'DELIVERED',
+  'PARTIALLY_SIGNED',
+] as const satisfies readonly EnvelopeStatus[];
+export type OpenEnvelopeStatus = (typeof OPEN_ENVELOPE_STATUSES)[number];
+
+/** Nothing can change any more (docs/01, "The Envelope"). */
+export const TERMINAL_ENVELOPE_STATUSES = [
+  'COMPLETED',
+  'DECLINED',
+  'VOIDED',
+] as const satisfies readonly EnvelopeStatus[];
+
+export function isOpenEnvelope(status: string): status is OpenEnvelopeStatus {
+  return (OPEN_ENVELOPE_STATUSES as readonly string[]).includes(status);
+}
+
+export function isTerminalEnvelope(status: string): boolean {
+  return (TERMINAL_ENVELOPE_STATUSES as readonly string[]).includes(status);
+}
+
 /** Multipart text fields sent with the PDF on POST /envelopes. */
 export const createEnvelopeSchema = z.strictObject({
   /** Defaults to the file name without its extension. */

@@ -1,4 +1,4 @@
-import { receivesSigningLink } from '@envelope/shared';
+import { isOpenEnvelope, OPEN_ENVELOPE_STATUSES, receivesSigningLink } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
@@ -10,8 +10,6 @@ import type { SigningLinkEmailJob } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import { renderSigningLinkEmail } from './templates';
 
-/** Envelope statuses in which a link is still worth sending. */
-const OPEN_ENVELOPE = ['SENT', 'DELIVERED', 'PARTIALLY_SIGNED'] as const;
 /** Invited and not yet finished. PENDING has not been invited; SIGNED and DECLINED are done. */
 const AWAITING_RECIPIENT = ['SENT', 'DELIVERED', 'VIEWED'] as const;
 
@@ -27,7 +25,7 @@ export function whyNotSend(
   envelope: Pick<Envelope, 'status' | 'expiresAt'>,
   now: Date,
 ): string | null {
-  if (!(OPEN_ENVELOPE as readonly string[]).includes(envelope.status)) return 'envelope closed';
+  if (!isOpenEnvelope(envelope.status)) return 'envelope closed';
   if (!receivesSigningLink(recipient.role)) return 'role receives no link';
   if (
     recipient.tokenUsedAt ||
@@ -79,7 +77,7 @@ export class SigningLinkMailer {
           id: recipient.id,
           status: { in: [...AWAITING_RECIPIENT] },
           tokenUsedAt: null,
-          envelope: { status: { in: [...OPEN_ENVELOPE] } },
+          envelope: { status: { in: [...OPEN_ENVELOPE_STATUSES] } },
         },
         data: { tokenHash, tokenExpiresAt: envelope.expiresAt },
       });

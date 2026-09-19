@@ -1,5 +1,5 @@
 import type { Readable } from 'node:stream';
-import { receivesSigningLink, recipientsDueInvitation } from '@envelope/shared';
+import { isOpenEnvelope, receivesSigningLink, recipientsDueInvitation } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
@@ -16,8 +16,6 @@ import { StorageService, sealedVersionKey, signedVersionKey } from '../storage/s
 import type { CertificateData } from './certificate';
 import { PdfSealingService, type StampField, type StampImages } from './pdf-sealing.service';
 
-/** Envelope statuses in which signatures are still being stamped. */
-const SEALABLE = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
 /** A round holds the envelope's seal lock while it reads, stamps and stores one version. */
 const ROUND_TIMEOUT_MS = 120_000;
 const NOTHING_TO_STAMP = 'nothing to stamp';
@@ -168,7 +166,7 @@ export class SealingService {
           },
         });
         if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
-        if (!SEALABLE.has(envelope.status)) {
+        if (!isOpenEnvelope(envelope.status)) {
           return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
         }
 
@@ -285,7 +283,7 @@ export class SealingService {
           },
         });
         if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
-        if (!SEALABLE.has(envelope.status)) {
+        if (!isOpenEnvelope(envelope.status)) {
           return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
         }
         const latest = envelope.versions.at(-1);

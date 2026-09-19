@@ -1,4 +1,9 @@
-import type { AuditEventInfo, DocumentVersionInfo, EnvelopeDetail } from '@envelope/shared';
+import {
+  type AuditEventInfo,
+  type DocumentVersionInfo,
+  type EnvelopeDetail,
+  isOpenEnvelope,
+} from '@envelope/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
@@ -21,11 +26,10 @@ import { useDocumentTitle } from '../lib/use-document-title';
 const PROGRESS_REFRESH_MS = 15_000;
 /** The completion emails go out just after sealing: keep checking this long for them. */
 const AFTER_COMPLETION_MS = 2 * 60_000;
-const IN_PROGRESS = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
 
 function stillChanging(envelope: EnvelopeDetail | undefined): boolean {
   if (!envelope) return false;
-  if (IN_PROGRESS.has(envelope.status)) return true;
+  if (isOpenEnvelope(envelope.status)) return true;
   return (
     envelope.status === 'COMPLETED' &&
     !!envelope.completedAt &&
@@ -170,7 +174,7 @@ export function EnvelopeDetailPage() {
         </div>
       </div>
 
-      {sent && IN_PROGRESS.has(envelope.status) && (
+      {sent && isOpenEnvelope(envelope.status) && (
         <Alert tone="success">Sent. We are emailing {sent} a link to sign.</Alert>
       )}
 

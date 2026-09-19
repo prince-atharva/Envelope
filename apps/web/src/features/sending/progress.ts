@@ -1,6 +1,7 @@
 import {
   currentRoutingGroup,
   type EnvelopeStatus,
+  isOpenEnvelope,
   nextReminderAt,
   type RecipientDetail,
   type RecipientInfo,
@@ -37,8 +38,6 @@ export interface Progress {
   at: string | null;
 }
 
-const OPEN: ReadonlySet<EnvelopeStatus> = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
-
 /** How far one person has got, as the sender reads it. */
 export function progressOf(recipient: RecipientDetail, envelopeStatus: EnvelopeStatus): Progress {
   if (!receivesSigningLink(recipient.role)) {
@@ -63,7 +62,7 @@ export function progressOf(recipient: RecipientDetail, envelopeStatus: EnvelopeS
         ? { label: 'Email sent', tone: 'active', at: recipient.notifiedAt }
         : { label: 'Sending email…', tone: 'active', at: null };
     case 'PENDING':
-      return OPEN.has(envelopeStatus)
+      return isOpenEnvelope(envelopeStatus)
         ? { label: 'Waiting for their turn', tone: 'waiting', at: null }
         : { label: 'Not reached', tone: 'muted', at: null };
   }
@@ -89,7 +88,7 @@ export function reminderState(
   },
   now = Date.now(),
 ): ReminderState {
-  if (!OPEN.has(envelope.status)) return { can: false, reason: 'closed' };
+  if (!isOpenEnvelope(envelope.status)) return { can: false, reason: 'closed' };
   if (recipient.status === 'SIGNED' || recipient.status === 'DECLINED') {
     return { can: false, reason: 'finished' };
   }

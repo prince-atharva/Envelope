@@ -1,6 +1,7 @@
 import {
   checkReadyToSend,
   currentRoutingGroup,
+  isOpenEnvelope,
   nextReminderAt,
   type ProblemFieldError,
   REMINDER_COOLDOWN_HOURS,
@@ -22,8 +23,6 @@ import { MailQueueService } from '../mail/mail-queue.service';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 
 const DAY_MS = 24 * 3600 * 1000;
-/** Envelope statuses in which signers can still act, and so can be reminded. */
-const OPEN_STATUSES: ReadonlySet<string> = new Set(['SENT', 'DELIVERED', 'PARTIALLY_SIGNED']);
 
 function notReady(issues: ReadinessIssue[]): AppException {
   const errors: ProblemFieldError[] = issues.map((issue) => ({
@@ -202,7 +201,7 @@ export class SendingService {
       if (envelope.status === 'DRAFT') {
         throw new AppException('CONFLICT', 'This envelope has not been sent yet.');
       }
-      if (!OPEN_STATUSES.has(envelope.status)) {
+      if (!isOpenEnvelope(envelope.status)) {
         throw new AppException('ENVELOPE_TERMINAL', 'This envelope is closed.');
       }
 

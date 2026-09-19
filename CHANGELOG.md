@@ -21,6 +21,9 @@ Phase 5 (Envelope Lifecycle) in progress. See
   - ADR 0013: expiry pauses an envelope, and the sender can extend it. It amends ADR 0009: a link's
     expiry moves with an extension.
   - ADR 0004: the audit hash chain, reserved since doc 05 and written now.
+- `@envelope/shared` defines the open and terminal envelope statuses once
+  (`OPEN_ENVELOPE_STATUSES`, `TERMINAL_ENVELOPE_STATUSES`, `isOpenEnvelope`, `isTerminalEnvelope`).
+  They replace eight local copies in the API and the web app, so a new status is added in one place.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their

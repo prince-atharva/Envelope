@@ -1,4 +1,9 @@
-import { type EnvelopeDetail, type RecipientDetail, receivesSigningLink } from '@envelope/shared';
+import {
+  type EnvelopeDetail,
+  isOpenEnvelope,
+  type RecipientDetail,
+  receivesSigningLink,
+} from '@envelope/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Alert } from '../../components/ui/Alert';
@@ -73,7 +78,7 @@ function ReminderButton({
  */
 export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
   const declined = envelope.recipients.find((recipient) => recipient.status === 'DECLINED');
-  const open = ['SENT', 'DELIVERED', 'PARTIALLY_SIGNED'].includes(envelope.status);
+  const open = isOpenEnvelope(envelope.status);
 
   return (
     <section
