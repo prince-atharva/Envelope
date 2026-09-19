@@ -74,6 +74,10 @@ Do **not** write one for routine choices with an obvious default, naming convent
 |---|---|---|
 | [0001](0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](0002-store-field-coordinates-as-ratios.md) | Store field coordinates as normalised ratios | Accepted |
+| [0003](0003-create-a-document-version-per-signing-round.md) | Create a DocumentVersion per signing round | Accepted |
+| [0005](0005-burn-signatures-into-page-content.md) | Burn signatures into page content, not annotations | Accepted |
+| [0006](0006-run-sealing-asynchronously-on-workers.md) | Run sealing asynchronously on workers | Accepted |
+| [0007](0007-apply-object-lock-to-the-final-version-only.md) | Apply Object Lock to the final version only | Accepted |
 | [0009](0009-store-only-the-hmac-of-signing-tokens.md) | Store only the HMAC of signing tokens | Accepted |
 | [0012](0012-nestjs-api-and-react-vite-web.md) | Build a NestJS API and a React + Vite web app instead of one Next.js app | Accepted |
 
@@ -83,15 +87,11 @@ Decisions already made in the design documents that should be captured as ADRs d
 
 | ADR | Title | Source |
 |---|---|---|
-| 0003 | Create a DocumentVersion per signing round | [05](../05-data-model.md), [06](../06-signing-and-document-sealing.md) |
 | 0004 | Hash-chain the audit trail | [05](../05-data-model.md), [10](../10-security-and-threat-model.md) |
-| 0005 | Burn signatures into page content, not annotations | [06](../06-signing-and-document-sealing.md) |
-| 0006 | Run sealing asynchronously on workers | [03](../03-architecture.md) |
-| 0007 | Apply Object Lock to the final version only | [10](../10-security-and-threat-model.md) |
 | 0008 | Build the platform entirely in JavaScript | [04](../04-technology-stack.md) |
 | 0010 | Defer Tier 2 qualified signatures | [02](../02-feasibility-and-build-vs-buy.md), [04](../04-technology-stack.md) |
 | 0011 | Freeze jurisdiction policy at envelope creation | [07](../07-compliance-layer.md) |
 
-Numbers 0003 to 0011 stay reserved for the rows above, even though 0012 was written first. Numbers
+Numbers 0004, 0008, 0010 and 0011 stay reserved for the rows above, even though 0012 was written first. Numbers
 are permanent references and are never reused, so a record written out of order takes the next free
 number rather than one of the reserved ones.

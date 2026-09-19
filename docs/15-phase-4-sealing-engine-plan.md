@@ -1,0 +1,235 @@
+# Phase 4: Sealing Engine Plan
+
+| | |
+|---|---|
+| **Status** | In progress |
+| **Version** | 0.1.0 |
+| **Last updated** | 19 September 2026 |
+| **Audience** | Everyone (Part 1) · Developers (Part 2) |
+| **What this doc answers** | What does Phase 4 deliver, how is each part built, and how do we check it? |
+
+---
+
+# PART 1: In Plain Terms
+
+## What Phase 4 Is
+
+Phase 4 is the **sealing engine**: weeks 7–8 of the roadmap in
+[11-implementation-roadmap.md](11-implementation-roadmap.md), which calls it *the milestone that
+matters*. Phase 3 let people sign. Their signatures were saved, but never put into the document, and
+nobody got a finished file. Phase 4 closes that loop.
+
+```
+   STAMP ───────────► each person's signature and answers are written into the page itself
+   VERSION ─────────► every signature produces a new copy of the document, with its own fingerprint
+   CERTIFICATE ─────► after the last signature, a summary page goes on the back
+   SEAL ────────────► the finished file is fingerprinted and locked away for good
+   DELIVER ─────────► everyone gets an identical copy by email
+   VERIFY ──────────► anyone can check a copy against our records, or with one command of their own
+```
+
+**From the end of this phase the product is genuinely usable.** You could send a real contract to a
+real client and get back a finished document that stands up on its own.
+
+## What You Can Do at the End of Phase 4
+
+1. Send a document to three people, one after another.
+2. The second person sees the document **with the first person's signature already on it**, and so
+   does the third.
+3. When the last person finishes, everyone gets an email with the **finished PDF attached**:
+   - signatures and answers exactly where the boxes were;
+   - a certificate page at the back saying who signed, when, from where, on what device, and how;
+   - the fingerprint of every stage.
+4. Your envelope page says **Completed**, lets you download the finished document, and lists every
+   version with its fingerprint.
+5. Anyone can open **Verify**, drop in a copy, and be told whether it is exactly the document that
+   was sealed. Anyone can also check it without us, with one command:
+   `sha256sum contract.pdf`.
+
+## Why Each Signature Gets Its Own Version
+
+If three people sign, the second person signs a document that already carries the first person's
+signature. That exact file has to be on record, or someone can later say *"I never saw the version
+you are showing me."* So every signature produces a new version with its own fingerprint, and the
+certificate lists them all. Doc 06 calls this Correction 2.
+
+## Why the Finished File Is Locked
+
+The finished file is stored in a way that **nobody can change or delete**, including us, for seven
+years by default. This is called Object Lock. Versions still in progress are not locked, because the
+next signature has to be added to them.
+
+## The Phase 4 Finish Line
+
+From doc 11 (the sprint 8 gate), Phase 4 is finished when:
+
+- [ ] a signature lands within 1 point (about a third of a millimetre) of its box, on a rotated page, in a
+      document with pages of different sizes;
+- [ ] three people signing one after another produce an unbroken chain of versions, then the sealed file;
+- [ ] `sha256sum` on the downloaded file matches the fingerprint on record, and Verify agrees;
+- [ ] the certificate lists every version and every event;
+- [ ] all of this works end to end with a signature made on a real phone.
+
+## Progress
+
+| # | Step | Status |
+|---|---|---|
+| 1 | This plan and the sealing ADRs | ✅ Done |
+| 2 | Database, settings and the locked storage bucket | ⬜ |
+| 3 | Stamping signatures and answers into the page | ⬜ |
+| 4 | One version per signature, in order | ⬜ |
+| 5 | The certificate page, sealing and locking | ⬜ |
+| 6 | Completion emails with the finished copy | ⬜ |
+| 7 | Verify | ⬜ |
+| 8 | The sender's Completed screen | ⬜ |
+| 9 | Tests: three signers end to end, and the leak audits | ⬜ |
+| 10 | Real-phone check, documentation and release `v0.4.0` | ⬜ |
+
+## What We Need From You
+
+| Needed | Why | When |
+|---|---|---|
+| Two or three real documents, anonymised | Stamping must be tested on the documents you will actually send | During Phase 4 |
+| HealthProHub logo and brand colours | The certificate page and emails still use placeholders | During Phase 4 |
+| Confirmation that 7 years' retention is right | Locked files cannot be deleted early, even by us | Before real use |
+| The lawyer's consent wording | Still a placeholder from Phase 3 | Before real use |
+
+---
+---
+
+# PART 2: Technical Detail
+
+> Written for developers. Non-technical readers can stop here.
+
+## Decisions Made Before Starting
+
+| Question | Decision |
+|---|---|
+| How everyone receives the finished copy | **Attached to the completion email**, identical for everyone. A file over 15 MB is too large to attach and is sent as a private download link valid for 30 days. |
+| Who receives it | Every recipient, whatever their role, and the sender |
+| How Verify checks a file | **The visitor uploads the PDF** (doc 08). The server hashes it in memory and never stores or logs it. |
+| Object Lock | A separate bucket, created with locking on, holding final versions only. `COMPLIANCE` mode in production, `GOVERNANCE` in dev and test. Retention 7 years (docs 01 and 07), set by `SEALED_RETENTION_DAYS`. |
+| A declined or voided envelope | Sealing stops. Versions already made are kept. |
+
+## ADRs Written in This Phase
+
+The ADR index reserved these numbers for exactly these decisions:
+
+| ADR | Decision |
+|---|---|
+| [0003](adr/0003-create-a-document-version-per-signing-round.md) | A `DocumentVersion` per signing round, each with its hash and the recipient who produced it |
+| [0005](adr/0005-burn-signatures-into-page-content.md) | Stamp into the page content stream, never as annotations. Includes the rotated-page correction below. |
+| [0006](adr/0006-run-sealing-asynchronously-on-workers.md) | Seal on workers, one envelope at a time, idempotent on `(envelopeId, versionNumber)` |
+| [0007](adr/0007-apply-object-lock-to-the-final-version-only.md) | Object Lock on the final version only, in its own bucket |
+
+## Corrections and Spec Gaps
+
+| Spec says | Built as | Why |
+|---|---|---|
+| Doc 06's `burnFields` swaps width and height for `/Rotate 90` and `270` | A new function in `coordinates.ts` maps the box from the displayed page into the page's own space. The image is drawn turned with the page. The CropBox origin is added. | Swapping alone draws in the wrong space. It lands correctly only at the page's bottom-left corner, and the image comes out sideways. Ratios are relative to the page as displayed, with `/Rotate` and the CropBox applied (ADR 0002). |
+| `burnFields` receives image data URLs | It receives the adopted images' storage keys, read on the worker | The images are already stored by `POST /sign/:token/adopt` (Phase 3) |
+| Standard Helvetica for text | An embedded, subset Unicode font (Noto Sans) | Standard fonts only encode Windows-1252. A name or answer outside it would make `drawText` throw, and the seal would fail. |
+| Advance to the next signer on version creation (doc 03) | As specified | Phase 3 advanced on submit because there were no versions. It moves here. |
+| Which version a signer attested to is not recorded | The server records the version it last served to the recipient, and `RECIPIENT_SIGNED` carries that number and hash | Makes Correction 2 provable per signer. It is recorded by the server, not claimed by the client. |
+| The final hash is on the verification page and in the email | Also on the sender's envelope page | The sender needs it to answer questions about a document |
+
+## Step 2: Database, Settings and Storage
+
+| Change | Reason |
+|---|---|
+| `Recipient.servedVersionNumber` | The version last served to this signer; copied into `RECIPIENT_SIGNED` |
+| Audit actions `VERSION_CREATED`, `ENVELOPE_COMPLETED`, `COMPLETION_SENT` | The sealing chain in the audit trail |
+| A download-link table for the large-file fallback, holding only the HMAC | The same handling as signing links (ADR 0009) |
+| `S3_SEALED_BUCKET`, `SEALED_RETENTION_MODE`, `SEALED_RETENTION_DAYS` | The locked bucket |
+| `minio-init` creates `digitalsign-sealed` and `digitalsign-test-sealed` with `--with-lock` | Object Lock can only be switched on when a bucket is created |
+
+`StorageService` gains `putLocked(key, body)`, which writes to the sealed bucket with a retention date.
+
+## Step 3: Stamping (`PdfSealingService.burnFields`)
+
+- **Images.** `sharp` trims the transparent edges and reads the real size. `fitPreservingAspect()`
+  keeps the proportions, centred in the box (Correction 1).
+- **Text and dates.** The largest size that fits the box, but never below 6 pt, in the embedded font.
+- **Tick boxes.** A drawn tick, not a letter.
+- **Every page is measured on its own:** size, `/Rotate` and CropBox (gotchas 3–5).
+- **Forms.** An AcroForm left by the upload sanitiser is flattened before the first stamp (gotcha 8).
+- **Tests.** Every geometry test reads the image's placement back from the page content stream (the
+  `cm` operator) and checks it to within 1 pt. They cover:
+  - 0°, 90°, 180° and 270° pages;
+  - mixed page sizes, using `apps/web/e2e/fixtures/mixed-pages.pdf`;
+  - a CropBox offset from the MediaBox;
+  - wide images in tall boxes, and the reverse.
+
+## Step 4: One Version per Signature
+
+- **Queueing.** Submit queues a `seal` job carrying `{ envelopeId }`.
+- **Serialising.** The worker locks the envelope row. It then stamps every signer who has signed but
+  has no version yet, in the order they signed.
+- **Each round:**
+  1. Load the latest version.
+  2. Stamp this signer's fields.
+  3. Store the result at `tenants/{t}/envelopes/{e}/versions/v{n}.pdf`.
+  4. Insert `DocumentVersion n`, then write `VERSION_CREATED`.
+  5. Invite the next group if signing is *one after another*.
+- **Idempotency.** The unique `(envelopeId, versionNumber)` is the commit point. A retry that
+  finds the version already inserted moves on. A retry that fails before the insert overwrites the
+  same key.
+- **Signers see the latest version.** `GET /sign/:token/document` serves the newest version and
+  records its number on the recipient.
+
+## Step 5: Certificate, Seal and Lock
+
+When every signer and approver has a version, `sealFinal()` appends the certificate. It holds:
+- the envelope's id and title;
+- each signer's name, email, signing time (UTC), IP address, device, method (drawn or typed) and
+  consent time;
+- the hash of every version from v0 to vN;
+- the event history.
+
+It runs onto more pages as needed. The result is stored in the sealed bucket as version N+1, with
+`isFinal = true`. The envelope then gets:
+- `finalHash`, `completedFileUrl` and `completedAt`;
+- status `COMPLETED`;
+- the audit event `ENVELOPE_COMPLETED`.
+
+The final hash is not printed in the file (Correction 3).
+
+## Step 6: Completion Emails
+
+One `completed` job per person. The finished PDF is attached, with its SHA-256 and a line on how to
+check it. The worker checks the attachment's size, and above 15 MB sends a download link instead. The
+link's token is created in the worker and only its HMAC is stored. It works for 30 days, and never in
+a log.
+
+## Step 7: Verify
+
+`POST /v1/verify` is public and accepts a PDF of up to 25 MB, limited to 30 a minute per IP.
+- The file is hashed in memory and never stored or logged.
+- A match against `Envelope.finalHash` or any `DocumentVersion.hash` returns the title, the signers,
+  the version chain, which version matched, and the completion time.
+- Otherwise it returns `NOT_FOUND`. That means *either* the file was never sealed here, *or* it has
+  been changed since. The answer says both honestly (doc 06).
+
+A public **Verify** page in the web app sends the file and shows the answer.
+
+## Step 9: Tests
+
+- **API e2e.** Three signers, one after another, produce v0…v3 and then the sealed v4. Each
+  version's hash matches its stored file, and `sha256` of the download equals `finalHash`. Verify
+  finds the final file, rejects a copy with one byte changed, and finds an in-progress version.
+- **Parallel signing.** Two signers finishing at once are stamped one after the other, with no gap
+  and no duplicate version.
+- **Certificate.** A long event history overflows onto a second page.
+- **Leak audits.** Both audits are extended to seal jobs and to the download-link token.
+- **Browser.** The whole flow, ending with the downloaded file's hash compared with the value on the
+  envelope page.
+
+## Deliberate Simplifications
+
+| Simplification | Planned fix |
+|---|---|
+| No PAdES digital signature inside the PDF; integrity rests on SHA-256 and the locked copy | Tier 2 is deferred (ADR 0010) |
+| The certificate page is US Letter whatever the document's page size | If customers ask |
+| Text in scripts that Noto Sans lacks (Devanagari, for example) is drawn as `?` on the page and logged. The stored value keeps the original. | Add fonts per script when a customer needs one |
+| Void, the expiry sweeper and scheduled reminders are not built | Phase 5 |
+| The download link for large files cannot be renewed | Phase 5, with "request a new link" |

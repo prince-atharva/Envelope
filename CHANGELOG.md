@@ -8,9 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 Phase 3 (Signer Portal) in progress. See
 [docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
+Phase 4 (Sealing Engine) started. See
+[docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
 
 ### Added
 
+- Phase 4 plan (`docs/15`) and four ADRs reserved for it:
+  - 0003: a document version per signing round.
+  - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their
+    boxes mapped into the page's own space, not just their width and height swapped.
+  - 0006: sealing on workers, one envelope at a time, idempotent on the version number.
+  - 0007: Object Lock on the final version only, in its own bucket.
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.
