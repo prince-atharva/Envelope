@@ -41,6 +41,9 @@ enum EnvelopeStatus {
   SENT
   DELIVERED
   PARTIALLY_SIGNED
+  /// The deadline passed with signatures missing. Paused, not finished: the
+  /// sender can extend it or cancel it (ADR 0013).
+  EXPIRED
   COMPLETED
   DECLINED
   VOIDED
@@ -105,8 +108,9 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  envelopes Envelope[]
-  sessions  Session[]
+  envelopes       Envelope[] @relation("EnvelopeOwner")
+  voidedEnvelopes Envelope[] @relation("EnvelopeVoidedBy")
+  sessions        Session[]
 
   @@index([tenantId])
 }
@@ -146,7 +150,7 @@ model Envelope {
   status   EnvelopeStatus @default(DRAFT)
 
   ownerId String @db.Uuid
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  owner   User   @relation("EnvelopeOwner", fields: [ownerId], references: [id], onDelete: Restrict)
 
   // Storage. These hold object-storage keys, not public URLs; downloads are
   // streamed or presigned on demand. The original is NEVER mutated.
@@ -167,6 +171,18 @@ model Envelope {
   sentAt            DateTime?
   expiresAt         DateTime?
   completedAt       DateTime?
+  /// When the expiry sweep paused it. Kept after an extension, as history.
+  expiredAt         DateTime?
+
+  // Cancelling (docs/16 step 4). The reason is shown to the people who were
+  // emailed and to the sender; it stays out of the audit metadata.
+  voidedAt       DateTime?
+  voidReason     String?   @db.Text
+  voidedByUserId String?   @db.Uuid
+  voidedBy       User?     @relation("EnvelopeVoidedBy", fields: [voidedByUserId], references: [id], onDelete: Restrict)
+
+  /// Automatic reminders every this many days (1–30). Null is off.
+  reminderIntervalDays Int?
 
   /// Optional note included in the invitation email (docs/08, POST /send).
   message String? @db.Text
@@ -192,6 +208,8 @@ model Envelope {
   @@index([tenantId, createdAt])
   @@index([ownerId])
   @@index([expiresAt])
+  /// The expiry sweep: open envelopes past their deadline.
+  @@index([status, expiresAt])
 }
 
 model Recipient {
@@ -222,13 +240,20 @@ model Recipient {
 
   // Progress, shown to the sender.
   /// When this person's turn began: at send, or when the group before them finished.
-  invitedAt      DateTime?
+  invitedAt           DateTime?
   /// When the mail server last accepted an invitation or reminder for them.
-  notifiedAt     DateTime?
+  notifiedAt          DateTime?
   /// When the sender last asked for a reminder. Limits reminders to one a day.
-  lastRemindedAt DateTime?
+  lastRemindedAt      DateTime?
+  /// The "expires soon" email went out for the current deadline. Cleared by an extension.
+  expiryWarnedAt      DateTime?
+  /// When they last asked the sender for more time. Limits it to once a day.
+  moreTimeRequestedAt DateTime?
+  /// Last time a signing page was read, written at most every 10 minutes. No
+  /// automatic reminder goes out while they have the document open.
+  lastSeenAt          DateTime?
   /// First time they opened the signing link.
-  viewedAt       DateTime?
+  viewedAt            DateTime?
   /// The document version last served to them. RECIPIENT_SIGNED records it,
   /// with its hash, as the version they attested to (ADR 0003).
   servedVersionNumber Int?
@@ -252,7 +277,7 @@ model Recipient {
 
   // Signing telemetry
   signedFromIp String?
-  signedFromUa String?  @db.Text
+  signedFromUa String? @db.Text
 
   createdAt DateTime @default(now())
 
@@ -323,14 +348,14 @@ model DocumentVersion {
   createdByRecipientId String?    @db.Uuid
   createdByRecipient   Recipient? @relation(fields: [createdByRecipientId], references: [id], onDelete: SetNull)
 
-  isFinal   Boolean  @default(false) // certificate appended, Object Lock applied
+  isFinal Boolean @default(false) // certificate appended, Object Lock applied
 
   /// The storage version id of the sealed file (final version only). The locked
   /// bucket is versioned, so a later write or a delete to the same key would add
   /// a newer version or a delete marker; reads name this id, so what is served
   /// is always exactly the file that was locked (ADR 0007).
   storageVersionId String?
-  createdAt DateTime @default(now())
+  createdAt        DateTime @default(now())
 
   @@unique([envelopeId, versionNumber])
   @@index([envelopeId])

@@ -6,6 +6,7 @@ export type EnvelopeStatus =
   | 'SENT'
   | 'DELIVERED'
   | 'PARTIALLY_SIGNED'
+  | 'EXPIRED'
   | 'COMPLETED'
   | 'DECLINED'
   | 'VOIDED';
@@ -21,7 +22,10 @@ export const OPEN_ENVELOPE_STATUSES = [
 ] as const satisfies readonly EnvelopeStatus[];
 export type OpenEnvelopeStatus = (typeof OPEN_ENVELOPE_STATUSES)[number];
 
-/** Nothing can change any more (docs/01, "The Envelope"). */
+/**
+ * Nothing can change any more (docs/01, "The Envelope"). EXPIRED is neither
+ * open nor terminal: nobody can sign, but the sender can extend it (ADR 0013).
+ */
 export const TERMINAL_ENVELOPE_STATUSES = [
   'COMPLETED',
   'DECLINED',

@@ -12,6 +12,7 @@ const ALL: EnvelopeStatus[] = [
   'SENT',
   'DELIVERED',
   'PARTIALLY_SIGNED',
+  'EXPIRED',
   'COMPLETED',
   'DECLINED',
   'VOIDED',
@@ -29,5 +30,10 @@ describe('envelope status sets', () => {
     }
     expect(isOpenEnvelope('DRAFT')).toBe(false);
     expect(isTerminalEnvelope('DRAFT')).toBe(false);
+  });
+
+  it('treats an expired envelope as paused: neither open nor terminal', () => {
+    expect(isOpenEnvelope('EXPIRED')).toBe(false);
+    expect(isTerminalEnvelope('EXPIRED')).toBe(false);
   });
 });

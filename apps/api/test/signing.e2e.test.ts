@@ -609,6 +609,18 @@ describe('sending and signing (e2e)', () => {
       expect((await open(token).expect(401)).body.code).toBe('TOKEN_EXPIRED');
     });
 
+    it('turns away a live link once its envelope is paused as expired', async () => {
+      const { envelope, team } = await sent([{ name: 'Paused Signer' }]);
+      const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
+      await open(token).expect(200);
+      // The deadline has not passed, but the envelope is paused (ADR 0013).
+      await ownerQuery(
+        `UPDATE "Envelope" SET status = 'EXPIRED', "expiredAt" = now() WHERE id = $1`,
+        [envelope.id],
+      );
+      expect((await open(token).expect(401)).body.code).toBe('TOKEN_EXPIRED');
+    });
+
     it('limits each link to 10 changes a minute, whatever the address', async () => {
       const { team } = await sent([{ name: 'Rate Limited' }]);
       const token = await linkFor(worker.mailbox, team[0]?.email ?? '');
@@ -767,6 +779,37 @@ describe('sending and signing (e2e)', () => {
       await expect(
         ownerQuery(`UPDATE "Recipient" SET "signatureImageKey" = 'k' WHERE id = $1`, [id]),
       ).rejects.toThrow(/Recipient_signature_has_method/);
+    });
+
+    it('keeps who cancelled, when and why, and when an envelope expired', async () => {
+      const draft = await prepareEnvelope(t.http, owner, people({ name: 'Lifecycle Check' }));
+      await expect(
+        ownerQuery(`UPDATE "Envelope" SET status = 'VOIDED' WHERE id = $1`, [draft.id]),
+      ).rejects.toThrow(/Envelope_voided_has_time/);
+      // A discarded draft was never sent and needs no reason.
+      await ownerQuery(
+        `UPDATE "Envelope" SET status = 'VOIDED', "voidedAt" = now() WHERE id = $1`,
+        [draft.id],
+      );
+
+      const envelope = await prepareEnvelope(t.http, owner, people({ name: 'Cancel Check' }));
+      await sendEnvelope(t.http, owner, envelope.id).expect(200);
+      await expect(
+        ownerQuery(`UPDATE "Envelope" SET status = 'VOIDED', "voidedAt" = now() WHERE id = $1`, [
+          envelope.id,
+        ]),
+      ).rejects.toThrow(/Envelope_voided_sent_has_reason/);
+      await expect(
+        ownerQuery(`UPDATE "Envelope" SET status = 'EXPIRED' WHERE id = $1`, [envelope.id]),
+      ).rejects.toThrow(/Envelope_expired_has_time/);
+      for (const days of [0, 31]) {
+        await expect(
+          ownerQuery(`UPDATE "Envelope" SET "reminderIntervalDays" = $2 WHERE id = $1`, [
+            envelope.id,
+            days,
+          ]),
+        ).rejects.toThrow(/Envelope_reminder_interval_range/);
+      }
     });
   });
 });

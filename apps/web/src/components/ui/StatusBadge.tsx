@@ -8,6 +8,7 @@ const STYLES: Record<EnvelopeStatus, { label: string; className: string }> = {
     label: 'Partly signed',
     className: 'bg-amber-50 text-amber-800 ring-amber-200',
   },
+  EXPIRED: { label: 'Expired', className: 'bg-orange-50 text-orange-800 ring-orange-200' },
   COMPLETED: { label: 'Completed', className: 'bg-emerald-50 text-emerald-800 ring-emerald-200' },
   DECLINED: { label: 'Declined', className: 'bg-red-50 text-red-800 ring-red-200' },
   VOIDED: { label: 'Voided', className: 'bg-red-50 text-red-800 ring-red-200' },

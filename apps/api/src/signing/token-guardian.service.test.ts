@@ -53,6 +53,19 @@ describe('checkSignerAccess', () => {
     );
   });
 
+  it('refuses a paused envelope as an expired link, whatever its deadline says', () => {
+    const paused = { status: 'EXPIRED', expiresAt: EARLIER } as const;
+    expect(checkSignerAccess(waiting, paused, NOW)).toEqual({
+      code: 'TOKEN_EXPIRED',
+      expiredAt: EARLIER,
+    });
+    // Extended but not yet resumed: the link still does not work.
+    expect(checkSignerAccess(waiting, { ...paused, expiresAt: LATER }, NOW)).toEqual({
+      code: 'TOKEN_EXPIRED',
+      expiredAt: LATER,
+    });
+  });
+
   it('checks in a fixed order: closed, then signed, then expired', () => {
     const signedAndExpired = {
       status: 'SIGNED',
@@ -60,6 +73,9 @@ describe('checkSignerAccess', () => {
       tokenExpiresAt: EARLIER,
     } as const;
     expect(checkSignerAccess(signedAndExpired, open, NOW)?.code).toBe('TOKEN_ALREADY_USED');
+    expect(checkSignerAccess(signedAndExpired, { ...open, status: 'EXPIRED' }, NOW)?.code).toBe(
+      'TOKEN_ALREADY_USED',
+    );
     expect(checkSignerAccess(signedAndExpired, { ...open, status: 'VOIDED' }, NOW)?.code).toBe(
       'ENVELOPE_TERMINAL',
     );

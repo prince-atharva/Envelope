@@ -29,7 +29,9 @@ type AccessEnvelope = Pick<Envelope, 'status' | 'expiresAt'>;
  * Whether a known link may still be used, checked in a fixed order so each
  * signer sees the right screen (ADR 0009): cancelled or declined first, then
  * already signed, then expired. A person who signed and whose link has since
- * expired is told they signed, not that the link expired.
+ * expired is told they signed, not that the link expired. An envelope paused
+ * as EXPIRED reads as an expired link (ADR 0013), even if its deadline has
+ * already been moved and the sweep has not caught up.
  */
 export function checkSignerAccess(
   recipient: AccessRecipient,
@@ -48,6 +50,7 @@ export function checkSignerAccess(
 
   const expiresAt = earliest(recipient.tokenExpiresAt, envelope.expiresAt);
   if (expiresAt && expiresAt <= now) return { code: 'TOKEN_EXPIRED', expiredAt: expiresAt };
+  if (envelope.status === 'EXPIRED') return { code: 'TOKEN_EXPIRED', expiredAt: expiresAt ?? now };
 
   // COMPLETED with this person unsigned, or DRAFT with a token: neither should exist.
   if (!isOpenEnvelope(envelope.status)) return { code: 'ENVELOPE_NOT_OPEN' };

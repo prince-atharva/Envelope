@@ -24,6 +24,16 @@ Phase 5 (Envelope Lifecycle) in progress. See
 - `@envelope/shared` defines the open and terminal envelope statuses once
   (`OPEN_ENVELOPE_STATUSES`, `TERMINAL_ENVELOPE_STATUSES`, `isOpenEnvelope`, `isTerminalEnvelope`).
   They replace eight local copies in the API and the web app, so a new status is added in one place.
+- Database for the envelope lifecycle (docs/16 step 3), in two migrations because Postgres cannot
+  use a new enum value in the transaction that adds it:
+  - `EnvelopeStatus.EXPIRED`: an overdue envelope pauses. It is neither open nor terminal, and a
+    signing link on it is refused as `TOKEN_EXPIRED` (after the already-signed check). The web
+    status badge shows it as "Expired".
+  - `Envelope.voidedAt`, `voidReason` and `voidedByUserId`; `expiredAt`; `reminderIntervalDays`.
+  - `Recipient.expiryWarnedAt`, `moreTimeRequestedAt` and `lastSeenAt`.
+  - Checks: a cancelled envelope has a time, and a reason if it was sent; an expired one has a time;
+    the reminder interval is 1–30 days. A discarded draft may have no send time. Index
+    `(status, expiresAt)` for the expiry sweep.
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their

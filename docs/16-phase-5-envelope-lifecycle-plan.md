@@ -74,7 +74,7 @@ along the way:
 | 0 | This plan, ADR 0013 (expiry pauses an envelope) and ADR 0004 (the audit hash chain) | ✅ Done |
 | 1 | One definition of "open" and "closed" statuses | ✅ Done |
 | 2 | Lock the envelope before signing, declining, sending a link or sealing commits | ✅ Done |
-| 3 | Database: Expired status, cancel and reminder columns | ⬜ |
+| 3 | Database: Expired status, cancel and reminder columns | ✅ Done |
 | 4 | Cancel and discard (API and emails) | ⬜ |
 | 5 | Cancel and discard (screens) | ⬜ |
 | 6 | The maintenance queue and the expiry sweep | ⬜ |

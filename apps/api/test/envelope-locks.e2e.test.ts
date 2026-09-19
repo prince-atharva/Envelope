@@ -26,6 +26,11 @@ import {
   signAs,
 } from './helpers/signing';
 
+/** Cancels as step 4 will, until it exists: the database insists on when and why. */
+const CANCEL = `UPDATE "Envelope"
+  SET status = 'VOIDED', "voidedAt" = now(), "voidReason" = 'Cancelled by the test'
+  WHERE id = $1`;
+
 let counter = 0;
 function person(name: string): PersonSpec {
   counter += 1;
@@ -146,9 +151,7 @@ describe('envelope row locks (e2e)', () => {
 
   it('refuses a signature when the envelope is cancelled after the link was checked', async () => {
     const { envelope, token } = await readyToFinish();
-    afterNextCheck(() =>
-      ownerQuery(`UPDATE "Envelope" SET status = 'VOIDED' WHERE id = $1`, [envelope.id]),
-    );
+    afterNextCheck(() => ownerQuery(CANCEL, [envelope.id]));
 
     const res = await finish(token, envelope).expect(409);
     expect(res.body).toMatchObject({ code: 'ENVELOPE_TERMINAL', reason: 'VOIDED' });
@@ -158,9 +161,7 @@ describe('envelope row locks (e2e)', () => {
 
   it('refuses a decline when the envelope is cancelled after the link was checked', async () => {
     const { envelope, token } = await readyToFinish();
-    afterNextCheck(() =>
-      ownerQuery(`UPDATE "Envelope" SET status = 'VOIDED' WHERE id = $1`, [envelope.id]),
-    );
+    afterNextCheck(() => ownerQuery(CANCEL, [envelope.id]));
 
     await request(t.http)
       .post(api(token, '/decline'))
@@ -179,7 +180,7 @@ describe('envelope row locks (e2e)', () => {
       ...args
     ) {
       const result = await burn.apply(this, args);
-      await ownerQuery(`UPDATE "Envelope" SET status = 'VOIDED' WHERE id = $1`, [envelope.id]);
+      await ownerQuery(CANCEL, [envelope.id]);
       return result;
     });
 
@@ -210,7 +211,7 @@ describe('envelope row locks (e2e)', () => {
       ...args
     ) {
       const result = await append.apply(this, args);
-      await ownerQuery(`UPDATE "Envelope" SET status = 'VOIDED' WHERE id = $1`, [envelope.id]);
+      await ownerQuery(CANCEL, [envelope.id]);
       return result;
     });
 
