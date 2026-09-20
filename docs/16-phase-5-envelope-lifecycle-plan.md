@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Built. The `v0.5.0` release waits, with `v0.3.0` and `v0.4.0`, on the WebKit libraries and the real-phone check |
-| **Version** | 1.0.0 |
-| **Last updated** | 19 September 2026 |
+| **Status** | Built and released as `v0.5.0`, with `v0.3.0` and `v0.4.0`. The real-phone check (doc 15, step 10) is still outstanding |
+| **Version** | 1.1.0 |
+| **Last updated** | 20 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 5 deliver, how is each part built, and how do we check it? |
 
@@ -98,7 +98,7 @@ Each item below is proven by a test: `cancel`, `expiry`, `extend`, `more-time`, 
 | Needed | Why | When |
 |---|---|---|
 | An address for alert emails (`ALERT_EMAIL`) | Alerts are only logged until it is set in `.env` | Any time |
-| The WebKit libraries and the real-phone check (doc 15, step 10) | Releases `v0.3.0` and `v0.4.0` wait on them | Now |
+| The real-phone check (doc 15, step 10) | Touch drawing on a physical iPhone is the one thing desktop emulation cannot reproduce. The WebKit libraries are installed and the iPhone 14 tests now run locally | Now |
 | Logo and colours, the lawyer's consent wording, the 7-year retention confirmation | Still placeholders from earlier phases | Before real use |
 
 ---

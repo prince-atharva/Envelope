@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | In progress |
-| **Version** | 0.1.0 |
-| **Last updated** | 19 September 2026 |
+| **Status** | Built and released as `v0.4.0`. The real-phone check (step 10) is the one verification still outstanding |
+| **Version** | 1.0.0 |
+| **Last updated** | 20 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 4 deliver, how is each part built, and how do we check it? |
 

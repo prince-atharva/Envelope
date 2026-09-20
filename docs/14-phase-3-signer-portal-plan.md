@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | In progress |
-| **Version** | 0.1.0 |
-| **Last updated** | 18 September 2026 |
+| **Status** | Built and released as `v0.3.0` |
+| **Version** | 1.0.0 |
+| **Last updated** | 20 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 3 deliver, how is each part built, and how do we check it? |
 
@@ -287,10 +287,20 @@ The `mobile-iphone14` project now runs on WebKit. CI installs WebKit, runs every
 Chrome, and runs the signing tests and the audit on iPhone 14. Drawing is tested with mouse pointer
 events. Real touch drawing is part of the step 11 phone check.
 
-**Still to run locally:** the WebKit run. The development machine lacks WebKit's system libraries, and
-installing them needs `sudo`
-(`sudo pnpm --filter @envelope/web exec playwright install-deps webkit`). Desktop Chrome and Pixel 7
-pass: 36 of 36.
+**The WebKit run, as built.** WebKit's system libraries are installed
+(`sudo env "PATH=$PATH" pnpm --filter @envelope/web exec playwright install-deps webkit`: 61 packages
+on Ubuntu 24.04, mostly GStreamer and audio codecs. Plain `sudo` cannot find `pnpm` under nvm, hence
+`env`). All three projects now run locally: **78 of 78 pass**, 26 on each of desktop Chrome, Pixel 7
+and iPhone 14.
+
+The signing tests, including the drawn signature, and the leak audit passed on WebKit without a
+single change to the application. One test needed changing, and it was the harness rather than the
+product: WebKit does not implement Playwright's clipboard permissions, so `grantPermissions` threw
+before `upload-and-view.spec.ts` could run at all. The fingerprint readback there is now guarded by
+`browserName === 'chromium'`, while **Copy Hash** and its "Copied!" confirmation are still asserted
+on every engine.
+
+This leaves real touch drawing as the only thing the step 11 phone check still has to prove.
 
 ## Open Points Found in Step 9
 

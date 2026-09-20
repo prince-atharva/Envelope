@@ -10,9 +10,15 @@ test.describe('Document lifecycle end-to-end', () => {
   test('full flow: register → empty state → upload 12-page PDF → viewer shows all pages → zoom works → fingerprint matches download', async ({
     page,
     context,
+    browserName,
   }) => {
-    // Enable clipboard access for fingerprint copy test
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    // Only Chromium lets Playwright grant the clipboard permissions; WebKit rejects
+    // them outright. There the copy is checked through the button alone, and the
+    // clipboard is not read back.
+    const clipboardReadable = browserName === 'chromium';
+    if (clipboardReadable) {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    }
 
     const uniqueEmail = `fullflow+${Date.now()}+${Math.floor(Math.random() * 100000)}@example.com`;
     const password = 'TestPassword123!';
@@ -78,8 +84,10 @@ test.describe('Document lifecycle end-to-end', () => {
     await expect(copyButton).toBeVisible();
     await copyButton.click();
     await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible();
-    const clipboardContent = await page.evaluate(() => navigator.clipboard.readText());
-    expect(clipboardContent).toBe(displayedHash);
+    if (clipboardReadable) {
+      const clipboardContent = await page.evaluate(() => navigator.clipboard.readText());
+      expect(clipboardContent).toBe(displayedHash);
+    }
 
     // 12. Verify PDF viewer loaded and page navigation works
     await expect(page.getByText(/of 12/)).toBeVisible({ timeout: 20000 });

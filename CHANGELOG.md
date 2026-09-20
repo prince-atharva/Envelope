@@ -6,12 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Phase 3 (Signer Portal) in progress. See
-[docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
-Phase 4 (Sealing Engine) built; the real-phone check and the release are to come. See
-[docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
-Phase 5 (Envelope Lifecycle) built. Its release, `v0.5.0`, waits with `v0.3.0` and `v0.4.0` on the
-WebKit libraries and the real-phone check. See
+Phase 6 (Compliance) is next: jurisdiction policy frozen at envelope creation, blocked document
+categories, user roles enforced, a retention sweeper with legal hold, and audit export.
+
+## [0.5.0] - 2026-09-20
+
+Phase 5 (Envelope Lifecycle): cancelling a sent document, deadlines that pause an envelope and can
+be extended, automatic reminders, the "needs attention" dashboard, request limits shared in Redis,
+and the nightly audit-chain check with alert emails. See
 [docs/16-phase-5-envelope-lifecycle-plan.md](docs/16-phase-5-envelope-lifecycle-plan.md).
 
 ### Added
@@ -117,6 +119,31 @@ WebKit libraries and the real-phone check. See
   slot, so a restarted worker's first sweep could come many intervals late.
 - Remind answers 409 `ENVELOPE_EXPIRED` past the deadline, swept or not, instead of 200 with nothing
   sent. The web app no longer offers Remind there.
+
+### Fixed
+
+- **A signature, decline or link could commit against an envelope that had just closed.** Consent,
+  adopt, submit, decline and the invitation mailer checked the envelope only through a relation
+  filter, which takes no lock. They now lock the envelope row first
+  (`apps/api/src/prisma/envelope-locks.ts`), which also enforces the deadline at commit time, not
+  only when the link was checked.
+- **Sealing could complete a cancelled envelope.** A stamping round and the final seal now check the
+  envelope again under a row lock just before they commit, after the storage work.
+- **A person could not be invited again for a day** once an invitation had been skipped: the job id
+  was the recipient alone. It now includes when their turn began.
+
+## [0.4.0] - 2026-09-20
+
+Phase 4 (Sealing Engine): signatures and answers stamped into the page, one document version per
+signing round, the Certificate of Completion, sealing with Object Lock, completion emails and the
+public Verify page. See
+[docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
+
+> The real-phone check (doc 15, step 10) is the one verification still outstanding: touch drawing
+> on a physical iPhone, which desktop emulation cannot reproduce.
+
+### Added
+
 - Phase 4 plan (`docs/15`) and four ADRs reserved for it:
   - 0003: a document version per signing round.
   - 0005: signatures burned into the page content. It adds Correction 4: rotated pages need their
@@ -216,6 +243,29 @@ WebKit libraries and the real-phone check. See
   logged.
 - `WEB_HOST` (optional) makes the development web server listen beyond localhost, for trying the
   signing portal on a phone on the same network.
+
+### Fixed
+
+- The sender's reminder button now applies the server's rule that a signature not yet stamped keeps
+  the turn, so it is no longer offered for someone the server would skip.
+- The "Sent. We are emailing…" notice no longer reappears when a finished envelope's page is
+  reloaded.
+- nodemailer rewrote attachment objects as it encoded them. The transport now hands it copies.
+
+### Security
+
+- `/download/<token>` is scrubbed from every logged URL, message and stack trace, like
+  `/sign/<token>`, and `downloadUrl` is a redacted key. Download responses send `Cache-Control:
+  no-store` and `Referrer-Policy: no-referrer`, and their problem details never echo the token.
+
+## [0.3.0] - 2026-09-20
+
+Phase 3 (Signer Portal): sending an envelope, signing tokens that only ever exist as an HMAC, the
+consent gate, signature capture by drawing or typing, guided field navigation, reminders and
+declines. See [docs/14-phase-3-signer-portal-plan.md](docs/14-phase-3-signer-portal-plan.md).
+
+### Added
+
 - Phase 3 plan (`docs/14`) and ADR 0009, which records how signing tokens are handled: only their
   HMAC is stored, they are minted inside the email worker so the raw token never reaches Redis or the
   database, every reminder rotates them, and revocation is by envelope and recipient state.
@@ -393,20 +443,6 @@ WebKit libraries and the real-phone check. See
 
 ### Fixed
 
-- **A signature, decline or link could commit against an envelope that had just closed.** Consent,
-  adopt, submit, decline and the invitation mailer checked the envelope only through a relation
-  filter, which takes no lock. They now lock the envelope row first
-  (`apps/api/src/prisma/envelope-locks.ts`), which also enforces the deadline at commit time, not
-  only when the link was checked.
-- **Sealing could complete a cancelled envelope.** A stamping round and the final seal now check the
-  envelope again under a row lock just before they commit, after the storage work.
-- **A person could not be invited again for a day** once an invitation had been skipped: the job id
-  was the recipient alone. It now includes when their turn began.
-- The sender's reminder button now applies the server's rule that a signature not yet stamped keeps
-  the turn, so it is no longer offered for someone the server would skip.
-- The "Sent. We are emailing…" notice no longer reappears when a finished envelope's page is
-  reloaded.
-- nodemailer rewrote attachment objects as it encoded them. The transport now hands it copies.
 - **Browser tests no longer touch the developer's setup.** They used to reuse the running `pnpm dev`
   server, so each run wrote test accounts into the dev database and, once `.env` was switched to
   Gmail SMTP, sent real welcome, invitation and reminder emails to made-up addresses, which bounced.
@@ -433,9 +469,6 @@ WebKit libraries and the real-phone check. See
 ### Security
 
 - Logs now redact `rawToken`, `signingUrl` and `SIGNING_TOKEN_SECRET` wherever they appear as keys.
-- `/download/<token>` is scrubbed from every logged URL, message and stack trace, like
-  `/sign/<token>`, and `downloadUrl` is a redacted key. Download responses send `Cache-Control:
-  no-store` and `Referrer-Policy: no-referrer`, and their problem details never echo the token.
 - Browser error reports have their stack trace scrubbed before logging. Previously only the message
   and URL were, and a stack from the signing page would have carried the token.
 - The signing-link pattern in the scrubber stops at `:` and `)`, so a scrubbed stack frame keeps its
@@ -475,6 +508,12 @@ WebKit libraries and the real-phone check. See
   handling rules and the leak audit.
 - The browser-test stack logs at `debug` by default, so the leak audit searches every line the API
   and worker could write. `E2E_LOG_LEVEL` still overrides it.
+- **The whole browser matrix now runs locally, not only in CI**: 78 of 78, 26 on each of desktop
+  Chrome, Pixel 7 and iPhone 14 under WebKit. WebKit does not implement Playwright's clipboard
+  permissions, so the fingerprint readback in `upload-and-view.spec.ts` is guarded by
+  `browserName === 'chromium'`; **Copy Hash** and its "Copied!" confirmation are still asserted on
+  every engine. Nothing in the application had to change for WebKit, the drawn signature included.
+
 
 ## [0.2.0] - 2026-09-18
 
