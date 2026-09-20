@@ -139,8 +139,10 @@ signing round, the Certificate of Completion, sealing with Object Lock, completi
 public Verify page. See
 [docs/15-phase-4-sealing-engine-plan.md](docs/15-phase-4-sealing-engine-plan.md).
 
-> The real-phone check (doc 15, step 10) is the one verification still outstanding: touch drawing
-> on a physical iPhone, which desktop emulation cannot reproduce.
+> Checked on real hardware on 20 September 2026 (doc 15, step 10): three signers, one after another,
+> on both an iPhone in Safari and an Android phone in Chrome. Every item passed first time, with no
+> change to the application, and drawing did not scroll the page under the finger. That closes doc
+> 11's risk 2.
 
 ### Added
 

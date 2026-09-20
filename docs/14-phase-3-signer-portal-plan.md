@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Built and released as `v0.3.0` |
+| **Status** | Complete. Built, checked on a real phone, and released as `v0.3.0` |
 | **Version** | 1.0.0 |
 | **Last updated** | 20 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -72,10 +72,10 @@ with their agreement, so records made before the swap still show what was on scr
 
 From doc 11, Phase 3 is finished when:
 
-- [ ] a signing email is received on a real iPhone, opened, agreed to, signed with a drawn
-      signature, and submitted;
-- [ ] the values are saved, the link no longer works, and the audit events are written;
-- [ ] the signing link appears nowhere in any log or trace.
+- [x] a signing email is received on a real iPhone, opened, agreed to, signed with a drawn
+      signature, and submitted — and on a real Android phone too;
+- [x] the values are saved, the link no longer works, and the audit events are written;
+- [x] the signing link appears nowhere in any log or trace.
 
 ## Progress
 
@@ -91,7 +91,7 @@ From doc 11, Phase 3 is finished when:
 | 8 | Send dialog and progress screen | ✅ Done |
 | 9 | The signing screens | ✅ Done |
 | 10 | Browser tests and the link-leak audit | ✅ Done |
-| 11 | Real-phone check, documentation and release `v0.3.0` | 🟡 Documentation done; phone check and release to come |
+| 11 | Real-phone check, documentation and release `v0.3.0` | ✅ Done |
 
 ## What We Need From You
 
@@ -285,7 +285,7 @@ failed each time. The failure names the place and shows an excerpt with the link
 
 The `mobile-iphone14` project now runs on WebKit. CI installs WebKit, runs every test on desktop
 Chrome, and runs the signing tests and the audit on iPhone 14. Drawing is tested with mouse pointer
-events. Real touch drawing is part of the step 11 phone check.
+events. Real touch drawing was checked by hand on a phone and passed (doc 15, step 10).
 
 **The WebKit run, as built.** WebKit's system libraries are installed
 (`sudo env "PATH=$PATH" pnpm --filter @envelope/web exec playwright install-deps webkit`: 61 packages
@@ -300,7 +300,8 @@ before `upload-and-view.spec.ts` could run at all. The fingerprint readback ther
 `browserName === 'chromium'`, while **Copy Hash** and its "Copied!" confirmation are still asserted
 on every engine.
 
-This leaves real touch drawing as the only thing the step 11 phone check still has to prove.
+Real touch drawing, the one thing this could not prove, was then checked by hand on a phone and
+passed: drawing did not scroll the page under the finger (doc 15, step 10).
 
 ## Open Points Found in Step 9
 

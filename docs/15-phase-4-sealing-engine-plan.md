@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Built and released as `v0.4.0`. The real-phone check (step 10) is the one verification still outstanding |
+| **Status** | Complete. Built, checked on a real phone, and released as `v0.4.0` |
 | **Version** | 1.0.0 |
 | **Last updated** | 20 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -70,7 +70,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 - [x] `sha256sum` on the downloaded file matches the fingerprint on record, and Verify agrees *(steps 8
       and 9)*;
 - [x] the certificate lists every version and every event *(step 9, read back from the sealed PDF)*;
-- [ ] all of this works end to end with a signature made on a real phone *(step 10)*.
+- [x] all of this works end to end with a signature made on a real phone *(step 10)*.
 
 ## Progress
 
@@ -85,7 +85,7 @@ From doc 11 (the sprint 8 gate), Phase 4 is finished when:
 | 7 | Verify | ✅ Done |
 | 8 | The sender's Completed screen | ✅ Done |
 | 9 | Tests: three signers end to end, and the leak audits | ✅ Done |
-| 10 | Real-phone check, documentation and release `v0.4.0` | 🟡 Documentation done; phone check and release to come |
+| 10 | Real-phone check, documentation and release `v0.4.0` | ✅ Done |
 
 ## What We Need From You
 
@@ -467,17 +467,41 @@ APP_URL=http://<LAN address>:5173 WEB_HOST=0.0.0.0 pnpm dev
 On the computer, sign in at `http://localhost:5173`, upload one of the real documents, and send it
 to three people, one after another, at least one of them at an address read on the phone. Then check:
 
-- [ ] On the phone: the link opens, the consent screen, a **drawn** signature, the tick box and
+- [x] On the phone: the link opens, the consent screen, a **drawn** signature, the tick box and
       Finish all work without the page scrolling under the finger.
-- [ ] Each signer sees the signatures before theirs.
-- [ ] The completion email arrives with the PDF attached. The signature on the phone's copy sits in
+- [x] Each signer sees the signatures before theirs.
+- [x] The completion email arrives with the PDF attached. The signature on the phone's copy sits in
       its box, and the certificate is on the last page.
-- [ ] On the phone, `/verify` with the attachment says **This is the sealed, finished document**.
-- [ ] On the computer: the envelope page says Completed and sealed, and `sha256sum` on the
+- [x] On the phone, `/verify` with the attachment says **This is the sealed, finished document**.
+- [x] On the computer: the envelope page says Completed and sealed, and `sha256sum` on the
       downloaded file matches the fingerprint shown.
 
 The signing pages work over plain `http://` on the network. Sender pages are meant for localhost or
 HTTPS, because they use `crypto.randomUUID`.
+
+### Step 10 as built
+
+Done on 20 September 2026, on **both a real iPhone in Safari and a real Android phone in Chrome**,
+against the development server at `http://192.168.29.35:5173`. Every item above passed on each, first
+attempt, with no change to the application. **Drawing did not scroll the page under the finger** —
+the iOS Safari hazard doc 11 rates as risk 2 — which is what the `touch-action: none` handling from
+Phase 3 was written for. That risk is now closed on the device that actually carries it.
+
+Two details of how the envelope was made are worth keeping, because they make this check repeatable
+in a couple of minutes rather than a quarter of an hour:
+
+- **Every signer was a plus-addressed alias of one Gmail account** (`+alice`, `+bob`, then the plain
+  address). Gmail delivers all three to the same inbox, so all three invitations and the finished
+  document can be read on the phone, and nothing is sent to an address that would bounce. Made-up
+  `@example.com` recipients did bounce in an earlier phase, which is what this avoids.
+- **The envelope was built through the API, not the builder.** A script registered the sender,
+  uploaded the fixture, added the three signers one after another, saved six fields on page 1 and
+  sent it. Driving the *builder* with Playwright against the development server is unreliable: it is
+  a Vite development build, and field placement did not register. The browser suite avoids this by
+  serving a production build, which the development server is not.
+
+The signers were sequential, so the check of "each signer sees the signatures before theirs" was a
+real observation at rounds 2 and 3 rather than an assumption.
 
 **Release.** Once the check passes, the version goes to `0.4.0` and `v0.4.0` is tagged. Phase 3's
 `v0.3.0` also waits on a phone check (doc 14, step 11), and this one covers the same signing flow.

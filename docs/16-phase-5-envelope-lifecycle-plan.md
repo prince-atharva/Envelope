@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Built and released as `v0.5.0`, with `v0.3.0` and `v0.4.0`. The real-phone check (doc 15, step 10) is still outstanding |
+| **Status** | Complete. Built and released as `v0.5.0`, with `v0.3.0` and `v0.4.0`. The real-phone check (doc 15, step 10) passed |
 | **Version** | 1.1.0 |
 | **Last updated** | 20 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -91,14 +91,14 @@ Each item below is proven by a test: `cancel`, `expiry`, `extend`, `more-time`, 
 | 13 | Request limits in Redis, on every route | ✅ Done |
 | 14 | Dashboard views | ✅ Done |
 | 15 | Tests: the finish line | ✅ Done |
-| 16 | Documentation and release `v0.5.0` | ✅ Docs done; the release tag waits with `v0.3.0` and `v0.4.0` |
+| 16 | Documentation and release `v0.5.0` | ✅ Done |
 
 ## What We Need From You
 
 | Needed | Why | When |
 |---|---|---|
 | An address for alert emails (`ALERT_EMAIL`) | Alerts are only logged until it is set in `.env` | Any time |
-| The real-phone check (doc 15, step 10) | Touch drawing on a physical iPhone is the one thing desktop emulation cannot reproduce. The WebKit libraries are installed and the iPhone 14 tests now run locally | Now |
+| ~~The real-phone check (doc 15, step 10)~~ | Done on 20 September 2026 on both a real iPhone and a real Android phone: every item passed, and drawing did not scroll the page under the finger | ✅ |
 | Logo and colours, the lawyer's consent wording, the 7-year retention confirmation | Still placeholders from earlier phases | Before real use |
 
 ---

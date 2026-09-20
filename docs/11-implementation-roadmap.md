@@ -257,7 +257,7 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 | # | Risk | P | I | Mitigation | Owner |
 |---|---|---|---|---|---|
 | 1 | Coordinate drift → misplaced signatures | M | **Critical** | Single chokepoint; zoom-independence test in CI; real-device E2E | Eng |
-| 2 | iOS Safari canvas failure | **H** | High | Known fix applied wk 5; real hardware testing | Eng |
+| 2 | ~~iOS Safari canvas failure~~ **Closed** | **H** | High | Fix applied wk 5. Checked on a real iPhone in Safari and a real Android phone on 20 Sep 2026: drawing does not scroll the page under the finger. The iPhone 14 suite also runs on WebKit locally | Eng |
 | 3 | Scope creep | **H** | Medium | Non-goals documented; additions deferred to post-launch | PM |
 | 4 | ESIGN disclosure text delayed | M | High | Requested week 2; blocks the consent gate | Client |
 | 5 | Email deliverability | M | High | SPF/DKIM/DMARC in week 1; monitor bounce rates | Eng |
@@ -275,7 +275,7 @@ Risks 1, 6, and 9 are rated critical because each undermines the product's core 
 |---|---|
 | **End sprint 2** | Upload → render works; audit privileges verified; email auth configured |
 | **End sprint 4** | Zoom-independence test green; coordinate unit tests complete |
-| **End sprint 6** | Real-iPhone signing works; zero token leakage in logs |
+| **End sprint 6** ✅ | Real-iPhone signing works; zero token leakage in logs |
 | **End sprint 8** | **Three-signer end-to-end; position within 1pt; `sha256sum` matches** |
 | **End sprint 10** | Security checklist complete; penetration findings remediated; accessibility passed |
 
