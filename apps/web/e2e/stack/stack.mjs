@@ -73,7 +73,7 @@ export const STACK_ENV = {
   MAIL_TRANSPORT: 'file',
   MAIL_OUTBOX_DIR: OUTBOX_DIR,
   EMAIL_RETRY_BASE_DELAY_MS: '50',
-  SMTP_FROM: 'Envelope by HealthProHub <no-reply@e2e.local>',
+  SMTP_FROM: 'Envelope powered by HealthProHub <no-reply@e2e.local>',
 
   // Debug by default, so the token-leak audit (token-leak.spec.ts) searches
   // every line the API and worker could ever write, not only the usual ones.

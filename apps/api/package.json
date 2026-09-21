@@ -2,7 +2,7 @@
   "name": "@envelope/api",
   "version": "0.5.0",
   "private": true,
-  "description": "Envelope by HealthProHub: NestJS API and background worker",
+  "description": "Envelope powered by HealthProHub: NestJS API and background worker",
   "scripts": {
     "postinstall": "prisma generate",
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",

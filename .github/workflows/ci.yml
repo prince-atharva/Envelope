@@ -1,4 +1,4 @@
-# Continuous integration for Envelope by HealthProHub.
+# Continuous integration for Envelope powered by HealthProHub.
 #
 # Services come from docker compose rather than GitHub `services:` containers,
 # because Postgres needs docker/postgres/init mounted from the repository to
@@ -40,7 +40,7 @@ env:
   # Nothing in CI sends email. The API e2e suite and the browser-test stack
   # each set their own transport (memory and file) regardless of this.
   MAIL_TRANSPORT: memory
-  SMTP_FROM: Envelope by HealthProHub <no-reply@ci.local>
+  SMTP_FROM: Envelope powered by HealthProHub <no-reply@ci.local>
   LOG_LEVEL: warn
   LOG_PRETTY: 'false'
   LOG_FILES_ENABLED: 'false'

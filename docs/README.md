@@ -1,4 +1,4 @@
-# Envelope by HealthProHub — Documentation
+# Envelope powered by HealthProHub — Documentation
 
 | | |
 |---|---|
@@ -8,7 +8,7 @@
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
 
-> **Name:** the product is **Envelope by HealthProHub**. Documents 00 to 11 were written before it
+> **Name:** the product is **Envelope powered by HealthProHub**. Documents 00 to 11 were written before it
 > was named and call it "the platform". They still describe the product accurately.
 >
 > **HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is Phase 6. It has no

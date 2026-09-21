@@ -2,7 +2,7 @@
   "name": "@envelope/web",
   "version": "0.5.0",
   "private": true,
-  "description": "Envelope by HealthProHub: sender web app",
+  "description": "Envelope powered by HealthProHub: sender web app",
   "type": "module",
   "scripts": {
     "postinstall": "node scripts/copy-pdfjs-assets.mjs",

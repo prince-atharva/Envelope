@@ -175,7 +175,9 @@ describe('alert email', () => {
       raisedAt: new Date('2026-09-19T12:00:00Z'),
       appUrl: 'https://sign.example.com',
     });
-    expect(email.subject).toBe('[Envelope by HealthProHub alert] Seal job failed permanently');
+    expect(email.subject).toBe(
+      '[Envelope powered by HealthProHub alert] Seal job failed permanently',
+    );
     expect(email.text).toContain('Alert: seal-job-failed');
     expect(email.text).toContain('Service: worker');
     expect(email.text).toContain('Raised at: 2026-09-19T12:00:00.000Z (UTC)');
@@ -195,10 +197,10 @@ describe('welcome email', () => {
   it('is branded and links to the dashboard', () => {
     const email = renderWelcomeEmail(job, 'https://sign.example.com');
     expect(email.to).toBe('raj@example.com');
-    expect(email.subject).toBe('Welcome to Envelope by HealthProHub');
+    expect(email.subject).toBe('Welcome to Envelope powered by HealthProHub');
     expect(email.html).toContain('href="https://sign.example.com/dashboard"');
     expect(email.text).toContain('Open Envelope: https://sign.example.com/dashboard');
-    expect(email.html).toContain('by HealthProHub');
+    expect(email.html).toContain('Powered by HealthProHub');
   });
 
   it('escapes every user-supplied value in the HTML part', () => {

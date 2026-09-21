@@ -2,7 +2,7 @@
   "name": "digital-sign",
   "version": "0.5.0",
   "private": true,
-  "description": "Envelope by HealthProHub — electronic signature platform",
+  "description": "Envelope powered by HealthProHub — electronic signature platform",
   "packageManager": "pnpm@10.20.0",
   "engines": {
     "node": ">=22.12"

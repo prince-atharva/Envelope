@@ -39,7 +39,7 @@ function layout(preheader: string, bodyHtml: string, footer: string): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;">
         <tr><td style="background:${BRAND_COLOR};padding:20px 28px;color:#ffffff;">
           <div style="font-size:20px;font-weight:bold;">${escapeHtml(BRAND.productName)}</div>
-          <div style="font-size:12px;opacity:0.85;">by ${escapeHtml(BRAND.companyName)}</div>
+          <div style="font-size:12px;opacity:0.85;">Powered by ${escapeHtml(BRAND.companyName)}</div>
         </td></tr>
         <tr><td style="padding:28px;font-size:15px;line-height:1.6;">${bodyHtml}</td></tr>
         <tr><td style="padding:16px 28px;border-top:1px solid #e5e9ef;font-size:12px;color:#6b7785;">

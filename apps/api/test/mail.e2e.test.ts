@@ -73,8 +73,8 @@ describe('email (e2e)', () => {
     const message = await waitFor(() => worker.mailbox.messages.find((m) => m.to === email));
     expect(message).toMatchObject({
       template: 'welcome',
-      from: 'Envelope by HealthProHub <no-reply@test.local>',
-      subject: 'Welcome to Envelope by HealthProHub',
+      from: 'Envelope powered by HealthProHub <no-reply@test.local>',
+      subject: 'Welcome to Envelope powered by HealthProHub',
     });
     expect(message.text).toContain('Hi Asha <b>Rao</b>,');
     expect(message.html).toContain('Asha &lt;b&gt;Rao&lt;/b&gt;');

@@ -17,7 +17,7 @@ export function LogoMark({ className = 'h-9 w-9' }: { className?: string }) {
   );
 }
 
-/** "Digital Sign" with "by HealthProHub" underneath. */
+/** "Envelope" with "Powered by HealthProHub" underneath. */
 export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   const large = size === 'lg';
   return (
@@ -30,7 +30,7 @@ export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
           {BRAND.productName}
         </span>
         <span className={`text-brand-700 ${large ? 'text-sm' : 'text-xs'}`}>
-          by {BRAND.companyName}
+          Powered by {BRAND.companyName}
         </span>
       </span>
     </span>

@@ -1,4 +1,4 @@
-# Envelope by HealthProHub
+# Envelope powered by HealthProHub
 
 An electronic signature platform. Upload a PDF, mark where people sign, and send them a link.
 Signers sign in their browser on any device without creating an account.
@@ -93,7 +93,7 @@ Logging is part of every feature, not an afterthought.
 
 ## Naming
 
-The product was renamed from "Digital Sign" to **Envelope by HealthProHub** in `0aea9b9`. The
+The product was renamed from "Digital Sign" to **Envelope powered by HealthProHub**. The
 packages are `@envelope/*`. Infrastructure identifiers deliberately keep the old name — the
 `digitalsign_app` database role, the `digitalsign` Compose project, the bucket names and the
 `urn:digitalsign:error:` problem type. Renaming them would mean recreating volumes, writing a
