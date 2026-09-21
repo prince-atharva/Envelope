@@ -71,9 +71,19 @@ export class RedisThrottlerStorage implements ThrottlerStorage, OnModuleInit, On
   }
 
   async onModuleInit(): Promise<void> {
+    if (
+      this.client.status === 'connecting' ||
+      this.client.status === 'connect' ||
+      this.client.status === 'ready'
+    ) {
+      return;
+    }
     try {
       await this.client.connect();
     } catch (error) {
+      if (error instanceof Error && error.message.includes('already connecting/connected')) {
+        return;
+      }
       this.fallBack(error);
     }
   }

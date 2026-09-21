@@ -65,4 +65,19 @@ describe('RedisThrottlerStorage', () => {
     await instance.increment('ip-1', 60_000, 5, 60_000, 'default');
     expect(logger.info).toHaveBeenCalledWith('Rate limits counted in Redis again');
   });
+
+  it('handles multiple onModuleInit calls without failing or alerting when already connecting/connected', async () => {
+    const { instance, raise } = storage();
+    const connectSpy = vi.spyOn(instance.client, 'connect').mockImplementation(async () => {
+      Object.defineProperty(instance.client, 'status', { value: 'ready', configurable: true });
+    });
+
+    await instance.onModuleInit();
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+
+    // Second call (e.g. from NestJS initializing both RateLimitStorageModule and ThrottlerModule)
+    await instance.onModuleInit();
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+    expect(raise).not.toHaveBeenCalled();
+  });
 });
