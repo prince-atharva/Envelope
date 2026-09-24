@@ -27,10 +27,3 @@ export function stillToSign(recipients: RecipientDetail[]): RecipientDetail[] {
     (r) => receivesSigningLink(r.role) && r.status !== 'SIGNED' && r.status !== 'DECLINED',
   );
 }
-
-/** "Priya", "Priya and Raj", "Priya, Raj and Dev". */
-export function names(people: { name: string }[]): string {
-  const list = people.map((person) => person.name);
-  if (list.length <= 1) return list.join('');
-  return `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
-}

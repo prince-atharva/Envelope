@@ -54,7 +54,12 @@ interface AdoptSheetProps {
 export function AdoptSheet(props: AdoptSheetProps) {
   const titleId = useId();
   return (
-    <Sheet open={props.open} onClose={props.onClose} labelledBy={titleId}>
+    <Sheet
+      open={props.open}
+      onClose={props.onClose}
+      labelledBy={titleId}
+      className="sm:max-w-xl md:max-w-2xl"
+    >
       <AdoptForm {...props} titleId={titleId} />
     </Sheet>
   );
@@ -159,7 +164,7 @@ function AdoptForm({
             ).map(([value, label]) => (
               <label
                 key={value}
-                className={`flex min-h-11 cursor-pointer items-center justify-center rounded-md text-sm font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-600 ${
+                className={`flex min-h-11 cursor-pointer items-center justify-center rounded-md text-sm font-medium has-focus-visible:outline-2 has-focus-visible:outline-brand-600 ${
                   method === value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
                 }`}
               >
@@ -204,7 +209,7 @@ function AdoptForm({
               {SIGNATURE_FONTS.map((option) => (
                 <label
                   key={option.family}
-                  className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand-600 ${
+                  className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 has-focus-visible:outline-2 has-focus-visible:outline-brand-600 ${
                     font === option.family
                       ? 'border-brand-600 bg-brand-50 ring-1 ring-brand-600'
                       : 'border-slate-200 hover:bg-slate-50'
@@ -231,10 +236,20 @@ function AdoptForm({
             </fieldset>
           </div>
         ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-slate-600">
-              Draw your {noun} in the box with your finger, a stylus or the mouse.
-            </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs sm:text-sm text-slate-600">
+                Draw your {noun} with your finger, stylus, or mouse.
+              </p>
+              <button
+                type="button"
+                onClick={() => padRef.current?.clear()}
+                disabled={!hasInk}
+                className="text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer px-2.5 py-1 rounded-md hover:bg-red-50"
+              >
+                Clear
+              </button>
+            </div>
             <SignaturePadCanvas
               ref={padRef}
               label={`Drawing area for your ${noun}`}
@@ -243,11 +258,6 @@ function AdoptForm({
                 adopt.reset();
               }}
             />
-            <div className="flex justify-end">
-              <Button variant="ghost" onClick={() => padRef.current?.clear()} disabled={!hasInk}>
-                Clear
-              </Button>
-            </div>
           </div>
         )}
 

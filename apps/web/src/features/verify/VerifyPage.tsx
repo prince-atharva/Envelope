@@ -69,7 +69,7 @@ export default function VerifyPage() {
   }
 
   return (
-    <PublicFrame wide>
+    <PublicFrame wide backTo="/dashboard">
       <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Verify a document</h1>
       <p className="mt-1 text-sm text-slate-600">
         Check whether a PDF is exactly a document signed here. The file is only fingerprinted: it is

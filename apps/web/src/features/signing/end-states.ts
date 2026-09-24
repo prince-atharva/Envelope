@@ -12,8 +12,8 @@ export type EndState =
   | { kind: 'expired' }
   /** They signed earlier. Not an error (docs/09: 410, not 401). */
   | { kind: 'already-signed' }
-  /** They have just signed, on this page. */
-  | { kind: 'signed'; message: string }
+  /** They have just signed, or approved, on this page. */
+  | { kind: 'signed'; message: string; approved?: boolean }
   /** They declined, just now (`justNow`) or on an earlier visit. */
   | { kind: 'you-declined'; justNow: boolean }
   /** Someone else declined, which closes the document for everyone. */

@@ -72,7 +72,8 @@ export function ConsentScreen({
       <div className="space-y-5">
         <div className="space-y-1">
           <p className="text-sm text-slate-600">
-            Hello {session.recipientName}. {session.senderName} has sent you a document to sign.
+            Hello {session.recipientName}. {session.senderName} has sent you a document to{' '}
+            {session.role === 'APPROVER' ? 'approve' : 'sign'}.
           </p>
           <h1 className="text-xl font-semibold break-words text-slate-900">
             {session.envelopeTitle}

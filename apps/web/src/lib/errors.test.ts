@@ -27,18 +27,29 @@ describe('errors', () => {
       });
     });
 
-    it('returns detail or title for unknown 4xx ApiError', () => {
+    it('explains a recipient who is already on the document', () => {
+      const error = new ApiError({
+        status: 409,
+        code: 'RECIPIENT_EMAIL_TAKEN',
+        title: 'That person is already on this envelope',
+      });
+      expect(describeError(error)).toEqual({ message: 'That person is already on this document.' });
+    });
+
+    it('keeps the server wording off the screen for an unmapped 4xx', () => {
+      const generic =
+        'That did not work. Please try again, or contact support with the reference below.';
+
       const error = new ApiError({
         status: 400,
         code: 'BAD_REQUEST',
         title: 'Title only',
         requestId: 'req-456',
       });
-      expect(describeError(error)).toEqual({
-        message: 'Title only',
-        reference: 'req-456',
-      });
+      expect(describeError(error)).toEqual({ message: generic, reference: 'req-456' });
 
+      // `detail` is written for whoever reads the response body, not for the
+      // person looking at the screen, so it stays out of the message too.
       const errorWithDetail = new ApiError({
         status: 400,
         code: 'BAD_REQUEST',
@@ -46,10 +57,7 @@ describe('errors', () => {
         detail: 'Specific detail',
         requestId: 'req-789',
       });
-      expect(describeError(errorWithDetail)).toEqual({
-        message: 'Specific detail',
-        reference: 'req-789',
-      });
+      expect(describeError(errorWithDetail)).toEqual({ message: generic, reference: 'req-789' });
     });
 
     it('returns unexpected message for non-ApiError', () => {

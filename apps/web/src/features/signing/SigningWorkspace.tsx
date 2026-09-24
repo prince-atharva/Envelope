@@ -5,6 +5,7 @@ import { LogoMark } from '../../components/brand/Logo';
 import { PdfViewer } from '../../components/pdf/PdfViewer';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
+import { ArrowRightIcon, CheckIcon } from '../../components/ui/icons';
 import { Spinner } from '../../components/ui/Spinner';
 import { ApiError } from '../../lib/api';
 import { describeError } from '../../lib/errors';
@@ -176,10 +177,13 @@ export default function SigningWorkspace({
     setSheet(null);
   }
 
+  // An approver reads and approves; they may have no fields at all.
+  const approving = session.role === 'APPROVER';
+
   const submit = useMutation({
     mutationFn: () =>
       withBackoff(() => signingApi.submit(token, toSubmission(fields, values, adopted))),
-    onSuccess: (result) => finish({ kind: 'signed', message: result.message }),
+    onSuccess: (result) => finish({ kind: 'signed', message: result.message, approved: approving }),
     onError: (error) => {
       const end = endStateFor(error);
       if (end) {
@@ -225,21 +229,51 @@ export default function SigningWorkspace({
 
   const status = progress.complete
     ? progress.total === 0
-      ? 'Nothing here is required. Fill in anything that applies, then finish.'
+      ? approving
+        ? 'Read the document, then approve it.'
+        : 'Nothing here is required. Fill in anything that applies, then finish.'
       : `All ${progress.total} required ${progress.total === 1 ? 'box is' : 'boxes are'} done.`
     : `${progress.done} of ${progress.total} required boxes done`;
 
   return (
-    <div className="flex h-dvh flex-col bg-slate-100">
-      <header className="flex flex-none items-center gap-3 border-b border-slate-200 bg-white px-3 py-2 sm:px-4">
-        <LogoMark className="h-8 w-8 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm font-semibold text-slate-900">{session.envelopeTitle}</h1>
-          <p className="truncate text-xs text-slate-500">From {session.senderName}</p>
+    <div className="flex h-dvh flex-col bg-slate-100 relative">
+      <header className="flex-none bg-white border-b border-slate-200/90 shadow-2xs z-20 px-3 sm:px-5 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-brand-600" />
+            <div className="min-w-0">
+              <h1
+                className="truncate text-xs sm:text-sm font-bold text-slate-900 tracking-tight"
+                title={session.envelopeTitle}
+              >
+                {session.envelopeTitle}
+              </h1>
+              <p className="text-xs text-slate-500 truncate">
+                From <span className="font-medium text-slate-700">{session.senderName}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200/80">
+              <span className="w-4 h-4 rounded-full bg-brand-600 text-white font-bold flex items-center justify-center text-xs uppercase shadow-2xs">
+                {session.recipientName.charAt(0)}
+              </span>
+              <span>
+                {approving ? 'Approving as' : 'Signing as'}{' '}
+                <strong className="font-semibold text-slate-800">{session.recipientName}</strong>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSheet({ type: 'decline' })}
+              className="min-h-11 text-sm font-medium text-slate-600 hover:text-red-700 hover:bg-red-50/80 px-3 rounded-lg transition-colors cursor-pointer border border-slate-200 hover:border-red-200 shadow-2xs"
+            >
+              Decline
+            </button>
+          </div>
         </div>
-        <Button variant="ghost" className="shrink-0" onClick={() => setSheet({ type: 'decline' })}>
-          Decline
-        </Button>
       </header>
 
       {restored && (
@@ -259,7 +293,9 @@ export default function SigningWorkspace({
         </div>
       )}
 
-      <main className="relative min-h-0 flex-1" aria-label="Document">
+      {/* The bottom padding is the dock's lane: without it the dock covers the
+          end of the last page, and whatever box sits there. */}
+      <main className="relative min-h-0 flex-1 pb-24" aria-label="Document">
         {pdf.data ? (
           <PdfViewer
             data={pdf.data}
@@ -294,36 +330,70 @@ export default function SigningWorkspace({
         )}
       </main>
 
-      <footer className="flex-none border-t border-slate-200 bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2">
-          {submitFailure && (
+      {/* Floating action dock: progress and the one next step. */}
+      {/* Full width on a phone, where a centred pill squeezed the status to one
+          word a line and pushed it under the button; a pill from sm up. */}
+      <div className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex flex-col items-stretch sm:inset-x-auto sm:bottom-[max(1.5rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:max-w-[calc(100vw-2rem)] sm:-translate-x-1/2 sm:items-center">
+        {submitFailure && (
+          <div className="mb-2 max-w-md shadow-lg">
             <Alert reference={submitFailure.reference}>{submitFailure.message}</Alert>
-          )}
-          <div className="flex items-center gap-3">
-            <p className="min-w-0 flex-1 text-sm text-slate-700" aria-live="polite">
-              {status}
-            </p>
-            {progress.complete ? (
-              <Button
-                className="min-h-11 shrink-0"
-                loading={submit.isPending}
-                disabled={!pdf.data}
-                onClick={() => submit.mutate()}
-              >
-                {submit.isError && !submit.isPending ? 'Try again' : 'Finish'}
-              </Button>
-            ) : (
-              <Button
-                className="min-h-11 shrink-0"
-                disabled={!pdf.data || upcoming === null}
-                onClick={() => upcoming && goTo(upcoming)}
-              >
-                {upcoming && currentId !== null ? `Next: ${fieldTypeName(upcoming.type)}` : 'Start'}
-              </Button>
-            )}
           </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white/95 py-2 pr-2 pl-4 text-slate-900 shadow-xl ring-1 ring-black/5 backdrop-blur-md sm:rounded-full">
+          <p
+            aria-live="polite"
+            className={`flex min-w-0 items-center gap-1.5 text-xs leading-snug ${
+              progress.complete ? 'font-bold text-emerald-700' : 'font-medium text-slate-700'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                progress.complete ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
+            />
+            <span>{status}</span>
+          </p>
+
+          <div className="hidden h-4 w-px shrink-0 bg-slate-200 sm:block" aria-hidden="true" />
+
+          {progress.complete ? (
+            <button
+              type="button"
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-4 text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              disabled={!pdf.data || submit.isPending}
+              aria-busy={submit.isPending || undefined}
+              onClick={() => submit.mutate()}
+            >
+              <span>
+                {submit.isError && !submit.isPending
+                  ? 'Try again'
+                  : approving
+                    ? 'Approve'
+                    : 'Finish'}
+              </span>
+              {submit.isPending ? (
+                <Spinner className="h-4 w-4" />
+              ) : (
+                <CheckIcon className="h-4 w-4" />
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!pdf.data || upcoming === null}
+              onClick={() => upcoming && goTo(upcoming)}
+              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-brand-700 hover:bg-brand-800 active:bg-brand-900 text-white px-4 text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <span>
+                {upcoming && currentId !== null ? `Next: ${fieldTypeName(upcoming.type)}` : 'Start'}
+              </span>
+              <ArrowRightIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
-      </footer>
+      </div>
 
       <AdoptSheet
         open={sheet?.type === 'adopt'}

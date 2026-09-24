@@ -15,6 +15,7 @@ const reuse = process.env.E2E_REUSE_STACK === '1';
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/gallery/**',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

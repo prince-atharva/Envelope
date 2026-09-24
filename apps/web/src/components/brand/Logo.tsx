@@ -21,17 +21,15 @@ export function LogoMark({ className = 'h-9 w-9' }: { className?: string }) {
 export function Logo({ size = 'md' }: { size?: 'md' | 'lg' }) {
   const large = size === 'lg';
   return (
-    <span className="inline-flex items-center gap-2.5">
+    <span className="inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap">
       <LogoMark className={large ? 'h-11 w-11' : 'h-9 w-9'} />
-      <span className="flex flex-col leading-none">
+      <span className="flex flex-col justify-center leading-tight">
         <span
           className={`font-semibold tracking-tight text-slate-900 ${large ? 'text-2xl' : 'text-lg'}`}
         >
           {BRAND.productName}
         </span>
-        <span className={`text-brand-700 ${large ? 'text-sm' : 'text-xs'}`}>
-          Powered by {BRAND.companyName}
-        </span>
+        <span className="text-xs font-medium text-brand-700">Powered by {BRAND.companyName}</span>
       </span>
     </span>
   );

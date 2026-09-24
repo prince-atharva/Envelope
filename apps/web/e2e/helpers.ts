@@ -8,6 +8,8 @@ import { OUTBOX_DIR, STACK_ENV } from './stack/stack.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 
 export const TWELVE_PAGE_PDF = resolve(here, 'fixtures/test-12-pages.pdf');
+/** A plausible 6-page agreement, for screenshots rather than assertions. */
+export const DEMO_AGREEMENT_PDF = resolve(here, 'fixtures/demo-agreement.pdf');
 export const MIXED_PAGE_PDF = resolve(here, 'fixtures/mixed-pages.pdf');
 export const TEST_PASSWORD = 'TestPassword123!';
 
@@ -15,17 +17,35 @@ export function uniqueEmail(prefix: string): string {
   return `${prefix}+${Date.now()}+${Math.floor(Math.random() * 100_000)}@example.com`;
 }
 
-/** Registers a new account and lands on the dashboard. */
-export async function signUp(page: Page, prefix: string): Promise<string> {
+export interface SignUpOptions {
+  fullName?: string;
+  organisation?: string;
+}
+
+/**
+ * Registers a fresh account and lands on the dashboard. The gallery passes a
+ * realistic name and organisation; the specs keep the fixed ones so their
+ * assertions do not move.
+ */
+export async function signUpAs(
+  page: Page,
+  prefix: string,
+  options: SignUpOptions = {},
+): Promise<string> {
   const email = uniqueEmail(prefix);
   await page.goto('/register');
-  await page.getByLabel('Full name').fill('Builder Tester');
-  await page.getByLabel('Organisation (optional)').fill('E2E Medical');
+  await page.getByLabel('Full name').fill(options.fullName ?? 'Builder Tester');
+  await page.getByLabel('Organisation (optional)').fill(options.organisation ?? 'E2E Medical');
   await page.getByLabel('Email address').fill(email);
   await page.getByLabel('Password').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 20_000 });
   return email;
+}
+
+/** Registers a new account and lands on the dashboard. */
+export async function signUp(page: Page, prefix: string): Promise<string> {
+  return signUpAs(page, prefix);
 }
 
 /** Uploads a PDF and returns the new envelope's id. */
@@ -41,11 +61,34 @@ export async function uploadDocument(page: Page, pdfPath: string): Promise<strin
   return id;
 }
 
+/**
+ * The prepare screen splits its sidebar into two panels. Everything that drives
+ * that screen says which panel it needs, rather than assuming whichever one
+ * happened to be open.
+ */
+export async function openPreparePanel(page: Page, panel: 'fields' | 'recipients'): Promise<void> {
+  const tab = page.getByRole('tab', {
+    name: panel === 'fields' ? /Fields & tools/i : /Signers & order/i,
+  });
+  // After a reload the sidebar is not on screen yet; bailing out here left the
+  // wrong panel open and the failure surfaced somewhere else entirely.
+  await expect(tab).toBeVisible({ timeout: 20_000 });
+  if ((await tab.getAttribute('aria-selected')) === 'true') return;
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
+
 export async function addRecipient(page: Page, name: string, email: string): Promise<void> {
+  await openPreparePanel(page, 'recipients');
   await page.getByLabel('Name').fill(name);
   await page.getByLabel('Email address').fill(email);
   await page.getByRole('button', { name: 'Add person' }).click();
-  await expect(page.getByText(email)).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page
+      .locator('section')
+      .filter({ hasText: /Recipients/i })
+      .getByText(email, { exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 /** The page wrapper element for one page of the viewer. */
@@ -60,6 +103,7 @@ export async function placeField(
   pageNumber: number,
   at: { xRatio: number; yRatio: number },
 ): Promise<void> {
+  await openPreparePanel(page, 'fields');
   await page.getByRole('button', { name: fieldLabel, exact: true }).click();
   // Bring the point itself to the middle of the screen, scrolling the viewer
   // and the window as needed. Scrolling the page into view is not enough: a
@@ -148,9 +192,24 @@ export async function waitForFieldsSaved(page: Page, expectedCount: number): Pro
   await expect(page.getByText('Saved', { exact: true })).toBeVisible({ timeout: 10_000 });
 }
 
-/** Picks whose fields the next placements belong to, in the builder's people list. */
+/**
+ * Chooses who the next placed field belongs to. With more than one recipient the
+ * palette carries its own switcher, which is where a sender would do this; with
+ * one there is nothing to switch, and the recipient card is the only control.
+ */
 export async function selectRecipient(page: Page, name: string): Promise<void> {
+  await openPreparePanel(page, 'fields');
+  const switcher = page.getByLabel('Assign fields to recipient');
+  if ((await switcher.count()) > 0) {
+    const value = await switcher.locator('option', { hasText: name }).first().getAttribute('value');
+    if (value) {
+      await switcher.selectOption(value);
+      return;
+    }
+  }
+  await openPreparePanel(page, 'recipients');
   await page.locator('button[aria-pressed]').filter({ hasText: name }).click();
+  await openPreparePanel(page, 'fields');
 }
 
 export interface Person {
@@ -172,12 +231,14 @@ export async function prepareToSend(
   await page.getByRole('link', { name: 'Prepare for signing' }).click();
   for (const person of people) await addRecipient(page, person.name, person.email);
   if (options.oneAfterAnother) {
+    await openPreparePanel(page, 'recipients');
     await page.getByRole('radio', { name: 'One after another' }).click();
     await expect(page.getByRole('radio', { name: 'One after another' })).toBeChecked();
   }
 
   // A click on a page that has not rendered yet has no page size to convert
   // with, so the builder ignores it.
+  await openPreparePanel(page, 'fields');
   await page.getByLabel('Zoom Level').selectOption('1');
   await expect(page.locator('[data-pdf-overlay="1"]')).toBeAttached({ timeout: 20_000 });
 
@@ -325,12 +386,12 @@ export async function agreeToSign(page: Page): Promise<void> {
 export async function signOnlyBoxes(page: Page, link: string): Promise<void> {
   await openAsSigner(page, link);
   await agreeToSign(page);
-  await page.getByRole('button', { name: /^Signature field, required, page 1 of 12/ }).click();
+  await page.getByRole('button', { name: /^Signature field, required, page 1 of \d+/ }).click();
   await page
     .getByRole('dialog', { name: 'Adopt your signature' })
     .getByRole('button', { name: 'Adopt and sign' })
     .click();
-  await page.getByRole('checkbox', { name: 'Tick box field, required, page 1 of 12' }).check();
+  await page.getByRole('checkbox', { name: /^Tick box field, required, page 1 of \d+/ }).check();
   await page.getByRole('button', { name: 'Finish' }).click();
   await expect(page.getByRole('heading', { name: 'Signed' })).toBeVisible();
 }

@@ -17,8 +17,8 @@ export const VIEW_LABELS: Record<EnvelopeView, string> = {
   all: 'All',
 };
 
-export function isView(value: string | null): value is EnvelopeView {
-  return value !== null && (ENVELOPE_VIEWS as readonly string[]).includes(value);
+export function isView(value: unknown): value is EnvelopeView {
+  return typeof value === 'string' && (ENVELOPE_VIEWS as readonly string[]).includes(value);
 }
 
 /** The dashboard opens on Needs attention when anything needs it, otherwise All. */

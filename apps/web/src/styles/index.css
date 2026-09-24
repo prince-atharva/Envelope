@@ -6,19 +6,21 @@
  */
 @theme {
   --font-sans:
-    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
   --color-brand-50: #f0fdfa;
   --color-brand-100: #ccfbf1;
   --color-brand-200: #99f6e4;
   --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
   --color-brand-500: #14b8a6;
   --color-brand-600: #0d9488;
   --color-brand-700: #0f766e;
   --color-brand-800: #115e59;
   --color-brand-900: #134e4a;
+  --color-brand-950: #042f2e;
 }
 
 @layer base {
@@ -32,6 +34,80 @@
 
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-600;
+  }
+}
+
+/*
+ * Entrance animations. The screens were written against `tailwindcss-animate`
+ * class names (animate-in, fade-in, zoom-in-95, slide-in-from-top-2), but that
+ * plugin is not a dependency, so every one of them emitted nothing and the
+ * modals appeared with a hard cut. These are the real thing, same names, and
+ * they stop for anyone who asks for reduced motion.
+ */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes ui-slide-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+}
+
+@utility animate-fade-in {
+  animation: ui-fade-in 150ms ease-out;
+}
+
+@utility animate-zoom-in {
+  animation: ui-zoom-in 150ms ease-out;
+}
+
+@utility animate-slide-from-top {
+  animation: ui-slide-from-top 200ms ease-out;
+}
+
+@keyframes ui-progress {
+  0% {
+    transform: translateX(-100%) scaleX(0.3);
+  }
+  50% {
+    transform: translateX(15%) scaleX(0.7);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.3);
+  }
+}
+
+@utility animate-progress {
+  animation: ui-progress 1.5s infinite ease-in-out;
+}
+
+/* Scroll without a visible bar: the dashboard tab strip and the tab rows. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-zoom-in,
+  .animate-slide-from-top,
+  .animate-progress {
+    animation: none;
   }
 }
 

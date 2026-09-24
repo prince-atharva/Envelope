@@ -6,5 +6,5 @@ export const BRAND = {
   productName: 'Envelope',
   companyName: 'HealthProHub',
   fullName: 'Envelope powered by HealthProHub',
-  tagline: 'Powered by HealthProHub',
+  tagline: 'Sign documents securely, from any device.',
 } as const;

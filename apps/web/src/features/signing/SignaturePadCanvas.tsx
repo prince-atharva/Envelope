@@ -1,5 +1,6 @@
 import { type Ref, useEffect, useImperativeHandle, useRef } from 'react';
 import SignaturePad from 'signature_pad';
+import { CloseIcon } from '../../components/ui/icons';
 import { INK_COLOUR } from './signature-image';
 
 export interface SignaturePadHandle {
@@ -51,8 +52,8 @@ export function SignaturePadCanvas({
     if (!canvas) return;
     const pad = new SignaturePad(canvas, {
       penColor: INK_COLOUR,
-      minWidth: 0.8,
-      maxWidth: 2.8,
+      minWidth: 1.2,
+      maxWidth: 3.2,
       // Fully transparent: the image goes on top of the document (docs/06).
       backgroundColor: 'rgba(0,0,0,0)',
     });
@@ -96,11 +97,21 @@ export function SignaturePadCanvas({
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-label={label}
-      className="block h-44 w-full cursor-crosshair touch-none select-none rounded-lg border-2 border-dashed border-slate-300 bg-white sm:h-48"
-      style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
-    />
+    <div className="relative w-full rounded-xl border-2 border-dashed border-slate-300 bg-white/60 shadow-inner overflow-hidden">
+      {/* Signature baseline guide - sits behind transparent canvas */}
+      <div className="pointer-events-none absolute inset-x-6 bottom-10 flex items-center gap-2 border-b border-slate-200 select-none">
+        <CloseIcon className="h-3.5 w-3.5 text-slate-300" />
+        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          Sign above this line
+        </span>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        aria-label={label}
+        className="relative block h-56 w-full cursor-crosshair touch-none select-none bg-transparent sm:h-64 md:h-72"
+        style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+      />
+    </div>
   );
 }

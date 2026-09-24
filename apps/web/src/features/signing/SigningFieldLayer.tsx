@@ -1,6 +1,7 @@
 import type { SignatureKind, SigningField } from '@envelope/shared';
 import type { CSSProperties, ReactNode } from 'react';
 import type { PageRenderInfo } from '../../components/pdf/PdfViewer';
+import { CheckIcon } from '../../components/ui/icons';
 import {
   type Adopted,
   type FieldValues,
@@ -83,16 +84,16 @@ export function SigningFieldLayer({
         }
 
         const state = filled
-          ? 'border border-emerald-700/50 bg-white/40'
+          ? 'border border-emerald-600/70 bg-emerald-50/40 text-emerald-900 shadow-2xs'
           : missing.has(field.id)
-            ? 'border-2 border-red-600 bg-red-100/80 text-red-900'
+            ? 'border-2 border-red-600 bg-red-100/90 text-red-900 shadow-xs'
             : field.required
-              ? 'border-2 border-amber-600 bg-amber-100/85 text-amber-950'
-              : 'border-2 border-dashed border-sky-700 bg-sky-50/80 text-sky-950';
+              ? 'border-2 border-amber-500 bg-amber-100/90 text-amber-950 shadow-xs hover:border-amber-600'
+              : 'border-2 border-dashed border-sky-600 bg-sky-50/80 text-sky-950 hover:border-sky-700';
         // Thin, and outside the box: a tick box on a phone is only a few
         // pixels wide, and a thick ring would cover it.
         const current =
-          field.id === currentId ? 'ring-2 ring-brand-600 ring-offset-1 ring-offset-white' : '';
+          field.id === currentId ? 'ring-2 ring-brand-600 ring-offset-2 ring-offset-white' : '';
         const className = `absolute flex items-center justify-center overflow-visible rounded-sm leading-none transition-colors before:absolute before:top-1/2 before:left-1/2 before:h-[max(100%,44px)] before:w-[max(100%,44px)] before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] hover:brightness-95 focus-visible:outline-3 focus-visible:outline-offset-1 focus-visible:outline-brand-700 ${state} ${current}`;
 
         if (field.type === 'CHECKBOX') {
@@ -135,7 +136,29 @@ export function SigningFieldLayer({
               <span className="px-1 font-medium text-emerald-800">Signed</span>
             )
           ) : (
-            <Prompt>{field.type === 'SIGNATURE' ? 'Sign here' : 'Initial'}</Prompt>
+            <Prompt>
+              {field.type === 'SIGNATURE' ? (
+                <span className="inline-flex items-center gap-1">
+                  <svg
+                    className="w-3.5 h-3.5 shrink-0 text-amber-800"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"
+                    />
+                  </svg>
+                  <span>Sign here</span>
+                </span>
+              ) : (
+                'Initial'
+              )}
+            </Prompt>
           );
           description = signed ? 'signed' : 'not signed yet';
         }
@@ -151,6 +174,14 @@ export function SigningFieldLayer({
             onClick={() => onActivate(field)}
           >
             {content}
+            {filled && (
+              <span
+                className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-2xs pointer-events-none"
+                aria-hidden="true"
+              >
+                <CheckIcon className="h-2.5 w-2.5" strokeWidth={3.5} />
+              </span>
+            )}
           </button>
         );
       })}

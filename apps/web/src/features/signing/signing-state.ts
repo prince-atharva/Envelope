@@ -5,6 +5,7 @@ import type {
   SigningSession,
   SubmitSigningInput,
 } from '@envelope/shared';
+import { FIELD_LABEL } from '../../lib/labels';
 
 /**
  * What the signer has filled in, by field id.
@@ -115,21 +116,13 @@ export function toSubmission(
   return { fields: entries };
 }
 
-const TYPE_NAMES: Record<FieldType, string> = {
-  SIGNATURE: 'Signature',
-  INITIALS: 'Initials',
-  DATE_SIGNED: 'Date signed',
-  TEXT_INPUT: 'Text',
-  CHECKBOX: 'Tick box',
-};
-
 export function fieldTypeName(type: FieldType): string {
-  return TYPE_NAMES[type];
+  return FIELD_LABEL[type];
 }
 
 /** What a screen reader announces: "Signature field, required, page 4 of 12" (docs/09). */
 export function fieldAccessibleName(field: SigningField, pageCount: number): string {
-  return `${TYPE_NAMES[field.type]} field, ${field.required ? 'required' : 'optional'}, page ${
+  return `${FIELD_LABEL[field.type]} field, ${field.required ? 'required' : 'optional'}, page ${
     field.pageNumber
   } of ${pageCount}`;
 }

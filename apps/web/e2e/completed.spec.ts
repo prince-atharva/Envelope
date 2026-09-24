@@ -46,6 +46,7 @@ test('the sender sees the sealed document, its fingerprint, and downloads it', a
 
   await expect(page.getByTestId('final-hash')).toHaveText(copy.sha256);
   await expect(page.getByTestId('shown-version')).toContainText('the sealed document');
+  await page.getByRole('tab', { name: /Versions/ }).click();
   await expect(page.getByText('Signed by Cleo Closer')).toBeVisible();
   await expect(page.getByText('Certificate added, sealed and locked')).toBeVisible();
   await expect(page.locator('[data-recipient-id]').getByText(/^Finished copy sent/)).toBeVisible();

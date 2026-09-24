@@ -1,5 +1,6 @@
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { ReactNode, Ref } from 'react';
 import {
   useCallback,
@@ -9,9 +10,11 @@ import {
   useRef,
   useState,
 } from 'react';
+import { reportError } from '../../lib/logger';
 
-// Setup the worker for pdfjs-dist v6
-GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
+// Vite emits the worker with a content hash, so a new pdf.js version is never
+// served a stale worker from the browser cache.
+GlobalWorkerOptions.workerSrc = workerSrc;
 
 const CMAP_URL = '/pdfjs/cmaps/';
 const STANDARD_FONT_URL = '/pdfjs/standard_fonts/';
@@ -21,6 +24,15 @@ export type ScaleMode = number | 'fit-width';
 
 /** Side padding the scroll area takes out of the available width in fit-width mode. */
 const FIT_WIDTH_PADDING = 48;
+
+/**
+ * Fit-width never draws a page wider than this, in CSS pixels. On a wide monitor
+ * an uncapped fit stretched an A4 page to three times its size.
+ */
+const MAX_FIT_WIDTH = 820;
+
+/** The smallest scale fit-width goes to, so a phone still shows legible text. */
+const MIN_FIT_SCALE = 0.4;
 
 /**
  * What an overlay needs to place things on a page.
@@ -74,7 +86,8 @@ function displaySize(
 
   if (scale === 'fit-width') {
     if (containerWidth <= 32) return { width: page.width, height: page.height, scale: 1 };
-    const fitScale = (containerWidth - FIT_WIDTH_PADDING) / page.width;
+    const availableWidth = Math.min(containerWidth - FIT_WIDTH_PADDING, MAX_FIT_WIDTH);
+    const fitScale = Math.max(MIN_FIT_SCALE, availableWidth / page.width);
     return { width: page.width * fitScale, height: page.height * fitScale, scale: fitScale };
   }
   return { width: page.width * scale, height: page.height * scale, scale };
@@ -296,9 +309,13 @@ export function PdfViewer({
     setInputPage(String(currentPage));
   }, [currentPage]);
 
-  // Load document
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Load document. `reloadKey` is read only so that "Retry preview" re-runs this.
   useEffect(() => {
+    void reloadKey;
     let active = true;
+    setError(null);
     const loadingTask = getDocument({
       data: new Uint8Array(data.slice(0)),
       cMapUrl: CMAP_URL,
@@ -329,8 +346,8 @@ export function PdfViewer({
       })
       .catch((err) => {
         if (active) {
-          console.error('Error loading PDF:', err);
-          setError('Failed to load PDF document.');
+          reportError(err, 'pdf-viewer.load');
+          setError('render-failed');
         }
       });
 
@@ -338,7 +355,7 @@ export function PdfViewer({
       active = false;
       void loadingTask.destroy();
     };
-  }, [data]);
+  }, [data, reloadKey]);
 
   // Fit-width follows the container. The container only exists once the
   // document has loaded (before that the loading message is shown), so it is
@@ -512,10 +529,15 @@ export function PdfViewer({
     }
   };
 
+  // Zooming from fit-width steps from the scale the page is actually drawn at.
   const currentNumericScale =
     typeof scale === 'number'
       ? scale
-      : Math.max(0.5, (containerWidth - 48) / (defaultDimensions.width || 595.28));
+      : displaySize(
+          { width: defaultDimensions.width || 595.28, height: defaultDimensions.height },
+          'fit-width',
+          containerWidth,
+        ).scale;
 
   const zoomIn = () => {
     const nextScale = Math.min(3.0, Number((currentNumericScale + 0.25).toFixed(2)));
@@ -562,9 +584,50 @@ export function PdfViewer({
   if (error) {
     return (
       <div
-        className={`flex items-center justify-center p-8 bg-red-50 text-red-600 rounded-xl ${className}`}
+        className={`flex flex-col items-center justify-center p-8 text-center bg-slate-50 border border-slate-200/80 rounded-2xl ${className}`}
       >
-        {error}
+        <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 border border-red-200/60 flex items-center justify-center mb-3">
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.8}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+            />
+          </svg>
+        </div>
+        <h3 className="text-sm font-semibold text-slate-900 mb-1">Preview unavailable</h3>
+        <p className="text-xs text-slate-500 max-w-sm mb-2">
+          The document could not be shown here. The file itself is unchanged — try again, or
+          download it and open it in a PDF reader.
+        </p>
+        <button
+          type="button"
+          onClick={() => setReloadKey((k) => k + 1)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
+            />
+          </svg>
+          <span>Retry preview</span>
+        </button>
       </div>
     );
   }
@@ -582,12 +645,12 @@ export function PdfViewer({
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col h-full w-full bg-slate-200/70 overflow-hidden outline-none select-none ${className}`}
+      className={`relative flex flex-col h-full w-full bg-slate-200/70 overflow-hidden select-none ${className}`}
     >
       {/* Sleek, Professional Toolbar */}
-      <div className="flex-none flex items-center justify-between px-3 py-1.5 bg-white border-b border-slate-200/90 shadow-xs z-10 sticky top-0 gap-2">
-        {/* Page Navigation Group */}
-        <div className="flex items-center space-x-1 text-slate-700">
+      <div className="flex-none flex items-center justify-between px-2 sm:px-4 py-1.5 bg-white border-b border-slate-200/90 shadow-2xs z-10 sticky top-0 gap-1.5 sm:gap-3 min-h-10.5">
+        {/* Left Side: Standard Page Navigation */}
+        <div className="flex min-w-0 items-center gap-0.5 sm:gap-1 text-slate-700">
           <button
             type="button"
             onClick={() => jumpToPage(1)}
@@ -616,7 +679,7 @@ export function PdfViewer({
             type="button"
             onClick={() => jumpToPage(currentPage - 1)}
             disabled={currentPage <= 1}
-            className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-1 sm:p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Previous Page"
             title="Previous Page (← / PageUp)"
           >
@@ -650,7 +713,7 @@ export function PdfViewer({
               value={inputPage}
               onChange={(e) => setInputPage(e.target.value)}
               onBlur={commitInputPage}
-              className="w-12 text-center border border-slate-300 rounded-md px-1 py-0.5 text-xs font-semibold text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 shadow-xs"
+              className="w-10 sm:w-12 text-center border border-slate-300 rounded-md px-1 py-0.5 text-xs font-semibold text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 shadow-2xs"
               aria-label="Current Page Number"
             />
             <span className="text-slate-500 ml-1.5 text-xs font-medium whitespace-nowrap">
@@ -662,7 +725,7 @@ export function PdfViewer({
             type="button"
             onClick={() => jumpToPage(currentPage + 1)}
             disabled={currentPage >= numPages}
-            className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-1 sm:p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             aria-label="Next Page"
             title="Next Page (→ / PageDown)"
           >
@@ -707,8 +770,8 @@ export function PdfViewer({
           </button>
         </div>
 
-        {/* Clean, Unified Zoom Controls (Google Drive / Figma standard) */}
-        <div className="flex items-center space-x-2 text-xs">
+        {/* Right Side: Clean, Unified Zoom Controls */}
+        <div className="flex shrink-0 items-center text-xs">
           <div className="flex items-center bg-slate-100/90 rounded-lg p-0.5 border border-slate-200">
             {/* Zoom Out Button */}
             <button
@@ -781,20 +844,6 @@ export function PdfViewer({
               </svg>
             </button>
           </div>
-
-          {/* Dedicated Fit Width Button. Phones use the menu's Fit Width: the
-            toolbar has to fit across a 320px screen. */}
-          <button
-            type="button"
-            onClick={() => changeScale('fit-width')}
-            className={`hidden sm:block whitespace-nowrap px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shadow-xs ${
-              scale === 'fit-width'
-                ? 'bg-brand-600 text-white shadow-xs'
-                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            Fit Width
-          </button>
         </div>
       </div>
 
@@ -803,7 +852,7 @@ export function PdfViewer({
         ref={scrollRef}
         onScroll={handleScroll}
         aria-label="PDF Document Scroll Area"
-        className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 outline-none overscroll-contain cursor-default"
+        className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 overscroll-contain cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div className="flex flex-col items-center mx-auto" style={{ maxWidth: '100%' }}>

@@ -3,9 +3,11 @@ import {
   addRecipient,
   fieldPosition,
   MIXED_PAGE_PDF,
+  openPreparePanel,
   pageBox,
   placeField,
   recordSaves,
+  selectRecipient,
   signUp,
   TWELVE_PAGE_PDF,
   uploadDocument,
@@ -25,11 +27,11 @@ test.describe('Field builder', () => {
     await addRecipient(page, 'Raj Patel', 'raj@example.com');
 
     // Fields go to whoever is selected, so pick Priya before placing hers.
-    await page.getByRole('button', { name: /Priya Sharma/ }).click();
+    await selectRecipient(page, 'Priya Sharma');
     await placeField(page, 'Signature', 1, { xRatio: 0.3, yRatio: 0.4 });
     await waitForFieldsSaved(page, 1);
 
-    await page.getByRole('button', { name: /Raj Patel/ }).click();
+    await selectRecipient(page, 'Raj Patel');
     await placeField(page, 'Date', 3, { xRatio: 0.5, yRatio: 0.25 });
     await waitForFieldsSaved(page, 2);
 
@@ -176,6 +178,7 @@ test.describe('Field builder', () => {
 
     // The order is saved, not just shown.
     await page.reload();
+    await openPreparePanel(page, 'recipients');
     await expect(page.getByRole('radio', { name: 'One after another' })).toBeChecked();
     await expect(page.getByText('1. Raj Patel')).toBeVisible({ timeout: 10_000 });
 
@@ -193,8 +196,14 @@ test.describe('Field builder', () => {
     await waitForFieldsSaved(page, 1);
     await expect(page.locator('[data-field-id]')).toHaveCount(1);
 
-    page.once('dialog', (dialog) => void dialog.accept());
+    // The confirmation is ours now, not the browser's, so it is clicked rather
+    // than handled through page.on('dialog').
+    await openPreparePanel(page, 'recipients');
     await page.getByLabel('Role for Copy Only').selectOption('CC');
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: /^Change role and remove/ })
+      .click();
 
     await expect(page.locator('[data-field-id]')).toHaveCount(0, { timeout: 15_000 });
   });

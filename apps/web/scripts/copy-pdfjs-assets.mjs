@@ -15,5 +15,4 @@ for (const folder of ['standard_fonts', 'cmaps', 'iccs', 'wasm']) {
   if (existsSync(source)) cpSync(source, path.join(target, folder), { recursive: true });
 }
 
-const workerSource = path.join(pdfjsRoot, 'build', 'pdf.worker.min.mjs');
-if (existsSync(workerSource)) cpSync(workerSource, path.join(target, 'pdf.worker.min.mjs'));
+// The worker is not copied: PdfViewer imports it with `?url`, so Vite bundles it.

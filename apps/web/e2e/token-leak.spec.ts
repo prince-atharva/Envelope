@@ -185,7 +185,8 @@ test('no signing or download link reaches a log file, the database, Redis or a R
     .click();
   const sheet = signerPage.getByRole('dialog', { name: 'Adopt your signature' });
   await sheet.getByRole('button', { name: 'Adopt and sign' }).click();
-  await expect(sheet).toBeHidden();
+  // Adopting loads the script face and saves the image; under a full parallel run that can take a while.
+  await expect(sheet).toBeHidden({ timeout: 20_000 });
   await signerPage
     .getByRole('checkbox', { name: 'Tick box field, required, page 1 of 12' })
     .check();

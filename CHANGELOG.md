@@ -9,6 +9,42 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 Phase 6 (Compliance) is next: jurisdiction policy frozen at envelope creation, blocked document
 categories, user roles enforced, a retention sweeper with legal hold, and audit export.
 
+### Added
+
+- Quick search (⌘K / Ctrl K) over the sender's documents, and search and sort on the dashboard.
+  Both work on the documents already loaded.
+- `pnpm --filter @envelope/web ui:gallery` screenshots every screen and popup on desktop, tablet
+  and phone into a contact sheet under `apps/web/.e2e/gallery/`. It has its own Playwright config,
+  so `test:e2e` and CI are unchanged.
+- Shared UI pieces: `DialogShell` (one native `<dialog>` for Send, Extend and Cancel),
+  `ConfirmDialog` (replaces `window.confirm` in the builder), accessible `Tabs`, `Card`,
+  `HashBlock`, skeleton loaders, and `lib/labels.ts` for field and role wording in one place.
+
+### Changed
+
+- The sender screens are redesigned: dashboard, document page (document beside its people,
+  fingerprint and a tabbed history), prepare (Fields and Signers panels), and review (who receives
+  what, and when). The signer's screen gets a floating progress dock.
+- The Cancelled tab now lists discarded drafts too, as well as cancelled and declined envelopes.
+- An approver no longer needs a field before sending: only signers do. An approver with nothing to
+  fill in reads the document and presses Approve. The signer screen now knows the recipient's role
+  (`SigningSession.role`), so an approver is asked to approve and ends on "Approved", not "Signed".
+  Approvers may still be given fields.
+- Every screen is laid out for phones down to the iPhone SE (375 × 667), tablets and desktops:
+  nothing in the header wraps or overflows, buttons never break their label, dialogs stack their
+  buttons on phones, the signer's progress bar spans the screen on a phone, and the document page
+  keeps the document in view beside its sidebar on a wide screen. The UI gallery now photographs the
+  iPhone SE instead of the iPhone 14.
+- An error code the web app has no message for shows a generic message with the request reference,
+  instead of the server's wording. Codes the sender can hit (a recipient already added, a stale
+  draft, not ready to send) now have their own messages.
+- The pdf.js worker is bundled by Vite with a content hash instead of being copied to `public/`.
+
+### Fixed
+
+- A hard reload on a document, prepare or review page could fail as signed out: the page's first
+  request went out before the session was restored.
+
 ## [0.5.0] - 2026-09-20
 
 Phase 5 (Envelope Lifecycle): cancelling a sent document, deadlines that pause an envelope and can

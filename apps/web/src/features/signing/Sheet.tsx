@@ -14,11 +14,13 @@ export function Sheet({
   open,
   onClose,
   labelledBy,
+  className = 'sm:max-w-lg',
   children,
 }: {
   open: boolean;
   onClose: () => void;
   labelledBy: string;
+  className?: string;
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -35,7 +37,7 @@ export function Sheet({
       ref={dialogRef}
       aria-labelledby={labelledBy}
       onClose={onClose}
-      className="signing-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-full overflow-y-auto rounded-t-2xl bg-white p-0 shadow-xl backdrop:bg-slate-900/50 sm:m-auto sm:max-w-lg sm:rounded-2xl"
+      className={`signing-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-full overflow-y-auto rounded-t-2xl bg-white p-0 shadow-xl backdrop:bg-slate-900/50 sm:m-auto sm:rounded-2xl ${className}`}
     >
       {open && children}
     </dialog>

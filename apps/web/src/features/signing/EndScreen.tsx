@@ -18,7 +18,11 @@ const DONE_FOLLOW_UP =
 function screenFor(state: EndState): Screen {
   switch (state.kind) {
     case 'signed':
-      return { tone: 'done', title: 'Signed', body: `${state.message} You can close this page.` };
+      return {
+        tone: 'done',
+        title: state.approved ? 'Approved' : 'Signed',
+        body: `${state.message} You can close this page.`,
+      };
     case 'already-signed':
       return {
         tone: 'done',

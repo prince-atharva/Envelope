@@ -3,6 +3,7 @@ import { Link, type LinkProps } from 'react-router';
 import { Spinner } from './Spinner';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type Size = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-brand-700 text-white hover:bg-brand-800 disabled:bg-brand-700/60',
@@ -12,15 +13,27 @@ const VARIANTS: Record<Variant, string> = {
   danger: 'bg-red-700 text-white hover:bg-red-800 disabled:bg-red-700/60',
 };
 
-const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed';
+/**
+ * Three sizes, because there were none: every screen patched its own padding
+ * and font size on top of the base, and no two agreed. `sm` is the dense
+ * toolbar button, `md` the default, `lg` the one primary action on a page.
+ */
+const SIZES: Record<Size, string> = {
+  sm: 'gap-1.5 px-3 py-1.5 text-xs',
+  md: 'gap-2 px-4 py-2.5 text-sm',
+  lg: 'gap-2 px-5 py-3 text-base',
+};
 
-export function buttonClass(variant: Variant = 'primary', extra = ''): string {
-  return `${BASE} ${VARIANTS[variant]} ${extra}`;
+const BASE =
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors disabled:cursor-not-allowed';
+
+export function buttonClass(variant: Variant = 'primary', extra = '', size: Size = 'md'): string {
+  return `${BASE} ${SIZES[size]} ${VARIANTS[variant]} ${extra}`;
 }
 
 export function Button({
   variant = 'primary',
+  size = 'md',
   loading = false,
   className = '',
   children,
@@ -29,13 +42,14 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
+  size?: Size;
   loading?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       type={type}
-      className={buttonClass(variant, className)}
+      className={buttonClass(variant, className, size)}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
@@ -48,8 +62,9 @@ export function Button({
 
 export function ButtonLink({
   variant = 'primary',
+  size = 'md',
   className = '',
   ...props
-}: LinkProps & { variant?: Variant }) {
-  return <Link className={buttonClass(variant, className)} {...props} />;
+}: LinkProps & { variant?: Variant; size?: Size }) {
+  return <Link className={buttonClass(variant, className, size)} {...props} />;
 }

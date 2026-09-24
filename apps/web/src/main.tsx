@@ -1,9 +1,12 @@
+import './polyfills';
+import '@fontsource-variable/inter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { FullPageSpinner } from './components/ui/Spinner';
+import { ScrollToTop } from './components/layout/ScrollToTop';
+import { TopProgressBar } from './components/ui/Skeletons';
 import { installGlobalErrorHandlers } from './lib/logger';
 import './styles/index.css';
 
@@ -20,7 +23,8 @@ const SenderApp = lazy(() => import('./SenderApp'));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
+      staleTime: 60_000,
+      gcTime: 10 * 60_000,
       retry: 1,
       refetchOnWindowFocus: false,
     },
@@ -35,7 +39,10 @@ createRoot(root).render(
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
         <BrowserRouter>
-          <Suspense fallback={<FullPageSpinner />}>
+          <ScrollToTop />
+          {/* Neutral on purpose: this also covers the signer's and Verify's
+              chunks, and a signer must never see the sender app's frame. */}
+          <Suspense fallback={<TopProgressBar />}>
             <Routes>
               <Route path="/sign/:token" element={<SigningPage />} />
               <Route path="/verify" element={<VerifyPage />} />

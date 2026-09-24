@@ -68,7 +68,7 @@ test.describe('Document lifecycle end-to-end', () => {
       timeout: 10000,
     });
     await expect(page.getByText(/12 pages/).first()).toBeVisible();
-    await expect(page.getByText(/Created by: Full Flow Tester/).first()).toBeVisible();
+    await expect(page.getByText(/Created by Full Flow Tester/).first()).toBeVisible();
     await expect(page.getByText('Draft', { exact: true })).toBeVisible();
 
     // 10. Verify Document Fingerprint (SHA-256)
@@ -97,8 +97,7 @@ test.describe('Document lifecycle end-to-end', () => {
     const lastBtn = page.getByLabel('Last Page');
     const pageInput = page.getByLabel('Current Page Number');
 
-    // First, Last and the separate Fit Width button are left out on phones,
-    // so the toolbar fits across the screen.
+    // First and Last are left out on phones, so the toolbar fits across the screen.
     const wide = (page.viewportSize()?.width ?? 0) >= 640;
 
     await expect(prevBtn).toBeVisible();
@@ -169,9 +168,8 @@ test.describe('Document lifecycle end-to-end', () => {
     await expect(pageInput).not.toHaveValue('1', { timeout: 5000 });
 
     // 13. Verify zoom controls & canvas-level mouse wheel zoom
-    const fitWidthBtn = page.getByRole('button', { name: 'Fit Width' });
-    if (wide) await expect(fitWidthBtn).toBeVisible();
-    else await expect(fitWidthBtn).toBeHidden();
+    // Fit Width lives in the zoom menu, on every screen size.
+    await expect(page.getByLabel('Zoom Level').locator('option[value="fit-width"]')).toHaveCount(1);
     const zoomInBtn = page.getByLabel('Zoom In');
     const zoomOutBtn = page.getByLabel('Zoom Out');
     await expect(zoomInBtn).toBeVisible();
@@ -199,21 +197,21 @@ test.describe('Document lifecycle end-to-end', () => {
     await zoomSelect.selectOption('2');
     await expect(zoomSelect).toHaveValue('2');
 
-    // Zoom back to fit-width: the button, or on a phone the menu
-    if (wide) await fitWidthBtn.click();
-    else await zoomSelect.selectOption('fit-width');
+    // Zoom back to fit-width, from the zoom menu.
+    await zoomSelect.selectOption('fit-width');
     await expect(zoomSelect).toHaveValue('fit-width');
 
     // At least one canvas is rendered
     const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 10000 });
 
-    // 14. Verify Document Versions table
-    await expect(page.getByText('Document Versions')).toBeVisible();
+    // 14. Verify Document Versions table. Versions and the audit trail share one
+    // card as two tabs, so each is opened rather than both being on screen.
+    await page.getByRole('tab', { name: /Versions/ }).click();
     await expect(page.getByText('v0')).toBeVisible();
 
     // 15. Verify Audit Trail
-    await expect(page.getByText('Audit Trail')).toBeVisible();
+    await page.getByRole('tab', { name: /Audit trail/ }).click();
     await expect(page.getByText('Document uploaded and fingerprinted')).toBeVisible();
 
     // 16. Verify download and verify fingerprint matches

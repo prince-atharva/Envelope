@@ -1,6 +1,7 @@
 import type { RecipientDetail } from '@envelope/shared';
 import { describe, expect, it } from 'vitest';
-import { canExtend, freshLinkFor, names, stillToSign } from './extend';
+import { names } from '../../lib/labels';
+import { canExtend, freshLinkFor, stillToSign } from './extend';
 
 function person(name: string, overrides: Partial<RecipientDetail> = {}): RecipientDetail {
   return {
@@ -45,10 +46,10 @@ describe('who an extension reaches', () => {
   ];
 
   it('emails a fresh link to whoever holds the turn', () => {
-    expect(names(freshLinkFor(team))).toBe('Opened and Emailed');
+    expect(names(freshLinkFor(team).map((person) => person.name))).toBe('Opened and Emailed');
   });
 
   it('lists everyone still to sign, including those whose turn has not come', () => {
-    expect(names(stillToSign(team))).toBe('Opened, Emailed and Later');
+    expect(names(stillToSign(team).map((person) => person.name))).toBe('Opened, Emailed and Later');
   });
 });
