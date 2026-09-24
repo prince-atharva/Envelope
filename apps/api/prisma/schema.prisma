@@ -1,4 +1,4 @@
-// Digital Sign by HealthProHub: database schema.
+// Envelope powered by HealthProHub: database schema.
 //
 // Follows docs/05-data-model.md. Differences from the doc, and why:
 //   - Tenant model: tenantId is a real foreign key (organisations, HealthProHub dual-mode).

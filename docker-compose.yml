@@ -1,4 +1,4 @@
-# Local infrastructure for Digital Sign by HealthProHub (docs/04: "Docker Compose:
+# Local infrastructure for Envelope powered by HealthProHub (docs/04: "Docker Compose:
 # Postgres, Redis, MinIO"). Email is not here: it goes through real SMTP (Gmail),
 # configured in .env.
 #
