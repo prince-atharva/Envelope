@@ -408,8 +408,8 @@ newest first. The dashboard opens on Needs attention when it is not empty, other
 - An open envelope already past its deadline, which the sweep has not paused yet, ranks as
   expired: its links already refuse. It read "Expires 1 minute ago" until the browser test caught
   it.
-- The Cancelled tab also lists declined envelopes, which the plan gave no tab; a discarded draft
-  (never sent) is left out of it, but stays in All.
+- The Cancelled tab also lists declined envelopes, which the plan gave no tab, and discarded
+  drafts: a sender looking for a draft they threw away looks under Cancelled, not only in All.
 - "Not opened" needs the email to have been accepted (`notifiedAt` set); an invitation no mail server
   took is "email not delivered", never "not opened".
 - `since` is how long it has waited for ranks 1, 2, 3 and 5, and the deadline itself for rank 4, so
@@ -464,5 +464,5 @@ sender) and `alert`.
 | An expired large-file download link shows 410 JSON and cannot be renewed | Phase 6 |
 | Alerts are email only | A paging tool with the production deploy, Phase 7 |
 | A chain break does not stop sending by itself | A manual decision, per doc 10's P0 response |
-| A discarded draft is kept (as `VOIDED`, hidden from the Cancelled tab) | The audit trail cannot be deleted by the app; retention in Phase 6 |
+| A discarded draft is kept (as `VOIDED`, listed under the Cancelled tab) | The audit trail cannot be deleted by the app; retention in Phase 6 |
 | Found while planning, for Phase 7: an unset `NODE_ENV` in production leaves Swagger and the test rate-limit bypass on; the public health check shows raw error messages; the web app has no CSP because nothing serves it yet; the accessibility gaps (no PDF text layer, pointer-only field placement, contrast) | Phase 7 |

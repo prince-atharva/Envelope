@@ -32,9 +32,9 @@ export function viewWhere(
     completed: { status: 'COMPLETED' },
     // Sent and not finished, including paused: each still waits on someone.
     waiting: { status: { in: [...OPEN_ENVELOPE_STATUSES, 'EXPIRED'] } },
-    // A discarded draft was never sent, so it is not listed as cancelled.
+    // Cancelled, declined, and discarded drafts (VOIDED without sentAt) alike.
     cancelled: {
-      OR: [{ status: 'VOIDED', sentAt: { not: null } }, { status: 'DECLINED' }],
+      status: { in: ['VOIDED', 'DECLINED'] },
     },
   };
   return status ? { AND: [byView[view], { status }] } : byView[view];
@@ -217,8 +217,7 @@ export function countsQuery(tenantId: string, now: Date): Prisma.Sql {
     SELECT count(*) FILTER (WHERE rank IS NOT NULL)::int AS attention,
            count(*) FILTER (WHERE status IN (${open}) OR status = 'EXPIRED')::int AS waiting,
            count(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
-           count(*) FILTER (WHERE (status = 'VOIDED' AND "sentAt" IS NOT NULL)
-                                  OR status = 'DECLINED')::int AS cancelled,
+           count(*) FILTER (WHERE status IN ('VOIDED', 'DECLINED'))::int AS cancelled,
            count(*) FILTER (WHERE status = 'DRAFT')::int AS drafts,
            count(*)::int AS "all"
       FROM ranked`;

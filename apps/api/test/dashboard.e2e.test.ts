@@ -212,8 +212,8 @@ describe('dashboard views (e2e)', () => {
       // Expired, overdue, not opened, not delivered, expiring and fresh.
       waiting: 6,
       completed: 0,
-      // The cancelled one and the declined one; not the discarded draft.
-      cancelled: 2,
+      // The cancelled one, the declined one, and the discarded draft.
+      cancelled: 3,
       drafts: 1,
       all: 10,
     });
@@ -224,7 +224,7 @@ describe('dashboard views (e2e)', () => {
 
   it('filters the other views, newest first, and by status', async () => {
     const cancelled = await all(owner, 'view=cancelled');
-    expect(cancelled.map((item) => item.id)).toEqual([ids.cancelled, ids.declined]);
+    expect(cancelled.map((item) => item.id)).toEqual([ids.discarded, ids.cancelled, ids.declined]);
     expect(cancelled.every((item) => item.attention === undefined)).toBe(true);
 
     const drafts = await all(owner, 'view=drafts');
