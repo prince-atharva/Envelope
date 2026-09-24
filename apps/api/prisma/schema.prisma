@@ -84,7 +84,7 @@ enum FieldType {
 // ─────────────────────────────────────────────────────────────
 
 model Tenant {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String   @id @default(uuid(7)) @db.Uuid
   name      String
   slug      String   @unique
   createdAt DateTime @default(now())
@@ -94,9 +94,20 @@ model Tenant {
   envelopes Envelope[]
 }
 
+/// One row per (tenant, status), kept exact by a trigger on Envelope. Lets the
+/// dashboard's tab counts read ~8 rows instead of aggregating every envelope
+/// the tenant has ever had (100M-row scale follow-up, docs/16).
+model TenantEnvelopeCount {
+  tenantId String         @db.Uuid
+  status   EnvelopeStatus
+  count    Int            @default(0)
+
+  @@id([tenantId, status])
+}
+
 /// Senders and admins only. Signers never have a User row.
 model User {
-  id           String    @id @default(uuid()) @db.Uuid
+  id           String    @id @default(uuid(7)) @db.Uuid
   tenantId     String    @db.Uuid
   tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   email        String    @unique
@@ -118,7 +129,7 @@ model User {
 /// One row per refresh token. Rotating a token revokes its row and links the
 /// replacement; presenting a revoked token again revokes the whole family.
 model Session {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String    @id @default(uuid(7)) @db.Uuid
   userId        String    @db.Uuid
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Shared by every rotation that descends from one login.
@@ -143,7 +154,7 @@ model Session {
 // ─────────────────────────────────────────────────────────────
 
 model Envelope {
-  id       String         @id @default(uuid()) @db.Uuid
+  id       String         @id @default(uuid(7)) @db.Uuid
   tenantId String         @db.Uuid
   tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   title    String
@@ -181,6 +192,10 @@ model Envelope {
   voidedByUserId String?   @db.Uuid
   voidedBy       User?     @relation("EnvelopeVoidedBy", fields: [voidedByUserId], references: [id], onDelete: Restrict)
 
+  /// When the envelope became DECLINED. Lets Needs-attention find recent
+  /// declines without aggregating Recipient (100M-row scale follow-up, docs/16).
+  declinedAt DateTime?
+
   /// Automatic reminders every this many days (1–30). Null is off.
   reminderIntervalDays Int?
 
@@ -204,16 +219,17 @@ model Envelope {
   auditLogs  AuditTrail[]
   downloads  CompletionDownload[]
 
-  @@index([tenantId, status])
-  @@index([tenantId, createdAt])
+  /// The All tab: newest first, with the id tiebreak the cursor compares on.
+  @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)])
+  /// Every other status tab, same cursor shape.
+  @@index([tenantId, status, createdAt(sort: Desc), id(sort: Desc)])
   @@index([ownerId])
-  @@index([expiresAt])
   /// The expiry sweep: open envelopes past their deadline.
   @@index([status, expiresAt])
 }
 
 model Recipient {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid(7)) @db.Uuid
   envelopeId String   @db.Uuid
   envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
 
@@ -296,7 +312,7 @@ model Recipient {
 }
 
 model DocumentField {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid(7)) @db.Uuid
   envelopeId String   @db.Uuid
   envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
 
@@ -334,7 +350,7 @@ model DocumentField {
 // ─────────────────────────────────────────────────────────────
 
 model DocumentVersion {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid(7)) @db.Uuid
   envelopeId String   @db.Uuid
   envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
 
@@ -358,16 +374,16 @@ model DocumentVersion {
   createdAt        DateTime @default(now())
 
   @@unique([envelopeId, versionNumber])
-  @@index([envelopeId])
   /// Verify looks a file up by its fingerprint, across every tenant (docs/15 step 7).
   @@index([hash])
+  @@index([createdByRecipientId])
 }
 
 /// A private link to the finished document, emailed instead of an attachment
 /// when the file is too large to attach (docs/15 step 6). The token is minted by
 /// the email worker; only its HMAC is stored, like a signing link (ADR 0009).
 model CompletionDownload {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid(7)) @db.Uuid
   envelopeId String   @db.Uuid
   envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
 
@@ -382,6 +398,7 @@ model CompletionDownload {
   createdAt        DateTime  @default(now())
 
   @@index([envelopeId])
+  @@index([recipientId])
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -392,7 +409,7 @@ model CompletionDownload {
 // ─────────────────────────────────────────────────────────────
 
 model AuditTrail {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid(7)) @db.Uuid
   envelopeId String   @db.Uuid
   envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
@@ -416,6 +433,5 @@ model AuditTrail {
   timestamp DateTime @default(now())
 
   @@unique([envelopeId, sequence])
-  @@index([envelopeId, timestamp])
-  @@index([timestamp])
+  @@index([recipientId])
 }
