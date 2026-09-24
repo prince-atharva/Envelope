@@ -119,7 +119,7 @@ describe('envelopes (e2e)', () => {
       expect(logs.text()).not.toContain('Consent Form');
     });
 
-    it('serves the document back with the same SHA-256', async () => {
+    it('serves the document back with the same SHA-256, cacheable by its ETag', async () => {
       const res = await request(t.http)
         .get(`/api/v1/envelopes/${created.id}/file`)
         .set('Authorization', auth(owner))
@@ -132,6 +132,27 @@ describe('envelopes (e2e)', () => {
       );
       expect(sha256Hex(res.body as Buffer)).toBe(created.originalHash);
       expect(logs.find('Document opened', 'info')).toHaveLength(1);
+      // Immutable once created (ADR 0003): safe to cache for a long time,
+      // but `private` since the route is still authorized per tenant.
+      expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+      expect(res.headers.etag).toBe(`"${created.originalHash}"`);
+    });
+
+    it('answers a matching If-None-Match with 304 and no body, and never opens the file', async () => {
+      // The suite-wide `logs` capture (declared once, above): a second,
+      // local captureLogs()/.restore() here would spy on and then restore
+      // the same shared PinoLogger.prototype methods, breaking the outer
+      // capture for every test that runs after this one.
+      const before = logs.find('Document opened', 'info').length;
+      await request(t.http)
+        .get(`/api/v1/envelopes/${created.id}/file`)
+        .set('Authorization', auth(owner))
+        .set('If-None-Match', `"${created.originalHash}"`)
+        .expect(304)
+        .expect((res) => {
+          if (res.text) throw new Error(`expected no body, got ${res.text.length} bytes`);
+        });
+      expect(logs.find('Document opened', 'info')).toHaveLength(before);
     });
 
     it('uses the title field and keeps non-ASCII file names intact', async () => {

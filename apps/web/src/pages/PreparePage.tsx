@@ -74,10 +74,13 @@ export function PreparePage() {
   const panel: 'fields' | 'recipients' =
     sidebarTab ?? (envelope && envelope.recipients.length === 0 ? 'recipients' : 'fields');
 
+  // Always version 0, so it never needs the detail first: gating it on
+  // `envelope` was an avoidable waterfall (100M-row scale follow-up web
+  // pass, docs/16 step 14).
   const pdfQuery = useQuery({
     queryKey: queryKeys.document(id, 0),
     queryFn: () => api.downloadDocument(id, 0),
-    enabled: id.length > 0 && !!envelope,
+    enabled: id.length > 0,
     staleTime: Number.POSITIVE_INFINITY,
   });
 

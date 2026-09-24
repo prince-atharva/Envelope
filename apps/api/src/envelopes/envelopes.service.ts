@@ -498,8 +498,7 @@ export class EnvelopesService {
     };
   }
 
-  /** Streams one version of the document from storage. */
-  async openDocument(id: string, versionNumber: number): Promise<OpenedDocument> {
+  private async findVersion(id: string, versionNumber: number) {
     const envelope = await this.db.envelope.findUnique({
       where: { id },
       select: {
@@ -518,6 +517,30 @@ export class EnvelopesService {
     });
     const version = envelope?.versions[0];
     if (!envelope || !version) throw new AppException('NOT_FOUND', 'Document not found.');
+    return { envelope, version };
+  }
+
+  /**
+   * Just enough to answer a conditional request (`If-None-Match`) with a 304
+   * and no body: every DocumentVersion row is immutable once created, so its
+   * hash never changes underneath the same (id, versionNumber) (100M-row
+   * scale follow-up API pass, docs/16 step 14).
+   */
+  async documentVersionMeta(
+    id: string,
+    versionNumber: number,
+  ): Promise<{ sha256: string; sizeBytes: number; filename: string }> {
+    const { envelope, version } = await this.findVersion(id, versionNumber);
+    return {
+      sha256: version.hash,
+      sizeBytes: version.sizeBytes,
+      filename: envelope.originalFilename,
+    };
+  }
+
+  /** Streams one version of the document from storage. */
+  async openDocument(id: string, versionNumber: number): Promise<OpenedDocument> {
+    const { envelope, version } = await this.findVersion(id, versionNumber);
 
     // The sealed file is read by the version id recorded when it was locked (ADR 0007).
     const object =
