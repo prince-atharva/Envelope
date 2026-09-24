@@ -32,6 +32,15 @@ export function canOwnFields(role: RecipientRole): boolean {
   return ROLES_WITH_FIELDS.includes(role);
 }
 
+/**
+ * Whether this role must have a required field before sending. A signer has to
+ * sign something; an approver may be given fields but can equally just read
+ * the document and approve it.
+ */
+export function needsFields(role: RecipientRole): boolean {
+  return role === 'SIGNER';
+}
+
 const nameSchema = z.string().trim().min(1, 'Enter a name').max(MAX_RECIPIENT_NAME_LENGTH);
 const routingOrderSchema = z.number().int().min(1).max(MAX_RECIPIENTS_PER_ENVELOPE);
 
@@ -143,8 +152,8 @@ export type ReadinessIssue =
  * The review screen shows these, and the send endpoint refuses on the same
  * list, so the button and the server can never disagree.
  *
- * Only SIGNER and APPROVER need fields (docs/08). A CC or VIEWER recipient
- * receives the document without marking it.
+ * Only a SIGNER needs a field (docs/08). An APPROVER may have fields but can
+ * approve without any; a CC or VIEWER receives the document without marking it.
  */
 export function checkReadyToSend(draft: {
   recipients: readonly RecipientInfo[];
@@ -163,7 +172,7 @@ export function checkReadyToSend(draft: {
   }
 
   for (const recipient of draft.recipients) {
-    if (!canOwnFields(recipient.role)) continue;
+    if (!needsFields(recipient.role)) continue;
     const hasRequiredField = draft.fields.some((f) => f.recipientId === recipient.id && f.required);
     if (!hasRequiredField) {
       issues.push({

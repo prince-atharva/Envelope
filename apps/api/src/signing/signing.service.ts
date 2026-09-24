@@ -114,6 +114,7 @@ export class SigningService {
       envelopeTitle: envelope.title,
       senderName: envelope.owner.fullName,
       recipientName: recipient.name,
+      role: recipient.role === 'APPROVER' ? 'APPROVER' : 'SIGNER',
       pageCount: envelope.pageCount,
       expiresAt: (recipient.tokenExpiresAt ?? envelope.expiresAt ?? new Date()).toISOString(),
       message: envelope.message,
@@ -450,7 +451,9 @@ export class SigningService {
       status: 'SIGNED',
       signedAt: signedAt.toISOString(),
       message:
-        'Your signature has been recorded. The completed document will be emailed once everyone has signed.',
+        recipient.role === 'APPROVER'
+          ? 'Your approval has been recorded. The completed document will be emailed once everyone has finished.'
+          : 'Your signature has been recorded. The completed document will be emailed once everyone has signed.',
     };
   }
 

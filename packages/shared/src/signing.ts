@@ -196,6 +196,8 @@ export interface SigningSession {
   envelopeTitle: string;
   senderName: string;
   recipientName: string;
+  /** Approvers are asked to approve rather than sign, and may have no fields at all. */
+  role: 'SIGNER' | 'APPROVER';
   pageCount: number;
   expiresAt: string;
   message: string | null;

@@ -262,7 +262,7 @@ Both are optional, and so is the body. `expiresInDays` is 1 to 90 and defaults t
 
 Replaying the same `Idempotency-Key` within 24 hours returns the original response with `Idempotency-Replayed: true`. It does not resend.
 
-Preconditions: at least one recipient; every `SIGNER` and `APPROVER` has at least one required field; at least one document; status is `DRAFT`.
+Preconditions: at least one recipient who signs or approves; every `SIGNER` has at least one required field (an `APPROVER` may have fields, but can approve without any); at least one document; status is `DRAFT`.
 
 > **As built (Phase 3).**
 >

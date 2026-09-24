@@ -48,6 +48,16 @@ describe('checkReadyToSend', () => {
     ]);
   });
 
+  it('lets an approver approve without any field', () => {
+    expect(
+      checkReadyToSend({
+        recipients: [person('a'), person('b', 'APPROVER')],
+        fields: [field('a')],
+      }),
+    ).toEqual([]);
+    expect(codes({ recipients: [person('b', 'APPROVER')], fields: [] })).toEqual([]);
+  });
+
   it('names each signer without a required field', () => {
     const issues = checkReadyToSend({
       recipients: [person('a'), person('b')],
