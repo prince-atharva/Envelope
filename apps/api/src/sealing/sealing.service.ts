@@ -17,10 +17,16 @@ import { StorageService, sealedVersionKey, signedVersionKey } from '../storage/s
 import type { CertificateData } from './certificate';
 import { PdfSealingService, type StampField, type StampImages } from './pdf-sealing.service';
 
-/** A round holds the envelope's seal lock while it reads, stamps and stores one version. */
+/** sealFinal still holds the envelope's seal lock while it uploads the locked, final copy. */
 const ROUND_TIMEOUT_MS = 120_000;
+/** stampNext's write phase, once stamping and upload are already done. */
+const WRITE_TIMEOUT_MS = 10_000;
 const NOTHING_TO_STAMP = 'nothing to stamp';
 const ENVELOPE_COMPLETED = 'envelope completed';
+/** Another job's write landed first; catchUp re-reads and calls stampNext again. */
+const STALE_SNAPSHOT = 'stale snapshot, retrying';
+/** Guards against a pathological cascade of collisions; ordinary contention resolves in 1-2. */
+const MAX_STALE_RETRIES = 20;
 
 export type RoundResult =
   | {
@@ -93,9 +99,23 @@ export class SealingService {
   /** Stamps every outstanding signature on the envelope, oldest first. */
   async catchUp(envelopeId: string): Promise<CatchUpResult> {
     let stamped = 0;
+    let staleRetries = 0;
     for (;;) {
       const round = await this.stampNext(envelopeId);
       if (round.kind === 'idle') {
+        if (round.reason === STALE_SNAPSHOT) {
+          // Another job (stamping a different envelope's signature, or a
+          // retry of this one) committed its version between this job's
+          // read and its write. Re-read and try again: self-limiting, since
+          // each retry either wins or observes one more committed version.
+          staleRetries += 1;
+          if (staleRetries > MAX_STALE_RETRIES) {
+            throw new Error(
+              `Envelope ${envelopeId}: gave up after ${MAX_STALE_RETRIES} stale snapshots in a row`,
+            );
+          }
+          continue;
+        }
         if (round.reason === ENVELOPE_COMPLETED) {
           // A retry after the emails could not be queued. Queueing is
           // idempotent, and the mailer skips anyone already sent their copy.
@@ -104,7 +124,20 @@ export class SealingService {
         if (round.reason !== NOTHING_TO_STAMP) return { stamped, reason: round.reason };
         // Every signature so far is in a version: if that is everyone, seal.
         const seal = await this.sealFinal(envelopeId);
-        if (seal.kind === 'idle') return { stamped, reason: round.reason };
+        if (seal.kind === 'idle') {
+          if (seal.reason === STALE_SNAPSHOT) {
+            // Someone stamped one more signature while the certificate was
+            // being built. Loop back to stampNext, which will find it.
+            staleRetries += 1;
+            if (staleRetries > MAX_STALE_RETRIES) {
+              throw new Error(
+                `Envelope ${envelopeId}: gave up after ${MAX_STALE_RETRIES} stale snapshots in a row`,
+              );
+            }
+            continue;
+          }
+          return { stamped, reason: round.reason };
+        }
         await this.queueCompletionEmails(envelopeId);
         return {
           stamped,
@@ -155,65 +188,73 @@ export class SealingService {
     this.logger.info({ envelopeId, recipients: recipients.length }, 'Completion emails queued');
   }
 
-  /** One round: the oldest signature not yet in a version becomes the next version. */
-  stampNext(envelopeId: string): Promise<RoundResult> {
+  /**
+   * One round: the oldest signature not yet in a version becomes the next
+   * version. Read, stamp and upload happen with no lock held (100M-row scale
+   * follow-up, docs/16 step 14 — this used to hold the seal lock, and the
+   * connection behind it, for the whole thing, up to 120s). Two jobs for the
+   * same envelope can therefore both reach this point for the same
+   * signature; only one write phase can find `latest` still current, so at
+   * most one of them ever creates a version. The loser returns
+   * STALE_SNAPSHOT, and catchUp's loop calls stampNext again, which re-reads
+   * fresh state (typically finding the winner's version already there, and
+   * moving on to whichever signature is next).
+   */
+  async stampNext(envelopeId: string): Promise<RoundResult> {
+    const envelope = await this.prisma.envelope.findUnique({
+      where: { id: envelopeId },
+      include: {
+        recipients: true,
+        versions: {
+          select: { versionNumber: true, fileUrl: true, createdByRecipientId: true, isFinal: true },
+          orderBy: { versionNumber: 'asc' },
+        },
+      },
+    });
+    if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
+    if (!isOpenEnvelope(envelope.status)) {
+      return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
+    }
+
+    const stampedBefore = new Set(
+      envelope.versions.flatMap((v) => (v.createdByRecipientId ? [v.createdByRecipientId] : [])),
+    );
+    const next = envelope.recipients
+      .filter((r) => hasSigned(r) && !stampedBefore.has(r.id))
+      .sort(
+        (a, b) =>
+          (a.signedAt?.getTime() ?? 0) - (b.signedAt?.getTime() ?? 0) || a.id.localeCompare(b.id),
+      )[0];
+    if (!next) return { kind: 'idle', reason: NOTHING_TO_STAMP } as const;
+
+    const latest = envelope.versions.at(-1);
+    if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
+    if (latest.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
+
+    const fields = await this.prisma.documentField.findMany({
+      where: { envelopeId, recipientId: next.id },
+    });
+    const images = await this.adoptedImages(next, fields);
+    const source = await bytesOf((await this.storage.get(latest.fileUrl)).body);
+    const result = await this.pdf.burnFields(source, fields.map(toStampField), images);
+
+    const versionNumber = latest.versionNumber + 1;
+    // Content-addressed, not fixed by version number (see signedVersionKey):
+    // a concurrent loser's upload of the same signature either lands on this
+    // same key (harmless) or on a key nothing ever references (wasted, not
+    // wrong) — never overwrites bytes a committed DocumentVersion row names.
+    const key = signedVersionKey(envelope.tenantId, envelopeId, result.sha256);
+    await this.storage.put(key, result.buffer, {
+      contentType: 'application/pdf',
+      metadata: { sha256: result.sha256 },
+    });
+
+    // Write phase: short, no external I/O. Holds the seal lock only long
+    // enough to check nobody else already moved `latest` and to write.
     return this.prisma.$transaction(
       async (tx) => {
-        // Held until this transaction ends. Only sealing takes it.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`seal:${envelopeId}`}, 0))`;
 
-        const envelope = await tx.envelope.findUnique({
-          where: { id: envelopeId },
-          include: {
-            recipients: true,
-            versions: {
-              select: {
-                versionNumber: true,
-                fileUrl: true,
-                createdByRecipientId: true,
-                isFinal: true,
-              },
-              orderBy: { versionNumber: 'asc' },
-            },
-          },
-        });
-        if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
-        if (!isOpenEnvelope(envelope.status)) {
-          return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
-        }
-
-        const stamped = new Set(
-          envelope.versions.flatMap((v) =>
-            v.createdByRecipientId ? [v.createdByRecipientId] : [],
-          ),
-        );
-        const next = envelope.recipients
-          .filter((r) => hasSigned(r) && !stamped.has(r.id))
-          .sort(
-            (a, b) =>
-              (a.signedAt?.getTime() ?? 0) - (b.signedAt?.getTime() ?? 0) ||
-              a.id.localeCompare(b.id),
-          )[0];
-        if (!next) return { kind: 'idle', reason: NOTHING_TO_STAMP } as const;
-
-        const latest = envelope.versions.at(-1);
-        if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
-        if (latest.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
-
-        const fields = await tx.documentField.findMany({
-          where: { envelopeId, recipientId: next.id },
-        });
-        const images = await this.adoptedImages(next, fields);
-        const source = await bytesOf((await this.storage.get(latest.fileUrl)).body);
-        const result = await this.pdf.burnFields(source, fields.map(toStampField), images);
-
-        const versionNumber = latest.versionNumber + 1;
-        const key = signedVersionKey(envelope.tenantId, envelopeId, versionNumber);
-        // A fixed key: a retry after a failed insert rewrites the same file (ADR 0006).
-        await this.storage.put(key, result.buffer, {
-          contentType: 'application/pdf',
-          metadata: { sha256: result.sha256 },
-        });
         // The envelope may have been cancelled while the file was stamped. The row
         // lock is taken only now, so a cancel never waits for storage work.
         const current = await lockEnvelope(tx, envelopeId);
@@ -224,6 +265,25 @@ export class SealingService {
           );
           return { kind: 'idle', reason: `envelope ${current?.toLowerCase() ?? 'gone'}` } as const;
         }
+
+        const stillLatest = await tx.documentVersion.findFirst({
+          where: { envelopeId },
+          orderBy: { versionNumber: 'desc' },
+          select: { versionNumber: true },
+        });
+        if (stillLatest?.versionNumber !== latest.versionNumber) {
+          this.logger.info(
+            {
+              envelopeId,
+              recipientId: next.id,
+              expectedLatest: latest.versionNumber,
+              actualLatest: stillLatest?.versionNumber,
+            },
+            'Another job stamped this envelope first; this snapshot is stale',
+          );
+          return { kind: 'idle', reason: STALE_SNAPSHOT } as const;
+        }
+
         await tx.documentVersion.create({
           data: {
             envelopeId,
@@ -245,11 +305,11 @@ export class SealingService {
 
         // One after another: the next group's turn begins once this signature is
         // on the document they will see.
-        stamped.add(next.id);
+        const stampedNow = new Set(stampedBefore).add(next.id);
         const due = recipientsDueInvitation(
           envelope.recipients,
           envelope.sequentialSigning,
-          stamped,
+          stampedNow,
         );
         const invitedAt = new Date();
         if (due.length > 0) {
@@ -278,7 +338,7 @@ export class SealingService {
           invitedAt,
         } as const;
       },
-      { timeout: ROUND_TIMEOUT_MS, maxWait: 15_000 },
+      { timeout: WRITE_TIMEOUT_MS, maxWait: 5_000 },
     );
   }
 
@@ -287,43 +347,79 @@ export class SealingService {
    * the newest version, stores the result in the locked bucket as the final
    * version, and completes the envelope (docs/15 step 5, ADR 0007).
    *
-   * Takes the same lock as a round. A second run finds the envelope completed
-   * and does nothing. A retry after the file was stored but before the commit
-   * stores it again: the lock keeps the first copy as an unreferenced object
-   * version, with the same bytes, and reads always name the recorded version.
+   * Building the certificate (a plain read, then CPU work) happens with no
+   * lock held. Only the write below is irreversible (Object Lock), so only
+   * that is done under the seal lock (100M-row scale follow-up, docs/16 step
+   * 14) — and, unlike before, the envelope's row lock is now taken *before*
+   * that write rather than after: a concurrent cancel or a newer signature
+   * either already committed (caught by the checks below, before anything is
+   * written to the locked bucket) or blocks behind this transaction's row
+   * lock until it commits, so a losing race here can no longer leave a
+   * locked, unreferenced object behind. A retry after a crash between the
+   * write and the commit stores the same file again: reads always name the
+   * version id recorded with the row, never reconstruct the key.
    */
-  sealFinal(envelopeId: string): Promise<SealResult> {
+  async sealFinal(envelopeId: string): Promise<SealResult> {
+    const envelope = await this.prisma.envelope.findUnique({
+      where: { id: envelopeId },
+      include: {
+        owner: { select: { fullName: true } },
+        recipients: true,
+        versions: { orderBy: { versionNumber: 'asc' } },
+        auditLogs: { orderBy: { sequence: 'asc' } },
+      },
+    });
+    if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
+    if (!isOpenEnvelope(envelope.status)) {
+      return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
+    }
+    const latest = envelope.versions.at(-1);
+    if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
+    if (latest.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
+
+    const parties = envelope.recipients.filter((r) => receivesSigningLink(r.role));
+    const stampedBefore = new Set(envelope.versions.map((v) => v.createdByRecipientId));
+    const waiting = parties.filter((r) => !hasSigned(r) || !stampedBefore.has(r.id)).length;
+    if (parties.length === 0 || waiting > 0) {
+      return { kind: 'idle', reason: 'waiting for signatures' } as const;
+    }
+
+    const data = this.certificateData(envelope, parties);
+    const source = await bytesOf((await this.storage.get(latest.fileUrl)).body);
+    const result = await this.pdf.appendCertificate(source, data);
+
     return this.prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`seal:${envelopeId}`}, 0))`;
 
-        const envelope = await tx.envelope.findUnique({
-          where: { id: envelopeId },
-          include: {
-            owner: { select: { fullName: true } },
-            recipients: true,
-            versions: { orderBy: { versionNumber: 'asc' } },
-            auditLogs: { orderBy: { sequence: 'asc' } },
-          },
+        // Taken, and checked, before the locked write below — not after, as a
+        // round's does — so nothing is ever written to the locked bucket for
+        // an envelope a concurrent cancel has already closed.
+        const current = await lockEnvelope(tx, envelopeId);
+        if (!current || !isOpenEnvelope(current)) {
+          this.logger.warn(
+            { envelopeId, status: current },
+            'Envelope closed while building the certificate; not sealed',
+          );
+          return { kind: 'idle', reason: `envelope ${current?.toLowerCase() ?? 'gone'}` } as const;
+        }
+        const stillLatest = await tx.documentVersion.findFirst({
+          where: { envelopeId },
+          orderBy: { versionNumber: 'desc' },
+          select: { versionNumber: true, isFinal: true },
         });
-        if (!envelope) return { kind: 'idle', reason: 'envelope not found' } as const;
-        if (!isOpenEnvelope(envelope.status)) {
-          return { kind: 'idle', reason: `envelope ${envelope.status.toLowerCase()}` } as const;
+        if (stillLatest?.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
+        if (stillLatest?.versionNumber !== latest.versionNumber) {
+          this.logger.info(
+            {
+              envelopeId,
+              expectedLatest: latest.versionNumber,
+              actualLatest: stillLatest?.versionNumber,
+            },
+            'Another version landed while building the certificate; this snapshot is stale',
+          );
+          return { kind: 'idle', reason: STALE_SNAPSHOT } as const;
         }
-        const latest = envelope.versions.at(-1);
-        if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
-        if (latest.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
-
-        const parties = envelope.recipients.filter((r) => receivesSigningLink(r.role));
-        const stamped = new Set(envelope.versions.map((v) => v.createdByRecipientId));
-        const waiting = parties.filter((r) => !hasSigned(r) || !stamped.has(r.id)).length;
-        if (parties.length === 0 || waiting > 0) {
-          return { kind: 'idle', reason: 'waiting for signatures' } as const;
-        }
-
-        const data = this.certificateData(envelope, parties);
-        const source = await bytesOf((await this.storage.get(latest.fileUrl)).body);
-        const result = await this.pdf.appendCertificate(source, data);
 
         const versionNumber = latest.versionNumber + 1;
         const key = sealedVersionKey(envelope.tenantId, envelopeId);
@@ -331,17 +427,6 @@ export class SealingService {
           contentType: 'application/pdf',
           metadata: { sha256: result.sha256 },
         });
-        // Checked again under the row lock: a cancel committed during the storage
-        // work above must win, or a cancelled envelope would become COMPLETED. The
-        // locked copy just stored is then an unreferenced object; that is accepted.
-        const current = await lockEnvelope(tx, envelopeId);
-        if (!current || !isOpenEnvelope(current)) {
-          this.logger.warn(
-            { envelopeId, status: current, storageVersionId: versionId },
-            'Envelope closed while sealing; sealed copy left unreferenced',
-          );
-          return { kind: 'idle', reason: `envelope ${current?.toLowerCase() ?? 'gone'}` } as const;
-        }
         const completedAt = new Date();
         await tx.documentVersion.create({
           data: {

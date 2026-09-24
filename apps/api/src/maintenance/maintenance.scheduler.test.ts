@@ -7,6 +7,7 @@ import {
   AUTO_REMINDERS_JOB,
   EXPIRY_SWEEP_JOB,
   MaintenanceScheduler,
+  SESSION_CLEANUP_JOB,
 } from './maintenance.scheduler';
 
 function scheduler(config: Partial<AppConfig>) {
@@ -27,6 +28,7 @@ describe('MaintenanceScheduler', () => {
       EXPIRY_SWEEP_EVERY_MS: 300_000,
       REMINDER_SWEEP_EVERY_MS: 900_000,
       AUDIT_CHAIN_CHECK_CRON: '0 2 * * *',
+      SESSION_CLEANUP_CRON: '30 2 * * *',
     });
     await instance.onApplicationBootstrap();
     expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
@@ -44,6 +46,11 @@ describe('MaintenanceScheduler', () => {
       AUDIT_CHAIN_CHECK_JOB,
       { pattern: '0 2 * * *', tz: 'UTC' },
       { name: AUDIT_CHAIN_CHECK_JOB },
+    );
+    expect(queue.upsertJobScheduler).toHaveBeenCalledWith(
+      SESSION_CLEANUP_JOB,
+      { pattern: '30 2 * * *', tz: 'UTC' },
+      { name: SESSION_CLEANUP_JOB },
     );
   });
 

@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
-import type {
-  CreateEnvelopeInput,
-  EnvelopeCounts,
-  EnvelopeDetail,
-  EnvelopeListResponse,
-  EnvelopeSummary,
-  ListEnvelopesQuery,
+import {
+  type CreateEnvelopeInput,
+  type EnvelopeCounts,
+  type EnvelopeDetail,
+  type EnvelopeListResponse,
+  type EnvelopeSummary,
+  type ListEnvelopesQuery,
+  OPEN_ENVELOPE_STATUSES,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -18,9 +19,9 @@ import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 import { envelopeDocumentKey, StorageService } from '../storage/storage.service';
 import { PdfValidatorService } from '../uploads/pdf-validator.service';
 import {
+  attentionCountQuery,
   attentionPageQuery,
   attentionReason,
-  countsQuery,
   decodeAttentionCursor,
   encodeAttentionCursor,
   progressOf,
@@ -83,8 +84,24 @@ function decodeCursor(cursor: string): Cursor {
   return { createdAt, id };
 }
 
+/** What a list row needs from the envelope itself, for toSummary/progressOf. */
+const LIST_FIELDS = {
+  id: true,
+  title: true,
+  status: true,
+  originalFilename: true,
+  pageCount: true,
+  createdAt: true,
+  updatedAt: true,
+  expiresAt: true,
+  sentAt: true,
+  completedAt: true,
+} as const;
+
+type ListRow = Pick<Envelope, keyof typeof LIST_FIELDS>;
+
 function toSummary(
-  envelope: Envelope,
+  envelope: ListRow,
   recipients: Parameters<typeof progressOf>[1],
 ): EnvelopeSummary {
   return {
@@ -100,7 +117,7 @@ function toSummary(
   };
 }
 
-type WithProgressRecipients = Envelope & {
+type WithProgressRecipients = ListRow & {
   recipients: Pick<Recipient, keyof typeof PROGRESS_FIELDS>[];
 };
 
@@ -226,6 +243,10 @@ export class EnvelopesService {
           viewWhere(query.view, query.status),
           cursor
             ? {
+                // The plain <= bound gives the planner an index range scan on
+                // (tenantId, [status,] createdAt desc, id desc) directly; the
+                // OR below is what actually excludes the boundary row itself.
+                createdAt: { lte: cursor.createdAt },
                 OR: [
                   { createdAt: { lt: cursor.createdAt } },
                   { createdAt: cursor.createdAt, id: { lt: cursor.id } },
@@ -234,7 +255,7 @@ export class EnvelopesService {
             : {},
         ],
       },
-      include: { recipients: { select: PROGRESS_FIELDS } },
+      select: { ...LIST_FIELDS, recipients: { select: PROGRESS_FIELDS } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: query.limit + 1,
     });
@@ -264,7 +285,7 @@ export class EnvelopesService {
     // Through the tenant filter as well, so a row can only ever be this tenant's.
     const envelopes: WithProgressRecipients[] = await this.db.envelope.findMany({
       where: { id: { in: page.map((row) => row.id) } },
-      include: { recipients: { select: PROGRESS_FIELDS } },
+      select: { ...LIST_FIELDS, recipients: { select: PROGRESS_FIELDS } },
     });
     const byId = new Map(envelopes.map((envelope) => [envelope.id, envelope]));
     const last = page.at(-1);
@@ -286,32 +307,126 @@ export class EnvelopesService {
     };
   }
 
-  /** Every dashboard tab's count, in one query. */
+  /**
+   * Every dashboard tab's count. Plain status counts (waiting/completed/
+   * cancelled/drafts/all) read TenantEnvelopeCount, a handful of
+   * primary-key lookups kept exact by a trigger on Envelope regardless of
+   * tenant size. Only Needs-attention still costs a scan, and only of the
+   * tenant's open work (100M-row scale follow-up, docs/16 step 14).
+   */
   async counts(tenantId: string): Promise<EnvelopeCounts> {
-    const [row] = await this.db.$queryRaw<EnvelopeCounts[]>(countsQuery(tenantId, new Date()));
-    if (!row) throw new Error('The counts query returned no row');
-    return row;
+    // tenantEnvelopeCount is not one of the tenant-scoped models the Prisma
+    // extension filters automatically, so the tenantId is always explicit.
+    const [statusRows, [attentionRow]] = await Promise.all([
+      this.db.tenantEnvelopeCount.findMany({
+        where: { tenantId },
+        select: { status: true, count: true },
+      }),
+      this.db.$queryRaw<{ attention: number }[]>(attentionCountQuery(tenantId, new Date())),
+    ]);
+    const countOf = new Map(statusRows.map((row) => [row.status, row.count]));
+    const get = (status: (typeof statusRows)[number]['status']) => countOf.get(status) ?? 0;
+    return {
+      attention: attentionRow?.attention ?? 0,
+      waiting:
+        OPEN_ENVELOPE_STATUSES.reduce((sum, status) => sum + get(status), 0) + get('EXPIRED'),
+      completed: get('COMPLETED'),
+      cancelled: get('VOIDED') + get('DECLINED'),
+      drafts: get('DRAFT'),
+      all: statusRows.reduce((sum, row) => sum + row.count, 0),
+    };
   }
 
   async get(id: string): Promise<EnvelopeDetail> {
-    const envelope = await this.db.envelope.findUnique({
-      where: { id },
-      include: {
-        owner: { select: { id: true, fullName: true } },
-        voidedBy: { select: { id: true, fullName: true } },
-        versions: { orderBy: { versionNumber: 'asc' } },
-        auditLogs: { orderBy: { sequence: 'asc' }, take: AUDIT_EVENTS_IN_DETAIL },
-        recipients: { orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }] },
-        fields: { orderBy: [{ pageNumber: 'asc' }, { ratioY: 'asc' }, { ratioX: 'asc' }] },
-      },
-    });
+    // Selected, not included: full rows carry consentText (the whole
+    // disclosure text), audit metadata/userAgent JSON and field.value, none
+    // of which the response below reads. Run alongside the COMPLETION_SENT
+    // lookup instead of after it — the two don't depend on each other
+    // (100M-row scale follow-up, docs/16 step 14).
+    const [envelope, copies] = await Promise.all([
+      this.db.envelope.findUnique({
+        where: { id },
+        select: {
+          ...LIST_FIELDS,
+          originalHash: true,
+          finalHash: true,
+          message: true,
+          sequentialSigning: true,
+          draftRevision: true,
+          reminderIntervalDays: true,
+          expiredAt: true,
+          voidedAt: true,
+          voidReason: true,
+          owner: { select: { id: true, fullName: true } },
+          voidedBy: { select: { id: true, fullName: true } },
+          versions: {
+            orderBy: { versionNumber: 'asc' },
+            select: {
+              versionNumber: true,
+              hash: true,
+              pageCount: true,
+              sizeBytes: true,
+              isFinal: true,
+              createdByRecipientId: true,
+              createdAt: true,
+            },
+          },
+          auditLogs: {
+            orderBy: { sequence: 'asc' },
+            take: AUDIT_EVENTS_IN_DETAIL,
+            select: {
+              sequence: true,
+              action: true,
+              timestamp: true,
+              actorUserId: true,
+              recipientId: true,
+              eventHash: true,
+            },
+          },
+          recipients: {
+            orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+              status: true,
+              routingOrder: true,
+              colorIndex: true,
+              invitedAt: true,
+              notifiedAt: true,
+              lastRemindedAt: true,
+              viewedAt: true,
+              signedAt: true,
+              declinedAt: true,
+              declinedReason: true,
+              moreTimeRequestedAt: true,
+            },
+          },
+          fields: {
+            orderBy: [{ pageNumber: 'asc' }, { ratioY: 'asc' }, { ratioX: 'asc' }],
+            select: {
+              id: true,
+              recipientId: true,
+              type: true,
+              pageNumber: true,
+              required: true,
+              ratioX: true,
+              ratioY: true,
+              ratioWidth: true,
+              ratioHeight: true,
+            },
+          },
+        },
+      }),
+      // The detail's event list is capped, and these come last regardless.
+      this.db.auditTrail.findMany({
+        where: { envelopeId: id, action: 'COMPLETION_SENT' },
+        select: { recipientId: true, timestamp: true },
+      }),
+    ]);
     if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
 
-    // Read on their own: the detail's event list is capped, and these come last.
-    const copies = await this.db.auditTrail.findMany({
-      where: { envelopeId: id, action: 'COMPLETION_SENT' },
-      select: { recipientId: true, timestamp: true },
-    });
     const copySentAt = (recipientId: string | null) =>
       copies.find((copy) => copy.recipientId === recipientId)?.timestamp.toISOString() ?? null;
 

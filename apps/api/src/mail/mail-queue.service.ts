@@ -89,6 +89,38 @@ export class MailQueueService implements OnModuleInit {
     return job.id;
   }
 
+  /**
+   * Same as enqueueSigningLink, for several recipients in one Redis round
+   * trip instead of one call each (100M-row scale follow-up, docs/16 step
+   * 14) — remind() and enqueueInvitations() can each name up to a tenant's
+   * whole recipient limit. Each job keeps the same deduping jobId a single
+   * call would have given it.
+   */
+  async enqueueSigningLinksBulk(
+    entries: readonly {
+      template: SigningLinkEmailJob['template'];
+      envelopeId: string;
+      recipientId: string;
+      invitedAt?: Date;
+    }[],
+  ): Promise<void> {
+    if (entries.length === 0) return;
+    const requestId = this.cls.isActive() ? this.cls.getId() : undefined;
+    const jobs = entries.map(({ template, envelopeId, recipientId, invitedAt }) => {
+      const data: SigningLinkEmailJob = { template, envelopeId, recipientId, requestId };
+      const jobId =
+        template === 'invitation'
+          ? `invitation-${recipientId}-${invitedAt?.getTime() ?? 0}`
+          : `${template}-${recipientId}-${Date.now()}`;
+      return { name: template, data, opts: { jobId } };
+    });
+    const created = await this.queue.addBulk(jobs);
+    this.logger.info(
+      { queue: EMAIL_QUEUE, count: created.length, template: entries[0]?.template },
+      'Email jobs enqueued in bulk',
+    );
+  }
+
   /** Tells the sender someone declined. Once per envelope: only one person can end it. */
   async enqueueDeclinedNotice(
     envelopeId: string,
@@ -152,6 +184,23 @@ export class MailQueueService implements OnModuleInit {
       'Email job enqueued',
     );
     return job.id;
+  }
+
+  /** Same as enqueueVoided, for everyone a cancelled envelope notifies, in one round trip. */
+  async enqueueVoidedBulk(
+    entries: readonly { envelopeId: string; recipientId: string }[],
+  ): Promise<void> {
+    if (entries.length === 0) return;
+    const requestId = this.cls.isActive() ? this.cls.getId() : undefined;
+    const jobs = entries.map(({ envelopeId, recipientId }) => {
+      const data: VoidedNoticeJob = { template: 'voided', envelopeId, recipientId, requestId };
+      return { name: data.template, data, opts: { jobId: `voided-${envelopeId}-${recipientId}` } };
+    });
+    const created = await this.queue.addBulk(jobs);
+    this.logger.info(
+      { queue: EMAIL_QUEUE, count: created.length, template: 'voided' },
+      'Email jobs enqueued in bulk',
+    );
   }
 
   /**

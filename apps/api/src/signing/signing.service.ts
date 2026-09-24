@@ -19,6 +19,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
+import { Prisma } from '../generated/prisma/client';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,6 +34,8 @@ import { type SignerContext, TokenGuardianService } from './token-guardian.servi
 const AWAITING = ['SENT', 'DELIVERED', 'VIEWED'] as const;
 /** Envelope statuses in which a signer can act. */
 const MAX_USER_AGENT_LENGTH = 500;
+/** Explicit, rather than Prisma's default: submit() holds the envelope's row lock. */
+const SUBMIT_TRANSACTION_OPTIONS = { timeout: 10_000, maxWait: 5_000 };
 
 export interface SignerDocument {
   body: Readable;
@@ -75,40 +78,25 @@ export class SigningService {
   async session(rawToken: string, client: ClientInfo): Promise<SigningSession> {
     const signer = await this.guardian.resolve(rawToken);
     const { recipient, envelope } = signer;
-    await this.markSeen(recipient.id);
-
-    if (!recipient.viewedAt) {
-      const now = new Date();
-      await this.prisma.$transaction(async (tx) => {
-        const first = await tx.recipient.updateMany({
-          where: { id: recipient.id, viewedAt: null },
-          data: { viewedAt: now },
-        });
-        if (first.count === 0) return; // Another tab got here first.
-        await tx.recipient.updateMany({
-          where: { id: recipient.id, status: { in: ['SENT', 'DELIVERED'] } },
-          data: { status: 'VIEWED' },
-        });
-        await this.audit.record(tx, {
-          envelopeId: envelope.id,
-          recipientId: recipient.id,
-          action: 'ENVELOPE_VIEWED',
-          ipAddress: client.ip,
-          userAgent: client.userAgent,
-        });
-      });
-      this.logger.info('Signer opened the envelope for the first time');
-    }
-
     const consented = recipient.consentGivenAt !== null;
-    const notice = consented ? null : consentNoticeFor(envelope.jurisdictionCode);
+
     // Nothing about the document itself before consent: the gate is enforced
-    // here, not by the page (docs/07, docs/09).
-    const fields = consented
-      ? await this.prisma.documentField.findMany({
-          where: { envelopeId: envelope.id, recipientId: recipient.id },
-        })
-      : [];
+    // here, not by the page (docs/07, docs/09). None of these three depend
+    // on each other's result, so they run together (100M-row scale
+    // follow-up, docs/16 step 14).
+    const [fields] = await Promise.all([
+      consented
+        ? this.prisma.documentField.findMany({
+            where: { envelopeId: envelope.id, recipientId: recipient.id },
+          })
+        : Promise.resolve([]),
+      this.markSeen(recipient.id),
+      recipient.viewedAt
+        ? Promise.resolve()
+        : this.markFirstView(recipient.id, envelope.id, client),
+    ]);
+
+    const notice = consented ? null : consentNoticeFor(envelope.jurisdictionCode);
 
     return {
       envelopeTitle: envelope.title,
@@ -147,13 +135,16 @@ export class SigningService {
     const signer = await this.guardian.resolve(rawToken);
     requireConsent(signer);
     const { recipient, envelope } = signer;
-    await this.markSeen(recipient.id);
 
-    const version = await this.prisma.documentVersion.findFirst({
-      where: { envelopeId: envelope.id, isFinal: false },
-      orderBy: { versionNumber: 'desc' },
-      select: { versionNumber: true, fileUrl: true, sizeBytes: true },
-    });
+    // Independent reads (100M-row scale follow-up, docs/16 step 14).
+    const [, version] = await Promise.all([
+      this.markSeen(recipient.id),
+      this.prisma.documentVersion.findFirst({
+        where: { envelopeId: envelope.id, isFinal: false },
+        orderBy: { versionNumber: 'desc' },
+        select: { versionNumber: true, fileUrl: true, sizeBytes: true },
+      }),
+    ]);
     if (!version) throw new AppException('NOT_FOUND', 'Document not found.');
 
     if (recipient.servedVersionNumber !== version.versionNumber) {
@@ -369,15 +360,30 @@ export class SigningService {
       });
       if (claimed.count === 0) return null;
 
-      for (const field of resolved.values) {
-        await tx.documentField.update({
-          where: { id: field.id },
-          data: {
-            value: field.value,
-            isCompleted: field.isCompleted,
-            completedAt: field.isCompleted ? signedAt : null,
-          },
-        });
+      // One statement for every field, not one round trip each: this holds
+      // the envelope's row lock (and, once audit.record runs, the per-
+      // envelope advisory lock), so other signers of the same envelope wait
+      // on it (100M-row scale follow-up, docs/16 step 14).
+      if (resolved.values.length > 0) {
+        const rows = Prisma.join(
+          resolved.values.map((field) => {
+            // `AT TIME ZONE 'UTC'` turns an unambiguous instant into the
+            // naive UTC wall-clock value this timestamp(3)-without-time-zone
+            // column expects, regardless of the session's own time zone.
+            const completedAt = field.isCompleted
+              ? Prisma.sql`${signedAt.toISOString()}::timestamptz AT TIME ZONE 'UTC'`
+              : Prisma.sql`NULL::timestamp`;
+            return Prisma.sql`(${field.id}::uuid, ${field.value}::text, ${field.isCompleted}::boolean, ${completedAt})`;
+          }),
+        );
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "DocumentField" AS f
+             SET "value" = v.value,
+                 "isCompleted" = v."isCompleted",
+                 "completedAt" = v."completedAt"
+            FROM (VALUES ${rows}) AS v(id, value, "isCompleted", "completedAt")
+           WHERE f.id = v.id AND f."envelopeId" = ${envelope.id}::uuid
+        `);
       }
       await tx.envelope.updateMany({
         where: { id: envelope.id, status: { in: ['SENT', 'DELIVERED'] } },
@@ -419,7 +425,10 @@ export class SigningService {
         },
       });
       return { waiting };
-    });
+      // Explicit rather than Prisma's default: this holds the envelope's row
+      // lock, so it should fail fast and free it rather than let other
+      // signers of the same envelope queue behind an open-ended wait.
+    }, SUBMIT_TRANSACTION_OPTIONS);
 
     if (!outcome) {
       await this.guardian.resolve(rawToken); // Throws the reason: already signed, declined, closed.
@@ -484,7 +493,9 @@ export class SigningService {
       if (claimed.count === 0) return false;
       await tx.envelope.updateMany({
         where: { id: envelope.id, status: { in: [...OPEN_ENVELOPE_STATUSES] } },
-        data: { status: 'DECLINED' },
+        // declinedAt lets Needs-attention find this without aggregating
+        // Recipient (envelope-views.ts).
+        data: { status: 'DECLINED', declinedAt },
       });
       await this.audit.record(tx, {
         envelopeId: envelope.id,
@@ -563,6 +574,34 @@ export class SigningService {
       this.logger.error({ err: error, alert: true }, 'More-time request could not be queued');
     }
     return { requested: true, alreadyRequested: false };
+  }
+
+  /** The first time a signer opens their link: marks it seen and logs the event. */
+  private async markFirstView(
+    recipientId: string,
+    envelopeId: string,
+    client: ClientInfo,
+  ): Promise<void> {
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      const first = await tx.recipient.updateMany({
+        where: { id: recipientId, viewedAt: null },
+        data: { viewedAt: now },
+      });
+      if (first.count === 0) return; // Another tab got here first.
+      await tx.recipient.updateMany({
+        where: { id: recipientId, status: { in: ['SENT', 'DELIVERED'] } },
+        data: { status: 'VIEWED' },
+      });
+      await this.audit.record(tx, {
+        envelopeId,
+        recipientId,
+        action: 'ENVELOPE_VIEWED',
+        ipAddress: client.ip,
+        userAgent: client.userAgent,
+      });
+    });
+    this.logger.info('Signer opened the envelope for the first time');
   }
 
   /**

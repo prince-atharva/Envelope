@@ -134,60 +134,75 @@ export function attentionReason(rank: number): AttentionReason {
 const utc = (date: Date) => Prisma.sql`(${date.toISOString()}::timestamptz AT TIME ZONE 'UTC')`;
 
 /**
- * Every envelope of one tenant with its Needs-attention rank (1 to 5, or null)
- * and the time it has waited since. Raw SQL is not scoped by the tenant
- * extension, so the tenant id is always passed in.
+ * The statuses Needs-attention can ever rank. Kept in sync with the partial
+ * index `Envelope_tenantId_attention_working_set_idx`
+ * (20260924100200_attention_partial_indexes): restricting `e` to this set is
+ * what keeps this query's cost proportional to a tenant's open work instead
+ * of its whole history (100M-row scale follow-up, docs/16 step 14). Plain
+ * status-count tabs (drafts/completed/cancelled/all) do not use this
+ * function; they read TenantEnvelopeCount instead (envelopes.service.ts).
+ */
+const ATTENTION_WORKING_SET = [...OPEN_ENVELOPE_STATUSES, 'EXPIRED', 'DECLINED'] as const;
+
+/**
+ * Every envelope of one tenant that Needs-attention could rank, with its
+ * rank (1 to 5, or null) and the time it has waited since. Raw SQL is not
+ * scoped by the tenant extension, so the tenant id is always passed in.
  */
 export function rankedEnvelopes(tenantId: string, now: Date): Prisma.Sql {
   const open = Prisma.join(OPEN_ENVELOPE_STATUSES.map((s) => Prisma.sql`${s}`));
+  const workingSet = Prisma.join(ATTENTION_WORKING_SET.map((s) => Prisma.sql`${s}`));
   return Prisma.sql`
-    WITH r AS (
+    WITH e AS (
+      SELECT id, status, "expiresAt", "expiredAt", "declinedAt"
+        FROM "Envelope"
+       WHERE "tenantId" = ${tenantId}::uuid
+         AND status IN (${workingSet})
+    ),
+    r AS (
       SELECT rr."envelopeId",
              min(rr."invitedAt") FILTER (
-               WHERE rr.role::text IN ('SIGNER', 'APPROVER')
-                 AND rr.status::text IN ('SENT', 'DELIVERED')
+               WHERE rr.role IN ('SIGNER', 'APPROVER')
+                 AND rr.status IN ('SENT', 'DELIVERED')
                  AND rr."tokenUsedAt" IS NULL
                  AND rr."notifiedAt" IS NOT NULL
                  AND rr."invitedAt" <= ${utc(new Date(now.getTime() - NOT_OPENED_AFTER_MS))}
              ) AS unopened_since,
              min(rr."invitedAt") FILTER (
-               WHERE rr.role::text IN ('SIGNER', 'APPROVER')
-                 AND rr.status::text IN ('SENT', 'DELIVERED', 'VIEWED')
+               WHERE rr.role IN ('SIGNER', 'APPROVER')
+                 AND rr.status IN ('SENT', 'DELIVERED', 'VIEWED')
                  AND rr."tokenUsedAt" IS NULL
                  AND rr."notifiedAt" IS NULL
                  AND rr."invitedAt" <= ${utc(new Date(now.getTime() - NOT_DELIVERED_AFTER_MS))}
-             ) AS undelivered_since,
-             max(rr."declinedAt") AS declined_at
+             ) AS undelivered_since
         FROM "Recipient" rr
-        JOIN "Envelope" ee ON ee.id = rr."envelopeId"
-       WHERE ee."tenantId" = ${tenantId}::uuid
+        JOIN e ON e.id = rr."envelopeId"
        GROUP BY rr."envelopeId"
     ),
     ranked AS (
-      SELECT e.id, e.status::text AS status, e."sentAt",
+      SELECT e.id, e.status::text AS status,
              CASE
                -- Paused, or past its deadline and not yet swept: its links already refuse.
-               WHEN e.status::text = 'EXPIRED' THEN 1
-               WHEN e.status::text IN (${open}) AND e."expiresAt" <= ${utc(now)} THEN 1
-               WHEN e.status::text IN (${open}) AND r.unopened_since IS NOT NULL THEN 2
-               WHEN e.status::text IN (${open}) AND r.undelivered_since IS NOT NULL THEN 3
-               WHEN e.status::text IN (${open})
+               WHEN e.status = 'EXPIRED' THEN 1
+               WHEN e.status IN (${open}) AND e."expiresAt" <= ${utc(now)} THEN 1
+               WHEN e.status IN (${open}) AND r.unopened_since IS NOT NULL THEN 2
+               WHEN e.status IN (${open}) AND r.undelivered_since IS NOT NULL THEN 3
+               WHEN e.status IN (${open})
                     AND e."expiresAt" <= ${utc(new Date(now.getTime() + EXPIRING_WITHIN_MS))} THEN 4
-               WHEN e.status::text = 'DECLINED'
-                    AND r.declined_at >= ${utc(new Date(now.getTime() - DECLINED_WITHIN_MS))} THEN 5
+               WHEN e.status = 'DECLINED'
+                    AND e."declinedAt" >= ${utc(new Date(now.getTime() - DECLINED_WITHIN_MS))} THEN 5
              END AS rank,
              CASE
-               WHEN e.status::text = 'EXPIRED' THEN coalesce(e."expiredAt", e."expiresAt")
-               WHEN e.status::text IN (${open}) AND e."expiresAt" <= ${utc(now)} THEN e."expiresAt"
-               WHEN e.status::text IN (${open}) AND r.unopened_since IS NOT NULL THEN r.unopened_since
-               WHEN e.status::text IN (${open}) AND r.undelivered_since IS NOT NULL
+               WHEN e.status = 'EXPIRED' THEN coalesce(e."expiredAt", e."expiresAt")
+               WHEN e.status IN (${open}) AND e."expiresAt" <= ${utc(now)} THEN e."expiresAt"
+               WHEN e.status IN (${open}) AND r.unopened_since IS NOT NULL THEN r.unopened_since
+               WHEN e.status IN (${open}) AND r.undelivered_since IS NOT NULL
                     THEN r.undelivered_since
-               WHEN e.status::text IN (${open}) THEN e."expiresAt"
-               WHEN e.status::text = 'DECLINED' THEN r.declined_at
+               WHEN e.status IN (${open}) THEN e."expiresAt"
+               WHEN e.status = 'DECLINED' THEN e."declinedAt"
              END AS since
-        FROM "Envelope" e
+        FROM e
         LEFT JOIN r ON r."envelopeId" = e.id
-       WHERE e."tenantId" = ${tenantId}::uuid
     )`;
 }
 
@@ -210,15 +225,15 @@ export function attentionPageQuery(
      LIMIT ${limit}`;
 }
 
-/** Every tab's count in one query. */
-export function countsQuery(tenantId: string, now: Date): Prisma.Sql {
-  const open = Prisma.join(OPEN_ENVELOPE_STATUSES.map((s) => Prisma.sql`${s}`));
+/**
+ * The Needs-attention count alone, scoped to the same restricted working set
+ * as `attentionPageQuery`. Every other tab's count comes from
+ * TenantEnvelopeCount instead (envelopes.service.ts#counts): a plain status
+ * count needs no per-envelope timing logic, and reading that table is a
+ * handful of primary-key lookups regardless of tenant size, where this
+ * still costs a scan of the tenant's open work.
+ */
+export function attentionCountQuery(tenantId: string, now: Date): Prisma.Sql {
   return Prisma.sql`${rankedEnvelopes(tenantId, now)}
-    SELECT count(*) FILTER (WHERE rank IS NOT NULL)::int AS attention,
-           count(*) FILTER (WHERE status IN (${open}) OR status = 'EXPIRED')::int AS waiting,
-           count(*) FILTER (WHERE status = 'COMPLETED')::int AS completed,
-           count(*) FILTER (WHERE status IN ('VOIDED', 'DECLINED'))::int AS cancelled,
-           count(*) FILTER (WHERE status = 'DRAFT')::int AS drafts,
-           count(*)::int AS "all"
-      FROM ranked`;
+    SELECT count(*)::int AS attention FROM ranked WHERE rank IS NOT NULL`;
 }

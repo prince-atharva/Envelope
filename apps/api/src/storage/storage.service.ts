@@ -51,16 +51,20 @@ export function envelopeDocumentKey(
 }
 
 /**
- * Where version n of a signed document is kept while signing is under way
- * (ADR 0003). The key is fixed per version, so a retried seal job overwrites
- * its own unfinished attempt rather than leaving a second file (ADR 0006).
+ * Where a signed document is kept while signing is under way (ADR 0003),
+ * keyed by content hash rather than version number (100M-row scale
+ * follow-up, docs/16 step 14 — stampNext stamps and uploads before it takes
+ * its lock, so two jobs can legitimately compute the same next signature and
+ * both upload; content-addressing means that either lands on the same key
+ * harmlessly, or on two keys of which only one is ever referenced by a
+ * DocumentVersion row — never the same key with two different sets of
+ * bytes, which a fixed per-version key could not promise once uploads can
+ * race). This supersedes ADR 0006's "fixed key per version" for this one
+ * bucket; DocumentVersion.fileUrl is always read from the database, never
+ * reconstructed, so nothing depends on the key's shape.
  */
-export function signedVersionKey(
-  tenantId: string,
-  envelopeId: string,
-  versionNumber: number,
-): string {
-  return `tenants/${tenantId}/envelopes/${envelopeId}/versions/v${versionNumber}.pdf`;
+export function signedVersionKey(tenantId: string, envelopeId: string, sha256: string): string {
+  return `tenants/${tenantId}/envelopes/${envelopeId}/versions/${sha256}.pdf`;
 }
 
 /**

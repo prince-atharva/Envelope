@@ -160,9 +160,12 @@ export class AuthService {
       data.passwordHash = await this.passwords.hash(input.password);
       this.logger.info({ userId: user.id }, 'Password hash upgraded to current Argon2 parameters');
     }
-    await this.prisma.user.update({ where: { id: user.id }, data });
-
-    const issued = await this.sessions.create(user.id, client);
+    // Independent: the new session row only needs the user to already exist,
+    // not this update to have landed (100M-row scale follow-up, docs/16 step 14).
+    const [, issued] = await Promise.all([
+      this.prisma.user.update({ where: { id: user.id }, data }),
+      this.sessions.create(user.id, client),
+    ]);
     this.logger.info(
       { userId: user.id, tenantId: user.tenantId, sessionId: issued.session.id, ip: client.ip },
       'Login succeeded',

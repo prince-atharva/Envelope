@@ -120,6 +120,15 @@ export const envSchema = z
     /** How often the expiry sweep looks for envelopes past their deadline. */
     EXPIRY_SWEEP_EVERY_MS: z.coerce.number().int().min(1000).default(300_000),
     /**
+     * When the nightly session cleanup runs: a cron pattern, in UTC. Deletes
+     * expired refresh-token rows in batches (100M-row scale follow-up,
+     * docs/16 step 14) — nothing ever deletes them otherwise, so the table
+     * only grows.
+     */
+    SESSION_CLEANUP_CRON: z.string().trim().min(9).default('30 2 * * *'),
+    /** A session is deleted this long after it expired, not the moment it does. */
+    SESSION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    /**
      * Where urgent problems are emailed (docs/16 step 11). Unset: alerts are
      * only logged, with `alert: true`.
      */

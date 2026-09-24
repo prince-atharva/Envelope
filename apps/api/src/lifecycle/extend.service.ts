@@ -119,15 +119,19 @@ export class ExtendService {
     });
 
     // After commit. A failed email is logged; the sender can remind them.
-    for (const recipientId of result.notify) {
-      try {
-        await this.mail.enqueueSigningLink('extended', envelopeId, recipientId);
-      } catch (error) {
-        this.logger.error(
-          { err: error, alert: true, envelopeId, recipientId },
-          'Extension email could not be queued; a reminder will send it',
-        );
-      }
+    try {
+      await this.mail.enqueueSigningLinksBulk(
+        result.notify.map((recipientId) => ({
+          template: 'extended' as const,
+          envelopeId,
+          recipientId,
+        })),
+      );
+    } catch (error) {
+      this.logger.error(
+        { err: error, alert: true, envelopeId, recipientCount: result.notify.length },
+        'Extension emails could not be queued; a reminder will send them',
+      );
     }
     if (result.resumed) {
       try {

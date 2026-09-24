@@ -301,16 +301,13 @@ export class SendingService {
       );
     }
 
-    for (const recipientId of reminded) {
-      try {
-        await this.mail.enqueueSigningLink('reminder', envelopeId, recipientId);
-      } catch (error) {
-        this.logger.error(
-          { err: error, alert: true, envelopeId, recipientId },
-          'Reminder could not be queued',
-        );
-        throw new AppException('SERVICE_UNAVAILABLE', 'The reminder could not be sent. Try again.');
-      }
+    try {
+      await this.mail.enqueueSigningLinksBulk(
+        reminded.map((recipientId) => ({ template: 'reminder' as const, envelopeId, recipientId })),
+      );
+    } catch (error) {
+      this.logger.error({ err: error, alert: true, envelopeId }, 'Reminders could not be queued');
+      throw new AppException('SERVICE_UNAVAILABLE', 'The reminder could not be sent. Try again.');
     }
 
     this.logger.info(
@@ -330,15 +327,20 @@ export class SendingService {
     recipientIds: readonly string[],
     invitedAt: Date,
   ): Promise<void> {
-    for (const recipientId of recipientIds) {
-      try {
-        await this.mail.enqueueSigningLink('invitation', envelopeId, recipientId, invitedAt);
-      } catch (error) {
-        this.logger.error(
-          { err: error, alert: true, envelopeId, recipientId },
-          'Invitation could not be queued; a reminder will send it',
-        );
-      }
+    try {
+      await this.mail.enqueueSigningLinksBulk(
+        recipientIds.map((recipientId) => ({
+          template: 'invitation' as const,
+          envelopeId,
+          recipientId,
+          invitedAt,
+        })),
+      );
+    } catch (error) {
+      this.logger.error(
+        { err: error, alert: true, envelopeId, recipientIds },
+        'Invitations could not be queued; a reminder will send them',
+      );
     }
   }
 }

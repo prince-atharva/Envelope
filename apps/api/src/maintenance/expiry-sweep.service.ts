@@ -40,7 +40,18 @@ export class ExpirySweepService {
 
   async run(now = new Date()): Promise<SweepResult> {
     const candidates = await this.prisma.envelope.findMany({
-      where: { status: { in: [...OPEN_ENVELOPE_STATUSES] }, expiresAt: { lte: now } },
+      where: {
+        status: { in: [...OPEN_ENVELOPE_STATUSES] },
+        expiresAt: { lte: now },
+        // Excludes envelopes everyone has already signed: those are only
+        // waiting on the seal job, not overdue, and `expire()` below would
+        // just say so and leave them unchanged — without this, they would
+        // keep re-matching and using up a batch slot on every run until
+        // sealing catches up (100M-row scale follow-up, docs/16 step 14).
+        recipients: {
+          some: { role: { in: ['SIGNER', 'APPROVER'] }, status: { notIn: ['SIGNED', 'DECLINED'] } },
+        },
+      },
       select: { id: true },
       orderBy: { expiresAt: 'asc' },
       take: SWEEP_BATCH,

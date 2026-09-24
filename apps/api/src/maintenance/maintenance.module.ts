@@ -5,6 +5,7 @@ import { AutoReminderService } from './auto-reminder.service';
 import { ExpirySweepService } from './expiry-sweep.service';
 import { MaintenanceProcessor } from './maintenance.processor';
 import { MaintenanceScheduler } from './maintenance.scheduler';
+import { SessionCleanupService } from './session-cleanup.service';
 
 /** Imported by the worker: scheduled housekeeping (docs/16 step 6). */
 @Module({
@@ -15,7 +16,8 @@ import { MaintenanceScheduler } from './maintenance.scheduler';
     ExpirySweepService,
     AutoReminderService,
     AuditChainCheckService,
+    SessionCleanupService,
   ],
-  exports: [ExpirySweepService, AutoReminderService, AuditChainCheckService],
+  exports: [ExpirySweepService, AutoReminderService, AuditChainCheckService, SessionCleanupService],
 })
 export class MaintenanceWorkerModule {}

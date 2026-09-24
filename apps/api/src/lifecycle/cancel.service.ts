@@ -95,16 +95,14 @@ export class CancelService {
     // After commit. A queue failure is not a reason to undo the cancel: the
     // links are already dead, and only the courtesy email is lost.
     let queued = 0;
-    for (const recipientId of notify) {
-      try {
-        await this.mail.enqueueVoided(envelopeId, recipientId);
-        queued += 1;
-      } catch (error) {
-        this.logger.error(
-          { err: error, alert: true, envelopeId, recipientId },
-          'Cancellation notice could not be queued',
-        );
-      }
+    try {
+      await this.mail.enqueueVoidedBulk(notify.map((recipientId) => ({ envelopeId, recipientId })));
+      queued = notify.length;
+    } catch (error) {
+      this.logger.error(
+        { err: error, alert: true, envelopeId, recipientCount: notify.length },
+        'Cancellation notices could not be queued',
+      );
     }
 
     const discarded = fromStatus === 'DRAFT';

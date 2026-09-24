@@ -19,9 +19,42 @@ import type { Envelope, Recipient } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashSigningToken, tokenRef } from './signing-token';
 
+/** Every field any handler in signing.service.ts reads off a resolved signer. */
+const RECIPIENT_FIELDS = {
+  id: true,
+  status: true,
+  tokenUsedAt: true,
+  tokenExpiresAt: true,
+  consentGivenAt: true,
+  name: true,
+  role: true,
+  signatureMethod: true,
+  initialsMethod: true,
+  signatureImageKey: true,
+  initialsImageKey: true,
+  servedVersionNumber: true,
+  viewedAt: true,
+} as const;
+
+const ENVELOPE_FIELDS = {
+  id: true,
+  tenantId: true,
+  status: true,
+  expiresAt: true,
+  jurisdictionCode: true,
+  title: true,
+  pageCount: true,
+  message: true,
+} as const;
+
+type ResolvedRecipient = Pick<Recipient, keyof typeof RECIPIENT_FIELDS>;
+type ResolvedEnvelope = Pick<Envelope, keyof typeof ENVELOPE_FIELDS> & {
+  owner: { fullName: string };
+};
+
 export interface SignerContext {
-  recipient: Recipient;
-  envelope: Envelope & { owner: { fullName: string } };
+  recipient: ResolvedRecipient;
+  envelope: ResolvedEnvelope;
   /** For log lines. Never the token itself. */
   tokenRef: string;
   /** True when the link was accepted only because `allowExpired` was set. */
@@ -126,9 +159,16 @@ export class TokenGuardianService {
 
     const tokenHash = this.hash(rawToken);
     const ref = tokenRef(tokenHash);
+    // Selected, not included: this runs on every signer request, and a full
+    // recipient/envelope row carries consentText, signing telemetry and
+    // other columns no handler here reads (100M-row scale follow-up,
+    // docs/16 step 14).
     const found = await this.prisma.recipient.findUnique({
       where: { tokenHash },
-      include: { envelope: { include: { owner: { select: { fullName: true } } } } },
+      select: {
+        ...RECIPIENT_FIELDS,
+        envelope: { select: { ...ENVELOPE_FIELDS, owner: { select: { fullName: true } } } },
+      },
     });
     if (!found) {
       // Never issued, or replaced by a newer email.

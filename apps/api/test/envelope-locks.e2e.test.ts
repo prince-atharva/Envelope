@@ -217,7 +217,7 @@ describe('envelope row locks (e2e)', () => {
 
     await signAs(t.http, token, envelope, envelope.recipients[0]?.id ?? '');
     await waitFor(
-      () => logs.find('Envelope closed while sealing; sealed copy left unreferenced', 'warn')[0],
+      () => logs.find('Envelope closed while building the certificate; not sealed', 'warn')[0],
       20_000,
     );
     expect(await envelopeStatus(envelope.id)).toBe('VOIDED');

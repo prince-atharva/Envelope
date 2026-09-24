@@ -38,16 +38,21 @@ export class AutoReminderService {
     const seenBefore = new Date(now.getTime() - RECENTLY_SEEN_MS).toISOString();
     const warningHours = this.config.EXPIRY_WARNING_HOURS;
     // Timestamps are stored as UTC without a zone, so `now` is converted
-    // explicitly, as the envelope locks do.
+    // explicitly, as the envelope locks do. The array is cast to the enum
+    // type, not the column to text, so this stays index-eligible: casting
+    // e.status/r.role/r.status to text (the previous form) hides them from
+    // any index on the plain enum column, forcing a full scan of both
+    // tables (100M-row scale follow-up, docs/16 step 14). role/tokenUsedAt
+    // are covered by Recipient_envelopeId_reminder_candidates_idx.
     const candidates = await this.prisma.$queryRaw<{ id: string; envelopeId: string }[]>`
       SELECT r.id, r."envelopeId"
         FROM "Recipient" r
         JOIN "Envelope" e ON e.id = r."envelopeId"
-       WHERE e.status::text = ANY(${[...OPEN_ENVELOPE_STATUSES]}::text[])
+       WHERE e.status = ANY(${[...OPEN_ENVELOPE_STATUSES]}::"EnvelopeStatus"[])
          AND e."reminderIntervalDays" IS NOT NULL
          AND e."expiresAt" > (${at}::timestamptz AT TIME ZONE 'UTC')
-         AND r.role::text IN ('SIGNER', 'APPROVER')
-         AND r.status::text = ANY(${[...AWAITING]}::text[])
+         AND r.role IN ('SIGNER', 'APPROVER')
+         AND r.status = ANY(${[...AWAITING]}::"RecipientStatus"[])
          AND r."tokenUsedAt" IS NULL
          AND (r."lastSeenAt" IS NULL
               OR r."lastSeenAt" <= (${seenBefore}::timestamptz AT TIME ZONE 'UTC'))
