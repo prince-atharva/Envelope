@@ -15,6 +15,7 @@ import { DraftsModule } from './drafts/drafts.module';
 import { EnvelopesModule } from './envelopes/envelopes.module';
 import { HealthModule } from './health/health.module';
 import { LifecycleModule } from './lifecycle/lifecycle.module';
+import { DbQueryCountInterceptor } from './logging/db-query-count.interceptor';
 import { LoggingModule } from './logging/logging.module';
 import { RoutePatternInterceptor } from './logging/route-pattern.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
@@ -65,6 +66,7 @@ import { VerifyModule } from './verify/verify.module';
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
     { provide: APP_GUARD, useClass: LoggingThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: RoutePatternInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: DbQueryCountInterceptor },
   ],
 })
 export class AppModule {}

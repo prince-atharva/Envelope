@@ -111,17 +111,20 @@ function httpLoggerOptions(): HttpLoggerOptions<Request, Response> {
     customSuccessMessage: (req, res) => `${req.method} ${routeOf(req)} ${res.statusCode}`,
     customErrorMessage: (req, res, error) =>
       `${req.method} ${routeOf(req)} ${res.statusCode} failed: ${error.message}`,
-    // Added when the response finishes: the matched route (RoutePatternInterceptor)
-    // and the error code (ProblemDetailsFilter), both kept on res.locals.
+    // Added when the response finishes: the matched route (RoutePatternInterceptor),
+    // the error code (ProblemDetailsFilter) and the query count
+    // (DbQueryCountInterceptor), all kept on res.locals.
     customSuccessObject: (_req, res, value: Record<string, unknown>) => ({
       ...value,
       route: res.locals.route,
       errorCode: res.locals.errorCode,
+      dbQueryCount: res.locals.dbQueryCount,
     }),
     customErrorObject: (_req, res, _error, value: Record<string, unknown>) => ({
       ...value,
       route: res.locals.route,
       errorCode: res.locals.errorCode,
+      dbQueryCount: res.locals.dbQueryCount,
     }),
   };
 }

@@ -10,4 +10,6 @@ export interface RequestContext extends ClsStore {
   tenantId?: string;
   userId?: string;
   sessionId?: string;
+  /** How many database queries this request has run so far (PrismaService). */
+  dbQueryCount?: number;
 }

@@ -330,6 +330,14 @@ Environments: `local` (Docker Compose), `staging` (production-shaped, synthetic 
 
 **Data residency:** the storage layer routes by tenant region so an EU tenant's documents never leave the EU. This is a v1 architectural decision even though multi-region deployment is deferred — retrofitting it later means migrating live documents, which is far more expensive than designing for it now.
 
+### Database at scale (100M-row follow-up, docs/16 step 14)
+
+The schema, index and query work for 100M+ rows is built (see the migrations dated 2026-09-24 and the query rewrites that followed). Three further changes are deployment topology, not application code, and stay deferred until there is a real production database to apply them to:
+
+- **PgBouncer, transaction mode**, in front of the API and worker's own pools (Phase 3's `DB_POOL_MAX`/`DB_POOL_MAX_WORKER` size each process's pool; PgBouncer would sit below that, pooling actual server connections across processes/instances). Transaction mode is safe here specifically because: every lock this codebase takes (`pg_advisory_xact_lock`, `FOR UPDATE`/`FOR NO KEY UPDATE`) is transaction-scoped, never session-scoped, so a connection handed to a different client between transactions never carries a stale lock with it; and the pg driver's prepared statements are unnamed per query, which PgBouncer 1.21+ supports in transaction mode without the "prepared statement already exists" failures older versions had.
+- **A read replica** for `/verify` (public, unauthenticated, and the one endpoint with no per-tenant rate limit tied to a login) and the dashboard's list/attention reads, which can tolerate the usual replica lag of well under a second. Writes (send, sign, seal, everything under a lock) stay on the primary.
+- **AuditTrail partitioning by month**, deferred until there is a retention policy to hang it on. Partitioning's usual justification — cheap bulk deletes of old partitions, and smaller indexes per partition — depends on eventually dropping old data, which nothing in this codebase does yet (AuditTrail is intentionally append-only with no delete path, docs/05 invariant 5). Without that, partitioning would add real complexity (every query needs the partition key or it scans all of them; the hash chain's `(envelopeId, sequence)` uniqueness has to be re-verified as safe across partition boundaries) for no query-speed gain: `(envelopeId, sequence)` stays a simple, fast index lookup at 100M+ rows either way. Revisit this once a retention policy exists to delete or archive by.
+
 ## Observability
 
 | Signal | What |

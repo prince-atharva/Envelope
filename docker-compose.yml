@@ -26,6 +26,18 @@ services:
       POSTGRES_DB: digitalsign
       # Password for the restricted runtime role created by docker/postgres/init.
       APP_DB_PASSWORD: digitalsign_app_dev_password
+    # pg_stat_statements: per-query timing/call-count stats, read with
+    # `SELECT * FROM pg_stat_statements`, once CREATE EXTENSION has run in a
+    # given database (docker/postgres/init does this for a fresh volume; an
+    # existing one needs it run by hand once). track_io_timing adds real
+    # read/write timings to EXPLAIN (ANALYZE, BUFFERS) (100M-row scale
+    # follow-up, docs/16 step 14).
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - track_io_timing=on
     ports:
       - '127.0.0.1:5545:5432'
     volumes:

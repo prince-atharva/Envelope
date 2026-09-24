@@ -37,7 +37,31 @@ export const envSchema = z
     LOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(14),
 
     DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: 'must be a postgresql:// URL' }),
-    DB_SLOW_QUERY_MS: z.coerce.number().int().min(1).default(500),
+    /**
+     * 100 by default, not the audit's original 500: at 100M-row scale a
+     * "slow" query is one worth knowing about quickly, not one already
+     * costing seconds.
+     */
+    DB_SLOW_QUERY_MS: z.coerce.number().int().min(1).default(100),
+    /** Connections the API process's pool may open. pg's own default (10) if unset. */
+    DB_POOL_MAX: z.coerce.number().int().min(1).default(10),
+    /**
+     * Connections the worker process's pool may open. Smaller than the API's:
+     * the seal, email and maintenance queues together run at concurrency 8.
+     */
+    DB_POOL_MAX_WORKER: z.coerce.number().int().min(1).default(5),
+    /** How long a pooled connection may sit unused before it is closed. */
+    DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30_000),
+    /** How long to wait for a new connection before giving up. */
+    DB_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
+    /**
+     * Postgres kills any single statement that runs longer than this
+     * (`statement_timeout`). Same budget for both processes: after the
+     * sealing rework, no worker statement should legitimately run long
+     * either — the slow parts (download, PDF stamping, upload) now happen
+     * with no transaction open.
+     */
+    DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
 
     REDIS_URL: z.url({ protocol: /^rediss?$/, error: 'must be a redis:// or rediss:// URL' }),
     /** Namespace for BullMQ keys in Redis. */
