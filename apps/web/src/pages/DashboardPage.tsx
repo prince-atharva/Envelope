@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
@@ -115,22 +115,12 @@ export function DashboardPage() {
       ? undefined
       : defaultView(counts.data);
 
+  // A tab's list is fetched when the sender points at or focuses it, never on
+  // load: opening the dashboard asks only for the counts and the open tab.
   const prefetchTab = useCallback(
     (tab: EnvelopeView) => void queryClient.prefetchInfiniteQuery(envelopeListQuery(tab)),
     [queryClient],
   );
-
-  // The tabs a sender most often switches to, fetched while the browser is
-  // idle. Safari has no requestIdleCallback; it just skips the head start.
-  useEffect(() => {
-    if (!('requestIdleCallback' in window)) return;
-    const idle = window.requestIdleCallback(() => {
-      prefetchTab('waiting');
-      prefetchTab('attention');
-      prefetchTab('all');
-    });
-    return () => window.cancelIdleCallback(idle);
-  }, [prefetchTab]);
 
   const documents = useInfiniteQuery({
     ...envelopeListQuery(view ?? 'all'),

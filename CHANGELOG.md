@@ -39,6 +39,9 @@ categories, user roles enforced, a retention sweeper with legal hold, and audit 
   instead of the server's wording. Codes the sender can hit (a recipient already added, a stale
   draft, not ready to send) now have their own messages.
 - The pdf.js worker is bundled by Vite with a content hash instead of being copied to `public/`.
+- Opening the dashboard asks only for the counts and the open tab. It no longer fetches Waiting and
+  Needs attention in the background; a tab's list is still fetched as soon as it is hovered or
+  focused.
 
 ### Fixed
 
