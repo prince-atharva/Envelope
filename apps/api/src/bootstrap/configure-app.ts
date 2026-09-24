@@ -1,6 +1,7 @@
 import { BRAND } from '@envelope/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
@@ -42,6 +43,23 @@ export function configureApp(app: NestExpressApplication): void {
       : strictHeaders(req, res, next),
   );
   app.use(cookieParser());
+
+  // JSON responses only: PDFs are already compressed internally (gzipping
+  // them again costs CPU for little to no size reduction), and 1 KB is
+  // small enough that most of them clear it (100M-row scale follow-up API
+  // pass, docs/16 step 14).
+  app.use(
+    compression({
+      threshold: 1024,
+      filter: (req, res) => {
+        const contentType = res.getHeader('Content-Type');
+        if (typeof contentType === 'string' && contentType.startsWith('application/pdf')) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
 
   // Express defaults to 100 kB, which a full field layout can exceed: 1000
   // fields is roughly 250 kB of JSON. The cap still has to exist, because

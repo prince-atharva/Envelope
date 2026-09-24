@@ -210,12 +210,12 @@ function Details({ result }: { result: Verified }) {
         <ul className="mt-2 divide-y divide-slate-100 rounded-lg border border-slate-200">
           {result.signers.map((signer) => (
             <li
-              key={`${signer.email}-${signer.name}`}
+              key={`${signer.maskedEmail}-${signer.name}`}
               className="flex flex-wrap justify-between gap-2 px-3 py-2"
             >
               <span>
                 <span className="font-medium text-slate-900">{signer.name}</span>{' '}
-                <span className="text-slate-500">{signer.email}</span>
+                <span className="text-slate-500">{signer.maskedEmail}</span>
                 {signer.role === 'APPROVER' && (
                   <span className="ml-1 text-xs text-slate-500">(approver)</span>
                 )}

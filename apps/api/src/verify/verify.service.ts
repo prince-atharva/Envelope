@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { SYSTEM_ACTOR } from '../audit/audit.service';
 import { AppException } from '../common/errors/app-exception';
+import { maskEmail } from '../logging/redact';
 import { PrismaService } from '../prisma/prisma.service';
 
 const PDF_MAGIC = Buffer.from('%PDF-');
@@ -82,11 +83,37 @@ export class VerifyService {
 
     const envelope = await this.prisma.envelope.findUniqueOrThrow({
       where: { id: signed.envelopeId },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        completedAt: true,
         owner: { select: { id: true, fullName: true } },
-        recipients: { orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }] },
-        versions: { orderBy: { versionNumber: 'asc' } },
-        auditLogs: { orderBy: { sequence: 'asc' } },
+        recipients: {
+          orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }],
+          select: { id: true, name: true, email: true, role: true, signedAt: true },
+        },
+        versions: {
+          orderBy: { versionNumber: 'asc' },
+          select: {
+            versionNumber: true,
+            hash: true,
+            createdByRecipientId: true,
+            isFinal: true,
+            createdAt: true,
+          },
+        },
+        auditLogs: {
+          orderBy: { sequence: 'asc' },
+          select: {
+            sequence: true,
+            timestamp: true,
+            action: true,
+            recipientId: true,
+            actorUserId: true,
+            ipAddress: true,
+          },
+        },
       },
     });
     const names = new Map(envelope.recipients.map((r) => [r.id, r.name]));
@@ -110,14 +137,17 @@ export class VerifyService {
       status: envelope.status,
       completedAt: envelope.completedAt?.toISOString() ?? null,
       matched: { versionNumber: signed.versionNumber, isFinal: signed.isFinal },
+      // Masked email, no IP: this is public and unauthenticated, reachable
+      // by anyone holding the sealed PDF, not just the parties to it
+      // (privacy fix, 100M-row scale follow-up API pass, docs/16 step 14).
+      // The full values stay in the sender's audit trail and detail view.
       signers: envelope.recipients
         .filter((r) => r.role === 'SIGNER' || r.role === 'APPROVER')
         .map((r) => ({
           name: r.name,
-          email: r.email,
+          maskedEmail: maskEmail(r.email),
           role: r.role === 'APPROVER' ? 'APPROVER' : 'SIGNER',
           signedAt: r.signedAt?.toISOString() ?? null,
-          ipAddress: r.signedAt ? r.signedFromIp : null,
         })),
       versionChain: envelope.versions.map((version) => ({
         versionNumber: version.versionNumber,

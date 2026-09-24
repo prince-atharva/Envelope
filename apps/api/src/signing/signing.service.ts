@@ -104,7 +104,10 @@ export class SigningService {
       recipientName: recipient.name,
       role: recipient.role === 'APPROVER' ? 'APPROVER' : 'SIGNER',
       pageCount: envelope.pageCount,
-      expiresAt: (recipient.tokenExpiresAt ?? envelope.expiresAt ?? new Date()).toISOString(),
+      // Null, not "now": neither a token nor an envelope deadline existing
+      // is not the same thing as the link having expired (correctness fix,
+      // 100M-row scale follow-up API pass, docs/16 step 14).
+      expiresAt: (recipient.tokenExpiresAt ?? envelope.expiresAt)?.toISOString() ?? null,
       message: envelope.message,
       consentRequired: !consented,
       consentText: notice?.text ?? null,

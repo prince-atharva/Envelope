@@ -98,11 +98,14 @@ describe('verify (e2e)', () => {
       matched: { versionNumber: 3, isFinal: true },
     });
     expect(body.completedAt).not.toBeNull();
-    expect(body.signers.map((s) => [s.name, s.email, s.role])).toEqual([
-      ['Verify First', 'verify.first@example.com', 'SIGNER'],
-      ['Verify Second', 'verify.second@example.com', 'SIGNER'],
+    // Masked, and with no IP at all: this endpoint is public and
+    // unauthenticated (docs/16 step 14).
+    expect(body.signers.map((s) => [s.name, s.maskedEmail, s.role])).toEqual([
+      ['Verify First', 'v***@example.com', 'SIGNER'],
+      ['Verify Second', 'v***@example.com', 'SIGNER'],
     ]);
-    expect(body.signers.every((s) => s.signedAt && s.ipAddress)).toBe(true);
+    expect(body.signers.every((s) => s.signedAt)).toBe(true);
+    expect(body.signers.every((s) => !('ipAddress' in s) && !('email' in s))).toBe(true);
     expect(body.versionChain.map((v) => [v.versionNumber, v.signedBy, v.isFinal])).toEqual([
       [0, null, false],
       [1, 'Verify First', false],

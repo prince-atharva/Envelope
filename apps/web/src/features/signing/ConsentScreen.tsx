@@ -79,7 +79,8 @@ export function ConsentScreen({
             {session.envelopeTitle}
           </h1>
           <p className="text-sm text-slate-500">
-            {pluralize(session.pageCount, 'page')} · Link expires {formatDate(session.expiresAt)}
+            {pluralize(session.pageCount, 'page')}
+            {session.expiresAt ? ` · Link expires ${formatDate(session.expiresAt)}` : null}
           </p>
         </div>
 

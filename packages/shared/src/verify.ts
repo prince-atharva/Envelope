@@ -5,11 +5,11 @@ export const VERIFY_REQUESTS_PER_MINUTE = 30;
 
 export interface VerifiedSigner {
   name: string;
-  email: string;
+  /** "j***@example.com": enough to recognise who, not enough to harvest (docs/16 step 14). */
+  maskedEmail: string;
   role: 'SIGNER' | 'APPROVER';
   /** ISO time. Null for someone who has not signed (yet). */
   signedAt: string | null;
-  ipAddress: string | null;
 }
 
 export interface VerifiedVersion {

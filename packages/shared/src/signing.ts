@@ -199,7 +199,8 @@ export interface SigningSession {
   /** Approvers are asked to approve rather than sign, and may have no fields at all. */
   role: 'SIGNER' | 'APPROVER';
   pageCount: number;
-  expiresAt: string;
+  /** Null when the recipient has no deadline of their own and the envelope never got one either. */
+  expiresAt: string | null;
   message: string | null;
   consentRequired: boolean;
   /** The notice to agree to. Null once consent has been given. */
