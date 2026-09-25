@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a release of the Envelope platform after a phase is built — run the finish-line suite, move CHANGELOG [Unreleased] into a version section, bump the version in all four package.json files, mark the phase plan Complete, commit "docs: release vX.Y.0" and create the annotated tag. Use when the user asks to release, tag, or ship a finished phase. Never pushes unless asked.
+description: "Cut a release of the Envelope platform after a phase is built: run the finish-line suite, move CHANGELOG [Unreleased] into a version section, bump the version in all four package.json files, mark the phase plan Complete, make the release commit and create the annotated tag. Use when the user asks to release, tag, or ship a finished phase. Never pushes unless asked."
 ---
 
 # Release
