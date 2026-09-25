@@ -10,10 +10,12 @@ import type {
   AlertEmailJob,
   CompletedEmailJob,
   DeclinedNoticeJob,
+  DownloadRenewedJob,
   EmailJobData,
   ExpiredNoticeJob,
   MoreTimeRequestedJob,
   SigningLinkEmailJob,
+  UserInvitedJob,
   VoidedNoticeJob,
   WelcomeEmailJob,
 } from './mail.types';
@@ -240,6 +242,44 @@ export class MailQueueService implements OnModuleInit {
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** Invites someone to a tenant (docs/17 step 6). One job per user id. */
+  async enqueueUserInvited(userId: string): Promise<string | undefined> {
+    const data: UserInvitedJob = {
+      template: 'user-invited',
+      userId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, { jobId: `user-invited-${userId}` });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, userId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** A fresh link after an old completion download link expired (docs/17 step 10). */
+  async enqueueDownloadRenewed(
+    envelopeId: string,
+    recipientId: string | null,
+    downloadId: string,
+  ): Promise<string | undefined> {
+    const data: DownloadRenewedJob = {
+      template: 'download-renewed',
+      envelopeId,
+      recipientId,
+      downloadId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `download-renewed-${downloadId}-${Date.now()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, downloadId },
       'Email job enqueued',
     );
     return job.id;

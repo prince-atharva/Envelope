@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { CompletionMailer } from './completion.mailer';
+import { DownloadRenewMailer } from './download-renew.mailer';
 import { EmailProcessor } from './email.processor';
 import { LifecycleMailer } from './lifecycle.mailer';
 import { MailQueueService } from './mail-queue.service';
 import { MailTransportService, MemoryMailbox } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer } from './signing-link.mailer';
+import { UserInviteMailer } from './user-invite.mailer';
 
 /**
  * The SMTP transport on its own, for the worker's alerts: they are sent
@@ -37,6 +39,8 @@ export class MailProducerModule {}
     SenderNoticeMailer,
     CompletionMailer,
     LifecycleMailer,
+    UserInviteMailer,
+    DownloadRenewMailer,
   ],
   exports: [MailTransportModule],
 })

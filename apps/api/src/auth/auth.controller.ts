@@ -1,12 +1,15 @@
 import {
+  type AcceptInviteInput,
   type AuthResponse,
+  acceptInviteSchema,
+  type InvitationPreview,
   type LoginInput,
   loginSchema,
   type RegisterInput,
   registerSchema,
   type UserProfile,
 } from '@envelope/shared';
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -145,5 +148,30 @@ export class AuthController {
   @ApiOperation({ summary: 'The signed-in user and their workspace' })
   me(@CurrentUser() user: AuthenticatedUser): Promise<UserProfile> {
     return this.auth.profile(user.id);
+  }
+
+  @Public()
+  @Get('invitations/:token')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'What a tenant invitation is, before a password is chosen' })
+  invitation(@Param('token') token: string): Promise<InvitationPreview> {
+    return this.auth.invitationPreview(token);
+  }
+
+  @Public()
+  @Post('invitations/:token/accept')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Accept a tenant invitation: set a password and sign in' })
+  @ApiBody({ schema: openApiSchema(acceptInviteSchema) })
+  async acceptInvite(
+    @Param('token') token: string,
+    @Body(new ZodValidationPipe(acceptInviteSchema)) body: AcceptInviteInput,
+    @Client() client: ClientInfo,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    const result = await this.auth.acceptInvite(token, body.password, client);
+    this.setRefreshCookie(res, result.refreshToken);
+    return result.response;
   }
 }

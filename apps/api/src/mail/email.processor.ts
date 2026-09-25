@@ -5,12 +5,14 @@ import { AlertService } from '../alert/alert.service';
 import { AppConfig } from '../config/app-config';
 import { EMAIL_QUEUE } from '../queue/queue.module';
 import { CompletionMailer } from './completion.mailer';
+import { DownloadRenewMailer } from './download-renew.mailer';
 import { LifecycleMailer } from './lifecycle.mailer';
 import type { EmailJobData } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer, type SigningLinkResult } from './signing-link.mailer';
 import { renderAlertEmail, renderWelcomeEmail } from './templates';
+import { UserInviteMailer } from './user-invite.mailer';
 
 /**
  * Worker side of email. Every log line written while a job runs carries the job
@@ -24,6 +26,8 @@ export class EmailProcessor extends WorkerHost {
     private readonly senderNotices: SenderNoticeMailer,
     private readonly completions: CompletionMailer,
     private readonly lifecycle: LifecycleMailer,
+    private readonly userInvites: UserInviteMailer,
+    private readonly downloadRenewals: DownloadRenewMailer,
     private readonly config: AppConfig,
     private readonly alerts: AlertService,
     @InjectPinoLogger(EmailProcessor.name) private readonly logger: PinoLogger,
@@ -63,6 +67,10 @@ export class EmailProcessor extends WorkerHost {
         return this.completions.send(data);
       case 'voided':
         return this.lifecycle.sendVoided(data);
+      case 'user-invited':
+        return this.userInvites.send(data);
+      case 'download-renewed':
+        return this.downloadRenewals.send(data);
     }
   }
 

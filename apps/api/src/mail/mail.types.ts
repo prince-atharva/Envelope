@@ -74,6 +74,29 @@ export interface MoreTimeRequestedJob {
   requestId?: string;
 }
 
+/**
+ * Invites someone to a tenant (docs/17 step 6). Id only: the worker mints the
+ * invite token when it sends (ADR 0009), the same as a signing link.
+ */
+export interface UserInvitedJob {
+  template: 'user-invited';
+  userId: string;
+  requestId?: string;
+}
+
+/**
+ * A fresh link for an expired large-file download link (docs/17 step 10).
+ * Ids only: the worker mints the token when it sends (ADR 0009).
+ */
+export interface DownloadRenewedJob {
+  template: 'download-renewed';
+  envelopeId: string;
+  recipientId: string | null;
+  /** The expired link's id, so the worker updates that same row rather than creating another. */
+  downloadId: string;
+  requestId?: string;
+}
+
 /** Values an alert may carry: ids, codes and counts, never personal data or secrets. */
 export type AlertFields = Record<string, string | number | boolean | null>;
 
@@ -99,6 +122,8 @@ export type EmailJobData =
   | VoidedNoticeJob
   | ExpiredNoticeJob
   | MoreTimeRequestedJob
+  | UserInvitedJob
+  | DownloadRenewedJob
   | AlertEmailJob;
 export type EmailTemplate = EmailJobData['template'];
 

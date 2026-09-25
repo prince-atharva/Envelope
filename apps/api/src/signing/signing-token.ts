@@ -49,11 +49,38 @@ export function mintDownloadToken(secret: string): MintedToken {
 }
 
 /** The link in a completion email. Served by the API, through the web app's /api. */
+/**
+ * The web page for a completion email's link (docs/17 step 10), not the API
+ * route directly: an already-expired link answers there with a "send me a
+ * new link" screen instead of raw JSON. The page itself fetches
+ * /api/v1/download/:token to get the file.
+ */
 export function downloadUrl(appUrl: string, rawToken: string): string {
-  return `${appUrl.replace(/\/+$/, '')}/api/v1/download/${rawToken}`;
+  return `${appUrl.replace(/\/+$/, '')}/download/${rawToken}`;
 }
 
 /** The link that goes into an invitation or reminder. */
 export function signingUrl(appUrl: string, rawToken: string): string {
   return `${appUrl.replace(/\/+$/, '')}/sign/${rawToken}`;
+}
+
+/**
+ * Tenant invitation tokens (docs/17 step 6), made the same way and under
+ * their own label, so an invite token can never pass for a signing or
+ * download token or the reverse, although all three use SIGNING_TOKEN_SECRET.
+ */
+const INVITE_LABEL = 'user-invite\0';
+
+export function hashInviteToken(secret: string, rawToken: string): string {
+  return createHmac('sha256', secret).update(INVITE_LABEL).update(rawToken).digest('hex');
+}
+
+export function mintInviteToken(secret: string): MintedToken {
+  const rawToken = randomBytes(32).toString('hex');
+  return { rawToken, tokenHash: hashInviteToken(secret, rawToken) };
+}
+
+/** The link in an invitation email. */
+export function inviteUrl(appUrl: string, rawToken: string): string {
+  return `${appUrl.replace(/\/+$/, '')}/accept-invite/${rawToken}`;
 }

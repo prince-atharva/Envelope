@@ -499,3 +499,84 @@ export function signedFilename(originalFilename: string): string {
     .slice(0, 120);
   return `${stem || 'document'} (signed).pdf`;
 }
+
+export interface UserInvitedNotice {
+  to: string;
+  fullName: string;
+  invitedByName: string;
+  workspaceName: string;
+  roleLabel: string;
+  acceptUrl: string;
+  expiresAt: Date;
+}
+
+/** Invited to join a tenant (docs/17 step 6). */
+export function renderUserInvitedEmail(notice: UserInvitedNotice): RenderedEmail {
+  const inviter = oneLine(notice.invitedByName);
+  const workspace = oneLine(notice.workspaceName);
+  const subject = `${inviter} invited you to ${workspace} on ${BRAND.fullName}`;
+  const intro = `${inviter} invited you to join "${workspace}" as ${notice.roleLabel} on ${BRAND.fullName}.`;
+  const expiry = `This invitation expires ${notice.expiresAt.toDateString()}.`;
+  const footer = `You received this email because ${inviter} invited you to their workspace.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.fullName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     ${button(notice.acceptUrl, 'Accept invitation')}
+     <p style="margin:0;color:#6b7785;font-size:13px;">${escapeHtml(expiry)}</p>`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.fullName)},`,
+    '',
+    intro,
+    '',
+    `Accept: ${notice.acceptUrl}`,
+    '',
+    expiry,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
+export interface DownloadRenewedNotice {
+  to: string;
+  name: string;
+  envelopeTitle: string;
+  downloadUrl: string;
+  expiresAt: Date;
+}
+
+/** A fresh link after the old one expired (docs/17 step 10). */
+export function renderDownloadRenewedEmail(notice: DownloadRenewedNotice): RenderedEmail {
+  const title = oneLine(notice.envelopeTitle);
+  const subject = `Your new download link for ${title}`;
+  const intro = `Here is a fresh link to download "${title}". The old one had expired.`;
+  const expiry = `This link works until ${notice.expiresAt.toDateString()}.`;
+  const footer = `You received this email because you took part in signing this document using ${BRAND.fullName}.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.name))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     ${button(notice.downloadUrl, 'Download the document')}
+     <p style="margin:0;color:#6b7785;font-size:13px;">${escapeHtml(expiry)}</p>`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.name)},`,
+    '',
+    intro,
+    '',
+    `Download: ${notice.downloadUrl}`,
+    '',
+    expiry,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}

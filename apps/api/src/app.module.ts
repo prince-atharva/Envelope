@@ -24,6 +24,7 @@ import { RedisModule } from './redis/redis.module';
 import { SendingModule } from './sending/sending.module';
 import { SigningModule } from './signing/signing.module';
 import { StorageModule } from './storage/storage.module';
+import { UsersModule } from './users/users.module';
 import { VerifyModule } from './verify/verify.module';
 
 @Module({
@@ -61,6 +62,7 @@ import { VerifyModule } from './verify/verify.module';
     VerifyModule,
     HealthModule,
     ClientLogsModule,
+    UsersModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
