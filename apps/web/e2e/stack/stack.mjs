@@ -56,6 +56,9 @@ export const STACK_ENV = {
   JWT_ACCESS_SECRET: 'browser-e2e-access-secret-0123456789abcdefghij',
   REFRESH_TOKEN_SECRET: 'browser-e2e-refresh-secret-0123456789abcdefghij',
   SIGNING_TOKEN_SECRET: 'browser-e2e-signing-secret-0123456789abcdefghij',
+  API_KEY_HASH_SECRET: 'browser-e2e-api-key-secret-0123456789abcdefghij',
+  // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible runs.
+  WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
 
   S3_ENDPOINT: env.TEST_S3_ENDPOINT ?? 'http://localhost:9102',
   S3_REGION: 'us-east-1',

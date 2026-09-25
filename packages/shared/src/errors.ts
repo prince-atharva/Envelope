@@ -72,6 +72,19 @@ export const ERROR_CATALOG = {
   /** Its retention period has passed and its files were purged (docs/17 step 8). */
   ENVELOPE_PURGED: { status: 410, title: 'Envelope was purged' },
 
+  // API keys and webhooks (docs/08, docs/18)
+  /** The bearer token is not a JWT and not a known, active API key. */
+  API_KEY_INVALID: { status: 401, title: 'Invalid or revoked API key' },
+  /** A recognised API key used on a route this phase does not allow it on. */
+  API_KEY_NOT_ALLOWED: { status: 403, title: 'This endpoint requires a signed-in session' },
+  /** A read-only API key used on a route that writes. */
+  API_KEY_READ_ONLY: { status: 403, title: 'This API key is read-only' },
+  /** The URL fails the webhook endpoint's https/public-host checks (docs/10, docs/18). */
+  WEBHOOK_URL_NOT_ALLOWED: { status: 422, title: 'This URL cannot be used as a webhook endpoint' },
+  WEBHOOK_ENDPOINT_LIMIT_REACHED: { status: 409, title: 'Webhook endpoint limit reached' },
+  /** Redrive attempted on a delivery that is not FAILED or EXHAUSTED, or is past the 7-day window. */
+  WEBHOOK_DELIVERY_NOT_REDRIVABLE: { status: 409, title: 'This delivery cannot be redriven' },
+
   // Idempotency (docs/08, API-03)
   IDEMPOTENCY_KEY_REQUIRED: { status: 400, title: 'An Idempotency-Key header is required' },
   /** The same key was sent again with a different request body. */

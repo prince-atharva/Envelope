@@ -79,6 +79,14 @@ enum FieldType {
   CHECKBOX
 }
 
+/// A delivery attempt's outcome (docs/08, "Webhooks"; docs/18).
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCEEDED
+  FAILED // will retry
+  EXHAUSTED // every attempt spent
+}
+
 // ─────────────────────────────────────────────────────────────
 //  Tenancy and accounts
 // ─────────────────────────────────────────────────────────────
@@ -95,8 +103,10 @@ model Tenant {
   /// at creation (ADR 0011).
   jurisdictionCode String @default("US")
 
-  users     User[]
-  envelopes Envelope[]
+  users            User[]
+  envelopes        Envelope[]
+  apiKeys          ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
 }
 
 /// One row per (tenant, status), kept exact by a trigger on Envelope. Lets the
@@ -122,6 +132,11 @@ model User {
   role         UserRole  @default(OWNER)
   lastLoginAt  DateTime?
 
+  /// A tenant's hidden API-key principal (docs/18), never a real person. Has
+  /// an unusable random passwordHash, like an invited-but-not-yet-accepted
+  /// user, and is filtered out of every human-facing user list.
+  isServiceAccount Boolean @default(false)
+
   /// Set when an OWNER invites this person to the tenant (docs/17 step 6):
   /// only its HMAC is stored, like a signing token (ADR 0009). Null once
   /// accepted, or for a user who registered themselves rather than being
@@ -132,12 +147,121 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  envelopes          Envelope[] @relation("EnvelopeOwner")
-  voidedEnvelopes    Envelope[] @relation("EnvelopeVoidedBy")
-  legalHoldEnvelopes Envelope[] @relation("EnvelopeLegalHoldBy")
+  envelopes          Envelope[]        @relation("EnvelopeOwner")
+  voidedEnvelopes    Envelope[]        @relation("EnvelopeVoidedBy")
+  legalHoldEnvelopes Envelope[]        @relation("EnvelopeLegalHoldBy")
   sessions           Session[]
+  apiKeysActing      ApiKey[]          @relation("ApiKeyActingUser")
+  apiKeysCreated     ApiKey[]          @relation("ApiKeyCreatedBy")
+  webhookEndpoints   WebhookEndpoint[]
 
   @@index([tenantId])
+}
+
+/// Server-to-server auth for a third-party integration (docs/08, "Server
+/// integration"; docs/18). Every key acts as the tenant's one hidden
+/// `isServiceAccount` User (`actingUserId`), so it reads and writes the whole
+/// tenant, matching docs/08's "whole tenant" scope, without `ownership.ts`
+/// needing any special case for a non-human caller.
+model ApiKey {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  label String
+
+  /// HMAC-SHA256 of the raw key (like Session.tokenHash, ADR 0009's pattern
+  /// applied to a bearer credential rather than a link token). The raw value
+  /// is shown once, at creation, and never stored.
+  keyHash String @unique
+
+  /// The raw key's first characters, so the tenant can tell keys apart in
+  /// the UI and in logs without the hash revealing anything reversible.
+  displayPrefix String
+
+  /// SHOULD support read-only variants (docs/08). Enforced per route by
+  /// `@ApiKeyAllowed({ write })`, not by sniffing the HTTP verb.
+  readOnly Boolean @default(false)
+
+  actingUserId String @db.Uuid
+  actingUser   User   @relation("ApiKeyActingUser", fields: [actingUserId], references: [id], onDelete: Restrict)
+
+  /// The human ADMIN/OWNER who issued it. Accountability only — never the
+  /// source of the key's own permissions.
+  createdByUserId String @db.Uuid
+  createdByUser   User   @relation("ApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+/// A tenant's registered webhook receiver (docs/08, "Webhooks"; docs/18).
+model WebhookEndpoint {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  url         String
+  description String?
+
+  /// AES-256-GCM ciphertext of the signing secret. Unlike keyHash above, this
+  /// must be reversible: every delivery recomputes
+  /// HMAC_SHA256(secret, "{timestamp}.{body}") fresh (docs/08), so the raw
+  /// secret has to come back, not just be verified against.
+  secretCiphertext  String
+  /// The raw secret's first characters, shown after creation instead of the
+  /// full value, the same way displayPrefix works for an API key.
+  secretDisplayHint String
+
+  /// Empty means every event (docs/08's 9 types, minus envelope.delivered —
+  /// see docs/18).
+  subscribedEvents String[] @default([])
+  isActive         Boolean  @default(true)
+
+  createdByUserId String @db.Uuid
+  createdByUser   User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+/// One row per (endpoint, event) delivery attempt series (docs/08,
+/// "Webhooks"). `payload` is replayed verbatim on redrive.
+model WebhookDelivery {
+  id                String          @id @default(uuid(7)) @db.Uuid
+  /// Denormalised from the endpoint so the 7-day purge sweep and the tenant's
+  /// own deliveries list never need a join.
+  tenantId          String          @db.Uuid
+  webhookEndpointId String          @db.Uuid
+  webhookEndpoint   WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Restrict)
+
+  /// Shared by every endpoint's delivery of the same occurrence, so a
+  /// receiver's dedup-on-event.id logic is meaningful even with more than
+  /// one endpoint registered.
+  eventId   String
+  eventType String
+  payload   Json
+
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  lastAttemptAt  DateTime?
+  nextAttemptAt  DateTime?
+  lastStatusCode Int?
+  lastError      String?               @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([webhookEndpointId, status])
+  /// The 7-day retention purge (docs/08: "retained 7 days").
+  @@index([tenantId, createdAt])
+  @@index([eventId])
 }
 
 /// One row per refresh token. Rotating a token revokes its row and links the

@@ -58,3 +58,9 @@ export const MAX_LEGAL_HOLD_REASON_LENGTH = 1000;
 
 /** How long a tenant invitation link works (docs/17 step 6). */
 export const INVITE_TOKEN_EXPIRY_DAYS = 7;
+
+/** API keys and webhooks (docs/08, docs/18). */
+export const MAX_API_KEY_LABEL_LENGTH = 120;
+export const MAX_WEBHOOK_DESCRIPTION_LENGTH = 500;
+/** Keeps the delivery fan-out and the endpoints list small enough to show on one screen. */
+export const MAX_WEBHOOK_ENDPOINTS_PER_TENANT = 5;

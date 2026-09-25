@@ -8,6 +8,8 @@ const valid = {
   JWT_ACCESS_SECRET: 'a'.repeat(40),
   REFRESH_TOKEN_SECRET: 'b'.repeat(40),
   SIGNING_TOKEN_SECRET: 'c'.repeat(40),
+  API_KEY_HASH_SECRET: 'd'.repeat(40),
+  WEBHOOK_SECRET_ENC_KEY: Buffer.alloc(32, 9).toString('base64'),
   S3_ACCESS_KEY_ID: 'key',
   S3_SECRET_ACCESS_KEY: 'super-secret-s3-value',
   S3_BUCKET: 'bucket',

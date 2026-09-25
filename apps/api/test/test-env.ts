@@ -21,6 +21,9 @@ export const TEST_ENV: Record<string, string> = {
   JWT_ACCESS_SECRET: 'test-access-secret-0123456789abcdefghijklmnop',
   REFRESH_TOKEN_SECRET: 'test-refresh-secret-0123456789abcdefghijklmnop',
   SIGNING_TOKEN_SECRET: 'test-signing-secret-0123456789abcdefghijklmnop',
+  API_KEY_HASH_SECRET: 'test-api-key-secret-0123456789abcdefghijklmnop',
+  // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible tests.
+  WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
 
   S3_ENDPOINT: env.TEST_S3_ENDPOINT ?? 'http://localhost:9102',
   S3_REGION: 'us-east-1',

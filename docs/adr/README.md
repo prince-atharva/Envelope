@@ -84,6 +84,7 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0012](0012-nestjs-api-and-react-vite-web.md) | Build a NestJS API and a React + Vite web app instead of one Next.js app | Accepted |
 | [0013](0013-expiry-pauses-an-envelope.md) | Expiry pauses an envelope; the sender can extend it (amends 0009) | Accepted |
 | [0014](0014-retention-purges-document-bodies-not-the-audit-chain.md) | Retention purges document bodies, not the audit chain | Accepted |
+| [0015](0015-api-keys-and-webhook-secrets-use-different-storage.md) | API keys and webhook secrets use different storage | Accepted |
 
 ### Planned
 

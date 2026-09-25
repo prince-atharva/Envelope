@@ -1,0 +1,95 @@
+import { z } from 'zod';
+import { MAX_WEBHOOK_DESCRIPTION_LENGTH } from './limits';
+
+/**
+ * Outbound event notifications for a third-party integration (docs/08,
+ * "Webhooks"; docs/18).
+ *
+ * `envelope.delivered` is reserved but never fired in this phase: the
+ * platform sends mail over SMTP, which confirms only that a message was
+ * handed to a mail server, never that it reached an inbox. Firing this event
+ * on SMTP-accept would claim something the system does not know (docs/18).
+ * It stays in the union so integration code can switch on it without
+ * breaking later, if a provider with real delivery confirmation replaces
+ * SMTP.
+ */
+export const WEBHOOK_EVENT_TYPES = [
+  'envelope.sent',
+  'envelope.delivered',
+  'envelope.viewed',
+  'recipient.consented',
+  'recipient.signed',
+  'recipient.declined',
+  'envelope.completed',
+  'envelope.voided',
+  'envelope.expired',
+] as const;
+export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
+
+/** Fired by this phase. `envelope.delivered` is excluded — see above. */
+export const FIRED_WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = WEBHOOK_EVENT_TYPES.filter(
+  (type) => type !== 'envelope.delivered',
+);
+
+const webhookEventTypeSchema = z.enum(WEBHOOK_EVENT_TYPES);
+
+/** Only https: is accepted (docs/10, docs/18); host reachability is checked server-side. */
+const webhookUrlSchema = z
+  .url({ error: 'Enter a valid URL' })
+  .refine((url) => url.startsWith('https://'), 'Must be an https:// URL');
+
+export const createWebhookEndpointSchema = z.strictObject({
+  url: webhookUrlSchema,
+  description: z.string().trim().max(MAX_WEBHOOK_DESCRIPTION_LENGTH).optional(),
+  /** Empty or omitted subscribes to every fired event type. */
+  subscribedEvents: z.array(webhookEventTypeSchema).max(WEBHOOK_EVENT_TYPES.length).default([]),
+});
+export type CreateWebhookEndpointInput = z.infer<typeof createWebhookEndpointSchema>;
+
+export const updateWebhookEndpointSchema = z.strictObject({
+  url: webhookUrlSchema.optional(),
+  description: z.string().trim().max(MAX_WEBHOOK_DESCRIPTION_LENGTH).optional(),
+  subscribedEvents: z.array(webhookEventTypeSchema).max(WEBHOOK_EVENT_TYPES.length).optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateWebhookEndpointInput = z.infer<typeof updateWebhookEndpointSchema>;
+
+export interface WebhookEndpointSummary {
+  id: string;
+  url: string;
+  description: string | null;
+  /** The raw secret's first characters, shown instead of the full value after creation. */
+  secretDisplayHint: string;
+  subscribedEvents: WebhookEventType[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The raw secret is returned only here, once, at creation. It is never shown again. */
+export interface CreateWebhookEndpointResponse {
+  endpoint: WebhookEndpointSummary;
+  rawSecret: string;
+}
+
+export type WebhookDeliveryStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXHAUSTED';
+
+export interface WebhookDeliverySummary {
+  id: string;
+  eventId: string;
+  eventType: WebhookEventType;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  lastAttemptAt: string | null;
+  lastStatusCode: number | null;
+  lastError: string | null;
+  createdAt: string;
+}
+
+/** The body sent to a webhook endpoint (docs/08, "Payload"). */
+export interface WebhookEventPayload<TData = Record<string, unknown>> {
+  id: string;
+  type: WebhookEventType;
+  createdAt: string;
+  data: TData;
+}

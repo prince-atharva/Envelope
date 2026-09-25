@@ -4,6 +4,10 @@ import { z } from 'zod';
 const port = z.coerce.number().int().min(1).max(65535);
 const flag = z.stringbool();
 const secret = z.string().min(32, 'must be at least 32 characters (use: openssl rand -base64 48)');
+/** Exactly 32 raw bytes, base64-encoded: an AES-256 key (use: openssl rand -base64 32). */
+const aes256Key = z.base64().refine((value) => Buffer.from(value, 'base64').length === 32, {
+  error: 'must decode to exactly 32 bytes (use: openssl rand -base64 32)',
+});
 
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const;
 export type LogLevel = (typeof LOG_LEVELS)[number];
@@ -84,6 +88,17 @@ export const envSchema = z
       .min(1)
       .max(MAX_EXPIRY_DAYS)
       .default(DEFAULT_EXPIRY_DAYS),
+
+    /** HMAC key for API keys (docs/18). Rotating it revokes every issued key at once. */
+    API_KEY_HASH_SECRET: secret,
+    /**
+     * AES-256-GCM key that encrypts webhook signing secrets at rest (docs/18,
+     * ADR 0015). Unlike the HMAC secrets above, a webhook secret must be
+     * recovered in full to sign each delivery, so it cannot only be hashed.
+     * Rotating this key makes every stored webhook secret unrecoverable —
+     * endpoints would need to be re-created.
+     */
+    WEBHOOK_SECRET_ENC_KEY: aes256Key,
 
     S3_ENDPOINT: z.url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),
@@ -229,6 +244,18 @@ export const envSchema = z
         code: 'custom',
         path: ['SIGNING_TOKEN_SECRET'],
         message: 'must be different from JWT_ACCESS_SECRET and REFRESH_TOKEN_SECRET',
+      });
+    }
+    if (
+      env.API_KEY_HASH_SECRET === env.JWT_ACCESS_SECRET ||
+      env.API_KEY_HASH_SECRET === env.REFRESH_TOKEN_SECRET ||
+      env.API_KEY_HASH_SECRET === env.SIGNING_TOKEN_SECRET
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['API_KEY_HASH_SECRET'],
+        message:
+          'must be different from JWT_ACCESS_SECRET, REFRESH_TOKEN_SECRET and SIGNING_TOKEN_SECRET',
       });
     }
     if (env.NODE_ENV === 'production' && env.SEALED_RETENTION_MODE === 'GOVERNANCE') {
