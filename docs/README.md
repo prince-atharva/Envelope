@@ -11,8 +11,12 @@
 > **Name:** the product is **Envelope powered by HealthProHub**. Documents 00 to 11 were written before it
 > was named and call it "the platform". They still describe the product accurately.
 >
-> **HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is Phase 6. It has no
-> documents in this folder yet. An earlier index linked to a
+> **Phase 6** (docs/17) covers compliance: jurisdiction policy frozen at creation, blocked document
+> categories, roles, legal hold, retention and audit export.
+>
+> **The HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is **Phase 6b**. It still
+> has no documents in this folder — it needs its own design pass before it is built, the same way
+> every other phase had a plan written before code. An earlier index linked to a
 > `healthprohub-integration-and-dual-mode/` folder that was never written; those links are removed.
 
 ---

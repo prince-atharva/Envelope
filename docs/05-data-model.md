@@ -520,6 +520,14 @@ A nightly job SHOULD walk each envelope's chain and alert on any break. **An aud
 
 ## Retention and Legal Hold
 
+> **As built (docs/17 step 8, ADR 0014).** The nightly sweeper (`maintenance/retention.service.ts`)
+> removes storage objects on drafts' and voided/declined envelopes' windows below, and legal hold
+> (step 7) excludes an envelope from it. The audit trail line below is honoured literally at the
+> row level — it is never deleted, by this sweeper or anything else — but "expire together" for a
+> *completed* document means the audit trail stays provable forever while the sealed file itself
+> is additionally protected from early deletion by Object Lock (ADR 0007); see ADR 0014 for why a
+> completed envelope past its retention years is flagged rather than automatically removed.
+
 | Data | Default retention | Notes |
 |---|---|---|
 | Completed documents | 7 years | Configurable per tenant; matches common statutory periods |
@@ -536,4 +544,4 @@ A nightly job SHOULD walk each envelope's chain and alert on any break. **An aud
 
 Every root entity carries `tenantId`. Enforcement is at the query layer via a Prisma middleware that injects the tenant filter on every read and write.
 
-Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug in the middleware cannot leak data across tenants. Tenant isolation MUST have a dedicated test suite that attempts cross-tenant access on every endpoint.
+Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug in the middleware cannot leak data across tenants (deferred to Phase 7). Tenant isolation MUST have a dedicated test suite that attempts cross-tenant access on every endpoint. **As built (docs/17 step 13):** `apps/api/test/cross-tenant.e2e.test.ts`, table-driven over every route that takes an envelope id, including every Phase 6 route.

@@ -159,6 +159,15 @@ The AES claim is worth stating carefully. The four Article 26 criteria are funct
 
 ## JurisdictionPolicy
 
+> **As built (docs/17, ADR 0011).** This interface and the mechanism below are built exactly as
+> specified: reference policies live as versioned code in `packages/shared/src/jurisdiction.ts`,
+> resolved and frozen onto every envelope at creation. Blocked document categories are enforced at
+> creation (docs/17 step 4). Retention is enforced by a nightly sweeper (docs/17 step 8, ADR 0014),
+> and legal hold overrides it (docs/17 step 7). What remains open is exactly what this document
+> already said would remain open: the reference figures below are engineering's best-effort reading
+> of the law, marked throughout as requiring legal confirmation, and the consent disclosure text is
+> still a draft placeholder pending counsel's wording.
+
 Resolved per tenant, overridable per envelope, via `Envelope.jurisdictionCode`.
 
 ```typescript

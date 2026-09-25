@@ -80,19 +80,21 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0006](0006-run-sealing-asynchronously-on-workers.md) | Run sealing asynchronously on workers | Accepted |
 | [0007](0007-apply-object-lock-to-the-final-version-only.md) | Apply Object Lock to the final version only | Accepted |
 | [0009](0009-store-only-the-hmac-of-signing-tokens.md) | Store only the HMAC of signing tokens | Accepted, amended by 0013 |
+| [0011](0011-freeze-jurisdiction-policy-at-envelope-creation.md) | Freeze jurisdiction policy at envelope creation | Accepted |
 | [0012](0012-nestjs-api-and-react-vite-web.md) | Build a NestJS API and a React + Vite web app instead of one Next.js app | Accepted |
 | [0013](0013-expiry-pauses-an-envelope.md) | Expiry pauses an envelope; the sender can extend it (amends 0009) | Accepted |
+| [0014](0014-retention-purges-document-bodies-not-the-audit-chain.md) | Retention purges document bodies, not the audit chain | Accepted |
 
 ### Planned
 
-Decisions already made in the design documents that should be captured as ADRs during Sprint 1:
+Decisions already made in the design documents that should be captured as ADRs when their phase is built:
 
 | ADR | Title | Source |
 |---|---|---|
 | 0008 | Build the platform entirely in JavaScript | [04](../04-technology-stack.md) |
 | 0010 | Defer Tier 2 qualified signatures | [02](../02-feasibility-and-build-vs-buy.md), [04](../04-technology-stack.md) |
-| 0011 | Freeze jurisdiction policy at envelope creation | [07](../07-compliance-layer.md) |
 
-Numbers 0008, 0010 and 0011 stay reserved for the rows above, even though 0012 was written first. Numbers
-are permanent references and are never reused, so a record written out of order takes the next free
-number rather than one of the reserved ones.
+Numbers 0008 and 0010 stay reserved for the rows above, even though later numbers were written first
+(0011 was written in Phase 6, after 0012 and 0013). Numbers are permanent references and are never
+reused, so a record written out of order takes the next free number rather than one of the reserved
+ones.

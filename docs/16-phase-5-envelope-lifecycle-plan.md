@@ -20,7 +20,8 @@ phases of work, so it is split in three:
 | Phase | What it covers |
 |---|---|
 | **5, Envelope Lifecycle** (this doc) | Everything that happens to a document after it is sent and before it is finished |
-| 6, Compliance and Integrations | Jurisdiction rules and blocked document types, retention and legal hold, audit export, user roles, API keys and webhooks, delegation, in-person signing |
+| [6, Compliance](17-phase-6-compliance-plan.md) | Jurisdiction rules and blocked document types, retention and legal hold, audit export, user roles |
+| 6b, Integrations | API keys, webhooks, delegation, in-person signing, the HealthProHub embed SDK — split out of Phase 6 once compliance turned out to be a full phase on its own; needs its own design doc first |
 | 7, Launch Readiness | Production hosting, security headers, virus scanning, database row security, accessibility, monitoring, backups, load testing, runbooks, the security checklist |
 
 After Phase 4 a document can be sent, signed and sealed. What a sender still cannot do is manage it
@@ -460,9 +461,9 @@ sender) and `alert`.
 
 | Simplification | Planned fix |
 |---|---|
-| Any user of a tenant can cancel | Roles, Phase 6 |
-| An expired large-file download link shows 410 JSON and cannot be renewed | Phase 6 |
+| Any user of a tenant can cancel | ✅ Fixed in [Phase 6](17-phase-6-compliance-plan.md): roles enforced |
+| An expired large-file download link shows 410 JSON and cannot be renewed | ✅ Fixed in [Phase 6](17-phase-6-compliance-plan.md) |
 | Alerts are email only | A paging tool with the production deploy, Phase 7 |
 | A chain break does not stop sending by itself | A manual decision, per doc 10's P0 response |
-| A discarded draft is kept (as `VOIDED`, listed under the Cancelled tab) | The audit trail cannot be deleted by the app; retention in Phase 6 |
+| A discarded draft is kept (as `VOIDED`, listed under the Cancelled tab) | The audit trail cannot be deleted by the app, by design (ADR 0004, ADR 0014); its storage object is now removed by the [Phase 6](17-phase-6-compliance-plan.md) retention sweeper |
 | Found while planning, for Phase 7: an unset `NODE_ENV` in production leaves Swagger and the test rate-limit bypass on; the public health check shows raw error messages; the web app has no CSP because nothing serves it yet; the accessibility gaps (no PDF text layer, pointer-only field placement, contrast) | Phase 7 |
