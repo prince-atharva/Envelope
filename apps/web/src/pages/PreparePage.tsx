@@ -22,7 +22,7 @@ import { builderReducer, initialBuilderState } from '../features/builder/builder
 import { FieldOverlay } from '../features/builder/FieldOverlay';
 import { FieldPalette } from '../features/builder/FieldPalette';
 import { RecipientPanel } from '../features/builder/RecipientPanel';
-import { moveRecipient } from '../features/builder/recipient-order';
+import { moveRecipient, toggleGroupedWithPrevious } from '../features/builder/recipient-order';
 import { useAutosave } from '../features/builder/useAutosave';
 import { api } from '../lib/api';
 import { describeError } from '../lib/errors';
@@ -558,6 +558,16 @@ export function PreparePage() {
                 await runRecipientChange(() =>
                   api.updateEnvelope(id, { sequentialSigning: value }),
                 );
+              }}
+              onToggleGrouped={async (recipient: RecipientInfo) => {
+                const changes = toggleGroupedWithPrevious(envelope.recipients, recipient.id);
+                await runRecipientChange(async () => {
+                  for (const change of changes) {
+                    await api.updateRecipient(id, change.recipientId, {
+                      routingOrder: change.routingOrder,
+                    });
+                  }
+                });
               }}
             />
           </TabPanel>

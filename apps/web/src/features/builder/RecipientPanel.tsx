@@ -12,6 +12,7 @@ import { TextField } from '../../components/ui/Field';
 import { describeError } from '../../lib/errors';
 import { ROLE_LABEL } from '../../lib/labels';
 import { recipientColor } from './recipient-colors';
+import { isGroupedWithPrevious } from './recipient-order';
 
 interface RecipientPanelProps {
   recipients: RecipientInfo[];
@@ -25,6 +26,9 @@ interface RecipientPanelProps {
   onRemove: (recipient: RecipientInfo) => Promise<void>;
   onMove: (recipient: RecipientInfo, direction: 'up' | 'down') => Promise<void>;
   onToggleSequential: (value: boolean) => Promise<void>;
+  /** Groups a recipient with the person above them, so they sign at the same
+   * time (mixed routing, docs/17 step 11), or ungroups them. */
+  onToggleGrouped: (recipient: RecipientInfo) => Promise<void>;
 }
 
 const SIGNING_ORDER_OPTIONS = [
@@ -56,6 +60,7 @@ export function RecipientPanel({
   onRemove,
   onMove,
   onToggleSequential,
+  onToggleGrouped,
 }: RecipientPanelProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -271,6 +276,41 @@ export function RecipientPanel({
                         </svg>
                       </button>
                     </div>
+                  )}
+
+                  {showOrder && index > 0 && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={isGroupedWithPrevious(recipients, recipient.id)}
+                      aria-label={
+                        isGroupedWithPrevious(recipients, recipient.id)
+                          ? `${recipient.name} signs at the same time as the person above; click to give them their own turn`
+                          : `Let ${recipient.name} sign at the same time as the person above`
+                      }
+                      title="Sign at the same time as the person above"
+                      className={`rounded-lg border p-1.5 text-xs font-semibold shadow-2xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                        isGroupedWithPrevious(recipients, recipient.id)
+                          ? 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
+                          : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-100'
+                      }`}
+                      onClick={() => void onToggleGrouped(recipient)}
+                    >
+                      <svg
+                        className="h-3 w-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2.5}
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+                        />
+                      </svg>
+                    </button>
                   )}
 
                   <button
