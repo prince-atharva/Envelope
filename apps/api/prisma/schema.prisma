@@ -90,6 +90,11 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// The tenant's default jurisdiction (docs/07). Overridable per envelope via
+  /// Envelope.jurisdictionCode; resolution is frozen onto Envelope.policySnapshot
+  /// at creation (ADR 0011).
+  jurisdictionCode String @default("US")
+
   users     User[]
   envelopes Envelope[]
 }
@@ -116,12 +121,21 @@ model User {
   organization String?
   role         UserRole  @default(OWNER)
   lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
 
-  envelopes       Envelope[] @relation("EnvelopeOwner")
-  voidedEnvelopes Envelope[] @relation("EnvelopeVoidedBy")
-  sessions        Session[]
+  /// Set when an OWNER invites this person to the tenant (docs/17 step 6):
+  /// only its HMAC is stored, like a signing token (ADR 0009). Null once
+  /// accepted, or for a user who registered themselves rather than being
+  /// invited. passwordHash is an unusable random value until accepted.
+  inviteTokenHash      String?   @unique
+  inviteTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  envelopes          Envelope[] @relation("EnvelopeOwner")
+  voidedEnvelopes    Envelope[] @relation("EnvelopeVoidedBy")
+  legalHoldEnvelopes Envelope[] @relation("EnvelopeLegalHoldBy")
+  sessions           Session[]
 
   @@index([tenantId])
 }
@@ -207,8 +221,32 @@ model Envelope {
   /// other; a stale value is answered with 412 DRAFT_REVISION_MISMATCH.
   draftRevision Int @default(0)
 
-  // Jurisdiction policy resolution (docs/07)
+  // Jurisdiction policy resolution (docs/07, ADR 0011). jurisdictionCode is the
+  // resolved code (the envelope's own override, or the tenant's default at
+  // creation time); policySnapshot is the full frozen JurisdictionPolicy, so a
+  // later edit to the reference policies never changes what an
+  // already-signed envelope claims to have complied with. Both are set once,
+  // at creation, and never change afterwards.
   jurisdictionCode String @default("US")
+  policySnapshot   Json?
+  policyVersion    Int?
+  /// What kind of document this is, checked at creation against the frozen
+  /// policy's blockedDocumentCategories (docs/07).
+  documentCategory String @default("OTHER")
+
+  // Legal hold and retention (docs/17 step 7-8). A hold overrides every sweep
+  // until released; both placing and releasing one are audit events.
+  legalHoldAt       DateTime?
+  legalHoldReason   String?   @db.Text
+  legalHoldByUserId String?   @db.Uuid
+  legalHoldBy       User?     @relation("EnvelopeLegalHoldBy", fields: [legalHoldByUserId], references: [id], onDelete: Restrict)
+  /// Set once the sweeper has removed this envelope's (unlocked) storage
+  /// objects. The audit trail and the envelope row itself are never deleted.
+  /// When it is due is computed at read time from status, timestamps and the
+  /// frozen policy's retentionYears (retention.service.ts), rather than kept
+  /// in a column that a draft edit or an extension would need to remember to
+  /// update.
+  purgedAt          DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -395,6 +433,9 @@ model CompletionDownload {
   expiresAt        DateTime
   downloadCount    Int       @default(0)
   lastDownloadedAt DateTime?
+  /// When this link was last renewed with a fresh token (docs/17 step 10).
+  /// Limits renewal to once per DOWNLOAD_RENEW_COOLDOWN_HOURS.
+  lastRenewedAt    DateTime?
   createdAt        DateTime  @default(now())
 
   @@index([envelopeId])
