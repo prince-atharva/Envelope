@@ -6,11 +6,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Phase 6 (Compliance) is next: jurisdiction policy frozen at envelope creation, blocked document
-categories, user roles enforced, a retention sweeper with legal hold, and audit export.
+## [0.6.0] - 2026-09-25
+
+Phase 6 (Compliance): jurisdiction policy frozen at envelope creation, blocked document categories,
+user roles enforced, workspace invitations, legal hold, a retention sweeper, audit export,
+renewable download links, mixed routing, and a cross-tenant isolation test suite. See
+[docs/17-phase-6-compliance-plan.md](docs/17-phase-6-compliance-plan.md), [ADR
+0011](docs/adr/0011-freeze-jurisdiction-policy-at-envelope-creation.md) and [ADR
+0014](docs/adr/0014-retention-purges-document-bodies-not-the-audit-chain.md). Also carries the
+sender-screen redesign and the 100M-row scale work finished since v0.5.0.
 
 ### Added
 
+- **Jurisdiction policy, frozen at creation.** A sender picks a document category and, per
+  envelope, may override the tenant's default jurisdiction; the resolved policy — permitted
+  signature tiers, consent wording, retention years, blocked categories — is frozen onto the
+  envelope for good, never re-resolved at signing time (ADR 0011). A blocked category (a will, a
+  property transfer, and others per jurisdiction) is refused before the file is even stored, naming
+  the category and the jurisdiction.
+- **Roles.** `OWNER`, `ADMIN` and `MEMBER`, enforced throughout: a MEMBER sees and manages only the
+  envelopes they own; an ADMIN or OWNER manages the whole workspace, including legal hold and audit
+  export, which are ADMIN-only.
+- **Settings → Users.** An OWNER invites people by email and role; the invited account is locked
+  until they accept and choose a password. Roles can be changed or a person removed, with a
+  workspace never left without an owner.
+- **Legal hold.** ADMIN or OWNER can place a hold on any document, with a reason; it blocks
+  cancelling, extending and the retention sweep until released, and both the hold and the release
+  are audit events.
+- **The retention sweeper.** An unsent draft untouched for 90 days, or a cancelled or declined
+  document a year old, has its stored file quietly removed and its recipients' names and emails
+  pseudonymised; the audit trail is never touched, and a completed document's sealed file is never
+  removed early — it is locked against deletion at the storage layer the moment it is sealed
+  (ADR 0014).
+- **Audit export**, as JSON (every event's hash included, so the chain can be re-verified offline
+  without this platform at all) or CSV (the same rows, for reading).
+- **Renewable download links.** An expired completion download link now opens a page that offers a
+  fresh one, instead of a dead end.
+- **Mixed routing.** Two people can be set to sign at the same time inside an otherwise
+  step-by-step envelope.
 - Quick search (⌘K / Ctrl K) over the sender's documents, and search and sort on the dashboard.
   Both work on the documents already loaded.
 - `pnpm --filter @envelope/web ui:gallery` screenshots every screen and popup on desktop, tablet
@@ -42,11 +75,28 @@ categories, user roles enforced, a retention sweeper with legal hold, and audit 
 - Opening the dashboard asks only for the counts and the open tab. It no longer fetches Waiting and
   Needs attention in the background; a tab's list is still fetched as soon as it is hovered or
   focused.
+- A completion email's download link now opens a web page rather than the API route directly, so an
+  expired link offers a fresh one instead of raw JSON.
 
 ### Fixed
 
 - A hard reload on a document, prepare or review page could fail as signed out: the page's first
   request went out before the session was restored.
+
+### New Settings
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RETENTION_SWEEP_CRON` | `0 3 * * *` | When the nightly retention sweep runs, UTC |
+
+### Deliberate Simplifications
+
+| Simplification | Planned fix |
+|---|---|
+| MEMBER ownership is enforced on cancel, extend and reminders, and on list/detail visibility — not on every mutating route (draft edits, send, file download) | Broader field-level enforcement, Phase 6b |
+| Jurisdiction policies are fixed reference data for four codes (`US`, `EU`, `IN`, `UK`) | A real deployment ships its own values as the next `JURISDICTION_POLICY_VERSION` |
+| A completed envelope past its policy's `retentionYears` is flagged, not automatically removed (Object Lock makes early removal impossible; removal after the lock expires is an operational decision) | A follow-up if a deployment wants that automated |
+| The consent notice is shown to every signer regardless of the resolved policy's `consentRequired` | Deliberate and permanent — see docs/17 |
 
 ## [0.5.0] - 2026-09-20
 

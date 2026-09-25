@@ -509,6 +509,27 @@ its locked storage version id (ADR 0007).
 Every response sends `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, and
 `instance` reads `/api/v1/download/[redacted]`. Limited to 30 requests a minute per IP.
 
+**As built (docs/17 step 10):** the completion email's link points at the web app's
+`/download/:token` page, not this route directly — the page fetches this route itself and
+triggers the download, so an expired token reads as a "send me a new link" screen instead of raw
+JSON from here.
+
+### `POST /v1/download/:token/renew`
+
+Asks for a fresh link. The one route an already-expired download token may use — works whether the
+token is expired or still valid. No authentication and no request body: the token is the
+credential, as above. Mints a new token in the worker (ADR 0009) and emails it to the same address,
+replacing the row's active token — the old raw value stops resolving to anything, the same 404 an
+unknown token gets, not a state that would distinguish "this token existed but was retired" from
+"this token never existed." Limited to `DOWNLOAD_RENEW_COOLDOWN_HOURS` (24 by default) between
+renewals of one link.
+
+| Situation | Response |
+|---|---|
+| Malformed or unknown token | 404 `NOT_FOUND` |
+| Renewed too recently | 429 `DOWNLOAD_RENEW_TOO_SOON` |
+| Otherwise | 200, `{ "renewed": true }` |
+
 ## Verification
 
 ### `POST /v1/verify`
@@ -642,6 +663,12 @@ RFC 7807:
 | `TOKEN_EXPIRED` | 401 | Past `tokenExpiresAt` or the envelope's `expiresAt` |
 | `TOKEN_ALREADY_USED` | 410 | Single-use token already consumed |
 | `CONSENT_REQUIRED` | 403 | Document, adopt or submit attempted before consent |
+| `FORBIDDEN_ROLE` (docs/17) | 403 | Signed in, but the account's role does not permit this |
+| `LAST_OWNER` (docs/17) | 409 | Removing or demoting a tenant's last owner |
+| `ENVELOPE_ON_LEGAL_HOLD` (docs/17) | 409 | Cancel, extend or purge attempted on a held envelope |
+| `ENVELOPE_PURGED` (docs/17) | 410 | The retention sweeper has removed this envelope's file |
+| `DOWNLOAD_RENEW_TOO_SOON` (docs/17) | 429 | A renewal was already sent recently for this link |
+| `INVITE_TOKEN_INVALID` / `INVITE_TOKEN_EXPIRED` (docs/17) | 401 | A tenant invitation link is unknown, already accepted, or past its date |
 | `CONSENT_TEXT_CHANGED` | 409 | The notice changed after it was shown; show the new one |
 | `INVALID_SIGNATURE_IMAGE` | 422 | Not a transparent PNG, or too large |
 | `REQUIRED_FIELDS_INCOMPLETE` | 422 | Required fields unfilled |

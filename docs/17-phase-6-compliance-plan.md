@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | In progress. Built as `v0.6.0` |
+| **Status** | Complete. Built and released as `v0.6.0` |
 | **Version** | 1.0.0 |
 | **Last updated** | 25 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -74,8 +74,8 @@ Integrations become Phase 6b, once they have a plan of their own.
       audit trail, and never a sealed document under Object Lock.
 - [x] An audit export's JSON re-verifies with the same algorithm the nightly chain check uses.
 - [x] An expired download link can be renewed, once a day.
-- [ ] Cross-tenant isolation test suite, table-driven over every route.
-- [ ] `docs/11` and `CHANGELOG.md` updated; release tagged `v0.6.0`.
+- [x] Cross-tenant isolation test suite, table-driven over every route.
+- [x] `docs/11` and `CHANGELOG.md` updated; release tagged `v0.6.0`.
 
 ## What We Need From You
 
@@ -127,8 +127,8 @@ Integrations become Phase 6b, once they have a plan of their own.
 | 10 | Renewable download links | ✅ Done |
 | 11 | Mixed routing: parallel groups inside a sequential envelope | ✅ Done |
 | 12 | The `AuditTrail` partitioning decision | ✅ Done (deferred; see ADR 0014) |
-| 13 | Tests: the finish line, including cross-tenant isolation | ⏳ In progress |
-| 14 | Documentation and release `v0.6.0` | ⏳ In progress |
+| 13 | Tests: the finish line, including cross-tenant isolation | ✅ Done |
+| 14 | Documentation and release `v0.6.0` | ✅ Done |
 
 ## Step 1: Shared Contracts
 
