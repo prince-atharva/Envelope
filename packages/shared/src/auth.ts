@@ -30,6 +30,18 @@ export const loginSchema = z.strictObject({
 export type LoginInput = z.infer<typeof loginSchema>;
 
 export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER';
+export const USER_ROLES: readonly UserRole[] = ['OWNER', 'ADMIN', 'MEMBER'];
+
+/**
+ * Lowest to highest, so `hasAtLeast` is one comparison. The guard and the
+ * web app's `RequireRole` both read this, rather than each keeping its own
+ * ordering that could drift (docs/17 step 5).
+ */
+export const ROLE_RANK: Record<UserRole, number> = { MEMBER: 0, ADMIN: 1, OWNER: 2 };
+
+export function hasAtLeast(role: UserRole, minimum: UserRole): boolean {
+  return ROLE_RANK[role] >= ROLE_RANK[minimum];
+}
 
 export interface UserProfile {
   id: string;

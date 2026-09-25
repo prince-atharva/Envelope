@@ -43,3 +43,18 @@ export const MAX_REMINDER_INTERVAL_DAYS = 30;
 
 /** docs/08: reminders are limited to one per recipient per 24 hours. */
 export const REMINDER_COOLDOWN_HOURS = 24;
+
+/**
+ * Retention windows (docs/05, docs/17 step 8). Completed envelopes use the
+ * frozen policy's own `retentionYears` instead of a constant here.
+ */
+export const DRAFT_RETENTION_DAYS = 90;
+export const VOIDED_RETENTION_DAYS = 365;
+
+/** A download link renewal is limited to one per link per this long (docs/17 step 10). */
+export const DOWNLOAD_RENEW_COOLDOWN_HOURS = 24;
+
+export const MAX_LEGAL_HOLD_REASON_LENGTH = 1000;
+
+/** How long a tenant invitation link works (docs/17 step 6). */
+export const INVITE_TOKEN_EXPIRY_DAYS = 7;

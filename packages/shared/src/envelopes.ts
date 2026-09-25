@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { DOCUMENT_CATEGORIES, type DocumentCategory } from './document-categories';
 import type { FieldInfo, RecipientInfo } from './draft';
+import { MAX_LEGAL_HOLD_REASON_LENGTH } from './limits';
 
 export const ENVELOPE_STATUSES = [
   'DRAFT',
@@ -46,6 +48,10 @@ export function isTerminalEnvelope(status: string): boolean {
 export const createEnvelopeSchema = z.strictObject({
   /** Defaults to the file name without its extension. */
   title: z.string().trim().min(1).max(200).optional(),
+  /** What kind of document this is, checked against the resolved jurisdiction policy (docs/07). */
+  documentCategory: z.enum(DOCUMENT_CATEGORIES).default('OTHER'),
+  /** Overrides the tenant's default jurisdiction for this envelope only (docs/07). */
+  jurisdictionCode: z.string().trim().min(2).max(10).optional(),
 });
 export type CreateEnvelopeInput = z.infer<typeof createEnvelopeSchema>;
 
@@ -113,6 +119,8 @@ export interface EnvelopeSummary {
   progress: EnvelopeProgress | null;
   /** Only in Needs attention: why it is there, and since when. */
   attention?: { reason: AttentionReason; since: string };
+  /** Set once someone places a legal hold; overrides every retention sweep (docs/17 step 7). */
+  legalHoldAt: string | null;
 }
 
 /** GET /envelopes/counts: every tab's count, in one query. */
@@ -210,7 +218,34 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   voidedBy: { id: string; fullName: string } | null;
   recipients: RecipientDetail[];
   fields: FieldInfo[];
+  /** What kind of document this is, checked at creation against the frozen policy (docs/07). */
+  documentCategory: DocumentCategory;
+  /** The jurisdiction the frozen policy was resolved for. */
+  jurisdictionCode: string;
+  /** Which revision of the jurisdiction policy reference data produced the frozen snapshot. */
+  policyVersion: number | null;
+  legalHoldAt: string | null;
+  legalHoldReason: string | null;
+  legalHoldBy: { id: string; fullName: string } | null;
+  /** When retention would otherwise remove this envelope's files, absent a hold (docs/17 step 8). */
+  retentionDueAt: string | null;
+  /** Set once the retention sweeper has removed this envelope's storage objects. */
+  purgedAt: string | null;
 }
+
+export const legalHoldSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(MAX_LEGAL_HOLD_REASON_LENGTH),
+});
+export type LegalHoldInput = z.infer<typeof legalHoldSchema>;
+
+export interface LegalHoldResponse {
+  id: string;
+  legalHoldAt: string | null;
+  legalHoldReason: string | null;
+}
+
+export const AUDIT_EXPORT_FORMATS = ['json', 'csv'] as const;
+export type AuditExportFormat = (typeof AUDIT_EXPORT_FORMATS)[number];
 
 export interface EnvelopeListResponse {
   items: EnvelopeSummary[];

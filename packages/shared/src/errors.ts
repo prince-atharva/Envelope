@@ -21,6 +21,13 @@ export const ERROR_CATALOG = {
   INVALID_CREDENTIALS: { status: 401, title: 'Invalid email or password' },
   SESSION_EXPIRED: { status: 401, title: 'Session expired' },
   EMAIL_ALREADY_REGISTERED: { status: 409, title: 'Email already registered' },
+  /** Signed in, but the account's role does not permit this (docs/17). */
+  FORBIDDEN_ROLE: { status: 403, title: 'Your role does not allow this' },
+  /** Removing or demoting the tenant's last owner (docs/17). */
+  LAST_OWNER: { status: 409, title: 'Every tenant needs at least one owner' },
+  /** An invitation link is unknown, malformed, or already accepted (docs/17 step 6). */
+  INVITE_TOKEN_INVALID: { status: 401, title: 'Invalid or already-used invitation link' },
+  INVITE_TOKEN_EXPIRED: { status: 401, title: 'Invitation link expired' },
 
   // Upload hardening (docs/10)
   FILE_REQUIRED: { status: 400, title: 'A PDF file is required' },
@@ -58,6 +65,12 @@ export const ERROR_CATALOG = {
   REMINDER_TOO_SOON: { status: 429, title: 'A reminder was sent recently' },
   /** A completion download link past its date (docs/15 step 6). */
   DOWNLOAD_LINK_EXPIRED: { status: 410, title: 'Download link expired' },
+  /** A renewal was already sent for this link recently (docs/17 step 10). */
+  DOWNLOAD_RENEW_TOO_SOON: { status: 429, title: 'A new link was already sent recently' },
+  /** Cancel, extend, void or purge on an envelope under legal hold (docs/17). */
+  ENVELOPE_ON_LEGAL_HOLD: { status: 409, title: 'Envelope is on legal hold' },
+  /** Its retention period has passed and its files were purged (docs/17 step 8). */
+  ENVELOPE_PURGED: { status: 410, title: 'Envelope was purged' },
 
   // Idempotency (docs/08, API-03)
   IDEMPOTENCY_KEY_REQUIRED: { status: 400, title: 'An Idempotency-Key header is required' },
