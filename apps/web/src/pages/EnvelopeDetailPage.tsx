@@ -2,9 +2,10 @@ import {
   type AuditEventInfo,
   type DocumentVersionInfo,
   type EnvelopeDetail,
+  hasAtLeast,
   isOpenEnvelope,
 } from '@envelope/shared';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { PdfViewer } from '../components/pdf/PdfViewer';
@@ -24,11 +25,14 @@ import { cancelModeFor } from '../features/envelope/cancel';
 import { downloadName } from '../features/envelope/document-files';
 import { ExpiredBanner } from '../features/envelope/ExpiredBanner';
 import { ExtendDialog } from '../features/envelope/ExtendDialog';
-import { canExtend } from '../features/envelope/extend';
 import { envelopeEventsQuery } from '../features/envelope/events-query';
+import { canExtend } from '../features/envelope/extend';
+import { LegalHoldBanner } from '../features/envelope/LegalHoldBanner';
+import { LegalHoldDialog } from '../features/envelope/LegalHoldDialog';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { describeError } from '../lib/errors';
 import {
   describeAuditAction,
@@ -61,6 +65,10 @@ export function EnvelopeDetailPage() {
   const location = useLocation();
   const [cancelling, setCancelling] = useState(false);
   const [extending, setExtending] = useState(false);
+  const [placingHold, setPlacingHold] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = !!user && hasAtLeast(user.role, 'ADMIN');
+  const queryClient = useQueryClient();
   const [activityTab, setActivityTab] = useState<'audit' | 'versions'>('audit');
   const activityTabsId = useId();
   const sent = (location.state as SentState | null)?.sentTo;
@@ -108,6 +116,23 @@ export function EnvelopeDetailPage() {
   });
 
   useDocumentTitle(envelope?.title);
+
+  const releaseHoldMutation = useMutation({
+    mutationFn: () => api.releaseLegalHold(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.envelope(id) }),
+  });
+
+  async function exportAudit(format: 'json' | 'csv') {
+    const blob = await api.auditExport(id, format);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-${id}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
 
   const signerName = (recipientId: string) =>
     envelope?.recipients.find((r) => r.id === recipientId)?.name ?? 'a recipient';
@@ -288,6 +313,16 @@ export function EnvelopeDetailPage() {
             </span>
           </Button>
 
+          {isAdmin && !envelope.legalHoldAt && (
+            <Button
+              variant="secondary"
+              onClick={() => setPlacingHold(true)}
+              className="text-xs py-2 px-3.5 shadow-2xs"
+            >
+              Legal hold
+            </Button>
+          )}
+
           {envelope.status === 'DRAFT' && (
             <ButtonLink
               to={`/dashboard/envelopes/${envelope.id}/prepare`}
@@ -306,11 +341,23 @@ export function EnvelopeDetailPage() {
         <ExtendDialog envelope={envelope} open={extending} onClose={() => setExtending(false)} />
       )}
       <CancelDialog envelope={envelope} open={cancelling} onClose={() => setCancelling(false)} />
+      {isAdmin && (
+        <LegalHoldDialog
+          envelope={envelope}
+          open={placingHold}
+          onClose={() => setPlacingHold(false)}
+        />
+      )}
 
       {/* Status banners, full width above the document */}
       {sent && isOpenEnvelope(envelope.status) && (
         <Alert tone="success">Sent. We are emailing {sent} a link to sign.</Alert>
       )}
+      <LegalHoldBanner
+        envelope={envelope}
+        onRelease={isAdmin ? () => releaseHoldMutation.mutate() : undefined}
+        releasing={releaseHoldMutation.isPending}
+      />
       <CompletionBanner envelope={envelope} />
       <CancelledBanner envelope={envelope} />
       <ExpiredBanner
@@ -537,6 +584,25 @@ export function EnvelopeDetailPage() {
                 { id: 'versions', label: 'Versions', count: envelope.versions.length },
               ]}
             />
+
+            {isAdmin && activityTab === 'audit' && (
+              <div className="flex justify-end gap-2 border-b border-slate-100 px-4 py-2">
+                <button
+                  type="button"
+                  onClick={() => void exportAudit('json')}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Export JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void exportAudit('csv')}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+              </div>
+            )}
 
             {/* Tab 1: Audit Trail */}
             <TabPanel
