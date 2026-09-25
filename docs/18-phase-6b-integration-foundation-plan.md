@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Complete |
+| **Status** | Built (commits `bb12153`–`4353f01`); not yet released |
 | **Version** | 1.0.0 |
 | **Last updated** | 25 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
