@@ -153,6 +153,13 @@ export const envSchema = z
     /** A session is deleted this long after it expired, not the moment it does. */
     SESSION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     /**
+     * When the retention sweeper runs: a cron pattern, in UTC (docs/17 step
+     * 8). Removes an old unsent draft's or a cancelled/declined envelope's
+     * storage objects; never a completed envelope's sealed file, and never
+     * an audit row (ADR 0014).
+     */
+    RETENTION_SWEEP_CRON: z.string().trim().min(9).default('0 3 * * *'),
+    /**
      * Where urgent problems are emailed (docs/16 step 11). Unset: alerts are
      * only logged, with `alert: true`.
      */

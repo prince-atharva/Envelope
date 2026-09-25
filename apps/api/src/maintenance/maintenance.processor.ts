@@ -10,8 +10,10 @@ import {
   AUDIT_CHAIN_CHECK_JOB,
   AUTO_REMINDERS_JOB,
   EXPIRY_SWEEP_JOB,
+  RETENTION_SWEEP_JOB,
   SESSION_CLEANUP_JOB,
 } from './maintenance.scheduler';
+import { RetentionService } from './retention.service';
 import { SessionCleanupService } from './session-cleanup.service';
 
 /**
@@ -25,6 +27,7 @@ export class MaintenanceProcessor extends WorkerHost {
     private readonly reminders: AutoReminderService,
     private readonly chainCheck: AuditChainCheckService,
     private readonly sessionCleanup: SessionCleanupService,
+    private readonly retention: RetentionService,
     private readonly alerts: AlertService,
     @InjectPinoLogger(MaintenanceProcessor.name) private readonly logger: PinoLogger,
   ) {
@@ -41,6 +44,8 @@ export class MaintenanceProcessor extends WorkerHost {
         return this.chainCheck.run();
       case SESSION_CLEANUP_JOB:
         return this.sessionCleanup.run();
+      case RETENTION_SWEEP_JOB:
+        return this.retention.run();
       default:
         throw new Error(`Unknown maintenance job "${name}"`);
     }

@@ -9,6 +9,7 @@ export const EXPIRY_SWEEP_JOB = 'expiry-sweep';
 export const AUTO_REMINDERS_JOB = 'auto-reminders';
 export const AUDIT_CHAIN_CHECK_JOB = 'audit-chain-check';
 export const SESSION_CLEANUP_JOB = 'session-cleanup';
+export const RETENTION_SWEEP_JOB = 'retention-sweep';
 
 /** A job on a fixed interval, or at the times a cron pattern names (UTC). */
 export type Schedule = { id: string; everyMs: number } | { id: string; pattern: string };
@@ -32,6 +33,7 @@ export class MaintenanceScheduler implements OnApplicationBootstrap {
       { id: AUTO_REMINDERS_JOB, everyMs: this.config.REMINDER_SWEEP_EVERY_MS },
       { id: AUDIT_CHAIN_CHECK_JOB, pattern: this.config.AUDIT_CHAIN_CHECK_CRON },
       { id: SESSION_CLEANUP_JOB, pattern: this.config.SESSION_CLEANUP_CRON },
+      { id: RETENTION_SWEEP_JOB, pattern: this.config.RETENTION_SWEEP_CRON },
     ];
   }
 
