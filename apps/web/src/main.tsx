@@ -18,6 +18,9 @@ installGlobalErrorHandlers();
 const SigningPage = lazy(() => import('./features/signing/SigningPage'));
 // Verify is public too: anyone holding a copy can check it (docs/15 step 7).
 const VerifyPage = lazy(() => import('./features/verify/VerifyPage'));
+// A tenant invitation and a completion download link are both public, token-only pages.
+const AcceptInvitePage = lazy(() => import('./features/invite/AcceptInvitePage'));
+const DownloadPage = lazy(() => import('./features/download/DownloadPage'));
 const SenderApp = lazy(() => import('./SenderApp'));
 
 const queryClient = new QueryClient({
@@ -46,6 +49,8 @@ createRoot(root).render(
             <Routes>
               <Route path="/sign/:token" element={<SigningPage />} />
               <Route path="/verify" element={<VerifyPage />} />
+              <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
+              <Route path="/download/:token" element={<DownloadPage />} />
               <Route path="*" element={<SenderApp />} />
             </Routes>
           </Suspense>

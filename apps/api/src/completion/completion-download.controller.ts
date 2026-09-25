@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Res, StreamableFile } from '@nestjs/common';
+import type { DownloadRenewResponse } from '@envelope/shared';
+import { Controller, Get, HttpCode, Param, Post, Res, StreamableFile } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
@@ -40,5 +41,20 @@ export class CompletionDownloadController {
       length: document.sizeBytes,
       disposition: attachment(signedFilename(document.filename)),
     });
+  }
+
+  @Post('renew')
+  @HttpCode(200)
+  // Per address: generous enough for a genuine retry, tight enough to bound abuse.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Ask for a fresh link. The one route an expired download link can use.',
+  })
+  @ApiParam({
+    name: 'token',
+    description: 'The token from the completion email. It is a credential: never log it.',
+  })
+  async renew(@Param('token') token: string): Promise<DownloadRenewResponse> {
+    return this.downloads.renew(token);
   }
 }

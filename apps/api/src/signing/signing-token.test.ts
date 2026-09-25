@@ -53,9 +53,11 @@ describe('completion download tokens', () => {
     expect(tokenHash).not.toBe(hashSigningToken(SECRET, rawToken));
   });
 
-  it('link to the API through the web app', () => {
+  it('link to the web app download page, not the API route directly', () => {
+    // docs/17 step 10: an already-expired link then reads as a "send me a
+    // new link" screen instead of raw JSON from the API.
     expect(downloadUrl('https://app.example.com/', 'f'.repeat(64))).toBe(
-      `https://app.example.com/api/v1/download/${'f'.repeat(64)}`,
+      `https://app.example.com/download/${'f'.repeat(64)}`,
     );
   });
 });

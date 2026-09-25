@@ -30,7 +30,8 @@ import {
 process.env.COMPLETION_ATTACHMENT_MAX_BYTES = '1000';
 
 const sha256 = (buffer: Buffer) => createHash('sha256').update(buffer).digest('hex');
-const LINK = /https?:\/\/\S+\/api\/v1\/download\/([0-9a-f]{64})/;
+// The web app's download page (docs/17 step 10), not the API route directly.
+const LINK = /https?:\/\/\S+\/download\/([0-9a-f]{64})/;
 
 let counter = 0;
 function people(...names: string[]): PersonSpec[] {
@@ -139,7 +140,9 @@ describe('completion download links (e2e)', () => {
       expect(message.attachments ?? []).toHaveLength(0);
       expect(message.text).toContain(hash);
       const token = LINK.exec(message.text)?.[1];
-      expect(message.html).toContain(`/api/v1/download/${token}`);
+      // The web app's download page, not the API route directly (docs/17 step 10).
+      expect(message.html).toContain(`/download/${token}`);
+      expect(message.html).not.toContain(`/api/v1/download/${token}`);
       if (!token) throw new Error(`no link for ${to}`);
       tokens.set(to, token);
     }
