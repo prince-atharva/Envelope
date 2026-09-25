@@ -9,6 +9,7 @@ import {
 import { Body, Controller, Headers, HttpCode, Param, Post, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { ApiKeyAllowed } from '../auth/api-key.decorator';
 import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
@@ -29,6 +30,7 @@ export class SendingController {
 
   @Post(':id/send')
   @HttpCode(200)
+  @ApiKeyAllowed({ write: true })
   @RateLimit(LIMITS.createAndSend)
   @ApiOperation({ summary: 'Send a draft for signing' })
   @ApiHeader(IDEMPOTENCY_KEY_HEADER)

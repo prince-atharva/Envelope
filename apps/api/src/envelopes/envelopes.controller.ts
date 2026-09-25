@@ -40,6 +40,7 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { z } from 'zod';
+import { ApiKeyAllowed } from '../auth/api-key.decorator';
 import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { ownerScopeOf } from '../auth/ownership';
@@ -70,6 +71,7 @@ export class EnvelopesController {
   constructor(private readonly envelopes: EnvelopesService) {}
 
   @Post()
+  @ApiKeyAllowed({ write: true })
   @UseGuards(UploadSizeGuard, TenantUploadRateLimitGuard)
   @RateLimit(LIMITS.createAndSend)
   @UseInterceptors(
@@ -110,12 +112,14 @@ export class EnvelopesController {
   }
 
   @Get('counts')
+  @ApiKeyAllowed({ write: false })
   @ApiOperation({ summary: 'How many envelopes each dashboard view holds' })
   counts(@CurrentUser() user: AuthenticatedUser): Promise<EnvelopeCounts> {
     return this.envelopes.counts(user.tenantId, ownerScopeOf(user));
   }
 
   @Get()
+  @ApiKeyAllowed({ write: false })
   @ApiOperation({
     summary: 'List envelopes: Needs attention ranked by what to chase, other views newest first',
   })
@@ -143,6 +147,7 @@ export class EnvelopesController {
   }
 
   @Get(':id')
+  @ApiKeyAllowed({ write: false })
   @ApiOperation({ summary: 'An envelope with its document versions and audit trail' })
   async get(
     @Param('id', UuidParamPipe) id: string,
@@ -170,6 +175,7 @@ export class EnvelopesController {
   }
 
   @Get(':id/events')
+  @ApiKeyAllowed({ write: false })
   @ApiOperation({
     summary: 'The audit trail past what the detail carries, oldest first, paginated',
   })
@@ -187,6 +193,7 @@ export class EnvelopesController {
   }
 
   @Get(':id/file')
+  @ApiKeyAllowed({ write: false })
   @ApiOperation({ summary: 'Download a document version (default: version 0, the original)' })
   @ApiQuery({ name: 'version', required: false, schema: { type: 'integer', minimum: 0 } })
   @ApiProduces('application/pdf')

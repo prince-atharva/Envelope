@@ -6,6 +6,7 @@ import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppException } from '../common/errors/app-exception';
 import type { RequestContext } from '../common/request-context';
+import { API_KEY_PREFIX, ApiKeyGuard } from './api-key.guard';
 import { IS_PUBLIC_KEY } from './auth.decorators';
 import type { AccessTokenClaims } from './auth.types';
 import { SessionService } from './session.service';
@@ -14,6 +15,11 @@ import { SessionService } from './session.service';
  * Global guard: every route needs a valid access token unless marked @Public().
  * The token's session must still be active, so logout and reuse detection take
  * effect immediately instead of when the token expires.
+ *
+ * A bearer token starting with API_KEY_PREFIX is an API key, not a JWT
+ * (docs/18): it is delegated to ApiKeyGuard rather than added as a second,
+ * competing global guard, since only one authentication result can set
+ * `req.user`.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -21,6 +27,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
     private readonly sessions: SessionService,
+    private readonly apiKeys: ApiKeyGuard,
     private readonly cls: ClsService<RequestContext>,
     @InjectPinoLogger(JwtAuthGuard.name) private readonly logger: PinoLogger,
   ) {}
@@ -38,6 +45,10 @@ export class JwtAuthGuard implements CanActivate {
     if (scheme !== 'Bearer' || !token) {
       this.logger.debug('Request without a bearer token');
       throw new AppException('UNAUTHENTICATED');
+    }
+
+    if (token.startsWith(API_KEY_PREFIX)) {
+      return this.apiKeys.authenticate(token, context);
     }
 
     let claims: AccessTokenClaims;
