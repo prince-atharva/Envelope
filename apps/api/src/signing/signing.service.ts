@@ -96,7 +96,7 @@ export class SigningService {
         : this.markFirstView(recipient.id, envelope.id, client),
     ]);
 
-    const notice = consented ? null : consentNoticeFor(envelope.jurisdictionCode);
+    const notice = consented ? null : consentNoticeFor(envelope.policySnapshot);
 
     return {
       envelopeTitle: envelope.title,
@@ -178,7 +178,7 @@ export class SigningService {
       return { consentGivenAt: recipient.consentGivenAt.toISOString() };
     }
 
-    const notice = consentNoticeFor(envelope.jurisdictionCode);
+    const notice = consentNoticeFor(envelope.policySnapshot);
     if (input.consentTextHash !== notice.hash) {
       this.logger.info('Consent refused: the notice changed after it was shown');
       throw new AppException(

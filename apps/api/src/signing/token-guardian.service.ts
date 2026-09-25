@@ -42,6 +42,7 @@ const ENVELOPE_FIELDS = {
   status: true,
   expiresAt: true,
   jurisdictionCode: true,
+  policySnapshot: true,
   title: true,
   pageCount: true,
   message: true,

@@ -1,4 +1,24 @@
-import type { FieldType, RecipientRole } from '@envelope/shared';
+import {
+  DOCUMENT_CATEGORY_LABEL,
+  type FieldType,
+  type RecipientRole,
+  type UserRole,
+} from '@envelope/shared';
+
+export { DOCUMENT_CATEGORY_LABEL };
+
+/** Settings → Users role wording (docs/17 step 6). Distinct from ROLE_LABEL, which is a recipient's role. */
+export const USER_ROLE_LABEL: Record<UserRole, string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  MEMBER: 'Member',
+};
+
+export const USER_ROLE_HINT: Record<UserRole, string> = {
+  OWNER: 'Manages users and the whole workspace',
+  ADMIN: 'Manages the whole workspace: any document, legal hold, audit export',
+  MEMBER: 'Manages only the documents they send',
+};
 
 /**
  * The words the product uses, in one place.

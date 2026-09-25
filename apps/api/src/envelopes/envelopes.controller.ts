@@ -1,6 +1,7 @@
 import {
   type CreateEnvelopeInput,
   createEnvelopeSchema,
+  DOCUMENT_CATEGORIES,
   ENVELOPE_STATUSES,
   ENVELOPE_VIEWS,
   type EnvelopeCounts,
@@ -41,6 +42,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { ownerScopeOf } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
 import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
@@ -90,6 +92,8 @@ export class EnvelopesController {
       properties: {
         file: { type: 'string', format: 'binary', description: 'PDF, at most 25 MB and 500 pages' },
         title: { type: 'string', maxLength: 200 },
+        documentCategory: { type: 'string', enum: [...DOCUMENT_CATEGORIES] },
+        jurisdictionCode: { type: 'string', description: "Overrides the tenant's default" },
       },
     },
   })
@@ -108,7 +112,7 @@ export class EnvelopesController {
   @Get('counts')
   @ApiOperation({ summary: 'How many envelopes each dashboard view holds' })
   counts(@CurrentUser() user: AuthenticatedUser): Promise<EnvelopeCounts> {
-    return this.envelopes.counts(user.tenantId);
+    return this.envelopes.counts(user.tenantId, ownerScopeOf(user));
   }
 
   @Get()
@@ -135,7 +139,7 @@ export class EnvelopesController {
     @Query(new ZodValidationPipe(listEnvelopesQuerySchema)) query: ListEnvelopesQuery,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<EnvelopeListResponse> {
-    return this.envelopes.list(query, user.tenantId);
+    return this.envelopes.list(query, user.tenantId, ownerScopeOf(user));
   }
 
   @Get(':id')
@@ -143,13 +147,15 @@ export class EnvelopesController {
   async get(
     @Param('id', UuidParamPipe) id: string,
     @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<EnvelopeDetail | undefined> {
     // Cheap to check on its own; a 304 answers the web's 15s poll (while an
     // envelope stays open) with no payload and none of the full detail's
     // queries (100M-row scale follow-up API pass, docs/16 step 14). Not
     // found here just means the full call below will say so.
-    const etag = await this.envelopes.getETag(id);
+    const scope = ownerScopeOf(user);
+    const etag = await this.envelopes.getETag(id, scope);
     if (etag) {
       // `no-cache`, despite the name, means the browser DOES cache this —
       // it just always revalidates with the server (sending If-None-Match)
@@ -160,7 +166,7 @@ export class EnvelopesController {
         return undefined;
       }
     }
-    return this.envelopes.get(id);
+    return this.envelopes.get(id, scope);
   }
 
   @Get(':id/events')

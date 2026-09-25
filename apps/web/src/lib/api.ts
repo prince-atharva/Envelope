@@ -1,6 +1,9 @@
 import {
+  type AcceptInviteInput,
   type AddRecipientInput,
+  type AuditExportDocument,
   type AuthResponse,
+  type ChangeUserRoleInput,
   type DraftRevisionResponse,
   type EnvelopeCounts,
   type EnvelopeDetail,
@@ -11,7 +14,12 @@ import {
   type ExtendEnvelopeInput,
   type ExtendEnvelopeResponse,
   type FieldInput,
+  type InvitationPreview,
+  type InviteUserInput,
+  type InviteUserResponse,
   isErrorCode,
+  type LegalHoldInput,
+  type LegalHoldResponse,
   type LoginInput,
   type ProblemDetails,
   type ProblemFieldError,
@@ -24,6 +32,7 @@ import {
   type SaveFieldsResponse,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
+  type TenantUser,
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
   type UserProfile,
@@ -298,6 +307,18 @@ export const api = {
     return session;
   },
 
+  invitationPreview: (token: string) =>
+    json<InvitationPreview>(`/auth/invitations/${encodeURIComponent(token)}`),
+
+  async acceptInvite(token: string, input: AcceptInviteInput): Promise<AuthResponse> {
+    const session = await json<AuthResponse>(
+      `/auth/invitations/${encodeURIComponent(token)}/accept`,
+      jsonBody(input),
+    );
+    setSession(session);
+    return session;
+  },
+
   async logout(): Promise<void> {
     try {
       await send('/auth/logout', { method: 'POST' });
@@ -328,9 +349,15 @@ export const api = {
     return res.arrayBuffer();
   },
 
-  uploadEnvelope(file: File, title: string | undefined, onProgress?: (fraction: number) => void) {
+  uploadEnvelope(
+    file: File,
+    title: string | undefined,
+    documentCategory: string,
+    onProgress?: (fraction: number) => void,
+  ) {
     const form = new FormData();
     if (title) form.append('title', title);
+    form.append('documentCategory', documentCategory);
     form.append('file', file);
     return upload<EnvelopeDetail>('/envelopes', form, onProgress);
   },
@@ -411,4 +438,39 @@ export const api = {
   /** Cancels a sent envelope (a reason is required), or discards a draft. */
   voidEnvelope: (id: string, input: VoidEnvelopeInput = {}) =>
     json<VoidEnvelopeResponse>(`/envelopes/${encodeURIComponent(id)}/void`, jsonBody(input)),
+
+  // ─── Compliance (docs/17) ───
+
+  placeLegalHold: (id: string, input: LegalHoldInput) =>
+    json<LegalHoldResponse>(
+      `/envelopes/${encodeURIComponent(id)}/legal-hold`,
+      jsonBody(input, 'POST'),
+    ),
+
+  releaseLegalHold: (id: string) =>
+    json<LegalHoldResponse>(`/envelopes/${encodeURIComponent(id)}/legal-hold`, {
+      method: 'DELETE',
+    }),
+
+  /** JSON is self-sufficient (re-verifiable offline); CSV is for reading. */
+  auditExport: async (id: string, format: 'json' | 'csv'): Promise<Blob> => {
+    const res = await apiFetch(`/envelopes/${encodeURIComponent(id)}/audit?format=${format}`);
+    return res.blob();
+  },
+
+  /** Same shape as the JSON export, for a caller that wants the parsed chain. */
+  auditExportJson: (id: string) =>
+    json<AuditExportDocument>(`/envelopes/${encodeURIComponent(id)}/audit?format=json`),
+
+  // ─── Settings → Users (OWNER only) ───
+
+  listUsers: () => json<TenantUser[]>('/users'),
+
+  inviteUser: (input: InviteUserInput) => json<InviteUserResponse>('/users', jsonBody(input)),
+
+  changeUserRole: (userId: string, input: ChangeUserRoleInput) =>
+    json<TenantUser>(`/users/${encodeURIComponent(userId)}/role`, jsonBody(input, 'PATCH')),
+
+  removeUser: (userId: string) =>
+    json<void>(`/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
 };

@@ -1,4 +1,4 @@
-import { MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
+import { DOCUMENT_CATEGORIES, MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { type DragEvent, type FormEvent, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -8,6 +8,7 @@ import { TextField } from '../components/ui/Field';
 import { api } from '../lib/api';
 import { describeError } from '../lib/errors';
 import { formatBytes } from '../lib/format';
+import { DOCUMENT_CATEGORY_LABEL } from '../lib/labels';
 import { useDocumentTitle } from '../lib/use-document-title';
 
 const PDF_SIGNATURE = '%PDF-';
@@ -34,8 +35,11 @@ export function NewEnvelopePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const inputId = useId();
+  const categoryId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
+  const [documentCategory, setDocumentCategory] =
+    useState<(typeof DOCUMENT_CATEGORIES)[number]>('COMMERCIAL_CONTRACT');
   const [dragging, setDragging] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
@@ -70,10 +74,15 @@ export function NewEnvelopePage() {
     setPhase('uploading');
     setProgress(0);
     try {
-      const envelope = await api.uploadEnvelope(file, title.trim() || undefined, (fraction) => {
-        setProgress(fraction);
-        if (fraction >= 1) setPhase('processing');
-      });
+      const envelope = await api.uploadEnvelope(
+        file,
+        title.trim() || undefined,
+        documentCategory,
+        (fraction) => {
+          setProgress(fraction);
+          if (fraction >= 1) setPhase('processing');
+        },
+      );
       await queryClient.invalidateQueries({ queryKey: ['envelopes'] });
       await navigate(`/dashboard/envelopes/${envelope.id}`);
     } catch (caught) {
@@ -157,15 +166,41 @@ export function NewEnvelopePage() {
         </label>
 
         {file && (
-          <TextField
-            label="Document title"
-            name="title"
-            maxLength={200}
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            hint="Shown in your document list. Defaults to the file name."
-            disabled={busy}
-          />
+          <>
+            <TextField
+              label="Document title"
+              name="title"
+              maxLength={200}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              hint="Shown in your document list. Defaults to the file name."
+              disabled={busy}
+            />
+            <div className="space-y-1">
+              <label htmlFor={categoryId} className="block text-sm font-medium text-slate-800">
+                Document category
+              </label>
+              <select
+                id={categoryId}
+                value={documentCategory}
+                disabled={busy}
+                onChange={(event) =>
+                  setDocumentCategory(event.target.value as (typeof DOCUMENT_CATEGORIES)[number])
+                }
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              >
+                {DOCUMENT_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {DOCUMENT_CATEGORY_LABEL[category]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">
+                Some document types cannot be signed electronically in every jurisdiction — this is
+                checked before your document is stored.
+              </p>
+            </div>
+          </>
         )}
 
         {busy && (

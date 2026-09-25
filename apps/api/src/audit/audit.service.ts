@@ -59,7 +59,17 @@ export type AuditAction =
   | 'ENVELOPE_EXTENDED'
   | 'EXTENSION_REQUESTED'
   | 'REMINDERS_CHANGED'
-  | 'REMINDER_SCHEDULED';
+  | 'REMINDER_SCHEDULED'
+  // Compliance (Phase 6, docs/17). User management (invite, role change,
+  // remove) is deliberately NOT here: AuditTrail.envelopeId is a NOT NULL
+  // foreign key to one document's evidence chain, and a tenant-admin action
+  // has no envelope to attach to. Those are structured Pino logs instead
+  // (users/users.service.ts) — a real constraint, not an oversight.
+  | 'LEGAL_HOLD_PLACED'
+  | 'LEGAL_HOLD_RELEASED'
+  | 'ENVELOPE_PURGED'
+  | 'AUDIT_EXPORTED'
+  | 'DOWNLOAD_LINK_RENEWED';
 
 /** Recorded on events the system itself causes, with no client behind them. */
 export const SYSTEM_ACTOR = { ipAddress: 'system', userAgent: 'envelope-worker' } as const;

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import {
   type CreateEnvelopeInput,
+  DRAFT_RETENTION_DAYS,
   type EnvelopeCounts,
   type EnvelopeDetail,
   type EnvelopeEventsResponse,
@@ -10,13 +11,16 @@ import {
   type ListEnvelopeEventsQuery,
   type ListEnvelopesQuery,
   OPEN_ENVELOPE_STATUSES,
+  type PolicySnapshot,
+  VOIDED_RETENTION_DAYS,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
-import type { Envelope, Recipient } from '../generated/prisma/client';
+import { JurisdictionService } from '../compliance/jurisdiction.service';
+import type { Envelope, Prisma, Recipient } from '../generated/prisma/client';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 import { envelopeDocumentKey, StorageService } from '../storage/storage.service';
 import { PdfValidatorService } from '../uploads/pdf-validator.service';
@@ -105,6 +109,41 @@ function decodeEventsCursor(cursor: string): number {
   return sequence;
 }
 
+const DAY_MS = 24 * 3600 * 1000;
+
+/**
+ * When the retention sweeper would remove this envelope's storage objects,
+ * absent a legal hold (docs/17 step 8). Computed at read time from status,
+ * timestamps and the frozen policy, rather than kept in a column that a
+ * draft edit would need to remember to update — the sweeper computes the
+ * same cutoffs itself, in SQL, against its own working-set index.
+ */
+function retentionDueAt(envelope: {
+  status: string;
+  updatedAt: Date;
+  completedAt: Date | null;
+  policySnapshot: unknown;
+}): string | null {
+  switch (envelope.status) {
+    case 'DRAFT':
+    case 'VOIDED':
+    case 'DECLINED': {
+      const days = envelope.status === 'DRAFT' ? DRAFT_RETENTION_DAYS : VOIDED_RETENTION_DAYS;
+      return new Date(envelope.updatedAt.getTime() + days * DAY_MS).toISOString();
+    }
+    case 'COMPLETED': {
+      if (!envelope.completedAt) return null;
+      const snapshot = envelope.policySnapshot as Partial<PolicySnapshot> | null;
+      const due = new Date(envelope.completedAt);
+      due.setFullYear(due.getFullYear() + (snapshot?.retentionYears ?? 7));
+      return due.toISOString();
+    }
+    default:
+      // Open work is never retention-eligible.
+      return null;
+  }
+}
+
 /** What a list row needs from the envelope itself, for toSummary/progressOf. */
 const LIST_FIELDS = {
   id: true,
@@ -117,6 +156,8 @@ const LIST_FIELDS = {
   expiresAt: true,
   sentAt: true,
   completedAt: true,
+  ownerId: true,
+  legalHoldAt: true,
 } as const;
 
 type ListRow = Pick<Envelope, keyof typeof LIST_FIELDS>;
@@ -135,6 +176,7 @@ function toSummary(
     updatedAt: envelope.updatedAt.toISOString(),
     expiresAt: envelope.expiresAt?.toISOString() ?? null,
     progress: progressOf(envelope, recipients),
+    legalHoldAt: envelope.legalHoldAt?.toISOString() ?? null,
   };
 }
 
@@ -156,6 +198,7 @@ export class EnvelopesService {
     private readonly storage: StorageService,
     private readonly validator: PdfValidatorService,
     private readonly audit: AuditService,
+    private readonly jurisdiction: JurisdictionService,
     @InjectPinoLogger(EnvelopesService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -175,6 +218,12 @@ export class EnvelopesService {
     client: ClientInfo,
   ): Promise<EnvelopeDetail> {
     const started = performance.now();
+    // Resolved and checked before anything is stored (docs/07: a blocked
+    // category is rejected "so the sender understands why", not after a
+    // wasted upload). The snapshot, once frozen below, never changes again.
+    const policy = await this.jurisdiction.resolveForTenant(user.tenantId, input.jurisdictionCode);
+    this.jurisdiction.assertCategoryAllowed(policy, input.documentCategory);
+
     const pdf = await this.validator.validate(upload.buffer);
 
     const envelopeId = randomUUID();
@@ -197,6 +246,13 @@ export class EnvelopesService {
             originalFilename,
             pageCount: pdf.pageCount,
             originalHash: pdf.sha256,
+            documentCategory: input.documentCategory,
+            jurisdictionCode: policy.code,
+            // PolicySnapshot is a plain, JSON-safe interface; Prisma's Json
+            // input type just needs an index signature, which a named
+            // interface never structurally has.
+            policySnapshot: policy as unknown as Prisma.InputJsonObject,
+            policyVersion: policy.version,
           },
         });
         await tx.documentVersion.create({
@@ -224,6 +280,9 @@ export class EnvelopesService {
             removedActiveContent: pdf.removed,
             upload: { sha256: pdf.original.sha256, sizeBytes: pdf.original.sizeBytes },
             malwareScan: pdf.scanEngine,
+            documentCategory: input.documentCategory,
+            jurisdictionCode: policy.code,
+            policyVersion: policy.version,
           },
         });
       });
@@ -253,15 +312,22 @@ export class EnvelopesService {
   /**
    * One page of a dashboard view (docs/16 step 14). Needs attention is ranked
    * in SQL; every other view is newest first, with an opaque cursor.
+   *
+   * `ownerId` is set only for a MEMBER (docs/17 step 5): every view is then
+   * scoped to envelopes they own, exactly as if the tenant held only those.
    */
-  async list(query: ListEnvelopesQuery, tenantId: string): Promise<EnvelopeListResponse> {
-    if (query.view === 'attention') return this.listAttention(query, tenantId);
+  async list(
+    query: ListEnvelopesQuery,
+    tenantId: string,
+    ownerId?: string,
+  ): Promise<EnvelopeListResponse> {
+    if (query.view === 'attention') return this.listAttention(query, tenantId, ownerId);
 
     const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
     const rows: WithProgressRecipients[] = await this.db.envelope.findMany({
       where: {
         AND: [
-          viewWhere(query.view, query.status),
+          viewWhere(query.view, query.status, ownerId),
           cursor
             ? {
                 // The plain <= bound gives the planner an index range scan on
@@ -296,11 +362,12 @@ export class EnvelopesService {
   private async listAttention(
     query: ListEnvelopesQuery,
     tenantId: string,
+    ownerId?: string,
   ): Promise<EnvelopeListResponse> {
     const after = query.cursor ? decodeAttentionCursor(query.cursor) : undefined;
     const now = after?.at ?? new Date();
     const rows = await this.db.$queryRaw<{ id: string; rank: number; since: Date }[]>(
-      attentionPageQuery(tenantId, now, query.limit + 1, query.status, after),
+      attentionPageQuery(tenantId, now, query.limit + 1, query.status, after, ownerId),
     );
     const page = rows.slice(0, query.limit);
     // Through the tenant filter as well, so a row can only ever be this tenant's.
@@ -335,7 +402,14 @@ export class EnvelopesService {
    * tenant size. Only Needs-attention still costs a scan, and only of the
    * tenant's open work (100M-row scale follow-up, docs/16 step 14).
    */
-  async counts(tenantId: string): Promise<EnvelopeCounts> {
+  async counts(tenantId: string, ownerId?: string): Promise<EnvelopeCounts> {
+    // A MEMBER's counts are their own only (docs/17 step 5). TenantEnvelopeCount
+    // is tenant-wide, not per-owner, so a MEMBER's counts come from a live
+    // query instead — bounded by what one person sends, not by tenant size,
+    // so it costs nothing like the tenant-wide scan this denormalisation
+    // exists to avoid (100M-row scale follow-up, docs/16 step 14).
+    if (ownerId) return this.countsForOwner(tenantId, ownerId);
+
     // tenantEnvelopeCount is not one of the tenant-scoped models the Prisma
     // extension filters automatically, so the tenantId is always explicit.
     const [statusRows, [attentionRow]] = await Promise.all([
@@ -358,6 +432,26 @@ export class EnvelopesService {
     };
   }
 
+  private async countsForOwner(tenantId: string, ownerId: string): Promise<EnvelopeCounts> {
+    const [statusRows, [attentionRow]] = await Promise.all([
+      this.db.envelope.groupBy({ by: ['status'], where: { ownerId }, _count: { _all: true } }),
+      this.db.$queryRaw<{ attention: number }[]>(
+        attentionCountQuery(tenantId, new Date(), ownerId),
+      ),
+    ]);
+    const countOf = new Map(statusRows.map((row) => [row.status, row._count._all]));
+    const get = (status: (typeof statusRows)[number]['status']) => countOf.get(status) ?? 0;
+    return {
+      attention: attentionRow?.attention ?? 0,
+      waiting:
+        OPEN_ENVELOPE_STATUSES.reduce((sum, status) => sum + get(status), 0) + get('EXPIRED'),
+      completed: get('COMPLETED'),
+      cancelled: get('VOIDED') + get('DECLINED'),
+      drafts: get('DRAFT'),
+      all: statusRows.reduce((sum, row) => sum + row._count._all, 0),
+    };
+  }
+
   /**
    * For GET /envelopes/:id's ETag, so the web's 15s poll while an envelope
    * is open costs one round trip and (on a 304) no payload, instead of the
@@ -370,16 +464,18 @@ export class EnvelopesService {
    * Null when the envelope does not exist, so the caller falls through to
    * get()'s own NOT_FOUND rather than this duplicating it.
    */
-  async getETag(id: string): Promise<string | null> {
+  async getETag(id: string, ownerId?: string): Promise<string | null> {
     const [envelope, agg] = await Promise.all([
-      this.db.envelope.findUnique({ where: { id }, select: { updatedAt: true } }),
+      this.db.envelope.findUnique({ where: { id }, select: { updatedAt: true, ownerId: true } }),
       this.db.auditTrail.aggregate({ where: { envelopeId: id }, _max: { sequence: true } }),
     ]);
-    if (!envelope) return null;
+    // A mismatch here reads exactly like "not found", to get() below: a
+    // MEMBER viewing an envelope they don't own (docs/17 step 5).
+    if (!envelope || (ownerId && envelope.ownerId !== ownerId)) return null;
     return `"${id}:${agg._max.sequence ?? 0}:${envelope.updatedAt.getTime()}"`;
   }
 
-  async get(id: string): Promise<EnvelopeDetail> {
+  async get(id: string, ownerId?: string): Promise<EnvelopeDetail> {
     // Selected, not included: full rows carry consentText (the whole
     // disclosure text), audit metadata/userAgent JSON and field.value, none
     // of which the response below reads. Run alongside the COMPLETION_SENT
@@ -399,8 +495,15 @@ export class EnvelopesService {
           expiredAt: true,
           voidedAt: true,
           voidReason: true,
+          documentCategory: true,
+          jurisdictionCode: true,
+          policySnapshot: true,
+          policyVersion: true,
+          legalHoldReason: true,
+          purgedAt: true,
           owner: { select: { id: true, fullName: true } },
           voidedBy: { select: { id: true, fullName: true } },
+          legalHoldBy: { select: { id: true, fullName: true } },
           versions: {
             orderBy: { versionNumber: 'asc' },
             select: {
@@ -472,6 +575,12 @@ export class EnvelopesService {
       this.db.auditTrail.aggregate({ where: { envelopeId: id }, _max: { sequence: true } }),
     ]);
     if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
+    // A MEMBER viewing an envelope they don't own reads exactly like "not
+    // found" (docs/17 step 5) — matching getETag() above, so a 304 and a 200
+    // never disagree about whether the envelope is visible at all.
+    if (ownerId && envelope.ownerId !== ownerId) {
+      throw new AppException('NOT_FOUND', 'Envelope not found.');
+    }
 
     const copySentAt = (recipientId: string | null) =>
       copies.find((copy) => copy.recipientId === recipientId)?.timestamp.toISOString() ?? null;
@@ -493,6 +602,14 @@ export class EnvelopesService {
       voidedAt: envelope.voidedAt?.toISOString() ?? null,
       voidReason: envelope.voidReason,
       voidedBy: envelope.voidedBy,
+      documentCategory: envelope.documentCategory as EnvelopeDetail['documentCategory'],
+      jurisdictionCode: envelope.jurisdictionCode,
+      policyVersion: envelope.policyVersion,
+      legalHoldAt: envelope.legalHoldAt?.toISOString() ?? null,
+      legalHoldReason: envelope.legalHoldReason,
+      legalHoldBy: envelope.legalHoldBy,
+      retentionDueAt: retentionDueAt(envelope),
+      purgedAt: envelope.purgedAt?.toISOString() ?? null,
       recipients: envelope.recipients.map((recipient) => ({
         id: recipient.id,
         name: recipient.name,
@@ -594,6 +711,7 @@ export class EnvelopesService {
       where: { id },
       select: {
         originalFilename: true,
+        purgedAt: true,
         versions: {
           where: { versionNumber },
           select: {
@@ -608,6 +726,12 @@ export class EnvelopesService {
     });
     const version = envelope?.versions[0];
     if (!envelope || !version) throw new AppException('NOT_FOUND', 'Document not found.');
+    if (envelope.purgedAt) {
+      throw new AppException(
+        'ENVELOPE_PURGED',
+        'This document has passed its retention period and its file has been removed.',
+      );
+    }
     return { envelope, version };
   }
 
