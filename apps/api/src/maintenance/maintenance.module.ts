@@ -8,8 +8,9 @@ import { MaintenanceProcessor } from './maintenance.processor';
 import { MaintenanceScheduler } from './maintenance.scheduler';
 import { RetentionService } from './retention.service';
 import { SessionCleanupService } from './session-cleanup.service';
+import { WebhookDeliveryPurgeService } from './webhook-delivery-purge.service';
 
-/** Imported by the worker: scheduled housekeeping (docs/16 step 6, docs/17 step 8). */
+/** Imported by the worker: scheduled housekeeping (docs/16 step 6, docs/17 step 8, docs/18). */
 @Module({
   imports: [MailProducerModule, WebhookProducerModule],
   providers: [
@@ -20,6 +21,7 @@ import { SessionCleanupService } from './session-cleanup.service';
     AuditChainCheckService,
     SessionCleanupService,
     RetentionService,
+    WebhookDeliveryPurgeService,
   ],
   exports: [
     ExpirySweepService,
@@ -27,6 +29,7 @@ import { SessionCleanupService } from './session-cleanup.service';
     AuditChainCheckService,
     SessionCleanupService,
     RetentionService,
+    WebhookDeliveryPurgeService,
   ],
 })
 export class MaintenanceWorkerModule {}

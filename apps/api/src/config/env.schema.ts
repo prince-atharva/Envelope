@@ -190,6 +190,12 @@ export const envSchema = z
      */
     RETENTION_SWEEP_CRON: z.string().trim().min(9).default('0 3 * * *'),
     /**
+     * When the webhook-delivery purge runs: a cron pattern, in UTC (docs/18).
+     * Removes WebhookDelivery rows past the 7-day retention docs/08
+     * documents for failed deliveries, applied to every status.
+     */
+    WEBHOOK_DELIVERY_PURGE_CRON: z.string().trim().min(9).default('30 3 * * *'),
+    /**
      * Where urgent problems are emailed (docs/16 step 11). Unset: alerts are
      * only logged, with `alert: true`.
      */

@@ -12,9 +12,11 @@ import {
   EXPIRY_SWEEP_JOB,
   RETENTION_SWEEP_JOB,
   SESSION_CLEANUP_JOB,
+  WEBHOOK_DELIVERY_PURGE_JOB,
 } from './maintenance.scheduler';
 import { RetentionService } from './retention.service';
 import { SessionCleanupService } from './session-cleanup.service';
+import { WebhookDeliveryPurgeService } from './webhook-delivery-purge.service';
 
 /**
  * Worker side of the scheduled jobs, one at a time. Each run logs one summary
@@ -28,6 +30,7 @@ export class MaintenanceProcessor extends WorkerHost {
     private readonly chainCheck: AuditChainCheckService,
     private readonly sessionCleanup: SessionCleanupService,
     private readonly retention: RetentionService,
+    private readonly webhookDeliveryPurge: WebhookDeliveryPurgeService,
     private readonly alerts: AlertService,
     @InjectPinoLogger(MaintenanceProcessor.name) private readonly logger: PinoLogger,
   ) {
@@ -46,6 +49,8 @@ export class MaintenanceProcessor extends WorkerHost {
         return this.sessionCleanup.run();
       case RETENTION_SWEEP_JOB:
         return this.retention.run();
+      case WEBHOOK_DELIVERY_PURGE_JOB:
+        return this.webhookDeliveryPurge.run();
       default:
         throw new Error(`Unknown maintenance job "${name}"`);
     }

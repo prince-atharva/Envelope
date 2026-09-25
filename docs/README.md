@@ -14,10 +14,11 @@
 > **Phase 6** (docs/17) covers compliance: jurisdiction policy frozen at creation, blocked document
 > categories, roles, legal hold, retention and audit export.
 >
-> **The HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is **Phase 6b**. It still
-> has no documents in this folder — it needs its own design pass before it is built, the same way
-> every other phase had a plan written before code. An earlier index linked to a
-> `healthprohub-integration-and-dual-mode/` folder that was never written; those links are removed.
+> **The HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is **Phase 6b**.
+> [docs/18](18-phase-6b-integration-foundation-plan.md) covers its foundation slice — API keys and
+> webhooks — built the same way every other phase had a plan written before code. The embed SDK,
+> delegation, in-person signing and self-serve multi-partner onboarding remain undesigned, pending
+> their own plan.
 
 ---
 
@@ -84,6 +85,8 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 14 | [phase-3-signer-portal-plan](14-phase-3-signer-portal-plan.md) | What does Phase 3 deliver, and how does a signer open, sign and finish? |
 | 15 | [phase-4-sealing-engine-plan](15-phase-4-sealing-engine-plan.md) | What does Phase 4 deliver, and how is a signed document stamped, sealed and verified? |
 | 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
+| 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
+| 18 | [phase-6b-integration-foundation-plan](18-phase-6b-integration-foundation-plan.md) | What does Phase 6b's foundation deliver: API keys and webhooks for a third-party integration? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12

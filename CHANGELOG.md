@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Phase 6b (foundation): API keys and webhooks.** A tenant can create a server-to-server API key
+  (shown once, HMAC-hashed, revocable, optionally read-only) to create, edit and send envelopes
+  programmatically, and register a webhook endpoint to receive HMAC-signed notifications for 8 of
+  the 9 documented event types as an envelope moves through its lifecycle — `envelope.delivered` is
+  reserved but not fired, since the platform's SMTP transport cannot confirm real delivery. Failed
+  deliveries retry on a 10s/1m/5m/30m/2h/12h schedule, stay redrivable for 7 days, and are purged
+  after. See [docs/18-phase-6b-integration-foundation-plan.md](docs/18-phase-6b-integration-foundation-plan.md)
+  and [ADR 0015](docs/adr/0015-api-keys-and-webhook-secrets-use-different-storage.md). Signing itself
+  is unchanged: a signer always finishes on Envelope's own hosted web app.
+
 ## [0.6.0] - 2026-09-25
 
 Phase 6 (Compliance): jurisdiction policy frozen at envelope creation, blocked document categories,
