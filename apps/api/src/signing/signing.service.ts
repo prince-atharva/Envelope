@@ -25,6 +25,7 @@ import { lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { SealQueueService } from '../sealing/seal-queue.service';
 import { StorageService, signatureImageKey } from '../storage/storage.service';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 import { CONSENT_TEXT_IS_DRAFT, consentNoticeFor } from './consent-text';
 import { resolveFieldValues } from './field-values';
 import { parseSignatureImage } from './signature-image';
@@ -71,6 +72,7 @@ export class SigningService {
     private readonly storage: StorageService,
     private readonly mail: MailQueueService,
     private readonly seals: SealQueueService,
+    private readonly webhooks: WebhookQueueService,
     @InjectPinoLogger(SigningService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -93,7 +95,7 @@ export class SigningService {
       this.markSeen(recipient.id),
       recipient.viewedAt
         ? Promise.resolve()
-        : this.markFirstView(recipient.id, envelope.id, client),
+        : this.markFirstView(recipient.id, envelope.id, envelope.tenantId, client),
     ]);
 
     const notice = consented ? null : consentNoticeFor(envelope.policySnapshot);
@@ -199,7 +201,7 @@ export class SigningService {
           where: { id: recipient.id },
           select: { consentGivenAt: true },
         });
-        return current.consentGivenAt ?? now;
+        return { consentGivenAt: current.consentGivenAt ?? now, fresh: false };
       }
       await this.audit.record(tx, {
         envelopeId: envelope.id,
@@ -213,15 +215,23 @@ export class SigningService {
           draftText: CONSENT_TEXT_IS_DRAFT,
         },
       });
-      return now;
+      return { consentGivenAt: now, fresh: true };
     });
     if (!given) {
       await this.guardian.resolve(rawToken); // Throws the reason: closed or expired.
       throw new AppException('CONFLICT', 'Please reload and try again.');
     }
+    if (given.fresh) {
+      await this.webhooks.enqueue(envelope.tenantId, 'recipient.consented', {
+        envelopeId: envelope.id,
+        recipientId: recipient.id,
+        recipientEmail: recipient.email,
+        consentGivenAt: given.consentGivenAt.toISOString(),
+      });
+    }
 
     this.logger.info({ draftText: CONSENT_TEXT_IS_DRAFT }, 'Signer agreed to sign electronically');
-    return { consentGivenAt: given.toISOString() };
+    return { consentGivenAt: given.consentGivenAt.toISOString() };
   }
 
   /**
@@ -438,6 +448,14 @@ export class SigningService {
       throw new AppException('CONFLICT', 'Please reload and try again.');
     }
 
+    await this.webhooks.enqueue(envelope.tenantId, 'recipient.signed', {
+      envelopeId: envelope.id,
+      recipientId: recipient.id,
+      recipientEmail: recipient.email,
+      signedAt: signedAt.toISOString(),
+      envelopeStatus: 'PARTIALLY_SIGNED',
+    });
+
     // The worker stamps the signature into the next version and then, one after
     // another, invites whoever is next (ADR 0006).
     try {
@@ -517,6 +535,14 @@ export class SigningService {
       throw new AppException('CONFLICT', 'Please reload and try again.');
     }
 
+    await this.webhooks.enqueue(envelope.tenantId, 'recipient.declined', {
+      envelopeId: envelope.id,
+      recipientId: recipient.id,
+      recipientEmail: recipient.email,
+      declinedAt: declinedAt.toISOString(),
+      envelopeStatus: 'DECLINED',
+    });
+
     this.logger.info({ reasonLength: input.reason.length }, 'Recipient declined; envelope closed');
     try {
       await this.mail.enqueueDeclinedNotice(envelope.id, recipient.id);
@@ -583,15 +609,16 @@ export class SigningService {
   private async markFirstView(
     recipientId: string,
     envelopeId: string,
+    tenantId: string,
     client: ClientInfo,
   ): Promise<void> {
     const now = new Date();
-    await this.prisma.$transaction(async (tx) => {
+    const fired = await this.prisma.$transaction(async (tx) => {
       const first = await tx.recipient.updateMany({
         where: { id: recipientId, viewedAt: null },
         data: { viewedAt: now },
       });
-      if (first.count === 0) return; // Another tab got here first.
+      if (first.count === 0) return false; // Another tab got here first.
       await tx.recipient.updateMany({
         where: { id: recipientId, status: { in: ['SENT', 'DELIVERED'] } },
         data: { status: 'VIEWED' },
@@ -603,7 +630,15 @@ export class SigningService {
         ipAddress: client.ip,
         userAgent: client.userAgent,
       });
+      return true;
     });
+    if (fired) {
+      await this.webhooks.enqueue(tenantId, 'envelope.viewed', {
+        envelopeId,
+        recipientId,
+        viewedAt: now.toISOString(),
+      });
+    }
     this.logger.info('Signer opened the envelope for the first time');
   }
 

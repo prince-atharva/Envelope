@@ -5,6 +5,7 @@ import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 
 /** Envelopes paused per run. Any more wait for the next run, a few minutes later. */
 const SWEEP_BATCH = 200;
@@ -19,7 +20,7 @@ export interface SweepResult {
 }
 
 type Outcome =
-  | { expired: true; expiredAt: Date; unsigned: number }
+  | { expired: true; expiredAt: Date; unsigned: number; tenantId: string }
   | { expired: false; reason: string };
 
 /**
@@ -35,6 +36,7 @@ export class ExpirySweepService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly mail: MailQueueService,
+    private readonly webhooks: WebhookQueueService,
     @InjectPinoLogger(ExpirySweepService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -69,6 +71,12 @@ export class ExpirySweepService {
         changed += 1;
         this.logger.info({ envelopeId: id, unsigned: outcome.unsigned }, 'Envelope expired');
         await this.notifySender(id, outcome.expiredAt);
+        await this.webhooks.enqueue(outcome.tenantId, 'envelope.expired', {
+          envelopeId: id,
+          envelopeStatus: 'EXPIRED',
+          expiredAt: outcome.expiredAt.toISOString(),
+          unsigned: outcome.unsigned,
+        });
       } catch (error) {
         failed += 1;
         this.logger.error({ err: error, envelopeId: id }, 'Envelope could not be expired');
@@ -87,7 +95,7 @@ export class ExpirySweepService {
       // the candidates were listed.
       const envelope = await tx.envelope.findUnique({
         where: { id: envelopeId },
-        select: { expiresAt: true },
+        select: { expiresAt: true, tenantId: true },
       });
       if (!envelope?.expiresAt || envelope.expiresAt > now) {
         return { expired: false, reason: 'deadline moved' };
@@ -113,7 +121,7 @@ export class ExpirySweepService {
         ...SYSTEM_ACTOR,
         metadata: { unsigned, fromStatus: status },
       });
-      return { expired: true, expiredAt: now, unsigned };
+      return { expired: true, expiredAt: now, unsigned, tenantId: envelope.tenantId };
     });
   }
 

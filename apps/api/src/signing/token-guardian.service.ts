@@ -22,6 +22,7 @@ import { hashSigningToken, tokenRef } from './signing-token';
 /** Every field any handler in signing.service.ts reads off a resolved signer. */
 const RECIPIENT_FIELDS = {
   id: true,
+  email: true,
   status: true,
   tokenUsedAt: true,
   tokenExpiresAt: true,

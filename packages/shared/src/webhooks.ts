@@ -87,6 +87,8 @@ export interface WebhookDeliverySummary {
   id: string;
   eventId: string;
   eventType: WebhookEventType;
+  /** The event payload's `data` object, exactly as sent (or as it will be sent). */
+  data: Record<string, unknown>;
   status: WebhookDeliveryStatus;
   attempts: number;
   lastAttemptAt: string | null;

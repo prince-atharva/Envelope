@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MailProducerModule } from '../mail/mail.module';
+import { WebhookProducerModule } from '../webhooks/webhooks.module';
 import { PdfSealingService } from './pdf-sealing.service';
 import { SealProcessor } from './seal.processor';
 import { SealQueueService } from './seal-queue.service';
@@ -17,7 +18,7 @@ export class SealProducerModule {}
  * queues the next signer's invitation, so it needs the mail producer too.
  */
 @Module({
-  imports: [MailProducerModule],
+  imports: [MailProducerModule, WebhookProducerModule],
   providers: [SealProcessor, SealingService, PdfSealingService],
   exports: [SealingService],
 })

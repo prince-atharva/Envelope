@@ -21,6 +21,7 @@ import { AppConfig } from '../config/app-config';
 import { toFieldInfo, toRecipientInfo } from '../drafts/draft-mappers';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -54,6 +55,7 @@ export class SendingService {
     private readonly tenantPrisma: TenantPrismaService,
     private readonly audit: AuditService,
     private readonly mail: MailQueueService,
+    private readonly webhooks: WebhookQueueService,
     private readonly config: AppConfig,
     @InjectPinoLogger(SendingService.name) private readonly logger: PinoLogger,
   ) {}
@@ -153,6 +155,14 @@ export class SendingService {
     });
 
     await this.enqueueInvitations(envelopeId, invited, sentAt);
+    await this.webhooks.enqueue(user.tenantId, 'envelope.sent', {
+      envelopeId,
+      envelopeStatus: 'SENT',
+      sentAt: sentAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      recipientCount,
+      invitedCount: invited.length,
+    });
 
     this.logger.info(
       {

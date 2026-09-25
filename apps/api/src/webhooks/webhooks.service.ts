@@ -40,10 +40,12 @@ function toEndpointSummary(endpoint: WebhookEndpoint): WebhookEndpointSummary {
 }
 
 function toDeliverySummary(delivery: WebhookDelivery): WebhookDeliverySummary {
+  const payload = delivery.payload as { data?: Record<string, unknown> } | null;
   return {
     id: delivery.id,
     eventId: delivery.eventId,
     eventType: delivery.eventType as WebhookEventType,
+    data: payload?.data ?? {},
     status: delivery.status,
     attempts: delivery.attempts,
     lastAttemptAt: delivery.lastAttemptAt?.toISOString() ?? null,

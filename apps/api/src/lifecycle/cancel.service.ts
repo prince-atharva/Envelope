@@ -13,6 +13,7 @@ import { AppException } from '../common/errors/app-exception';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 
 /**
  * Cancelling a sent envelope, or discarding a draft (docs/16 step 4).
@@ -28,6 +29,7 @@ export class CancelService {
     private readonly tenantPrisma: TenantPrismaService,
     private readonly audit: AuditService,
     private readonly mail: MailQueueService,
+    private readonly webhooks: WebhookQueueService,
     @InjectPinoLogger(CancelService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -112,6 +114,13 @@ export class CancelService {
         'Cancellation notices could not be queued',
       );
     }
+
+    await this.webhooks.enqueue(user.tenantId, 'envelope.voided', {
+      envelopeId,
+      envelopeStatus: 'VOIDED',
+      voidedAt: voidedAt.toISOString(),
+      fromStatus,
+    });
 
     const discarded = fromStatus === 'DRAFT';
     this.logger.info(

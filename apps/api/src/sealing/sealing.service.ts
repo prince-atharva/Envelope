@@ -14,6 +14,7 @@ import { MailQueueService } from '../mail/mail-queue.service';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService, sealedVersionKey, signedVersionKey } from '../storage/storage.service';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 import type { CertificateData } from './certificate';
 import { PdfSealingService, type StampField, type StampImages } from './pdf-sealing.service';
 
@@ -93,6 +94,7 @@ export class SealingService {
     private readonly pdf: PdfSealingService,
     private readonly audit: AuditService,
     private readonly mail: MailQueueService,
+    private readonly webhooks: WebhookQueueService,
     @InjectPinoLogger(SealingService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -388,7 +390,7 @@ export class SealingService {
     const source = await bytesOf((await this.storage.get(latest.fileUrl)).body);
     const result = await this.pdf.appendCertificate(source, data);
 
-    return this.prisma.$transaction(
+    const sealResult = await this.prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`seal:${envelopeId}`}, 0))`;
 
@@ -476,6 +478,17 @@ export class SealingService {
       },
       { timeout: ROUND_TIMEOUT_MS, maxWait: 15_000 },
     );
+
+    if (sealResult.kind === 'sealed') {
+      await this.webhooks.enqueue(envelope.tenantId, 'envelope.completed', {
+        envelopeId,
+        envelopeStatus: 'COMPLETED',
+        completedAt: new Date().toISOString(),
+        finalVersionNumber: sealResult.versionNumber,
+        finalHash: sealResult.sha256,
+      });
+    }
+    return sealResult;
   }
 
   /** What the certificate prints, taken from the records only (never the clock). */
