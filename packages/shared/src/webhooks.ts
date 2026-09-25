@@ -72,6 +72,11 @@ export interface CreateWebhookEndpointResponse {
   rawSecret: string;
 }
 
+export const listWebhookDeliveriesQuerySchema = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+export type ListWebhookDeliveriesQuery = z.infer<typeof listWebhookDeliveriesQuerySchema>;
+
 export type WebhookDeliveryStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXHAUSTED';
 
 export interface WebhookDeliverySummary {

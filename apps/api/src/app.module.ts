@@ -27,6 +27,7 @@ import { SigningModule } from './signing/signing.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 import { VerifyModule } from './verify/verify.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { VerifyModule } from './verify/verify.module';
     HealthModule,
     ClientLogsModule,
     UsersModule,
+    WebhooksModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },
