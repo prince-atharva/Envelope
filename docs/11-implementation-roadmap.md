@@ -215,8 +215,9 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 > "needs attention" dashboard, the nightly audit-chain check with alerts, and rate limits in Redis
 > on every route. Phase 6, Compliance (docs/17), is built: jurisdiction policy frozen at creation,
 > blocked document categories, roles enforced, legal hold, a retention sweeper, audit export, and
-> the cross-tenant isolation suite. Phase 6b (integrations — API keys, webhooks, delegation,
-> in-person signing, the HealthProHub embed SDK) and Phase 7 (launch readiness) cover the rest.
+> the cross-tenant isolation suite. Phase 6b's foundation (docs/18) is built: tenant-scoped API keys
+> and outbound webhooks for a first integration partner. Its embed SDK, delegation and in-person
+> signing, plus Phase 7 (launch readiness), remain.
 
 - [x] Parallel routing alongside sequential
 - [x] Reminder scheduler and expiry sweeper

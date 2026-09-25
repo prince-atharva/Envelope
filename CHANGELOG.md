@@ -6,17 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-26
+
+Phase 6b (foundation): tenant-scoped API keys and outbound webhooks, so a first integration partner
+(HealthProHub) can create and send envelopes programmatically and learn about status changes
+without polling — the embed SDK, delegation, in-person signing and self-serve multi-partner
+onboarding remain a later phase. See
+[docs/18-phase-6b-integration-foundation-plan.md](docs/18-phase-6b-integration-foundation-plan.md)
+and [ADR 0015](docs/adr/0015-api-keys-and-webhook-secrets-use-different-storage.md).
+
 ### Added
 
-- **Phase 6b (foundation): API keys and webhooks.** A tenant can create a server-to-server API key
-  (shown once, HMAC-hashed, revocable, optionally read-only) to create, edit and send envelopes
-  programmatically, and register a webhook endpoint to receive HMAC-signed notifications for 8 of
-  the 9 documented event types as an envelope moves through its lifecycle — `envelope.delivered` is
-  reserved but not fired, since the platform's SMTP transport cannot confirm real delivery. Failed
-  deliveries retry on a 10s/1m/5m/30m/2h/12h schedule, stay redrivable for 7 days, and are purged
-  after. See [docs/18-phase-6b-integration-foundation-plan.md](docs/18-phase-6b-integration-foundation-plan.md)
-  and [ADR 0015](docs/adr/0015-api-keys-and-webhook-secrets-use-different-storage.md). Signing itself
-  is unchanged: a signer always finishes on Envelope's own hosted web app.
+- **API keys.** A tenant can create a server-to-server API key (shown once, HMAC-hashed, revocable,
+  optionally read-only) that authenticates as the tenant's own hidden service-account user — so
+  ownership checks need no special case and every envelope it creates belongs to the workspace, not
+  to whichever admin issued the key. Closed by default: only envelope create/upload, draft edits,
+  send and reads accept a key; everything else stays session-only.
+- **Webhooks.** A tenant registers an endpoint (`https://` and a public address only, re-checked at
+  every delivery) and gets a signing secret, shown once and AES-256-GCM encrypted at rest. Envelope
+  calls it with an HMAC-signed `POST` for 8 of the 9 documented event types — sent, viewed,
+  consented, signed, declined, completed, voided, expired — each fired after its own transaction
+  commits. Failed deliveries retry on the documented 10s/1m/5m/30m/2h/12h schedule, stay redrivable
+  for 7 days via `POST /v1/webhooks/:id/redrive`, and are purged nightly after that window.
+- `envelope.delivered` is reserved in the event contract but deliberately never fired: the platform
+  sends mail over SMTP, which cannot confirm a message reached an inbox. `envelope.sent` and
+  `envelope.viewed` are the signals a partner should use instead.
+- Signing itself is unchanged: a signer always finishes on Envelope's own hosted web app, reached by
+  the emailed link, not embedded in a partner's site.
 
 ## [0.6.0] - 2026-09-25
 
