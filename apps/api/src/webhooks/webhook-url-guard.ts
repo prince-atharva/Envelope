@@ -62,14 +62,27 @@ function isBlockedAddress(ip: string): boolean {
   return true;
 }
 
+export interface WebhookUrlCheckOptions {
+  /**
+   * Skips the https-only and public-address checks. Callers pass
+   * `config.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS` (env.schema.ts), which is
+   * refused outside test use and false by default even there — only the
+   * webhook-delivery e2e suite turns it on, to run a real local HTTP
+   * receiver, the same way object storage tests run a real local MinIO over
+   * plain http (`test/test-env.ts`'s `S3_ENDPOINT`) rather than a mock.
+   */
+  allowInsecureLocal?: boolean;
+}
+
 /** Synchronous checks: scheme and any literal-IP host written directly in the URL. */
-export function assertWebhookUrlShape(rawUrl: string): URL {
+export function assertWebhookUrlShape(rawUrl: string, options: WebhookUrlCheckOptions = {}): URL {
   let url: URL;
   try {
     url = new URL(rawUrl);
   } catch {
     return refuse();
   }
+  if (options.allowInsecureLocal) return url;
   if (url.protocol !== 'https:') refuse();
   const hostname = unbracketed(url.hostname.toLowerCase());
   if (hostname === 'localhost' || hostname.endsWith('.localhost')) refuse();
@@ -82,8 +95,12 @@ export function assertWebhookUrlShape(rawUrl: string): URL {
  * at registration time and again immediately before each delivery attempt
  * (DNS can rebind in between).
  */
-export async function assertWebhookUrlIsSafe(rawUrl: string): Promise<void> {
-  const url = assertWebhookUrlShape(rawUrl);
+export async function assertWebhookUrlIsSafe(
+  rawUrl: string,
+  options: WebhookUrlCheckOptions = {},
+): Promise<void> {
+  const url = assertWebhookUrlShape(rawUrl, options);
+  if (options.allowInsecureLocal) return;
   const hostname = unbracketed(url.hostname);
   if (isIP(hostname)) return; // already checked by assertWebhookUrlShape
 

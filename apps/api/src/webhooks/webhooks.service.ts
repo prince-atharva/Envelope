@@ -12,8 +12,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
+import { AppConfig } from '../config/app-config';
 import type { WebhookDelivery, WebhookEndpoint } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WebhookQueueService } from './webhook-queue.service';
 import { WebhookSecretCipher } from './webhook-secret-cipher';
 import { assertWebhookUrlIsSafe } from './webhook-url-guard';
 
@@ -21,6 +23,8 @@ const SECRET_PREFIX = 'whsec_';
 const DISPLAY_PREFIX_LENGTH = 12;
 const DEFAULT_DELIVERIES_LIMIT = 50;
 const MAX_DELIVERIES_LIMIT = 100;
+/** "Failed deliveries are retained 7 days" (docs/08, "Delivery"). */
+const REDRIVABLE_WINDOW_MS = 7 * 24 * 3600 * 1000;
 
 function toEndpointSummary(endpoint: WebhookEndpoint): WebhookEndpointSummary {
   return {
@@ -55,8 +59,14 @@ export class WebhooksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cipher: WebhookSecretCipher,
+    private readonly webhookQueue: WebhookQueueService,
+    private readonly config: AppConfig,
     @InjectPinoLogger(WebhooksService.name) private readonly logger: PinoLogger,
   ) {}
+
+  private urlCheckOptions() {
+    return { allowInsecureLocal: this.config.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS };
+  }
 
   async list(tenantId: string): Promise<WebhookEndpointSummary[]> {
     const endpoints = await this.prisma.webhookEndpoint.findMany({
@@ -74,7 +84,7 @@ export class WebhooksService {
     if (count >= MAX_WEBHOOK_ENDPOINTS_PER_TENANT) {
       throw new AppException('WEBHOOK_ENDPOINT_LIMIT_REACHED');
     }
-    await assertWebhookUrlIsSafe(input.url);
+    await assertWebhookUrlIsSafe(input.url, this.urlCheckOptions());
 
     const rawSecret = `${SECRET_PREFIX}${randomBytes(32).toString('base64url')}`;
     const endpoint = await this.prisma.webhookEndpoint.create({
@@ -102,7 +112,9 @@ export class WebhooksService {
     actor: AuthenticatedUser,
   ): Promise<WebhookEndpointSummary> {
     await this.findInTenant(id, actor.tenantId);
-    if (input.url !== undefined) await assertWebhookUrlIsSafe(input.url);
+    if (input.url !== undefined) {
+      await assertWebhookUrlIsSafe(input.url, this.urlCheckOptions());
+    }
 
     const updated = await this.prisma.webhookEndpoint.update({
       where: { id },
@@ -155,6 +167,37 @@ export class WebhooksService {
       take: Math.min(Math.max(limit, 1), MAX_DELIVERIES_LIMIT),
     });
     return deliveries.map(toDeliverySummary);
+  }
+
+  /**
+   * `id` here is a WebhookDelivery id, not a WebhookEndpoint id (docs/08:
+   * `POST /v1/webhooks/:id/redrive`) — worth this explicit note since every
+   * other route under `/webhooks/:id` takes an endpoint id. Only a
+   * FAILED or EXHAUSTED delivery inside the 7-day retention window can be
+   * redriven; the stored payload is replayed byte-for-byte.
+   */
+  async redriveDelivery(
+    deliveryId: string,
+    actor: AuthenticatedUser,
+  ): Promise<WebhookDeliverySummary> {
+    const delivery = await this.prisma.webhookDelivery.findFirst({
+      where: { id: deliveryId, tenantId: actor.tenantId },
+    });
+    if (!delivery) throw new AppException('NOT_FOUND', 'Webhook delivery not found.');
+    const redrivable =
+      (delivery.status === 'FAILED' || delivery.status === 'EXHAUSTED') &&
+      Date.now() - delivery.createdAt.getTime() <= REDRIVABLE_WINDOW_MS;
+    if (!redrivable) throw new AppException('WEBHOOK_DELIVERY_NOT_REDRIVABLE');
+
+    await this.webhookQueue.redrive(delivery.id);
+    this.logger.info(
+      { webhookDeliveryId: delivery.id, tenantId: actor.tenantId, redrivenBy: actor.id },
+      'Webhook delivery redriven',
+    );
+    const refreshed = await this.prisma.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    });
+    return toDeliverySummary(refreshed);
   }
 
   private async findInTenant(id: string, tenantId: string): Promise<WebhookEndpoint> {

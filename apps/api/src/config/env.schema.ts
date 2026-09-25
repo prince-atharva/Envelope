@@ -99,6 +99,21 @@ export const envSchema = z
      * endpoints would need to be re-created.
      */
     WEBHOOK_SECRET_ENC_KEY: aes256Key,
+    /**
+     * Lets a webhook endpoint be http and/or resolve to a private address,
+     * bypassing `webhook-url-guard.ts` (docs/18). Exists only for the e2e
+     * suite's local receiver, the same way `S3_ENDPOINT` points at a real
+     * local MinIO over plain http rather than a mock. Never true in
+     * production — enforced below.
+     */
+    WEBHOOK_ALLOW_INSECURE_LOCAL_URLS: flag.default(false),
+    /**
+     * Six comma-separated millisecond delays for webhook delivery retries
+     * (docs/08: 10s, 1m, 5m, 30m, 2h, 12h by default). Overridable so the
+     * e2e suite can exercise retry and exhaustion in milliseconds instead
+     * of hours, the same reason EMAIL_RETRY_BASE_DELAY_MS exists.
+     */
+    WEBHOOK_RETRY_SCHEDULE_MS: z.string().default('10000,60000,300000,1800000,7200000,43200000'),
 
     S3_ENDPOINT: z.url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),
@@ -264,6 +279,13 @@ export const envSchema = z
         code: 'custom',
         path: ['SEALED_RETENTION_MODE'],
         message: 'must be COMPLIANCE in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['WEBHOOK_ALLOW_INSECURE_LOCAL_URLS'],
+        message: 'must be false in production',
       });
     }
     if (env.S3_SEALED_BUCKET !== undefined && env.S3_SEALED_BUCKET === env.S3_BUCKET) {

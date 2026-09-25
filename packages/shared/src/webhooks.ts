@@ -33,10 +33,14 @@ export const FIRED_WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = WEBHOOK_EV
 
 const webhookEventTypeSchema = z.enum(WEBHOOK_EVENT_TYPES);
 
-/** Only https: is accepted (docs/10, docs/18); host reachability is checked server-side. */
-const webhookUrlSchema = z
-  .url({ error: 'Enter a valid URL' })
-  .refine((url) => url.startsWith('https://'), 'Must be an https:// URL');
+/**
+ * Shape only. The https-only and public-address rules (docs/10, docs/18)
+ * live entirely server-side (`apps/api/src/webhooks/webhook-url-guard.ts`),
+ * not duplicated here, so there is exactly one place that enforces them —
+ * and one place a test environment can legitimately relax them for a local
+ * receiver.
+ */
+const webhookUrlSchema = z.url({ error: 'Enter a valid URL' });
 
 export const createWebhookEndpointSchema = z.strictObject({
   url: webhookUrlSchema,

@@ -4,8 +4,11 @@ import type {
   WebhookEndpointSummary,
 } from '@envelope/shared';
 import { MAX_WEBHOOK_ENDPOINTS_PER_TENANT } from '@envelope/shared';
+import { getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { WEBHOOK_DELIVERY_QUEUE } from '../src/queue/queue.module';
 import {
   createTestApp,
   createTestWorker,
@@ -28,6 +31,9 @@ describe('webhooks (e2e)', () => {
   beforeAll(async () => {
     await truncateAll();
     t = await createTestApp();
+    // See webhook-delivery.e2e.test.ts: a leftover job from a previous file
+    // can otherwise be picked up by this file's fresh worker.
+    await t.app.get<Queue>(getQueueToken(WEBHOOK_DELIVERY_QUEUE)).obliterate({ force: true });
     worker = await createTestWorker();
     owner = await registerUser(t.http, { fullName: 'Hook Owner', organization: 'Hook Clinic' });
   });

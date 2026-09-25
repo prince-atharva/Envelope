@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { WebhookDeliveryProcessor } from './webhook-delivery.processor';
+import { WebhookQueueService } from './webhook-queue.service';
 import { WebhookSecretCipher } from './webhook-secret-cipher';
 import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
@@ -16,10 +18,30 @@ import { WebhooksService } from './webhooks.service';
 })
 export class WebhookCryptoModule {}
 
+/**
+ * Imported wherever an event fires (docs/18): `SendingModule`,
+ * `SigningModule`, `LifecycleModule` on the API side; `SealingWorkerModule`,
+ * `MaintenanceWorkerModule` on the worker side — the same shape
+ * `mail/mail.module.ts`'s `MailProducerModule` already has, since email and
+ * webhooks are queued from the same mix of processes.
+ */
+@Module({
+  providers: [WebhookQueueService],
+  exports: [WebhookQueueService],
+})
+export class WebhookProducerModule {}
+
 /** Imported by the API: endpoint registration and management (docs/08, docs/18). */
 @Module({
-  imports: [WebhookCryptoModule],
+  imports: [WebhookCryptoModule, WebhookProducerModule],
   controllers: [WebhooksController],
   providers: [WebhooksService],
 })
 export class WebhooksModule {}
+
+/** Imported by the worker: signs and sends deliveries (docs/08, docs/18). */
+@Module({
+  imports: [WebhookCryptoModule],
+  providers: [WebhookDeliveryProcessor],
+})
+export class WebhookDeliveryWorkerModule {}

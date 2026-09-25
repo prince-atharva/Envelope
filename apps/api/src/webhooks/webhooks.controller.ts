@@ -75,6 +75,21 @@ export class WebhooksController {
     return this.webhooks.deactivate(id, user);
   }
 
+  @Post(':id/redrive')
+  @Roles('ADMIN')
+  @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({
+    summary:
+      'Redrive a failed or exhausted delivery. NOTE: :id is a delivery id here, not an endpoint id (docs/08)',
+  })
+  redrive(
+    @Param('id', UuidParamPipe) deliveryId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WebhookDeliverySummary> {
+    return this.webhooks.redriveDelivery(deliveryId, user);
+  }
+
   @Get(':id/deliveries')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Recent delivery attempts for one endpoint, newest first' })

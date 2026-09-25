@@ -11,6 +11,7 @@ import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
 import { SealingWorkerModule } from './sealing/sealing.module';
 import { StorageModule } from './storage/storage.module';
+import { WebhookDeliveryWorkerModule } from './webhooks/webhooks.module';
 
 /**
  * The background worker process: consumes queue jobs. No HTTP server.
@@ -33,6 +34,7 @@ import { StorageModule } from './storage/storage.module';
     MailWorkerModule,
     SealingWorkerModule,
     MaintenanceWorkerModule,
+    WebhookDeliveryWorkerModule,
   ],
 })
 export class WorkerModule {}

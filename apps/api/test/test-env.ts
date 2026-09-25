@@ -24,6 +24,8 @@ export const TEST_ENV: Record<string, string> = {
   API_KEY_HASH_SECRET: 'test-api-key-secret-0123456789abcdefghijklmnop',
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible tests.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+  // Milliseconds, not hours: lets retry/exhaustion tests finish quickly.
+  WEBHOOK_RETRY_SCHEDULE_MS: '50,100,150,200,250,300',
 
   S3_ENDPOINT: env.TEST_S3_ENDPOINT ?? 'http://localhost:9102',
   S3_REGION: 'us-east-1',
