@@ -54,6 +54,61 @@ export function DocumentListSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
+/** Skeleton for Settings → Users page: header + stats bar + user rows. */
+export function UsersPageSkeleton({ rows = 3 }: { rows?: number }) {
+  const keys = SKELETON_KEYS.slice(0, Math.min(rows, SKELETON_KEYS.length));
+  return (
+    <div className="space-y-6 pb-8" aria-hidden="true">
+      {/* Header row */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <div className="h-8 w-24 rounded-lg bg-slate-200/80 animate-pulse" />
+          <div className="h-4 w-72 rounded bg-slate-100 animate-pulse" />
+        </div>
+        <div className="h-10 w-36 rounded-lg bg-brand-100/60 animate-pulse shrink-0" />
+      </div>
+
+      {/* Stats bar */}
+      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xs">
+        <div className="h-9 w-9 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+        <div className="space-y-1.5">
+          <div className="h-4 w-20 rounded bg-slate-200/80 animate-pulse" />
+          <div className="h-3 w-40 rounded bg-slate-100 animate-pulse" />
+        </div>
+      </div>
+
+      {/* User list rows */}
+      <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        {keys.map((key) => (
+          <div
+            key={key}
+            className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          >
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Avatar circle */}
+              <div className="hidden sm:block h-11 w-11 shrink-0 rounded-full bg-slate-200/80 animate-pulse" />
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-36 sm:w-48 rounded bg-slate-200/80 animate-pulse" />
+                  <div className="h-4 w-10 rounded-full bg-slate-100 animate-pulse" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-3 w-40 sm:w-56 rounded bg-slate-100 animate-pulse" />
+                  <div className="h-3 w-32 rounded bg-slate-100/70 animate-pulse hidden sm:block" />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="h-8 w-24 rounded-lg bg-slate-100 animate-pulse" />
+              <div className="h-8 w-8 rounded-lg bg-slate-100/70 animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function EnvelopeDetailSkeleton() {
   return (
     <div
