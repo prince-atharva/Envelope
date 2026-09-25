@@ -8,6 +8,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { assertCanManage } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { lockEnvelope } from '../prisma/envelope-locks';
@@ -43,9 +44,16 @@ export class CancelService {
       // another tenant's envelope must be a 404 before it is ever locked.
       const visible = await tx.envelope.findUnique({
         where: { id: envelopeId },
-        select: { id: true },
+        select: { id: true, ownerId: true, legalHoldAt: true },
       });
       if (!visible) throw new AppException('NOT_FOUND', 'Envelope not found.');
+      assertCanManage(visible.ownerId, user);
+      if (visible.legalHoldAt) {
+        throw new AppException(
+          'ENVELOPE_ON_LEGAL_HOLD',
+          'This document is on legal hold and cannot be cancelled. Release the hold first.',
+        );
+      }
 
       // Waits for any signature, decline, link or seal holding the envelope,
       // then sees the status they left behind.

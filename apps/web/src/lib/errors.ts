@@ -30,9 +30,27 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 
+/**
+ * Codes whose server `detail` is itself the sender-facing message (docs/17):
+ * each one is written server-side to name the specific thing that went
+ * wrong — the category and jurisdiction, whose role is needed — rather than
+ * a generic sentence a static map entry could give instead.
+ */
+const USE_SERVER_DETAIL = new Set<ErrorCode>([
+  'DOCUMENT_CATEGORY_BLOCKED',
+  'ENVELOPE_ON_LEGAL_HOLD',
+  'ENVELOPE_PURGED',
+  'FORBIDDEN_ROLE',
+  'LAST_OWNER',
+  'DOWNLOAD_RENEW_TOO_SOON',
+  'INVITE_TOKEN_INVALID',
+  'INVITE_TOKEN_EXPIRED',
+]);
+
 /** A message a person can act on, plus a reference id for unexpected failures. */
 export function describeError(error: unknown): { message: string; reference?: string } {
   if (error instanceof ApiError) {
+    if (USE_SERVER_DETAIL.has(error.code) && error.detail) return { message: error.detail };
     const known = MESSAGES[error.code];
     if (known) return { message: known };
     if (error.status >= 500) {

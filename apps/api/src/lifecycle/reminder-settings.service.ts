@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { assertCanManage } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
@@ -29,9 +30,10 @@ export class ReminderSettingsService {
     const from = await this.tenantPrisma.client.$transaction(async (tx) => {
       const envelope = await tx.envelope.findUnique({
         where: { id: envelopeId },
-        select: { reminderIntervalDays: true },
+        select: { reminderIntervalDays: true, ownerId: true },
       });
       if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
+      assertCanManage(envelope.ownerId, user);
 
       const status = await lockEnvelope(tx, envelopeId);
       if (!status) throw new AppException('NOT_FOUND', 'Envelope not found.');

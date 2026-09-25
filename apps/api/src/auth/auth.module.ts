@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { PasswordService } from './password.service';
+import { RolesGuard } from './roles.guard';
 import { SessionService } from './session.service';
 
 const TOKEN_ISSUER = 'digitalsign-api';
@@ -39,7 +40,12 @@ const TOKEN_AUDIENCE = 'digitalsign';
     PasswordService,
     SessionService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // After JwtAuthGuard: it reads req.user, which only JwtAuthGuard sets.
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [AuthService, SessionService],
+  // PasswordService is exported too: UsersModule needs it to lock an
+  // invited account's password until the invitation is accepted (docs/17
+  // step 6).
+  exports: [AuthService, SessionService, PasswordService],
 })
 export class AuthModule {}

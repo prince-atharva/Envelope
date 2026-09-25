@@ -1,4 +1,4 @@
-import { BRAND } from '@envelope/shared';
+import { BRAND, hasAtLeast } from '@envelope/shared';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useAuth } from '../../lib/auth';
@@ -113,6 +113,26 @@ export function AppShell() {
                 </svg>
                 <span>Verify</span>
               </NavLink>
+
+              {user && hasAtLeast(user.role, 'OWNER') && (
+                <NavLink to="/settings/users" className={navClass} onClick={scrollToTop}>
+                  <svg
+                    className="h-4 w-4 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  <span>Settings</span>
+                </NavLink>
+              )}
             </nav>
           </div>
 
@@ -163,6 +183,11 @@ export function AppShell() {
           >
             Verify
           </NavLink>
+          {user && hasAtLeast(user.role, 'OWNER') && (
+            <NavLink to="/settings/users" className={navClass} onClick={scrollToTop}>
+              Settings
+            </NavLink>
+          )}
         </nav>
       </header>
 

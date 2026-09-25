@@ -1,3 +1,4 @@
+import { hasAtLeast, type UserRole } from '@envelope/shared';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { AppShellSkeleton, TopProgressBar } from '../components/ui/Skeletons';
 import { useAuth } from '../lib/auth';
@@ -20,6 +21,18 @@ export function RequireAuth() {
     const state: RedirectState = { from: `${location.pathname}${location.search}` };
     return <Navigate to="/login" replace state={state} />;
   }
+  return <Outlet />;
+}
+
+/**
+ * Only for a user whose role is at least `minimum` (docs/17 step 5). Nested
+ * inside `RequireAuth`, so `status` is always `authenticated` here; a
+ * MEMBER visiting Settings goes back to the dashboard rather than seeing an
+ * empty or broken screen.
+ */
+export function RequireRole({ minimum }: { minimum: UserRole }) {
+  const { user } = useAuth();
+  if (!user || !hasAtLeast(user.role, minimum)) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }
 

@@ -1,5 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import type { AuthResponse, LoginInput, RegisterInput, UserProfile } from '@envelope/shared';
+import type {
+  AuthResponse,
+  InvitationPreview,
+  LoginInput,
+  RegisterInput,
+  UserProfile,
+} from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -9,9 +15,16 @@ import { Prisma, type Tenant, type User } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { hashInviteToken } from '../signing/signing-token';
 import type { AccessTokenClaims, ClientInfo } from './auth.types';
 import { PasswordService } from './password.service';
 import { type IssuedSession, SessionService } from './session.service';
+
+const ROLE_LABEL: Record<User['role'], string> = {
+  OWNER: 'an owner',
+  ADMIN: 'an admin',
+  MEMBER: 'a member',
+};
 
 export interface AuthResult {
   response: AuthResponse;
@@ -194,6 +207,53 @@ export class AuthService {
     }
   }
 
+  /** GET /auth/invitations/:token: shown before a password is chosen. */
+  async invitationPreview(rawToken: string): Promise<InvitationPreview> {
+    const tokenHash = hashInviteToken(this.config.SIGNING_TOKEN_SECRET, rawToken);
+    const user = await this.prisma.user.findUnique({
+      where: { inviteTokenHash: tokenHash },
+      include: { tenant: { select: { name: true } } },
+    });
+    if (!user?.inviteTokenExpiresAt) throw new AppException('INVITE_TOKEN_INVALID');
+    if (user.inviteTokenExpiresAt <= new Date()) throw new AppException('INVITE_TOKEN_EXPIRED');
+    return {
+      fullName: user.fullName,
+      email: user.email,
+      workspaceName: user.tenant.name,
+      roleLabel: ROLE_LABEL[user.role],
+      expiresAt: user.inviteTokenExpiresAt.toISOString(),
+    };
+  }
+
+  /** Sets the chosen password, clears the invite, and signs the person in. */
+  async acceptInvite(rawToken: string, password: string, client: ClientInfo): Promise<AuthResult> {
+    const tokenHash = hashInviteToken(this.config.SIGNING_TOKEN_SECRET, rawToken);
+    const found = await this.prisma.user.findUnique({
+      where: { inviteTokenHash: tokenHash },
+      include: { tenant: true },
+    });
+    if (!found?.inviteTokenExpiresAt) throw new AppException('INVITE_TOKEN_INVALID');
+    if (found.inviteTokenExpiresAt <= new Date()) throw new AppException('INVITE_TOKEN_EXPIRED');
+
+    const passwordHash = await this.passwords.hash(password);
+    const user = await this.prisma.user.update({
+      where: { id: found.id },
+      data: {
+        passwordHash,
+        inviteTokenHash: null,
+        inviteTokenExpiresAt: null,
+        lastLoginAt: new Date(),
+      },
+      include: { tenant: true },
+    });
+    const issued = await this.sessions.create(user.id, client);
+    this.logger.info(
+      { userId: user.id, tenantId: user.tenantId, ip: client.ip },
+      'Invitation accepted',
+    );
+    return this.buildResult(user, issued);
+  }
+
   async profile(userId: string): Promise<UserProfile> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -211,6 +271,13 @@ export class AuthService {
       sub: user.id,
       tid: user.tenantId,
       sid: issued.session.id,
+      // Baked in at issue time, like tid: a role change takes effect for this
+      // user within one access-token lifetime (JWT_ACCESS_TTL_SECONDS), the
+      // same bounded staleness a tenant change would have. Reading the role
+      // fresh from the database on every request was the alternative, but
+      // every route already pays one session-activity check per request
+      // (SessionService.isActive); a second read for this would double it.
+      role: user.role,
     };
     const accessToken = await this.jwt.signAsync(claims);
     return {

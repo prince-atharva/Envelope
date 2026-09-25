@@ -63,7 +63,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new AppException('SESSION_EXPIRED');
     }
 
-    req.user = { id: claims.sub, tenantId: claims.tid, sessionId: claims.sid };
+    req.user = { id: claims.sub, tenantId: claims.tid, sessionId: claims.sid, role: claims.role };
     this.cls.set('userId', claims.sub);
     this.cls.set('tenantId', claims.tid);
     this.cls.set('sessionId', claims.sid);
