@@ -8,5 +8,6 @@ export const queryKeys = {
   envelopeList: (view: string) => ['envelopes', 'list', view] as const,
   envelopeCounts: ['envelopes', 'counts'] as const,
   envelope: (id: string) => ['envelope', id] as const,
+  envelopeEvents: (id: string) => ['envelope', id, 'events'] as const,
   document: (id: string, version = 0) => ['document', id, version] as const,
 };

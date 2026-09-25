@@ -171,7 +171,22 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   senderCopySentAt: string | null;
   owner: { id: string; fullName: string };
   versions: DocumentVersionInfo[];
+  /**
+   * The oldest AUDIT_EVENTS_IN_DETAIL events, oldest first — not every event.
+   * Compare its length against `auditEventCount` (the true total) to know
+   * whether there is more; page through the rest with GET
+   * /envelopes/:id/events (100M-row scale follow-up API pass, docs/16 step
+   * 14: an envelope can carry far more history than a detail view should
+   * fetch every 15s poll, e.g. from many reminders or a long dispute).
+   */
   auditTrail: AuditEventInfo[];
+  /** How many audit events this envelope has in total. */
+  auditEventCount: number;
+  /**
+   * Pass to GET /envelopes/:id/events as `cursor` to page through the rest.
+   * Null once `auditTrail` already carries everything.
+   */
+  eventsCursor: string | null;
   /** The note that goes out with the invitation. */
   message: string | null;
   /** True when people are asked to sign one after another, in routing order. */
@@ -199,6 +214,20 @@ export interface EnvelopeDetail extends EnvelopeSummary {
 
 export interface EnvelopeListResponse {
   items: EnvelopeSummary[];
+  /** Pass as `cursor` to get the next page; null on the last page. */
+  nextCursor: string | null;
+}
+
+/** GET /envelopes/:id/events: the rest of the audit trail past what the detail carries. */
+export const listEnvelopeEventsQuerySchema = z.strictObject({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  cursor: z.string().max(200).optional(),
+});
+export type ListEnvelopeEventsQuery = z.infer<typeof listEnvelopeEventsQuerySchema>;
+
+export interface EnvelopeEventsResponse {
+  /** Oldest first, continuing from the cursor (or from the start with none). */
+  items: AuditEventInfo[];
   /** Pass as `cursor` to get the next page; null on the last page. */
   nextCursor: string | null;
 }

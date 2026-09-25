@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { EnvelopeDetail, EnvelopeListResponse } from '@envelope/shared';
 import request, { type Response } from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -326,6 +326,112 @@ describe('envelopes (e2e)', () => {
         .get(`/api/v1/envelopes/${mine}/file?version=7`)
         .set('Authorization', auth(owner))
         .expect(404);
+    });
+  });
+
+  describe('audit events and detail caching (100M-row scale follow-up)', () => {
+    /**
+     * Fills out sequence 2..upTo with synthetic events (1 already exists:
+     * ENVELOPE_CREATED from the upload), so the detail's 20-event cap and
+     * /events pagination both have something to page past. Hashes only need
+     * to satisfy the CHECK constraint's shape, not a real chain: nothing
+     * here exercises chain verification.
+     */
+    async function fillAuditTrail(envelopeId: string, upTo: number): Promise<void> {
+      for (let sequence = 2; sequence <= upTo; sequence += 1) {
+        const hash = createHash('sha256').update(`${envelopeId}:${sequence}`).digest('hex');
+        const prevHash = createHash('sha256')
+          .update(`${envelopeId}:${sequence - 1}`)
+          .digest('hex');
+        await ownerQuery(
+          `INSERT INTO "AuditTrail"
+             (id, "envelopeId", action, "ipAddress", "userAgent", sequence, "prevHash", "eventHash", timestamp)
+           VALUES ($1, $2, 'REMINDER_SCHEDULED', 'system', 'system', $3, $4, $5, now())`,
+          [randomUUID(), envelopeId, sequence, prevHash, hash],
+        );
+      }
+    }
+
+    /** Same encoding GET /envelopes/:id/events uses (envelopes.service.ts). */
+    const cursorFor = (sequence: number) => Buffer.from(String(sequence)).toString('base64url');
+
+    it('caps the detail at 20 events but reports the true total, and pages the rest oldest-first', async () => {
+      const envelope = ((await upload(owner, await makePdf(1))).body as EnvelopeDetail).id;
+      await fillAuditTrail(envelope, 24);
+
+      const detail = await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}`)
+        .set('Authorization', auth(owner))
+        .expect(200);
+      const body = detail.body as EnvelopeDetail;
+      expect(body.auditTrail).toHaveLength(20);
+      expect(body.auditTrail.map((e) => e.sequence)).toEqual(
+        Array.from({ length: 20 }, (_, i) => i + 1),
+      );
+      expect(body.auditEventCount).toBe(24);
+
+      const page1 = await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}/events?limit=3&cursor=${cursorFor(20)}`)
+        .set('Authorization', auth(owner))
+        .expect(200);
+      expect(page1.body.items.map((e: { sequence: number }) => e.sequence)).toEqual([21, 22, 23]);
+      expect(page1.body.nextCursor).toEqual(expect.any(String));
+
+      const page2 = await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}/events?limit=3&cursor=${page1.body.nextCursor}`)
+        .set('Authorization', auth(owner))
+        .expect(200);
+      expect(page2.body.items.map((e: { sequence: number }) => e.sequence)).toEqual([24]);
+      expect(page2.body.nextCursor).toBeNull();
+
+      // Continuing from the very start (no cursor) walks the whole trail.
+      const fromStart = await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}/events?limit=100`)
+        .set('Authorization', auth(owner))
+        .expect(200);
+      expect(fromStart.body.items).toHaveLength(24);
+
+      await request(t.http)
+        .get(`/api/v1/envelopes/${randomUUID()}/events`)
+        .set('Authorization', auth(owner))
+        .expect(404);
+      await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}/events`)
+        .set('Authorization', auth(outsider))
+        .expect(404);
+    });
+
+    it('answers a matching If-None-Match with 304, and a fresh audit event busts it', async () => {
+      const envelope = ((await upload(owner, await makePdf(1))).body as EnvelopeDetail).id;
+
+      const first = await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}`)
+        .set('Authorization', auth(owner))
+        .expect(200);
+      const etag = first.headers.etag as string;
+      expect(etag).toEqual(expect.any(String));
+      expect(first.headers['cache-control']).toBe('private, no-cache');
+
+      await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}`)
+        .set('Authorization', auth(owner))
+        .set('If-None-Match', etag)
+        .expect(304)
+        .expect((res) => {
+          if (res.text) throw new Error(`expected no body, got ${res.text.length} bytes`);
+        });
+
+      // A new audit event changes the ETag even though nothing here touches
+      // the envelope row itself: every mutation in this codebase records
+      // one (e.g. a recipient viewing their link), so the audit trail's own
+      // sequence is what the ETag actually leans on, not just updatedAt.
+      await fillAuditTrail(envelope, 2);
+      const second = await request(t.http)
+        .get(`/api/v1/envelopes/${envelope}`)
+        .set('Authorization', auth(owner))
+        .set('If-None-Match', etag)
+        .expect(200);
+      expect(second.headers.etag).not.toBe(etag);
     });
   });
 

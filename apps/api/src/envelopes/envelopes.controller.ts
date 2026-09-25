@@ -5,8 +5,11 @@ import {
   ENVELOPE_VIEWS,
   type EnvelopeCounts,
   type EnvelopeDetail,
+  type EnvelopeEventsResponse,
   type EnvelopeListResponse,
+  type ListEnvelopeEventsQuery,
   type ListEnvelopesQuery,
+  listEnvelopeEventsQuerySchema,
   listEnvelopesQuerySchema,
   MAX_UPLOAD_BYTES,
 } from '@envelope/shared';
@@ -137,8 +140,44 @@ export class EnvelopesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'An envelope with its document versions and audit trail' })
-  get(@Param('id', UuidParamPipe) id: string): Promise<EnvelopeDetail> {
+  async get(
+    @Param('id', UuidParamPipe) id: string,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<EnvelopeDetail | undefined> {
+    // Cheap to check on its own; a 304 answers the web's 15s poll (while an
+    // envelope stays open) with no payload and none of the full detail's
+    // queries (100M-row scale follow-up API pass, docs/16 step 14). Not
+    // found here just means the full call below will say so.
+    const etag = await this.envelopes.getETag(id);
+    if (etag) {
+      // `no-cache`, despite the name, means the browser DOES cache this —
+      // it just always revalidates with the server (sending If-None-Match)
+      // before using it, rather than ever serving it unchecked.
+      res.set({ 'Cache-Control': 'private, no-cache', ETag: etag });
+      if (ifNoneMatch === etag) {
+        res.status(304).end();
+        return undefined;
+      }
+    }
     return this.envelopes.get(id);
+  }
+
+  @Get(':id/events')
+  @ApiOperation({
+    summary: 'The audit trail past what the detail carries, oldest first, paginated',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    schema: { type: 'integer', minimum: 1, maximum: 100 },
+  })
+  @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string' } })
+  events(
+    @Param('id', UuidParamPipe) id: string,
+    @Query(new ZodValidationPipe(listEnvelopeEventsQuerySchema)) query: ListEnvelopeEventsQuery,
+  ): Promise<EnvelopeEventsResponse> {
+    return this.envelopes.listEvents(id, query);
   }
 
   @Get(':id/file')

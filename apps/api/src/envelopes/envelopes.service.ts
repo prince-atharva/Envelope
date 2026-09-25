@@ -4,8 +4,10 @@ import {
   type CreateEnvelopeInput,
   type EnvelopeCounts,
   type EnvelopeDetail,
+  type EnvelopeEventsResponse,
   type EnvelopeListResponse,
   type EnvelopeSummary,
+  type ListEnvelopeEventsQuery,
   type ListEnvelopesQuery,
   OPEN_ENVELOPE_STATUSES,
 } from '@envelope/shared';
@@ -42,7 +44,13 @@ const PROGRESS_FIELDS = {
 
 const MAX_FILENAME_LENGTH = 255;
 const REPLACEMENT_CHARACTER = String.fromCodePoint(0xfffd);
-const AUDIT_EVENTS_IN_DETAIL = 100;
+/**
+ * Reduced from 100: page the rest with GET /envelopes/:id/events instead of
+ * fetching more of them every detail load, including the web's 15s poll
+ * while an envelope is open (100M-row scale follow-up API pass, docs/16
+ * step 14).
+ */
+const AUDIT_EVENTS_IN_DETAIL = 20;
 
 /** Multer decodes multipart file names as latin1; recover UTF-8 names where possible. */
 export function displayFilename(raw: string): string {
@@ -82,6 +90,19 @@ function decodeCursor(cursor: string): Cursor {
     throw new AppException('BAD_REQUEST', 'The page cursor is invalid.');
   }
   return { createdAt, id };
+}
+
+/** GET /envelopes/:id/events: just the last sequence number seen. */
+function encodeEventsCursor(sequence: number): string {
+  return Buffer.from(String(sequence)).toString('base64url');
+}
+
+function decodeEventsCursor(cursor: string): number {
+  const sequence = Number(Buffer.from(cursor, 'base64url').toString('utf8'));
+  if (!Number.isInteger(sequence) || sequence < 0) {
+    throw new AppException('BAD_REQUEST', 'The page cursor is invalid.');
+  }
+  return sequence;
 }
 
 /** What a list row needs from the envelope itself, for toSummary/progressOf. */
@@ -337,13 +358,34 @@ export class EnvelopesService {
     };
   }
 
+  /**
+   * For GET /envelopes/:id's ETag, so the web's 15s poll while an envelope
+   * is open costs one round trip and (on a 304) no payload, instead of the
+   * full detail every time (100M-row scale follow-up API pass, docs/16 step
+   * 14). Two signals, cheap to check separately from the full detail:
+   * `updatedAt` catches any direct change to the envelope row, and the
+   * audit trail's own sequence catches everything else — every mutation in
+   * this codebase records an audit event, including ones that never touch
+   * the envelope row itself (a recipient viewing their link, for one).
+   * Null when the envelope does not exist, so the caller falls through to
+   * get()'s own NOT_FOUND rather than this duplicating it.
+   */
+  async getETag(id: string): Promise<string | null> {
+    const [envelope, agg] = await Promise.all([
+      this.db.envelope.findUnique({ where: { id }, select: { updatedAt: true } }),
+      this.db.auditTrail.aggregate({ where: { envelopeId: id }, _max: { sequence: true } }),
+    ]);
+    if (!envelope) return null;
+    return `"${id}:${agg._max.sequence ?? 0}:${envelope.updatedAt.getTime()}"`;
+  }
+
   async get(id: string): Promise<EnvelopeDetail> {
     // Selected, not included: full rows carry consentText (the whole
     // disclosure text), audit metadata/userAgent JSON and field.value, none
     // of which the response below reads. Run alongside the COMPLETION_SENT
     // lookup instead of after it — the two don't depend on each other
     // (100M-row scale follow-up, docs/16 step 14).
-    const [envelope, copies] = await Promise.all([
+    const [envelope, copies, eventCount] = await Promise.all([
       this.db.envelope.findUnique({
         where: { id },
         select: {
@@ -424,6 +466,10 @@ export class EnvelopesService {
         where: { envelopeId: id, action: 'COMPLETION_SENT' },
         select: { recipientId: true, timestamp: true },
       }),
+      // sequence numbers an envelope's events 1, 2, 3, ... with no gaps
+      // (audit.service.ts), so its max is the count: an index-only read of
+      // the last row, not a count(*) scan of every one.
+      this.db.auditTrail.aggregate({ where: { envelopeId: id }, _max: { sequence: true } }),
     ]);
     if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
 
@@ -495,6 +541,51 @@ export class EnvelopesService {
         recipientId: event.recipientId,
         eventHash: event.eventHash,
       })),
+      auditEventCount: eventCount._max.sequence ?? 0,
+      // Ready to pass straight to listEvents as `cursor`: the client never
+      // constructs one itself, the same as every other cursor in this API.
+      eventsCursor:
+        envelope.auditLogs.length < (eventCount._max.sequence ?? 0)
+          ? encodeEventsCursor(envelope.auditLogs.at(-1)?.sequence ?? 0)
+          : null,
+    };
+  }
+
+  /**
+   * The rest of the audit trail, past what the detail carries (100M-row
+   * scale follow-up API pass, docs/16 step 14). Oldest first, same order as
+   * the detail's own `auditTrail`, so paging continues where it left off.
+   */
+  async listEvents(id: string, query: ListEnvelopeEventsQuery): Promise<EnvelopeEventsResponse> {
+    const exists = await this.db.envelope.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) throw new AppException('NOT_FOUND', 'Envelope not found.');
+
+    const after = query.cursor ? decodeEventsCursor(query.cursor) : 0;
+    const rows = await this.db.auditTrail.findMany({
+      where: { envelopeId: id, sequence: { gt: after } },
+      orderBy: { sequence: 'asc' },
+      take: query.limit + 1,
+      select: {
+        sequence: true,
+        action: true,
+        timestamp: true,
+        actorUserId: true,
+        recipientId: true,
+        eventHash: true,
+      },
+    });
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    return {
+      items: page.map((event) => ({
+        sequence: event.sequence,
+        action: event.action,
+        timestamp: event.timestamp.toISOString(),
+        actorUserId: event.actorUserId,
+        recipientId: event.recipientId,
+        eventHash: event.eventHash,
+      })),
+      nextCursor: rows.length > query.limit && last ? encodeEventsCursor(last.sequence) : null,
     };
   }
 

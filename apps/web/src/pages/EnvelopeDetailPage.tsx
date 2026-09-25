@@ -4,7 +4,7 @@ import {
   type EnvelopeDetail,
   isOpenEnvelope,
 } from '@envelope/shared';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { PdfViewer } from '../components/pdf/PdfViewer';
@@ -25,6 +25,7 @@ import { downloadName } from '../features/envelope/document-files';
 import { ExpiredBanner } from '../features/envelope/ExpiredBanner';
 import { ExtendDialog } from '../features/envelope/ExtendDialog';
 import { canExtend } from '../features/envelope/extend';
+import { envelopeEventsQuery } from '../features/envelope/events-query';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
@@ -78,6 +79,18 @@ export function EnvelopeDetailPage() {
     enabled: id.length > 0,
     refetchInterval: (query) => (stillChanging(query.state.data) ? PROGRESS_REFRESH_MS : false),
   });
+
+  // Only ever the events past what the detail already carries: never runs
+  // until the detail says there are more (100M-row scale follow-up web
+  // pass, docs/16 step 14).
+  const moreEvents = useInfiniteQuery({
+    ...envelopeEventsQuery(id, envelope?.eventsCursor ?? ''),
+    enabled: !!envelope?.eventsCursor,
+  });
+  const auditTrail = [
+    ...(envelope?.auditTrail ?? []),
+    ...(moreEvents.data?.pages.flatMap((page) => page.items) ?? []),
+  ];
 
   // The newest version: the signatures so far while people sign, then the
   // sealed document with its certificate (ADR 0003).
@@ -520,7 +533,7 @@ export function EnvelopeDetailPage() {
               onChange={setActivityTab}
               className="border-b border-slate-200 bg-slate-50/70 px-4 pt-3"
               items={[
-                { id: 'audit', label: 'Audit trail', count: envelope.auditTrail.length },
+                { id: 'audit', label: 'Audit trail', count: envelope.auditEventCount },
                 { id: 'versions', label: 'Versions', count: envelope.versions.length },
               ]}
             />
@@ -532,9 +545,9 @@ export function EnvelopeDetailPage() {
               hidden={activityTab !== 'audit'}
               className="max-h-100 overflow-y-auto overflow-x-hidden p-4"
             >
-              {envelope.auditTrail.length > 0 ? (
+              {auditTrail.length > 0 ? (
                 <div className="relative pl-7 space-y-3 min-w-0 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                  {envelope.auditTrail.map((event: AuditEventInfo) => (
+                  {auditTrail.map((event: AuditEventInfo) => (
                     <div key={event.sequence} className="relative min-w-0">
                       <div className="absolute -left-7 top-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-brand-600 bg-white px-0.5 text-[0.625rem] font-bold text-brand-700 shadow-xs">
                         {event.sequence}
@@ -559,6 +572,17 @@ export function EnvelopeDetailPage() {
                 </div>
               ) : (
                 <p className="text-xs text-slate-500 py-6 text-center">No audit events recorded.</p>
+              )}
+              {moreEvents.hasNextPage && (
+                <div className="flex justify-center pt-3">
+                  <Button
+                    variant="secondary"
+                    loading={moreEvents.isFetchingNextPage}
+                    onClick={() => void moreEvents.fetchNextPage()}
+                  >
+                    Load more events
+                  </Button>
+                </div>
               )}
             </TabPanel>
 

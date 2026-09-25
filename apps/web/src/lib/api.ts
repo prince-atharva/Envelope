@@ -4,6 +4,7 @@ import {
   type DraftRevisionResponse,
   type EnvelopeCounts,
   type EnvelopeDetail,
+  type EnvelopeEventsResponse,
   type EnvelopeListResponse,
   type EnvelopeView,
   type ErrorCode,
@@ -315,6 +316,12 @@ export const api = {
   envelopeCounts: () => json<EnvelopeCounts>('/envelopes/counts'),
 
   getEnvelope: (id: string) => json<EnvelopeDetail>(`/envelopes/${encodeURIComponent(id)}`),
+
+  /** The rest of the audit trail past what the detail carries. `cursor` always comes from the server. */
+  getEnvelopeEvents: (id: string, cursor: string) =>
+    json<EnvelopeEventsResponse>(
+      `/envelopes/${encodeURIComponent(id)}/events?limit=20&cursor=${encodeURIComponent(cursor)}`,
+    ),
 
   async downloadDocument(id: string, version = 0): Promise<ArrayBuffer> {
     const res = await apiFetch(`/envelopes/${encodeURIComponent(id)}/file?version=${version}`);
