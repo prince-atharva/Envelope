@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Active |
 | **Version** | 1.0.0 |
-| **Last updated** | 10 September 2026 |
+| **Last updated** | 27 September 2026 |
 | **Audience** | Engineering |
 | **What this doc answers** | How do we record significant decisions, and what has been decided? |
 
@@ -85,6 +85,8 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0013](0013-expiry-pauses-an-envelope.md) | Expiry pauses an envelope; the sender can extend it (amends 0009) | Accepted |
 | [0014](0014-retention-purges-document-bodies-not-the-audit-chain.md) | Retention purges document bodies, not the audit chain | Accepted |
 | [0015](0015-api-keys-and-webhook-secrets-use-different-storage.md) | API keys and webhook secrets use different storage | Accepted |
+
+| [0016](0016-scope-embedded-editor-sessions-to-one-envelope.md) | Scope embedded editor sessions to one envelope | Accepted |
 
 ### Planned
 

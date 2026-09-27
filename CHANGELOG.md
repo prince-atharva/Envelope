@@ -14,6 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- **Documentation only:** Phase 7 now includes a proposed embedded sender editor, thin SDK, both upload entry modes, and a HealthProHub section in the Settings integration guide. ADR 0016 records the proposed one-envelope session boundary. Implementation and plan approval are pending; these capabilities are not yet available.
+
 - Integration settings now group API keys and webhooks into consistent panels, with clearer metadata, status badges, larger actions and polished event-selection and delivery dialogs. Responsive and keyboard checks cover long content and focus restoration (Phase 7, docs/18).
 - Settings is now available to Admins as well as Owners. Admins can manage integrations; workspace user management remains Owner-only.
 

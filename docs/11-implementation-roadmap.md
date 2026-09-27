@@ -217,7 +217,9 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 > blocked document categories, roles enforced, legal hold, a retention sweeper, audit export, and
 > the cross-tenant isolation suite. Phase 7 (docs/18) is the integration phase: its API-key and
 > webhook foundation shipped in `v0.7.0`, Settings management and responsive polish are built, and
-> the in-page integration guide is built. The consolidated Phase 7 release is pending. Launch readiness follows as Phase 8.
+> the in-page integration guide is built. A further Phase 7 embedded sender editor, thin SDK and
+> HealthProHub guide workstream is proposed in docs/18 (ADR 0016); it is not implemented.
+> The consolidated Phase 7 release is pending. Launch readiness follows as Phase 8.
 
 - [x] Parallel routing alongside sequential
 - [x] Reminder scheduler and expiry sweeper

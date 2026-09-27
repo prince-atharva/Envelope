@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–6 complete; Phase 7 built, release pending |
+| **Status** | Phases 1–6 complete; Phase 7 integration built, embedded editor extension proposed |
 | **Version** | 1.1.0 |
 | **Last updated** | 27 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
@@ -16,7 +16,7 @@
 >
 > **Phase 7** is the integration phase. [Its maintained plan](18-phase-7-integration-plan.md)
 > records the API-key and webhook foundation, Settings management, responsive polish, and the
-> in-page integration guide together. Earlier `6b` labels remain in the historical commit record.
+> in-page integration guide together, plus the proposed embedded sender editor, SDK and HealthProHub guide. Earlier `6b` labels remain in the historical commit record.
 
 ---
 
@@ -84,7 +84,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 15 | [phase-4-sealing-engine-plan](15-phase-4-sealing-engine-plan.md) | What does Phase 4 deliver, and how is a signed document stamped, sealed and verified? |
 | 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
 | 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
-| 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What does Phase 7 deliver across integration APIs, Settings management and the in-page guide? |
+| 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What is built and proposed across integration APIs, Settings, the embedded editor/SDK and HealthProHub guide? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12
