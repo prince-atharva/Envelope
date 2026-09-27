@@ -10,10 +10,12 @@ import { useState } from 'react';
 import { SettingsNav } from '../components/layout/SettingsNav';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import { type Confirmation, ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { DialogShell } from '../components/ui/DialogShell';
 import { TextField } from '../components/ui/Field';
 import { HashBlock } from '../components/ui/HashBlock';
+import { BoltIcon } from '../components/ui/icons';
 import {
   apiKeyAccessDescription,
   apiKeyAccessLabel,
@@ -50,6 +52,7 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <DialogShell
       open={open}
+      className="[&_button]:min-h-11"
       onClose={close}
       title={mutation.rawValue ? 'Copy your API key' : 'Create API key'}
       onOpen={() => {
@@ -59,13 +62,20 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
       onSubmit={mutation.rawValue ? undefined : () => mutation.mutate(input)}
       actions={
         mutation.rawValue ? (
-          <Button onClick={close}>I have saved the key</Button>
+          <Button className="min-h-11" onClick={close}>
+            I have saved the key
+          </Button>
         ) : (
           <>
-            <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+            <Button
+              className="min-h-11"
+              variant="secondary"
+              onClick={close}
+              disabled={mutation.isPending}
+            >
               Cancel
             </Button>
-            <Button type="submit" loading={mutation.isPending}>
+            <Button className="min-h-11" type="submit" loading={mutation.isPending}>
               Create key
             </Button>
           </>
@@ -95,7 +105,7 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
             onChange={(event) => setInput({ ...input, label: event.target.value })}
             error={errors.label}
           />
-          <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-4">
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 transition-colors hover:border-brand-300 has-checked:border-brand-300 has-checked:bg-brand-50/60">
             <input
               type="checkbox"
               className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-700"
@@ -122,25 +132,68 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
 function ApiKeyRow({ apiKey, onRevoke }: { apiKey: ApiKeySummary; onRevoke: () => void }) {
   const revoked = Boolean(apiKey.revokedAt);
   return (
-    <li className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-semibold text-slate-900">{apiKey.label}</p>
-          <Pill>{apiKeyAccessLabel(apiKey.readOnly)}</Pill>
-          {revoked && <Pill tone="red">Revoked</Pill>}
+    <li className="px-4 py-5 sm:px-6 sm:py-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="break-all text-sm font-semibold text-slate-900">{apiKey.label}</p>
+            <Pill>{apiKeyAccessLabel(apiKey.readOnly)}</Pill>
+            <Pill tone={revoked ? 'slate' : 'green'}>{revoked ? 'Revoked' : 'Active'}</Pill>
+          </div>
+          <code className="inline-block max-w-full break-all rounded-md bg-slate-100/80 px-2.5 py-1.5 text-xs text-slate-600">
+            {apiKey.displayPrefix}…
+          </code>
         </div>
-        <p className="mt-1 break-all font-mono text-xs text-slate-500">{apiKey.displayPrefix}…</p>
-        <p className="mt-2 text-xs text-slate-500">
-          Created {formatDateTime(apiKey.createdAt)} ·{' '}
-          {apiKey.lastUsedAt ? `Last used ${formatDateTime(apiKey.lastUsedAt)}` : 'Never used'}
-        </p>
+        {!revoked && (
+          <Button className="min-h-11 self-start" variant="secondary" onClick={onRevoke}>
+            Revoke
+          </Button>
+        )}
       </div>
-      {!revoked && (
-        <Button size="sm" variant="danger" onClick={onRevoke}>
-          Revoke
-        </Button>
-      )}
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+        <Metadata label="Created">{formatDateTime(apiKey.createdAt)}</Metadata>
+        <Metadata label="Last used">
+          {apiKey.lastUsedAt ? formatDateTime(apiKey.lastUsedAt) : 'Never used'}
+        </Metadata>
+        {apiKey.revokedAt && (
+          <Metadata label="Revoked">{formatDateTime(apiKey.revokedAt)}</Metadata>
+        )}
+      </dl>
     </li>
+  );
+}
+
+function Metadata({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm text-slate-700">{children}</dd>
+    </div>
+  );
+}
+
+function SectionIcon({ kind }: { kind: 'key' | 'webhook' }) {
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100">
+      {kind === 'webhook' ? (
+        <BoltIcon className="h-5 w-5" />
+      ) : (
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.75}
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.5 7.5h.01M21 7.5a4.5 4.5 0 01-6.8 3.86L7 18.5H3V14.5l7.14-7.2A4.5 4.5 0 1121 7.5z"
+          />
+        </svg>
+      )}
+    </span>
   );
 }
 
@@ -158,7 +211,11 @@ function Pill({
         ? 'bg-emerald-50 text-emerald-700'
         : 'bg-slate-100 text-slate-700';
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${style}`}>{children}</span>
+    <span
+      className={`inline-flex shrink-0 items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset ring-current/10 ${style}`}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -210,6 +267,7 @@ function WebhookDialog({
   return (
     <DialogShell
       open={open}
+      className="[&_button]:min-h-11"
       onClose={close}
       title={
         create.rawValue ? 'Copy your signing secret' : endpoint ? 'Edit webhook' : 'Add webhook'
@@ -225,13 +283,21 @@ function WebhookDialog({
       onSubmit={create.rawValue ? undefined : submit}
       actions={
         create.rawValue ? (
-          <Button onClick={close}>I have saved the secret</Button>
+          <Button className="min-h-11" onClick={close}>
+            I have saved the secret
+          </Button>
         ) : (
           <>
-            <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+            <Button
+              className="min-h-11"
+              variant="secondary"
+              onClick={close}
+              disabled={mutation.isPending}
+            >
               Cancel
             </Button>
             <Button
+              className="min-h-11"
               type="submit"
               loading={mutation.isPending}
               disabled={!allEvents && selected.length === 0}
@@ -276,19 +342,35 @@ function WebhookDialog({
           />
           <fieldset className="space-y-3">
             <legend className="text-sm font-medium text-slate-800">Events</legend>
-            <label className="flex gap-2 text-sm">
-              <input type="radio" checked={allEvents} onChange={() => setAllEvents(true)} /> All
-              available events
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700 transition-colors hover:border-brand-300 has-checked:border-brand-300 has-checked:bg-brand-50/60">
+              <input
+                className="h-4 w-4 shrink-0 accent-brand-700"
+                type="radio"
+                name="webhook-events"
+                checked={allEvents}
+                onChange={() => setAllEvents(true)}
+              />{' '}
+              All available events
             </label>
-            <label className="flex gap-2 text-sm">
-              <input type="radio" checked={!allEvents} onChange={() => setAllEvents(false)} />{' '}
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700 transition-colors hover:border-brand-300 has-checked:border-brand-300 has-checked:bg-brand-50/60">
+              <input
+                className="h-4 w-4 shrink-0 accent-brand-700"
+                type="radio"
+                name="webhook-events"
+                checked={!allEvents}
+                onChange={() => setAllEvents(false)}
+              />{' '}
               Choose events
             </label>
             {!allEvents && (
-              <div className="grid gap-2 rounded-xl border border-slate-200 p-3 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 {FIRED_WEBHOOK_EVENT_TYPES.map((event) => (
-                  <label key={event} className="flex gap-2 text-sm">
+                  <label
+                    key={event}
+                    className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 has-checked:border-brand-300 has-checked:bg-brand-50/60"
+                  >
                     <input
+                      className="h-4 w-4 shrink-0 accent-brand-700"
                       type="checkbox"
                       checked={selected.includes(event)}
                       onChange={() => toggle(event)}
@@ -327,42 +409,45 @@ function WebhookCard({
     ? endpoint.subscribedEvents.map((event) => WEBHOOK_EVENT_LABELS[event]).join(', ')
     : 'All available events';
   return (
-    <li className="space-y-3 px-4 py-5 sm:px-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <li className="px-4 py-5 sm:px-6 sm:py-6">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="break-all font-semibold text-slate-900">
-              {endpoint.description || endpoint.url}
-            </p>
-            <Pill tone={endpoint.isActive ? 'green' : 'red'}>
-              {endpoint.isActive ? 'Active' : 'Inactive'}
-            </Pill>
-          </div>
-          {endpoint.description && (
-            <p className="mt-1 break-all text-sm text-slate-600">{endpoint.url}</p>
-          )}
-          <p className="mt-2 text-xs text-slate-500">
-            Secret {endpoint.secretDisplayHint}… · Updated {formatDateTime(endpoint.updatedAt)}
+          <p className="break-all text-sm font-semibold text-slate-900">
+            {endpoint.description || endpoint.url}
           </p>
-          <p className="mt-1 text-xs text-slate-500">{events}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" onClick={onDeliveries}>
-            Deliveries
-          </Button>
-          <Button size="sm" variant="secondary" onClick={onEdit}>
-            Edit
-          </Button>
-          {endpoint.isActive ? (
-            <Button size="sm" variant="danger" onClick={onDeactivate}>
-              Deactivate
-            </Button>
-          ) : (
-            <Button size="sm" onClick={onReactivate}>
-              Reactivate
-            </Button>
+          {endpoint.description && (
+            <p className="mt-1.5 break-all font-mono text-xs leading-relaxed text-slate-500">
+              {endpoint.url}
+            </p>
           )}
         </div>
+        <Pill tone={endpoint.isActive ? 'green' : 'slate'}>
+          {endpoint.isActive ? 'Active' : 'Inactive'}
+        </Pill>
+      </div>
+      <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Metadata label="Events">{events}</Metadata>
+        <Metadata label="Signing secret">
+          <code className="break-all text-xs">{endpoint.secretDisplayHint}…</code>
+        </Metadata>
+        <Metadata label="Updated">{formatDateTime(endpoint.updatedAt)}</Metadata>
+      </dl>
+      <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 sm:justify-end">
+        <Button className="min-h-11" variant="secondary" onClick={onDeliveries}>
+          Deliveries
+        </Button>
+        <Button className="min-h-11" variant="secondary" onClick={onEdit}>
+          Edit
+        </Button>
+        {endpoint.isActive ? (
+          <Button className="min-h-11" variant="secondary" onClick={onDeactivate}>
+            Deactivate
+          </Button>
+        ) : (
+          <Button className="min-h-11" onClick={onReactivate}>
+            Reactivate
+          </Button>
+        )}
       </div>
     </li>
   );
@@ -410,22 +495,27 @@ function DeliveryDialog({
       title="Webhook deliveries"
       className="max-w-3xl"
       actions={
-        <Button variant="secondary" onClick={close}>
+        <Button className="min-h-11" variant="secondary" onClick={close}>
           Close
         </Button>
       }
     >
       {endpoint && (
-        <p className="break-all text-sm text-slate-500">Recent attempts for {endpoint.url}</p>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium text-slate-500">Recent attempts for</p>
+          <p className="mt-1 break-all font-mono text-xs leading-relaxed text-slate-700">
+            {endpoint.url}
+          </p>
+        </div>
       )}
       {deliveries.error && <ErrorAlert error={deliveries.error} />}
       {redrive.error && <ErrorAlert error={redrive.error} />}
       {deliveries.isLoading ? (
         <Loading label="Loading webhook deliveries" />
       ) : (deliveries.data ?? []).length ? (
-        <ul className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+        <ul className="space-y-3">
           {deliveries.data?.map((delivery) => (
-            <li key={delivery.id} className="rounded-xl border border-slate-200 p-4">
+            <li key={delivery.id} className="min-w-0 rounded-xl border border-slate-200 p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -457,7 +547,7 @@ function DeliveryDialog({
                 </div>
                 {canRedriveWebhookDelivery(delivery.status) && !redrivenIds.has(delivery.id) && (
                   <Button
-                    size="sm"
+                    className="min-h-11"
                     variant="secondary"
                     loading={redrive.isPending && redrive.variables === delivery.id}
                     onClick={() => redrive.mutate(delivery.id)}
@@ -467,12 +557,12 @@ function DeliveryDialog({
                 )}
               </div>
               {delivery.lastError && (
-                <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
+                <p className="mt-4 break-words rounded-lg bg-red-50 px-3 py-3 text-sm text-red-800">
                   {delivery.lastError}
                 </p>
               )}
               <details className="mt-3">
-                <summary className="cursor-pointer text-xs font-medium text-slate-600">
+                <summary className="min-h-11 cursor-pointer content-center rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
                   Event data
                 </summary>
                 <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">
@@ -482,7 +572,7 @@ function DeliveryDialog({
             </li>
           ))}
         </ul>
-      ) : (
+      ) : deliveries.error ? null : (
         <Empty title="No deliveries yet" body="Events sent to this endpoint will appear here." />
       )}
     </DialogShell>
@@ -539,7 +629,7 @@ export function SettingsIntegrationsPage() {
     });
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="space-y-6 pb-8">
       <SettingsNav />
       <ConfirmDialog pending={pending} onCancel={() => setPending(null)} />
       <CreateApiKeyDialog open={creatingKey} onClose={() => setCreatingKey(false)} />
@@ -555,42 +645,62 @@ export function SettingsIntegrationsPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-500">Connect trusted software to this workspace.</p>
       </div>
-      <section aria-labelledby="api-keys-heading" className="space-y-4">
+      <Card
+        as="section"
+        padding="none"
+        aria-labelledby="api-keys-heading"
+        className="overflow-hidden"
+      >
         <SectionHeading
           id="api-keys-heading"
+          kind="key"
           title="API keys"
           description="Let server applications create and track documents."
           action="Create API key"
           onAction={() => setCreatingKey(true)}
         />
-        {keys.error && <ErrorAlert error={keys.error} />}
+        {keys.error && (
+          <div className="p-4 sm:p-6">
+            <ErrorAlert error={keys.error} />
+          </div>
+        )}
         {revoke.error && <ErrorAlert error={revoke.error} />}
         {keys.isLoading ? (
           <Loading label="Loading API keys" />
         ) : (keys.data ?? []).length ? (
-          <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+          <ul className="divide-y divide-slate-100">
             {keys.data?.map((key) => (
               <ApiKeyRow key={key.id} apiKey={key} onRevoke={() => confirmRevoke(key)} />
             ))}
           </ul>
-        ) : (
+        ) : keys.error ? null : (
           <Empty title="No API keys" body="Create one when a trusted server needs access." />
         )}
-      </section>
-      <section aria-labelledby="webhooks-heading" className="space-y-4">
+      </Card>
+      <Card
+        as="section"
+        padding="none"
+        aria-labelledby="webhooks-heading"
+        className="overflow-hidden"
+      >
         <SectionHeading
           id="webhooks-heading"
+          kind="webhook"
           title="Webhooks"
           description="Send signed event notifications to your application."
           action="Add webhook"
           onAction={() => setWebhookDialog({ open: true, endpoint: null })}
         />
-        {endpoints.error && <ErrorAlert error={endpoints.error} />}
+        {endpoints.error && (
+          <div className="p-4 sm:p-6">
+            <ErrorAlert error={endpoints.error} />
+          </div>
+        )}
         {endpointState.error && <ErrorAlert error={endpointState.error} />}
         {endpoints.isLoading ? (
           <Loading label="Loading webhooks" />
         ) : (endpoints.data ?? []).length ? (
-          <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+          <ul className="divide-y divide-slate-100">
             {endpoints.data?.map((endpoint) => (
               <WebhookCard
                 key={endpoint.id}
@@ -602,21 +712,23 @@ export function SettingsIntegrationsPage() {
               />
             ))}
           </ul>
-        ) : (
+        ) : endpoints.error ? null : (
           <Empty title="No webhooks" body="Add an endpoint to receive document status events." />
         )}
-      </section>
+      </Card>
     </div>
   );
 }
 
 function SectionHeading({
+  kind,
   id,
   title,
   description,
   action,
   onAction,
 }: {
+  kind: 'key' | 'webhook';
   id: string;
   title: string;
   description: string;
@@ -624,14 +736,22 @@ function SectionHeading({
   onAction: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h2 id={id} className="text-lg font-semibold text-slate-900">
-          {title}
-        </h2>
-        <p className="mt-1 text-sm text-slate-500">{description}</p>
+    <div className="flex flex-col gap-4 border-b border-slate-200/80 bg-slate-50/50 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="flex items-start gap-3">
+        <SectionIcon kind={kind} />
+        <div>
+          <h2 id={id} className="text-base font-semibold text-slate-900">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+        </div>
       </div>
-      <Button onClick={onAction}>{action}</Button>
+      <Button className="min-h-11 shrink-0" onClick={onAction}>
+        <span aria-hidden="true" className="text-lg leading-none">
+          +
+        </span>
+        {action}
+      </Button>
     </div>
   );
 }
@@ -642,7 +762,7 @@ function ErrorAlert({ error }: { error: unknown }) {
 function Loading({ label }: { label: string }) {
   return (
     <div
-      className="h-28 animate-pulse rounded-2xl border border-slate-200 bg-white"
+      className="m-4 h-28 animate-pulse rounded-xl bg-slate-100 motion-reduce:animate-none sm:m-6"
       role="status"
       aria-label={label}
     />
@@ -650,7 +770,7 @@ function Loading({ label }: { label: string }) {
 }
 function Empty({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
+    <div className="px-6 py-12 text-center">
       <h3 className="font-semibold text-slate-900">{title}</h3>
       <p className="mt-1 text-sm text-slate-500">{body}</p>
     </div>

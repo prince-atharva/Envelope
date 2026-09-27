@@ -524,6 +524,8 @@ test('integration settings', async ({ page }) => {
   await page.getByRole('button', { name: 'I have saved the key' }).click();
 
   await page.getByRole('button', { name: 'Add webhook' }).click();
+  await page.getByLabel('Choose events').check();
+  await page.getByLabel('Envelope sent', { exact: true }).check();
   await shot(page, 'integrations-add-webhook', {
     area: 'settings',
     caption: 'Registering a webhook and choosing its events.',
@@ -538,6 +540,7 @@ test('integration settings', async ({ page }) => {
     mask: [page.getByTestId('raw-webhook-secret')],
   });
   await page.getByRole('button', { name: 'I have saved the secret' }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, 'integrations-populated', {
     area: 'settings',
     caption: 'API keys and webhook endpoints after setup.',
@@ -559,5 +562,28 @@ test('integration settings', async ({ page }) => {
   await shot(page, 'integrations-deliveries', {
     area: 'settings',
     caption: 'A successful webhook delivery with its status and attempt details.',
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page
+    .getByLabel('Endpoint URL')
+    .fill(`http://127.0.0.1:9/${'long-endpoint-path'.repeat(8)}`);
+  await page.getByLabel('Description (optional)').clear();
+  await shot(page, 'integrations-edit-webhook', {
+    area: 'settings',
+    caption: 'Editing a webhook with a long endpoint address.',
+  });
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await page.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await page.getByRole('button', { name: 'Deactivate webhook', exact: true }).click();
+  await expect(page.getByText('Inactive', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Revoke', exact: true }).click();
+  await page.getByRole('button', { name: 'Revoke key', exact: true }).click();
+  await expect(page.getByText('Revoked', { exact: true }).first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, 'integrations-inactive-long-content', {
+    area: 'settings',
+    caption: 'Revoked keys and inactive endpoints with long content.',
+    fullPage: true,
   });
 });

@@ -50,6 +50,9 @@ test('owner manages API keys, webhooks and a failed delivery', async ({ page }) 
   await page.getByLabel('Read-only key').check();
   await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
   await expect(page.getByTestId('raw-api-key')).toContainText(/^eak_/);
+  expect(
+    (await page.getByRole('button', { name: 'Copy API key' }).boundingBox())?.height,
+  ).toBeGreaterThanOrEqual(44);
   await page.getByRole('button', { name: 'I have saved the key' }).click();
   const keyRow = page.getByRole('listitem').filter({ hasText: 'HealthProHub production' });
   await expect(keyRow).toContainText('Read only');
@@ -75,6 +78,9 @@ test('owner manages API keys, webhooks and a failed delivery', async ({ page }) 
   await page.getByLabel('Envelope sent').check();
   await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
   await expect(page.getByTestId('raw-webhook-secret')).toContainText(/^whsec_/);
+  expect(
+    (await page.getByRole('button', { name: 'Copy signing secret' }).boundingBox())?.height,
+  ).toBeGreaterThanOrEqual(44);
   await page.getByRole('button', { name: 'I have saved the secret' }).click();
   let endpointRow = page.getByRole('listitem').filter({ hasText: 'HealthProHub receiver' });
   await expect(endpointRow).toContainText('Envelope sent');
@@ -153,4 +159,81 @@ test('settings routes follow the Admin and Member role floor', async ({ page }) 
   await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
   await page.goto('/settings/integrations');
   await expect(page).toHaveURL(/\/dashboard/);
+});
+
+test('integration records stay usable with long content on phones and desktops', async ({
+  page,
+}) => {
+  await signUp(page, 'integrations-responsive');
+  await page.goto('/settings/integrations');
+  const label = 'HealthProHubProductionReportingServiceWithAnUnbrokenName';
+  await page.getByRole('button', { name: 'Create API key' }).click();
+  await page.getByLabel('Key label').fill(label);
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
+  await page.getByRole('button', { name: 'I have saved the key' }).click();
+  await page.getByRole('button', { name: 'Add webhook' }).click();
+  const url = `http://127.0.0.1:9/${'long-endpoint-path'.repeat(8)}`;
+  await page.getByLabel('Endpoint URL').fill(url);
+  await page.getByLabel('Choose events').check();
+  for (const checkbox of await page.getByRole('dialog').getByRole('checkbox').all()) {
+    await checkbox.check();
+  }
+  await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
+  await page.getByRole('button', { name: 'I have saved the secret' }).click();
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByText(label, { exact: true })).toBeVisible();
+    await expect(page.getByText(url, { exact: true })).toBeVisible();
+    await expect(page.getByText(/Envelope sent, Envelope viewed/)).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    for (const name of [
+      'Create API key',
+      'Add webhook',
+      'Revoke',
+      'Deliveries',
+      'Edit',
+      'Deactivate',
+    ]) {
+      const button = page.getByRole('button', { name, exact: true });
+      await button.scrollIntoViewIfNeeded();
+      await expect(button).toBeInViewport();
+      const bounds = await button.boundingBox();
+      expect(bounds?.height).toBeGreaterThanOrEqual(44);
+      expect(bounds?.width).toBeGreaterThanOrEqual(44);
+    }
+  }
+});
+
+test('integration dialogs support keyboard navigation and restore focus', async ({ page }) => {
+  await signUp(page, 'integrations-keyboard');
+  await page.goto('/settings/integrations');
+  const create = page.getByRole('button', { name: 'Create API key' });
+  await create.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog');
+  await expect(page.getByLabel('Key label')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByLabel('Read-only key')).toBeFocused();
+  await page.keyboard.press('Space');
+  await expect(page.getByLabel('Read-only key')).toBeChecked();
+  await page.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible();
+  await expect(create).toBeFocused();
+  await page.setViewportSize({ width: 375, height: 667 });
+  const add = page.getByRole('button', { name: 'Add webhook' });
+  await add.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByLabel('Endpoint URL')).toBeFocused();
+  await page.getByLabel('Choose events').check();
+  await page.getByLabel('Envelope sent', { exact: true }).focus();
+  await page.keyboard.press('Space');
+  await expect(page.getByLabel('Envelope sent', { exact: true })).toBeChecked();
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await dialog.getByRole('button', { name: 'Cancel' }).focus();
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeInViewport();
+  await page.keyboard.press('Enter');
+  await expect(dialog).not.toBeVisible();
+  await expect(add).toBeFocused();
 });
