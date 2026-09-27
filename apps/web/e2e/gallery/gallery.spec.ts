@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import pg from 'pg';
 import {
   addRecipient,
   agreeToSign,
@@ -18,6 +19,7 @@ import {
   uploadDocument,
   waitForFieldsSaved,
 } from '../helpers';
+import { STACK_ENV } from '../stack/stack.mjs';
 import { GALLERY_DIR, overlayReady, pdfReady, shot, writeContactSheet } from './shot';
 
 /** Fingerprints differ on every run, so every shot masks them. */
@@ -494,4 +496,68 @@ test('the gallery index', async () => {
   const index = writeContactSheet();
   expect(index).toContain(GALLERY_DIR);
   expect(TEST_PASSWORD).toBeTruthy();
+});
+
+test('integration settings', async ({ page }) => {
+  await signUpAs(page, 'gallery-integrations', SENDER);
+  await page.goto('/settings/integrations');
+  await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
+  await shot(page, 'integrations-empty', {
+    area: 'settings',
+    caption: 'Integration settings before credentials are added.',
+    fullPage: true,
+  });
+
+  await page.getByRole('button', { name: 'Create API key' }).click();
+  await shot(page, 'integrations-create-api-key', {
+    area: 'settings',
+    caption: 'Creating a labelled, optionally read-only API key.',
+  });
+  await page.getByLabel('Key label').fill('HealthProHub production');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
+  await expect(page.getByTestId('raw-api-key')).toBeVisible();
+  await shot(page, 'integrations-api-key-once', {
+    area: 'settings',
+    caption: 'The API key is shown once.',
+    mask: [page.getByTestId('raw-api-key')],
+  });
+  await page.getByRole('button', { name: 'I have saved the key' }).click();
+
+  await page.getByRole('button', { name: 'Add webhook' }).click();
+  await shot(page, 'integrations-add-webhook', {
+    area: 'settings',
+    caption: 'Registering a webhook and choosing its events.',
+  });
+  await page.getByLabel('Endpoint URL').fill('http://127.0.0.1:9/gallery-hook');
+  await page.getByLabel('Description (optional)').fill('HealthProHub production');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
+  await expect(page.getByTestId('raw-webhook-secret')).toBeVisible();
+  await shot(page, 'integrations-webhook-secret-once', {
+    area: 'settings',
+    caption: 'The webhook signing secret is shown once.',
+    mask: [page.getByTestId('raw-webhook-secret')],
+  });
+  await page.getByRole('button', { name: 'I have saved the secret' }).click();
+  await shot(page, 'integrations-populated', {
+    area: 'settings',
+    caption: 'API keys and webhook endpoints after setup.',
+    fullPage: true,
+  });
+  const galleryDb = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await galleryDb.connect();
+  try {
+    await galleryDb.query(
+      `INSERT INTO "WebhookDelivery" (id, "tenantId", "webhookEndpointId", "eventId", "eventType", payload, status, attempts, "lastAttemptAt", "lastStatusCode", "createdAt")
+       SELECT gen_random_uuid(), "tenantId", id, 'evt_gallery', 'envelope.completed', '{"data":{"envelopeId":"gallery-envelope"}}'::jsonb, 'SUCCEEDED', 1, now(), 204, now()
+       FROM "WebhookEndpoint" WHERE url = 'http://127.0.0.1:9/gallery-hook'`,
+    );
+  } finally {
+    await galleryDb.end();
+  }
+  await page.getByRole('button', { name: 'Deliveries' }).click();
+  await expect(page.getByRole('dialog').getByText('Envelope completed')).toBeVisible();
+  await shot(page, 'integrations-deliveries', {
+    area: 'settings',
+    caption: 'A successful webhook delivery with its status and attempt details.',
+  });
 });

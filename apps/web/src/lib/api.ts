@@ -1,9 +1,14 @@
 import {
   type AcceptInviteInput,
   type AddRecipientInput,
+  type ApiKeySummary,
   type AuditExportDocument,
   type AuthResponse,
   type ChangeUserRoleInput,
+  type CreateApiKeyInput,
+  type CreateApiKeyResponse,
+  type CreateWebhookEndpointInput,
+  type CreateWebhookEndpointResponse,
   type DraftRevisionResponse,
   type EnvelopeCounts,
   type EnvelopeDetail,
@@ -35,9 +40,12 @@ import {
   type TenantUser,
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
+  type UpdateWebhookEndpointInput,
   type UserProfile,
   type VoidEnvelopeInput,
   type VoidEnvelopeResponse,
+  type WebhookDeliverySummary,
+  type WebhookEndpointSummary,
 } from '@envelope/shared';
 
 const API_BASE = '/api/v1';
@@ -463,6 +471,36 @@ export const api = {
     json<AuditExportDocument>(`/envelopes/${encodeURIComponent(id)}/audit?format=json`),
 
   // ─── Settings → Users (OWNER only) ───
+  // ─── Settings → Integrations (ADMIN or OWNER) ───
+
+  listApiKeys: () => json<ApiKeySummary[]>('/api-keys'),
+
+  createApiKey: (input: CreateApiKeyInput) =>
+    json<CreateApiKeyResponse>('/api-keys', jsonBody(input)),
+
+  revokeApiKey: (id: string) =>
+    json<ApiKeySummary>(`/api-keys/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listWebhookEndpoints: () => json<WebhookEndpointSummary[]>('/webhooks'),
+
+  createWebhookEndpoint: (input: CreateWebhookEndpointInput) =>
+    json<CreateWebhookEndpointResponse>('/webhooks', jsonBody(input)),
+
+  updateWebhookEndpoint: (id: string, input: UpdateWebhookEndpointInput) =>
+    json<WebhookEndpointSummary>(`/webhooks/${encodeURIComponent(id)}`, jsonBody(input, 'PATCH')),
+
+  deactivateWebhookEndpoint: (id: string) =>
+    json<WebhookEndpointSummary>(`/webhooks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listWebhookDeliveries: (endpointId: string, limit = 50) =>
+    json<WebhookDeliverySummary[]>(
+      `/webhooks/${encodeURIComponent(endpointId)}/deliveries?limit=${limit}`,
+    ),
+
+  redriveWebhookDelivery: (deliveryId: string) =>
+    json<WebhookDeliverySummary>(`/webhooks/${encodeURIComponent(deliveryId)}/redrive`, {
+      method: 'POST',
+    }),
 
   listUsers: () => json<TenantUser[]>('/users'),
 

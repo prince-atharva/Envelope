@@ -14,6 +14,22 @@ describe('errors', () => {
       expect(describeError(error)).toEqual({ message: 'That PDF is larger than 25 MB.' });
     });
 
+    it('explains integration configuration errors', () => {
+      const url = new ApiError({
+        status: 422,
+        code: 'WEBHOOK_URL_NOT_ALLOWED',
+        title: 'URL refused',
+      });
+      expect(describeError(url).message).toContain('public HTTPS address');
+
+      const limit = new ApiError({
+        status: 409,
+        code: 'WEBHOOK_ENDPOINT_LIMIT_REACHED',
+        title: 'Limit reached',
+      });
+      expect(describeError(limit).message).toContain('maximum of five');
+    });
+
     it('returns generic message with reference for 5xx ApiError', () => {
       const error = new ApiError({
         status: 500,

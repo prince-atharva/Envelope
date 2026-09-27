@@ -15,12 +15,14 @@ export function HashBlock({
   hash,
   label = 'Document Fingerprint (SHA-256)',
   copyLabel = 'Copy Hash',
+  valueName = 'Fingerprint',
   status,
   testId,
 }: {
   hash: string;
   label?: string;
   copyLabel?: string;
+  valueName?: string;
   /** Short state word shown top right, e.g. "Sealed". */
   status?: string;
   testId?: string;
@@ -76,9 +78,9 @@ export function HashBlock({
       {/* The outcome is announced, not only recoloured. */}
       <span className="sr-only" role="status">
         {state === 'copied'
-          ? 'Fingerprint copied to the clipboard.'
+          ? `${valueName} copied to the clipboard.`
           : state === 'failed'
-            ? 'The fingerprint could not be copied. Select it and copy it by hand.'
+            ? `The ${valueName.toLowerCase()} could not be copied. Select it and copy it by hand.`
             : ''}
       </span>
     </div>

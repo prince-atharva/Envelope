@@ -9,6 +9,7 @@ import { NewEnvelopePage } from './pages/NewEnvelopePage';
 import { PreparePage } from './pages/PreparePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ReviewPage } from './pages/ReviewPage';
+import { SettingsIntegrationsPage } from './pages/SettingsIntegrationsPage';
 import { SettingsUsersPage } from './pages/SettingsUsersPage';
 import { GuestOnly, RequireAuth, RequireRole } from './routes/guards';
 
@@ -37,6 +38,9 @@ export default function SenderApp() {
             <Route path="/dashboard/envelopes/:id" element={<EnvelopeDetailPage />} />
             <Route path="/dashboard/envelopes/:id/prepare" element={<PreparePage />} />
             <Route path="/dashboard/envelopes/:id/review" element={<ReviewPage />} />
+            <Route element={<RequireRole minimum="ADMIN" />}>
+              <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
+            </Route>
             <Route element={<RequireRole minimum="OWNER" />}>
               <Route path="/settings/users" element={<SettingsUsersPage />} />
             </Route>

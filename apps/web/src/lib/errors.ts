@@ -27,6 +27,12 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   INVALID_SIGNATURE_IMAGE: 'That signature could not be used. Please try again.',
   REQUIRED_FIELDS_INCOMPLETE: 'Some required boxes are still empty.',
   CONSENT_REQUIRED: 'Please agree to sign electronically first. Reload the page to see the notice.',
+  WEBHOOK_URL_NOT_ALLOWED:
+    'Use a public HTTPS address. Private, local and redirect-only addresses are not allowed.',
+  WEBHOOK_ENDPOINT_LIMIT_REACHED:
+    'This workspace already has the maximum of five webhook endpoints.',
+  WEBHOOK_DELIVERY_NOT_REDRIVABLE:
+    'This delivery can no longer be retried. Failed deliveries are available for seven days.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 

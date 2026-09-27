@@ -2,6 +2,7 @@ import type { ChangeUserRoleInput, InviteUserInput, TenantUser, UserRole } from 
 import { USER_ROLES } from '@envelope/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { SettingsNav } from '../components/layout/SettingsNav';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { type Confirmation, ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -165,6 +166,7 @@ export function SettingsUsersPage() {
 
   return (
     <div className="space-y-6 pb-8">
+      <SettingsNav />
       <ConfirmDialog pending={pending} onCancel={() => setPending(null)} />
       <InviteDialog open={inviting} onClose={() => setInviting(false)} />
 

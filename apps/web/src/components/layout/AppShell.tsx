@@ -114,8 +114,8 @@ export function AppShell() {
                 <span>Verify</span>
               </NavLink>
 
-              {user && hasAtLeast(user.role, 'OWNER') && (
-                <NavLink to="/settings/users" className={navClass} onClick={scrollToTop}>
+              {user && hasAtLeast(user.role, 'ADMIN') && (
+                <NavLink to="/settings/integrations" className={navClass} onClick={scrollToTop}>
                   <svg
                     className="h-4 w-4 shrink-0"
                     fill="none"
@@ -183,8 +183,8 @@ export function AppShell() {
           >
             Verify
           </NavLink>
-          {user && hasAtLeast(user.role, 'OWNER') && (
-            <NavLink to="/settings/users" className={navClass} onClick={scrollToTop}>
+          {user && hasAtLeast(user.role, 'ADMIN') && (
+            <NavLink to="/settings/integrations" className={navClass} onClick={scrollToTop}>
               Settings
             </NavLink>
           )}
