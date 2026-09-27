@@ -587,3 +587,31 @@ test('integration settings', async ({ page }) => {
     fullPage: true,
   });
 });
+
+test('integration developer guide', async ({ page }) => {
+  await signUpAs(page, 'gallery-integration-guide', SENDER);
+  await page.goto('/settings/integrations');
+  await page.getByRole('tab', { name: 'Integration guide', exact: true }).click();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await shot(page, 'integration-guide-start', {
+    area: 'settings',
+    caption: 'Integration quick start and guided workflow.',
+    fullPage: true,
+  });
+  await page.getByRole('tab', { name: 'API reference', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Search API operations' }).fill('fields');
+  await page.locator('summary').filter({ hasText: 'Place signing fields' }).click();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await shot(page, 'integration-guide-api', {
+    area: 'settings',
+    caption: 'Searchable API reference with request and response examples.',
+    fullPage: true,
+  });
+  await page.getByRole('tab', { name: 'Webhook guide', exact: true }).click();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await shot(page, 'integration-guide-webhooks', {
+    area: 'settings',
+    caption: 'Webhook setup, event payloads, verification and acknowledgement.',
+    fullPage: true,
+  });
+});

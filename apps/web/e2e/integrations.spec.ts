@@ -237,3 +237,68 @@ test('integration dialogs support keyboard navigation and restore focus', async 
   await expect(dialog).not.toBeVisible();
   await expect(add).toBeFocused();
 });
+
+test('integration guide documents all key operations and webhook setup on every screen size', async ({
+  page,
+  context,
+}) => {
+  await signUp(page, 'integration-guide');
+  await page.goto('/settings/integrations');
+  await page.getByRole('tab', { name: 'Integration guide', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'From your application to a signed document' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: '2. Upload → prepare → send' })).toBeVisible();
+  await page.locator('summary').filter({ hasText: 'Upload a PDF' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Upload a PDF request', exact: true }),
+  ).toContainText('--form');
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.getByRole('button', { name: 'Copy Upload a PDF request', exact: true }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain('Bearer $ENVELOPE_API_KEY');
+  await page.getByRole('tab', { name: 'API reference', exact: true }).click();
+  await expect(page.locator('summary')).toHaveCount(12);
+  await page.getByRole('searchbox', { name: 'Search API operations' }).fill('DELETE');
+  await expect(page.locator('summary')).toHaveCount(1);
+  await page.locator('summary').click();
+  await expect(
+    page.getByRole('region', { name: 'Remove a recipient request', exact: true }),
+  ).toContainText('If-Match');
+  await page.getByRole('searchbox', { name: 'Search API operations' }).fill('no such operation');
+  await expect(page.getByText(/No matching operations/)).toBeVisible();
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await page.getByRole('searchbox', { name: 'Search API operations' }).fill('fields');
+  await page.locator('summary').filter({ hasText: 'Place signing fields' }).click();
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await expect(
+      page.getByRole('button', { name: 'Copy Place signing fields request', exact: true }),
+    ).toBeVisible();
+  }
+  await page.getByRole('tab', { name: 'Webhook guide', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Webhook payload', exact: true })).toContainText(
+    'finalVersionNumber',
+  );
+  await page.getByRole('combobox', { name: 'Webhook event' }).selectOption('recipient.consented');
+  await expect(page.getByRole('region', { name: 'Webhook payload', exact: true })).toContainText(
+    'consentGivenAt',
+  );
+  await expect(page.getByText(/envelope.delivered is reserved/)).toBeVisible();
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+  }
+  await page.getByRole('tab', { name: 'Webhook guide', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Troubleshooting' })).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Understand an API error' })).toBeVisible();
+  await page.getByRole('button', { name: 'Manage connections', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Create API key' })).toBeVisible();
+});

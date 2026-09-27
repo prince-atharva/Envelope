@@ -6,7 +6,7 @@ import {
   type WebhookEventType,
 } from '@envelope/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { SettingsNav } from '../components/layout/SettingsNav';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
@@ -16,6 +16,8 @@ import { DialogShell } from '../components/ui/DialogShell';
 import { TextField } from '../components/ui/Field';
 import { HashBlock } from '../components/ui/HashBlock';
 import { BoltIcon } from '../components/ui/icons';
+import { TabPanel, Tabs } from '../components/ui/Tabs';
+import { IntegrationGuide } from '../features/integrations/IntegrationGuide';
 import {
   apiKeyAccessDescription,
   apiKeyAccessLabel,
@@ -581,6 +583,8 @@ function DeliveryDialog({
 
 export function SettingsIntegrationsPage() {
   useDocumentTitle('Integrations');
+  const viewId = useId();
+  const [view, setView] = useState<'manage' | 'guide'>('manage');
   const queryClient = useQueryClient();
   const [creatingKey, setCreatingKey] = useState(false);
   const [deliveryEndpoint, setDeliveryEndpoint] = useState<WebhookEndpointSummary | null>(null);
@@ -645,77 +649,93 @@ export function SettingsIntegrationsPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-500">Connect trusted software to this workspace.</p>
       </div>
-      <Card
-        as="section"
-        padding="none"
-        aria-labelledby="api-keys-heading"
-        className="overflow-hidden"
-      >
-        <SectionHeading
-          id="api-keys-heading"
-          kind="key"
-          title="API keys"
-          description="Let server applications create and track documents."
-          action="Create API key"
-          onAction={() => setCreatingKey(true)}
-        />
-        {keys.error && (
-          <div className="p-4 sm:p-6">
-            <ErrorAlert error={keys.error} />
-          </div>
-        )}
-        {revoke.error && <ErrorAlert error={revoke.error} />}
-        {keys.isLoading ? (
-          <Loading label="Loading API keys" />
-        ) : (keys.data ?? []).length ? (
-          <ul className="divide-y divide-slate-100">
-            {keys.data?.map((key) => (
-              <ApiKeyRow key={key.id} apiKey={key} onRevoke={() => confirmRevoke(key)} />
-            ))}
-          </ul>
-        ) : keys.error ? null : (
-          <Empty title="No API keys" body="Create one when a trusted server needs access." />
-        )}
-      </Card>
-      <Card
-        as="section"
-        padding="none"
-        aria-labelledby="webhooks-heading"
-        className="overflow-hidden"
-      >
-        <SectionHeading
-          id="webhooks-heading"
-          kind="webhook"
-          title="Webhooks"
-          description="Send signed event notifications to your application."
-          action="Add webhook"
-          onAction={() => setWebhookDialog({ open: true, endpoint: null })}
-        />
-        {endpoints.error && (
-          <div className="p-4 sm:p-6">
-            <ErrorAlert error={endpoints.error} />
-          </div>
-        )}
-        {endpointState.error && <ErrorAlert error={endpointState.error} />}
-        {endpoints.isLoading ? (
-          <Loading label="Loading webhooks" />
-        ) : (endpoints.data ?? []).length ? (
-          <ul className="divide-y divide-slate-100">
-            {endpoints.data?.map((endpoint) => (
-              <WebhookCard
-                key={endpoint.id}
-                endpoint={endpoint}
-                onEdit={() => setWebhookDialog({ open: true, endpoint })}
-                onDeactivate={() => confirmDeactivate(endpoint)}
-                onReactivate={() => endpointState.mutate({ id: endpoint.id, active: true })}
-                onDeliveries={() => setDeliveryEndpoint(endpoint)}
-              />
-            ))}
-          </ul>
-        ) : endpoints.error ? null : (
-          <Empty title="No webhooks" body="Add an endpoint to receive document status events." />
-        )}
-      </Card>
+      <Tabs
+        idPrefix={viewId}
+        label="Integration views"
+        items={[
+          { id: 'manage', label: 'Manage connections' },
+          { id: 'guide', label: 'Integration guide' },
+        ]}
+        value={view}
+        onChange={setView}
+        className="[&_button]:min-h-11"
+      />
+      <TabPanel idPrefix={viewId} id="guide" hidden={view !== 'guide'}>
+        {view === 'guide' && <IntegrationGuide onManage={() => setView('manage')} />}
+      </TabPanel>
+      <TabPanel idPrefix={viewId} id="manage" hidden={view !== 'manage'} className="space-y-6">
+        <Card
+          as="section"
+          padding="none"
+          aria-labelledby="api-keys-heading"
+          className="overflow-hidden"
+        >
+          <SectionHeading
+            id="api-keys-heading"
+            kind="key"
+            title="API keys"
+            description="Let server applications create and track documents."
+            action="Create API key"
+            onAction={() => setCreatingKey(true)}
+          />
+          {keys.error && (
+            <div className="p-4 sm:p-6">
+              <ErrorAlert error={keys.error} />
+            </div>
+          )}
+          {revoke.error && <ErrorAlert error={revoke.error} />}
+          {keys.isLoading ? (
+            <Loading label="Loading API keys" />
+          ) : (keys.data ?? []).length ? (
+            <ul className="divide-y divide-slate-100">
+              {keys.data?.map((key) => (
+                <ApiKeyRow key={key.id} apiKey={key} onRevoke={() => confirmRevoke(key)} />
+              ))}
+            </ul>
+          ) : keys.error ? null : (
+            <Empty title="No API keys" body="Create one when a trusted server needs access." />
+          )}
+        </Card>
+        <Card
+          as="section"
+          padding="none"
+          aria-labelledby="webhooks-heading"
+          className="overflow-hidden"
+        >
+          <SectionHeading
+            id="webhooks-heading"
+            kind="webhook"
+            title="Webhooks"
+            description="Send signed event notifications to your application."
+            action="Add webhook"
+            onAction={() => setWebhookDialog({ open: true, endpoint: null })}
+          />
+          {endpoints.error && (
+            <div className="p-4 sm:p-6">
+              <ErrorAlert error={endpoints.error} />
+            </div>
+          )}
+          {endpointState.error && <ErrorAlert error={endpointState.error} />}
+          {endpoints.isLoading ? (
+            <Loading label="Loading webhooks" />
+          ) : (endpoints.data ?? []).length ? (
+            <ul className="divide-y divide-slate-100">
+              {endpoints.data?.map((endpoint) => (
+                <WebhookCard
+                  key={endpoint.id}
+                  endpoint={endpoint}
+                  onEdit={() => setWebhookDialog({ open: true, endpoint })}
+                  onDeactivate={() => confirmDeactivate(endpoint)}
+                  onReactivate={() => endpointState.mutate({ id: endpoint.id, active: true })}
+                  onDeliveries={() => setDeliveryEndpoint(endpoint)}
+                />
+              ))}
+            </ul>
+          ) : endpoints.error ? null : (
+            <Empty title="No webhooks" body="Add an endpoint to receive document status events." />
+          )}
+        </Card>
+      </TabPanel>
     </div>
   );
 }
