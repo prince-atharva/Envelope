@@ -109,15 +109,15 @@ completed in-page guide:
 ## Phase 7 Workstreams and Commit Record
 
 This is the single maintained plan for Phase 7. The earlier separate slice plans have been merged
-here and removed. The foundation commits and `v0.7.0` release remain unchanged; subsequent local
-work is being recommitted by workstream after the authorized soft reset.
+here and removed. The foundation commits and `v0.7.0` release remain unchanged; subsequent implementation
+commits below group the work by Phase 7 workstream after the authorized soft reset.
 
 | # | Workstream | Status | Commit evidence |
 |---|---|---|---|
 | 1 | API-key and webhook foundation | ✅ Released in `v0.7.0` | `bb12153` contracts/schema; `2c0b709` API keys; `39e1132` endpoint security; `515cc6a` delivery pipeline; `d00df8d` lifecycle events; `4353f01` purge and docs; release `609b5e2` |
-| 2 | Settings integration management | ✅ Built | Replacement workstream commit recorded after recommit |
-| 3 | Responsive visual polish | ✅ Built | Replacement workstream commit recorded after recommit |
-| 4 | In-page integration guide and API/webhook reference | ✅ Built | Previously approved scope; replacement workstream commit recorded after recommit |
+| 2 | Settings integration management | ✅ Built | `42fec3b` |
+| 3 | Responsive visual polish | ✅ Built | `bc4b198` |
+| 4 | In-page integration guide and API/webhook reference | ✅ Built | `4f05424` |
 | 5 | Phase 7 finish-line verification and final documentation | ✅ Verified | Final verification record below |
 | 6 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
 

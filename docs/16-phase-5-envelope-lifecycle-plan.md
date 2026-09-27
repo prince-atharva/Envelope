@@ -463,7 +463,7 @@ sender) and `alert`.
 |---|---|
 | Any user of a tenant can cancel | ✅ Fixed in [Phase 6](17-phase-6-compliance-plan.md): roles enforced |
 | An expired large-file download link shows 410 JSON and cannot be renewed | ✅ Fixed in [Phase 6](17-phase-6-compliance-plan.md) |
-| Alerts are email only | A paging tool with the production deploy, Phase 7 |
+| Alerts are email only | A paging tool with the production deploy, Phase 8 |
 | A chain break does not stop sending by itself | A manual decision, per doc 10's P0 response |
 | A discarded draft is kept (as `VOIDED`, listed under the Cancelled tab) | The audit trail cannot be deleted by the app, by design (ADR 0004, ADR 0014); its storage object is now removed by the [Phase 6](17-phase-6-compliance-plan.md) retention sweeper |
-| Found while planning, for Phase 7: an unset `NODE_ENV` in production leaves Swagger and the test rate-limit bypass on; the public health check shows raw error messages; the web app has no CSP because nothing serves it yet; the accessibility gaps (no PDF text layer, pointer-only field placement, contrast) | Phase 7 |
+| Found while planning, for Phase 8: an unset `NODE_ENV` in production leaves Swagger and the test rate-limit bypass on; the public health check shows raw error messages; the web app has no CSP because nothing serves it yet; the accessibility gaps (no PDF text layer, pointer-only field placement, contrast) | Phase 8 |
