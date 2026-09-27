@@ -5,8 +5,10 @@ description: Implement an approved Envelope phase plan — write code and tests 
 
 # Build a Phase
 
-Input: an approved `docs/NN-phase-*-plan.md`. Output: one commit per plan step, every commit
-building on its own, the whole suite green on the last one.
+Input: an approved major-phase plan `docs/NN-phase-*-plan.md`. Output: one commit per plan step,
+every commit building on its own, the whole suite green on the last one. Keep every implementation
+slice inside its major phase's maintained plan; do not create `6b.1`/`6b.2`-style child plans.
+Integration work is Phase 7; Phase 6 is complete.
 
 Always export the toolchain first (see AGENTS.md §4):
 
@@ -120,6 +122,10 @@ git status --short   # must be empty (only ignored files like .env remain)
 The working tree is never touched by this; after the last commit it equals HEAD.
 
 ## 7. Close out the build
+
+Maintain the same phase plan: record actual step commits, check results, and remaining work there.
+Finishing another step in the same phase does not bump package or document versions. Keep its
+changelog additions under `[Unreleased]`; version and tag changes require an authorized release.
 
 - Mark each step ✅ Done in the plan's Steps table, set the plan's Status to "Built", and add the
   phase to `CHANGELOG.md` under `[Unreleased]` (Added / Changed / Fixed). Fold these into the last

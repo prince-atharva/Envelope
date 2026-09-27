@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft |
 | **Version** | 1.0.0 |
-| **Last updated** | 10 September 2026 |
+| **Last updated** | 27 September 2026 |
 | **Audience** | Everyone (Part 1) · Engineering and integrators (Part 2) |
 | **What this doc answers** | What can other software do with this system, and how? |
 
@@ -95,7 +95,7 @@ The fix is that each send carries a unique reference number. If we see the same 
 
 API keys are shown once at creation, stored hashed, and are revocable. They MUST be scoped to a tenant and SHOULD support read-only variants.
 
-> **As built (Phase 6b foundation, docs/18).** "Whole tenant" describes the key's *permissions*
+> **As built (Phase 7 foundation, docs/18).** "Whole tenant" describes the key's *permissions*
 > once a route accepts it (no per-owner scoping, unlike a MEMBER's JWT session) — it does not mean
 > every route accepts a key. This phase allow-lists envelope create/upload, draft edits, send, and
 > reads only; everything else (compliance, users, legal hold, void, webhook/API-key management
@@ -598,7 +598,7 @@ The `detail` wording is deliberate. The system genuinely cannot distinguish betw
 | `envelope.voided` | Cancelled by the sender |
 | `envelope.expired` | Passed `expiresAt` unsigned |
 
-> **As built (Phase 6b foundation, docs/18).** `envelope.delivered` is reserved in the event-type
+> **As built (Phase 7 foundation, docs/18).** `envelope.delivered` is reserved in the event-type
 > union but never fired: the platform sends mail over SMTP, which confirms only that a message was
 > handed to a mail server, never that it reached an inbox. Firing it on SMTP-accept would assert
 > something the system does not know, the same standard `/verify` already holds itself to (this
@@ -645,7 +645,7 @@ Consumers MUST be idempotent on `event.id`. Duplicates are expected, not excepti
 
 Failed deliveries are retained 7 days and redrivable via `POST /v1/webhooks/:id/redrive`.
 
-> **As built (Phase 6b foundation, docs/18).** The `:id` in the redrive route is a **delivery** id,
+> **As built (Phase 7 foundation, docs/18).** The `:id` in the redrive route is a **delivery** id,
 > not an endpoint id — the one route under `/v1/webhooks/:id` that takes a different kind of id than
 > its siblings (`PATCH`, `DELETE`, `GET .../deliveries`, all endpoint ids). Worth this explicit note
 > since it reads ambiguously otherwise. `DELETE /v1/webhooks/:id` deactivates an endpoint rather

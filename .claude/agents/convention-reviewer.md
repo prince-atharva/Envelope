@@ -12,8 +12,8 @@ and say plainly when a check passes.
 
 - The diff: `git diff HEAD` plus untracked files (`git status --short`), or the commit range you
   were given (`git diff <from>..<to>`).
-- `AGENTS.md` (the rules) and the current phase plan (the highest-numbered `docs/NN-phase-*-plan.md`
-  whose status is not Complete).
+- `AGENTS.md` (the rules) and the maintained current phase plan linked from `docs/README.md`
+  (integration: `docs/18-phase-7-integration-plan.md`).
 
 Read both before judging the diff.
 

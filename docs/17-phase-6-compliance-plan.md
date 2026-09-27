@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Complete. Built and released as `v0.6.0` |
 | **Version** | 1.0.0 |
-| **Last updated** | 25 September 2026 |
+| **Last updated** | 27 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 6 deliver, how is each part built, and how do we check it? |
 
@@ -34,7 +34,7 @@ Doc 16 originally scoped Phase 6 as "Compliance and Integrations" together. That
 to be roughly two phases: the integration half — API keys, webhooks, delegation, in-person signing,
 and the HealthProHub embed SDK — needs design documents that do not exist yet (`docs/README.md`
 says as much for the embed SDK specifically). **This document covers compliance only.**
-Integrations become Phase 6b, once they have a plan of their own.
+Integrations are Phase 7, maintained in [docs/18](18-phase-7-integration-plan.md).
 
 ## What You Can Do at the End of Phase 6
 
@@ -95,7 +95,7 @@ Integrations become Phase 6b, once they have a plan of their own.
 
 | Question | Decision |
 |---|---|
-| Scope | Compliance only. Integrations (API keys, webhooks, delegation, in-person signing, the HealthProHub embed SDK) move to Phase 6b, pending their own design docs |
+| Scope | Compliance only. Integrations (API keys, webhooks, delegation, in-person signing, the HealthProHub embed SDK) move to Phase 7; the integration plan is maintained in docs/18 |
 | Where jurisdiction policies live | Versioned code (`packages/shared/src/jurisdiction.ts`), never a database table — see ADR 0011 |
 | What "frozen" means | The complete resolved policy, not a pointer to it, on `Envelope.policySnapshot` |
 | What retention deletes | Storage objects (and pseudonymises recipient PII). Never the audit trail, never a sealed document under Object Lock — see ADR 0014 |
@@ -237,7 +237,7 @@ closed chains to cold storage rather than deleting them — were designed.
 
 | Simplification | Planned fix |
 |---|---|
-| MEMBER ownership is enforced on cancel, extend and reminders (the lifecycle routes), and on list/detail visibility — not on every mutating route (draft edits, send, file download) | A MEMBER can still open or download a document they can see was sent by someone else via a direct link if they already have its id; broader field-level enforcement, Phase 6b |
+| MEMBER ownership is enforced on cancel, extend and reminders (the lifecycle routes), and on list/detail visibility — not on every mutating route (draft edits, send, file download) | A MEMBER can still open or download a document they can see was sent by someone else via a direct link if they already have its id; broader field-level enforcement needs a future security review |
 | Jurisdiction policies are fixed reference data for four codes (`US`, `EU`, `IN`, `UK`), not a per-tenant custom policy builder | A real deployment ships its own values as the next `JURISDICTION_POLICY_VERSION`, same as consent text |
 | A completed envelope past its policy's `retentionYears` is flagged, not automatically removed, because Object Lock makes early removal impossible and removal after the lock expires is an operational decision, not a nightly default | A follow-up if a deployment wants that automated |
 | Consent is shown to every signer regardless of the resolved policy's `consentRequired` | Deliberate and permanent — see "Decisions Made Before Starting" above |

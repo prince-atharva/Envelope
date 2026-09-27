@@ -1,6 +1,6 @@
 ---
 name: phase-plan
-description: Plan a new phase or sub-phase of the Envelope platform before any code is written — research the docs, ask the user about real gaps, write docs/NN-phase-*-plan.md and any ADRs, get approval, commit the plan on its own. Use whenever the user asks to start, design or scope the next phase or a large feature.
+description: Plan a new major phase of the Envelope platform before any code is written — derive its boundary from committed history and the roadmap, research the docs, ask the user about real gaps, maintain one plan for the phase, get approval, and commit the plan on its own.
 ---
 
 # Plan a Phase
@@ -15,9 +15,14 @@ git log --oneline -20 && git tag -l && git status --short
 ls docs/ docs/adr/
 ```
 
-Read `CHANGELOG.md` (`[Unreleased]` and the latest version), `docs/README.md`, and the
-highest-numbered `docs/NN-phase-*-plan.md` — especially its **Deliberate Simplifications** and
-**What We Need From You**, which usually feed the next phase.
+Read `CHANGELOG.md` (`[Unreleased]` and the latest version), `docs/README.md`,
+`docs/11-implementation-roadmap.md`, tags, the recent commit history, and the current phase plan.
+Use the commits and roadmap together to establish which work is already complete and where the
+next major phase begins. A commit subject or an earlier plan title alone does not define a phase.
+Read the current plan's **Deliberate Simplifications** and **What We Need From You** as inputs.
+
+Phase 6 (compliance) is complete. Integration belongs to Phase 7. Keep that numbering in new and
+updated phase documentation; do not continue integration as `6b`, `6b.1`, `6b.2`, or `6b.3`.
 
 ## 2. Read what the docs already decided
 
@@ -40,10 +45,15 @@ user can make: scope (full phase or a first slice?), shape (e.g. headless API vs
 the first customer or partner, anything the docs leave undefined. Do not ask about what the docs
 already answer. If docs and code conflict, report it and ask before planning around it.
 
-## 4. Write the plan
+## 4. Write or maintain the phase plan
 
-File: `docs/NN-phase-<n>-<slug>-plan.md`, where NN is one more than the highest existing number.
-Model it on `docs/17-phase-6-compliance-plan.md` and `docs/18-phase-6b-integration-foundation-plan.md`.
+There is one maintained plan per **major phase**. For work that continues an active phase, update
+that phase's existing plan: add or revise steps, decisions, acceptance criteria, status, and actual
+commit references in the same document. Do not create another numbered plan for an implementation
+slice, UI polish pass, guide, or other follow-up within that phase. For a genuinely new major phase,
+create `docs/NN-phase-<n>-<slug>-plan.md`, where NN is one more than the highest existing number.
+For current work, Phase 6 is complete and integration is Phase 7. Update
+`docs/18-phase-7-integration-plan.md` as it progresses; do not allocate another plan file.
 
 ```markdown
 # Phase N: <Name> Plan

@@ -6,14 +6,29 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Integration guide in Settings.** A quick start walks through API-key creation, PDF upload, recipients, signing fields and sending. Search all 12 API-key operations with copyable cURL requests and response examples; learn the eight webhook events, raw-body signature verification, durable duplicate handling, acknowledgement and troubleshooting. Examples use placeholders and preserve existing credential-management controls (Phase 7, docs/18).
+
+- **Settings → Integrations.** Admins and Owners can create one-time API keys, choose read-only or full access, identify and revoke old keys, register and edit webhook endpoints, copy signing secrets once, deactivate or reactivate endpoints, inspect recent delivery attempts and retry failures inside the seven-day window. The screen uses the existing Phase 7 API and keeps credential values out of URLs, caches, storage and logs.
+
+### Changed
+
+- Integration settings now group API keys and webhooks into consistent panels, with clearer metadata, status badges, larger actions and polished event-selection and delivery dialogs. Responsive and keyboard checks cover long content and focus restoration (Phase 7, docs/18).
+- Settings is now available to Admins as well as Owners. Admins can manage integrations; workspace user management remains Owner-only.
+
+
 ## [0.7.0] - 2026-09-26
 
-Phase 6b (foundation): tenant-scoped API keys and outbound webhooks, so a first integration partner
+Previously released integration API foundation: tenant-scoped API keys and outbound webhooks, so a first integration partner
 (HealthProHub) can create and send envelopes programmatically and learn about status changes
 without polling — the embed SDK, delegation, in-person signing and self-serve multi-partner
 onboarding remain a later phase. See
-[docs/18-phase-6b-integration-foundation-plan.md](docs/18-phase-6b-integration-foundation-plan.md)
+[docs/18-phase-7-integration-plan.md](docs/18-phase-7-integration-plan.md)
 and [ADR 0015](docs/adr/0015-api-keys-and-webhook-secrets-use-different-storage.md).
+
+This release predates the consolidated Phase 7 plan. The complete Phase 7 work is still
+under `[Unreleased]`; this section records only the foundation shipped on 26 September.
 
 ### Added
 
@@ -121,7 +136,7 @@ sender-screen redesign and the 100M-row scale work finished since v0.5.0.
 
 | Simplification | Planned fix |
 |---|---|
-| MEMBER ownership is enforced on cancel, extend and reminders, and on list/detail visibility — not on every mutating route (draft edits, send, file download) | Broader field-level enforcement, Phase 6b |
+| MEMBER ownership is enforced on cancel, extend and reminders, and on list/detail visibility — not on every mutating route (draft edits, send, file download) | Broader field-level enforcement needs a future security review |
 | Jurisdiction policies are fixed reference data for four codes (`US`, `EU`, `IN`, `UK`) | A real deployment ships its own values as the next `JURISDICTION_POLICY_VERSION` |
 | A completed envelope past its policy's `retentionYears` is flagged, not automatically removed (Object Lock makes early removal impossible; removal after the lock expires is an operational decision) | A follow-up if a deployment wants that automated |
 | The consent notice is shown to every signer regardless of the resolved policy's `consentRequired` | Deliberate and permanent — see docs/17 |

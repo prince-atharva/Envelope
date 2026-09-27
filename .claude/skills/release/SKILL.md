@@ -9,12 +9,16 @@ Model: the `docs: release v0.6.0` commit (`git show a1de982`) and tag `v0.6.0`.
 
 ## 1. Preconditions
 
-- Every step in the phase plan is ✅ and committed; `git status` is clean.
+- Every implementation and verification step in the single phase plan is ✅ and committed;
+  the release step may still be pending. `git status` is clean.
 - The plan's finish-line checklist is covered by tests. If the plan has a "Tests: the finish line"
   step that is not yet committed, finish and commit it first as `test(api): the Phase N finish line`
   (or `test(api,web): ...`).
-- Ask the user which version: phases so far are minor bumps (`v0.6.0` → `v0.7.0`); a sub-phase
-  like 6b may be released on its own or bundled — ask.
+- Derive the release scope from the completed major-phase plan, changelog, commit history, and
+  existing tags. Phase 6 (compliance) is complete; integration is Phase 7. Do not treat an
+  implementation slice as a separate release or invent sub-phase releases such as `6b.1`.
+- Determine the next version from the latest tag and the project's versioning policy. Never reuse an
+  existing version. Ask the user only if the release scope or version policy is genuinely ambiguous.
 
 ## 2. Run the full suite, all of it
 
@@ -35,7 +39,8 @@ release on red.
 1. `CHANGELOG.md`: rename `## [Unreleased]` content into `## [X.Y.0] - YYYY-MM-DD` with a one-
    paragraph summary on top (phase name, headline features, links to the plan doc and ADRs), then
    `### Added` / `### Changed` / `### Fixed`. Leave a fresh, empty `## [Unreleased]` above it.
-2. Version `X.Y.0` in all four manifests: `package.json`, `apps/api/package.json`,
+2. Only for this authorized release, set the selected next version in all four manifests:
+   `package.json`, `apps/api/package.json`,
    `apps/web/package.json`, `packages/shared/package.json`.
 3. The phase plan: Status → `Complete. Built and released as vX.Y.0`; finish-line boxes ticked;
    the release step ✅.

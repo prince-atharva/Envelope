@@ -30,13 +30,13 @@ Detailed step-by-step procedures live next to this file and are loaded when need
 - **Docs are the source of truth.** `docs/00`–`11` are the specification; `docs/12`+ are phase plans
   (what was actually built, and how); `docs/adr/` records decisions. `docs/README.md` is the index.
 - **Where we are:** check `CHANGELOG.md` (the `[Unreleased]` section and the latest version),
-  `git tag -l`, and the highest-numbered phase plan in `docs/`. Never assume from memory.
+  `git tag -l`, and the current phase plan linked from `docs/README.md`. Never assume from memory.
 
 ## 2. Session Start Checklist
 
 1. `git status` and `git log --oneline -15` — know what is committed and what is in progress.
    Uncommitted changes you did not make are the user's work: never discard or overwrite them.
-2. Read `docs/README.md`, the latest phase plan, and `CHANGELOG.md`'s `[Unreleased]` section.
+2. Read `docs/README.md`, the current maintained phase plan, and `CHANGELOG.md`'s `[Unreleased]` section.
 3. For the area you will touch, read the relevant spec docs and ADRs (see §3) and the existing code.
 4. Only then plan or code.
 
@@ -53,13 +53,19 @@ Do not skip or reorder them.
 ```
 
 **1. Plan (before any code).** Follow `.claude/skills/phase-plan/SKILL.md`.
+- Establish the phase boundary from the roadmap and committed history, not from commit subjects
+  alone. Phase 6 (compliance) is complete; integration is Phase 7. Keep one maintained plan for
+  Phase 7 and record its implementation slices and commits there. Do not number integration work
+  as Phase 6b or create separate `6b.1` / `6b.2` / `6b.3` plans.
 - Read what the docs already say: `01-product-requirements`, `03-architecture`, `05-data-model`,
   `08-api-specification`, `10-security-and-threat-model`, `11-implementation-roadmap`, relevant ADRs,
   and the previous phase plan's "Deliberate Simplifications" (often this phase's inputs).
 - Ask the user about genuine ambiguities (scope, shape, first customer). Do not invent requirements
   the docs already define; do not silently fill gaps the docs leave open.
-- Write `docs/NN-phase-<n>-<slug>-plan.md` (next number after the highest existing one) in the
-  standard structure: header table, **Part 1: In Plain Terms** (what, finish line checklist, what we
+- Maintain one document per phase. Append steps, decisions, checks and commit references to
+  the existing plan for ongoing work; integration uses `docs/18-phase-7-integration-plan.md`.
+  Create `docs/NN-phase-<n>-<slug>-plan.md` only for a new phase, taking the next free document
+  number. Use the standard structure: header table, **Part 1: In Plain Terms** (what, finish line checklist, what we
   need from the user), **Part 2: Technical Detail** (decisions table, ADRs, steps table, one section
   per step, deliberate simplifications, verification).
 - Write an ADR for every decision that is expensive to reverse, trades one property for another,
@@ -81,9 +87,12 @@ Do not skip or reorder them.
 - Commit the snapshots in order (`git read-tree <tree> && git commit`), one commit per plan step.
 - Mark each step ✅ in the plan's steps table and add the phase to `CHANGELOG.md` `[Unreleased]`.
 
-**6. Release.** Follow `.claude/skills/release/SKILL.md`: a `test(...)` finish-line commit if the
-plan lists one, then `docs: release vX.Y.0` (changelog section, version in all four `package.json`
-files, plan status → Complete) and an annotated tag `vX.Y.0` titled `Phase N: <Name>`.
+**6. Release.** Follow `.claude/skills/release/SKILL.md` only when the user asks to release. A
+sub-phase or additional step inside the current phase is not by itself a version release. Do not
+change package versions, create a release changelog section, or tag while continuing the same phase.
+When an authorized release is actually due, choose the next appropriate version from the latest
+release and the project's versioning policy; never repeat a version or bump just because another
+plan slice was added. Then complete the release files and tag as specified by the release skill.
 **Never push or tag without the user saying so.**
 
 Stop and ask the user instead of pressing on when: the docs conflict with the code; a step needs a

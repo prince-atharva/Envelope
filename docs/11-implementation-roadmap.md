@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft for client review |
 | **Version** | 1.0.0 |
-| **Last updated** | 10 September 2026 |
+| **Last updated** | 27 September 2026 |
 | **Audience** | Everyone (Part 1) · Engineering and project management (Part 2) |
 | **What this doc answers** | What gets built when, what does it cost, and when can we see it working? |
 
@@ -215,15 +215,15 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 > "needs attention" dashboard, the nightly audit-chain check with alerts, and rate limits in Redis
 > on every route. Phase 6, Compliance (docs/17), is built: jurisdiction policy frozen at creation,
 > blocked document categories, roles enforced, legal hold, a retention sweeper, audit export, and
-> the cross-tenant isolation suite. Phase 6b's foundation (docs/18) is built: tenant-scoped API keys
-> and outbound webhooks for a first integration partner. Its embed SDK, delegation and in-person
-> signing, plus Phase 7 (launch readiness), remain.
+> the cross-tenant isolation suite. Phase 7 (docs/18) is the integration phase: its API-key and
+> webhook foundation shipped in `v0.7.0`, Settings management and responsive polish are built, and
+> the in-page integration guide is built. The consolidated Phase 7 release is pending. Launch readiness follows as Phase 8.
 
 - [x] Parallel routing alongside sequential
 - [x] Reminder scheduler and expiry sweeper
 - [x] Void flow with synchronous token invalidation
-- [ ] Delegation and in-person signing
-- [ ] Webhooks: HMAC signing, retry, redrive
+- [ ] Delegation and in-person signing (separate future scope)
+- [x] Webhooks: HMAC signing, retry, redrive
 - [x] Sender dashboard sorted by "needs attention"
 - [x] `JurisdictionPolicy` resolution, frozen at envelope creation
 - [x] Blocked document category enforcement

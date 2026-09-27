@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Draft for client review; Phase 1 built |
+| **Status** | Phases 1–6 complete; Phase 7 built, release pending |
 | **Version** | 1.1.0 |
-| **Last updated** | 17 September 2026 |
+| **Last updated** | 27 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
 
@@ -14,11 +14,9 @@
 > **Phase 6** (docs/17) covers compliance: jurisdiction policy frozen at creation, blocked document
 > categories, roles, legal hold, retention and audit export.
 >
-> **The HealthProHub integration** (embed SDK, API keys, dual-mode SaaS) is **Phase 6b**.
-> [docs/18](18-phase-6b-integration-foundation-plan.md) covers its foundation slice — API keys and
-> webhooks — built the same way every other phase had a plan written before code. The embed SDK,
-> delegation, in-person signing and self-serve multi-partner onboarding remain undesigned, pending
-> their own plan.
+> **Phase 7** is the integration phase. [Its maintained plan](18-phase-7-integration-plan.md)
+> records the API-key and webhook foundation, Settings management, responsive polish, and the
+> in-page integration guide together. Earlier `6b` labels remain in the historical commit record.
 
 ---
 
@@ -86,7 +84,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 15 | [phase-4-sealing-engine-plan](15-phase-4-sealing-engine-plan.md) | What does Phase 4 deliver, and how is a signed document stamped, sealed and verified? |
 | 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
 | 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
-| 18 | [phase-6b-integration-foundation-plan](18-phase-6b-integration-foundation-plan.md) | What does Phase 6b's foundation deliver: API keys and webhooks for a third-party integration? |
+| 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What does Phase 7 deliver across integration APIs, Settings management and the in-page guide? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12
