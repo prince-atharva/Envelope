@@ -611,6 +611,15 @@ The `detail` wording is deliberate. The system genuinely cannot distinguish betw
 > document, "Verify"). Use `envelope.sent` and `envelope.viewed` instead. The other 8 events fire
 > as documented.
 
+> **As built (Phase 7, docs/18 steps 8.1–8.3, ADR 0018).** `envelope.extended` also fires when
+> the sender changes a deadline, including reopening an expired envelope. Every fired payload gains
+> `apiVersion: "v1"` and `data.envelopeTitle`. Viewing and consent include the current envelope
+> status; viewing includes the recipient email. `recipient.signed` reports the actual status plus
+> `allSigned` and `remainingSigners`: collecting the last signature precedes asynchronous sealing,
+> so only `envelope.completed` confirms completion. Cancellation includes the sender's reason;
+> recipient decline reasons remain private. Receivers SHOULD ignore unknown additive fields and
+> unknown event types.
+
 ### Payload
 
 ```json
@@ -646,6 +655,12 @@ Receivers MUST:
 ### Delivery
 
 At-least-once. Retries at 10s, 1m, 5m, 30m, 2h, 12h — 6 attempts over ~15 hours. A `2xx` within 5 seconds counts as success.
+
+> **As built (Phase 7, docs/18 step 8.2).** The six delays are retries after the first attempt:
+> seven total attempts. Delivery attempts keep counting across redrive; `nextAttemptAt` is null
+> after success or exhaustion. Requests also include `X-Envelope-Event-Id`,
+> `X-Envelope-Event-Type`, `X-Envelope-Delivery-Id`, `X-Envelope-Delivery-Attempt` and
+> `User-Agent: Envelope-Webhooks/<app version>`.
 
 Consumers MUST be idempotent on `event.id`. Duplicates are expected, not exceptional.
 

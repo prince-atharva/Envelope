@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { WebhookEventPayload, WebhookEventType } from '@envelope/shared';
+import {
+  WEBHOOK_API_VERSION,
+  type WebhookEventPayload,
+  type WebhookEventType,
+} from '@envelope/shared';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
@@ -42,6 +46,18 @@ export class WebhookQueueService {
       return;
     }
 
+    // A title only a partner's own record wouldn't otherwise carry, added
+    // here rather than at each of the 9 call sites (docs/18 workstream 8).
+    // Draft-only edits can't race this: every emitter fires only after its
+    // own transaction (which may itself have changed the title) commits.
+    const envelopeId = typeof data.envelopeId === 'string' ? data.envelopeId : undefined;
+    const envelope = envelopeId
+      ? await this.prisma.envelope.findUnique({
+          where: { id: envelopeId, tenantId },
+          select: { title: true },
+        })
+      : null;
+
     // Shared by every endpoint's delivery of this occurrence (docs/08), so a
     // receiver's dedup-on-event.id logic is meaningful even with more than
     // one endpoint registered.
@@ -49,8 +65,9 @@ export class WebhookQueueService {
     const payload: WebhookEventPayload = {
       id: eventId,
       type,
+      apiVersion: WEBHOOK_API_VERSION,
       createdAt: new Date().toISOString(),
-      data,
+      data: envelope ? { ...data, envelopeTitle: envelope.title } : data,
     };
 
     const created = await this.prisma.webhookDelivery.createManyAndReturn({
@@ -59,6 +76,7 @@ export class WebhookQueueService {
         webhookEndpointId: endpoint.id,
         eventId,
         eventType: type,
+        envelopeId: envelopeId ?? null,
         payload: payload as unknown as Prisma.InputJsonValue,
       })),
       select: { id: true },

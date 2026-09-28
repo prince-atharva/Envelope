@@ -14,6 +14,7 @@ import { MailQueueService } from '../mail/mail-queue.service';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 import { SealQueueService } from '../sealing/seal-queue.service';
+import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 
 const DAY_MS = 24 * 3600 * 1000;
 /** Invited and not finished: the people whose turn it is. */
@@ -34,6 +35,7 @@ export class ExtendService {
     private readonly audit: AuditService,
     private readonly mail: MailQueueService,
     private readonly seal: SealQueueService,
+    private readonly webhooks: WebhookQueueService,
     @InjectPinoLogger(ExtendService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -124,6 +126,15 @@ export class ExtendService {
         )
         .map((r) => r.id);
       return { resumed, toStatus, previousExpiresAt: envelope.expiresAt, notify };
+    });
+
+    await this.webhooks.enqueue(user.tenantId, 'envelope.extended', {
+      envelopeId,
+      envelopeStatus: result.toStatus,
+      expiresAt: expiresAt.toISOString(),
+      previousExpiresAt: result.previousExpiresAt?.toISOString() ?? null,
+      reopened: result.resumed,
+      reinvitedCount: result.notify.length,
     });
 
     // After commit. A failed email is logged; the sender can remind them.

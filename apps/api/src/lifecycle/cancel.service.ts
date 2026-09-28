@@ -120,6 +120,7 @@ export class CancelService {
       envelopeStatus: 'VOIDED',
       voidedAt: voidedAt.toISOString(),
       fromStatus,
+      reason: input.reason ?? null,
     });
 
     const discarded = fromStatus === 'DRAFT';

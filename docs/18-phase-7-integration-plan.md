@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Built through embedded editor/SDK workstream 6. Foundation shipped as `v0.7.0`. Workstreams 7–13 (integration hardening) are planned; release remains workstream 14 |
+| **Status** | Built through per-key embedded origins (workstream 7). Foundation shipped as `v0.7.0`. Steps 8.1–8.3 are implemented with verification in progress; steps 8.4–8.5 and workstreams 9–13 remain planned; release remains workstream 14 |
 | **Version** | 1.2.0 |
 | **Last updated** | 28 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -1003,11 +1003,56 @@ stored `payload->'data'->>'envelopeId'`.
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 8.1 | Shared event/header/query contracts, `envelopeId` migration and backfill, web event label | Contract and migration tests | Planned |
-| 8.2 | Fix `WEBHOOK_MAX_ATTEMPTS` to 7, stop resetting `attempts` on redrive, write `nextAttemptAt`, add delivery headers and `User-Agent` | `webhook-retry-schedule.test.ts`; corrected `webhook-delivery.e2e.test.ts` expectations (7 attempts; redrive keeps counting; headers present) | Planned |
-| 8.3 | Richer, additive per-event payloads including the `recipient.signed` fix and `envelope.extended` | `webhook-events.e2e.test.ts` parses every payload against the shared schemas | Planned |
+| 8.1 | Shared event/header/query contracts, `envelopeId` migration and backfill, web event label | Contract and migration tests | Implemented; verification pending |
+| 8.2 | Fix `WEBHOOK_MAX_ATTEMPTS` to 7, stop resetting `attempts` on redrive, write `nextAttemptAt`, add delivery headers and `User-Agent` | `webhook-retry-schedule.test.ts`; corrected `webhook-delivery.e2e.test.ts` expectations (7 attempts; redrive keeps counting; headers present) | Implemented; verification pending |
+| 8.3 | Richer, additive per-event payloads including the `recipient.signed` fix and `envelope.extended` | `webhook-events.e2e.test.ts` parses every payload against the shared schemas | Implemented; verification pending |
 | 8.4 | `GET /webhooks/deliveries`, `GET /webhooks/deliveries/:id`, `POST /webhooks/deliveries/:id/retry` (session ADMIN/OWNER only); old per-endpoint routes kept, documented as deprecated | API e2e: paging, each filter, cross-tenant 404, API-key and MEMBER 403 | Planned |
 | 8.5 | Web: deliveries dialog gains filters, Load more, event-id copy, envelope id, attempt/next-retry display; guide and docs/08 As-built note | Component and browser tests; gallery | Planned |
+
+#### Implementation record (steps 8.1–8.3, 28 September 2026)
+
+The current build adds event/query/header contracts, delivery envelope indexes and backfill,
+seven total delivery attempts, lifetime counts across redrive, retry timestamps and delivery
+headers. All nine fired events carry the contract version and envelope title. Viewing and
+consent report the status read within their transaction; signing reports the actual status,
+`allSigned` and `remainingSigners`. Sealing remains asynchronous: the last signature still leaves
+`PARTIALLY_SIGNED` until the completion worker commits `COMPLETED`. A sender cancellation includes
+its reason; a recipient decline deliberately excludes its free-text reason. Deadline extensions
+fire `envelope.extended` both before expiry and when reopening, after the transaction commits.
+
+Regression coverage validates every fired event against the shared schema, checks repeated view
+and consent do not duplicate events, checks one and two signer counts, and verifies extension
+idempotency. The migration test shadows the delivery table with a temporary table and rolls back
+all fixture and migration changes. The backfill leaves malformed historical envelope IDs null
+without changing their stored payloads. Steps 8.4–8.5 remain planned. Independent snapshot checks and commit references
+will be recorded here after they complete.
+
+Verification of the complete implementation:
+
+| Check | Result |
+|---|---|
+| `pnpm lint` | Passed |
+| `pnpm typecheck` | Existing shared `jurisdiction.test.ts` strict-undefined failures at lines 48–51 and 81–84; API, web and embed typechecks passed separately, and the shared production build passed |
+| `pnpm test` | 472 passed: shared 116, API 173, web 179, embed 4 |
+| API e2e, Node 22.19.0, `ENV_FILE=none` | 248 passed across 36 files on the complete rerun |
+| Browser e2e, desktop-chrome, isolated stack | 35 passed on the complete rerun; tracing enabled |
+| Targeted webhook e2e | 14 passed across events, delivery and migration suites |
+
+The initial browser migration failed on a legacy `browser-fixture` envelope ID. The guarded
+backfill now preserves that payload and leaves its new column null; the partially applied migration
+was completed forward only in `digitalsign_browser_test`, without resetting a database. The first
+API run found a new test-helper mistake: after explicitly recording consent, the test attempted
+consent again using a session that no longer supplies a notice hash. The test now continues with
+adoption and submission directly after its consent assertions.
+
+The first browser run then reached the error boundary during the approver test's registration.
+That test passed in isolation and the full rerun passed all 35 tests; the original rendering
+error's root cause was not established, so it is recorded as an unresolved initial-run issue,
+not dismissed as a confirmed flake. Snapshot unit checks initially exceeded unchanged five-second
+limits while overlapping both e2e suites on a heavily loaded host. The affected PDF-sealing and
+integration-guide suites passed in isolation (19 and 5 tests respectively); snapshot verification
+is run with packages sequential and at most two unit-test workers. No assertions or timeouts
+were weakened.
 
 Correcting `webhook-delivery.e2e.test.ts`'s attempt-count assertions (6 → 7) makes the test match
 the schedule this system has always documented; it is a fix to match the documented contract, not

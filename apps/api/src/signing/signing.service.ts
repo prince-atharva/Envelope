@@ -93,9 +93,7 @@ export class SigningService {
           })
         : Promise.resolve([]),
       this.markSeen(recipient.id),
-      recipient.viewedAt
-        ? Promise.resolve()
-        : this.markFirstView(recipient.id, envelope.id, envelope.tenantId, client),
+      recipient.viewedAt ? Promise.resolve() : this.markFirstView(signer, client),
     ]);
 
     const notice = consented ? null : consentNoticeFor(envelope.policySnapshot);
@@ -215,7 +213,11 @@ export class SigningService {
           draftText: CONSENT_TEXT_IS_DRAFT,
         },
       });
-      return { consentGivenAt: now, fresh: true };
+      const current = await tx.envelope.findUniqueOrThrow({
+        where: { id: envelope.id, tenantId: envelope.tenantId },
+        select: { status: true },
+      });
+      return { consentGivenAt: now, fresh: true, envelopeStatus: current.status };
     });
     if (!given) {
       await this.guardian.resolve(rawToken); // Throws the reason: closed or expired.
@@ -227,6 +229,7 @@ export class SigningService {
         recipientId: recipient.id,
         recipientEmail: recipient.email,
         consentGivenAt: given.consentGivenAt.toISOString(),
+        envelopeStatus: given.envelopeStatus,
       });
     }
 
@@ -437,7 +440,15 @@ export class SigningService {
           status: { notIn: ['SIGNED', 'DECLINED'] },
         },
       });
-      return { waiting };
+      // Read back rather than assumed: the two writes above only ever leave
+      // the envelope PARTIALLY_SIGNED, but reading it keeps this correct
+      // even if that lifecycle logic changes later (docs/18 workstream 8 —
+      // this event used to hard-code the string here).
+      const { status } = await tx.envelope.findUniqueOrThrow({
+        where: { id: envelope.id, tenantId: envelope.tenantId },
+        select: { status: true },
+      });
+      return { waiting, envelopeStatus: status };
       // Explicit rather than Prisma's default: this holds the envelope's row
       // lock, so it should fail fast and free it rather than let other
       // signers of the same envelope queue behind an open-ended wait.
@@ -453,7 +464,13 @@ export class SigningService {
       recipientId: recipient.id,
       recipientEmail: recipient.email,
       signedAt: signedAt.toISOString(),
-      envelopeStatus: 'PARTIALLY_SIGNED',
+      envelopeStatus: outcome.envelopeStatus,
+      // Sealing (which flips the envelope to COMPLETED) runs asynchronously
+      // afterward, on a worker (ADR 0006) — this is the signal a partner
+      // should use instead to know no further signature is needed, without
+      // this event falsely claiming the envelope is already COMPLETED.
+      allSigned: outcome.waiting === 0,
+      remainingSigners: outcome.waiting,
     });
 
     // The worker stamps the signature into the next version and then, one after
@@ -606,12 +623,11 @@ export class SigningService {
   }
 
   /** The first time a signer opens their link: marks it seen and logs the event. */
-  private async markFirstView(
-    recipientId: string,
-    envelopeId: string,
-    tenantId: string,
-    client: ClientInfo,
-  ): Promise<void> {
+  private async markFirstView(signer: SignerContext, client: ClientInfo): Promise<void> {
+    const { recipient, envelope } = signer;
+    const recipientId = recipient.id;
+    const envelopeId = envelope.id;
+    const tenantId = envelope.tenantId;
     const now = new Date();
     const fired = await this.prisma.$transaction(async (tx) => {
       const first = await tx.recipient.updateMany({
@@ -630,13 +646,18 @@ export class SigningService {
         ipAddress: client.ip,
         userAgent: client.userAgent,
       });
-      return true;
+      return tx.envelope.findUniqueOrThrow({
+        where: { id: envelopeId, tenantId },
+        select: { status: true },
+      });
     });
     if (fired) {
       await this.webhooks.enqueue(tenantId, 'envelope.viewed', {
         envelopeId,
         recipientId,
         viewedAt: now.toISOString(),
+        recipientEmail: recipient.email,
+        envelopeStatus: fired.status,
       });
     }
     this.logger.info('Signer opened the envelope for the first time');

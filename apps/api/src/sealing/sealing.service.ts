@@ -474,7 +474,7 @@ export class SealingService {
           },
           'Envelope sealed',
         );
-        return { kind: 'sealed', versionNumber, sha256: result.sha256 } as const;
+        return { kind: 'sealed', versionNumber, sha256: result.sha256, completedAt } as const;
       },
       { timeout: ROUND_TIMEOUT_MS, maxWait: 15_000 },
     );
@@ -483,7 +483,9 @@ export class SealingService {
       await this.webhooks.enqueue(envelope.tenantId, 'envelope.completed', {
         envelopeId,
         envelopeStatus: 'COMPLETED',
-        completedAt: new Date().toISOString(),
+        // The row's own committed value, not a fresh call after the
+        // transaction — the two could otherwise differ (docs/18 workstream 8).
+        completedAt: sealResult.completedAt.toISOString(),
         finalVersionNumber: sealResult.versionNumber,
         finalHash: sealResult.sha256,
       });
