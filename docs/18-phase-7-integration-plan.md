@@ -913,11 +913,11 @@ use, embedded signing, external package publication or release/tag/push is inclu
 
 | Step | Commit |
 |---|---|
-| 7.0 | (recorded after commit) |
-| 7.1 | (recorded after commit) |
-| 7.2 | (recorded after commit) |
-| 7.3 | (recorded after commit) |
-| 7.4 | (recorded after commit) |
+| 7.0 | 478731d |
+| 7.1 | 8ab2379 |
+| 7.2 | a26693a |
+| 7.3 | 7d0cde7 |
+| 7.4 | 52fa083 |
 
 ### Workstream 7 Verification — 28 September 2026
 
