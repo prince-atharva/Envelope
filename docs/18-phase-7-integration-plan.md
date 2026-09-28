@@ -1065,10 +1065,10 @@ a weakening. No existing assertion is deleted or loosened.
 
 | Step | Commit |
 |---|---|
-| 8.1 | (recorded after commit) |
-| 8.2 | (recorded after commit) |
-| 8.3 | (recorded after commit) |
-| 8.4 | (recorded after commit) |
+| 8.1 | 1fd4485 |
+| 8.2 | 758696f |
+| 8.3 | cec3746 |
+| 8.4 | f79aac6 |
 
 ### Deliberate Simplifications
 
