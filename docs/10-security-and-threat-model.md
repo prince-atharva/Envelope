@@ -294,10 +294,10 @@ Processing runs on workers with constrained memory and no outbound network acces
 
 ## Application Security
 
-> **Proposed Phase 7 extension (not implemented).** The [maintained plan](18-phase-7-integration-plan.md#workstream-6-embedded-sender-editor-and-healthprohub-sdk-proposed)
+> **As built (Phase 7, docs/18).** The [maintained plan](18-phase-7-integration-plan.md#workstream-6-embedded-sender-editor-and-healthprohub-sdk-proposed)
 > and [ADR 0016](adr/0016-scope-embedded-editor-sessions-to-one-envelope.md) define embedded sender
 > preparation, scoped sessions and a thin SDK for HealthProHub. Recipient signing remains hosted.
-> Existing contracts below remain current until implementation; proposed routes, models and the
+> The original contracts below remain current; additional routes, models and the
 > narrowly scoped embedded-HTML framing exception are specified in the plan.
 
 | Control | Implementation |

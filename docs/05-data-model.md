@@ -556,4 +556,10 @@ Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug
 > **As built (Phase 7, docs/18 step 6.1).** Shared embedded-editor contracts and the additive
 > `EmbedOrigin`/`EmbedSession` migration are defined. They store credential HMACs, issuing-key and
 > tenant references, one-envelope scope, actions, parent origin and expiry/revocation state.
-> Runtime routes and the editor remain pending subsequent workstream steps.
+> Runtime routes and the editor are implemented and verified in steps 6.2–6.6.
+
+> **As built (Phase 7, docs/18 step 6.2).** Upload sessions bind their first envelope in
+> the same transaction as document creation and audit recording. Concurrent uploads and retries
+> return that single envelope. Audit metadata retains embedSessionId and partner-asserted
+> externalActorId. The maintenance sweep removes operational sessions seven days after expiry,
+> without deleting or modifying audit evidence. All origin/key/session references are tenant scoped.

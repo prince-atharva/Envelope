@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import pg from 'pg';
+import { createEmbedHost } from '../embed-host';
 import {
   addRecipient,
   agreeToSign,
@@ -612,6 +613,45 @@ test('integration developer guide', async ({ page }) => {
   await shot(page, 'integration-guide-webhooks', {
     area: 'settings',
     caption: 'Webhook setup, event payloads, verification and acknowledgement.',
+    fullPage: true,
+  });
+});
+
+test('HealthProHub embedded editor', async ({ page, request }) => {
+  const host = await createEmbedHost(request, 'upload');
+  try {
+    await page.goto(host.origin);
+    await page.getByRole('button', { name: 'Prepare for signing' }).click();
+    const frame = page.frameLocator('iframe');
+    await expect(frame.getByRole('heading', { name: 'Upload a document' })).toBeVisible();
+    await shot(page, 'embedded-upload', {
+      area: 'integration',
+      caption: 'Existing Envelope upload UI inside the isolated HealthProHub host.',
+      fullPage: false,
+    });
+    await frame.locator('input[type="file"]').setInputFiles(DEMO_AGREEMENT_PDF);
+    await frame.getByRole('button', { name: 'Upload document', exact: true }).click();
+    await expect(frame.getByRole('heading', { name: 'Prepare for signing' })).toBeVisible();
+    await expect(frame.locator('[data-page-number="1"] canvas')).toBeVisible();
+    await shot(page, 'embedded-prepare', {
+      area: 'integration',
+      caption: 'Reused PDF viewer and recipient/field panels inside HealthProHub.',
+      fullPage: false,
+    });
+  } finally {
+    await host.close();
+  }
+});
+
+test('HealthProHub integration guide', async ({ page }) => {
+  await signUpAs(page, 'gallery-healthprohub', SENDER);
+  await page.goto('/settings/integrations');
+  await page.getByRole('tab', { name: 'Integration guide', exact: true }).click();
+  await page.getByRole('tab', { name: 'Embedded editor' }).click();
+  await page.getByText('Direct iframe alternative', { exact: true }).click();
+  await shot(page, 'healthprohub-guide', {
+    area: 'integration',
+    caption: 'Both editor entry modes, secure sessions, SDK and direct iframe examples.',
     fullPage: true,
   });
 });

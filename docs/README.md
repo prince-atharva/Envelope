@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–6 complete; Phase 7 integration built, embedded editor extension proposed |
+| **Status** | Phases 1–6 complete; Phase 7 integration built, embedded editor implemented |
 | **Version** | 1.1.0 |
-| **Last updated** | 27 September 2026 |
+| **Last updated** | 28 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
 
@@ -16,7 +16,7 @@
 >
 > **Phase 7** is the integration phase. [Its maintained plan](18-phase-7-integration-plan.md)
 > records the API-key and webhook foundation, Settings management, responsive polish, and the
-> in-page integration guide together, plus the proposed embedded sender editor, SDK and HealthProHub guide. Earlier `6b` labels remain in the historical commit record.
+> in-page integration guide together, plus the implemented embedded sender editor, SDK and HealthProHub guide. Earlier `6b` labels remain in the historical commit record.
 
 ---
 

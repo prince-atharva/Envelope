@@ -62,6 +62,17 @@ export default defineConfig(() => {
     resolve: { alias: { '@envelope/shared': sharedSource } },
     server: { host, port, strictPort: true, proxy },
     preview: { host, port, strictPort: true, proxy },
-    build: { manifest: true, sourcemap: true, target: 'es2022' },
+    build: {
+      manifest: true,
+      sourcemap: true,
+      target: 'es2022',
+      rolldownOptions: {
+        input: {
+          app: fileURLToPath(new URL('index.html', import.meta.url)),
+          'embed-sdk': fileURLToPath(new URL('../../packages/embed/src/index.ts', import.meta.url)),
+        },
+        preserveEntrySignatures: 'strict',
+      },
+    },
   };
 });

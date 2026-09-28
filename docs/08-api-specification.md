@@ -86,10 +86,10 @@ The fix is that each send carries a unique reference number. If we see the same 
 
 ## Authentication
 
-> **Proposed Phase 7 extension (not implemented).** The [maintained plan](18-phase-7-integration-plan.md#workstream-6-embedded-sender-editor-and-healthprohub-sdk-proposed)
+> **As built (Phase 7, docs/18).** The [maintained plan](18-phase-7-integration-plan.md#workstream-6-embedded-sender-editor-and-healthprohub-sdk-proposed)
 > and [ADR 0016](adr/0016-scope-embedded-editor-sessions-to-one-envelope.md) define embedded sender
 > preparation, scoped sessions and a thin SDK for HealthProHub. Recipient signing remains hosted.
-> Existing contracts below remain current until implementation; proposed routes, models and the
+> The original contracts below remain current; additional routes, models and the
 > narrowly scoped embedded-HTML framing exception are specified in the plan.
 
 | Caller | Mechanism | Scope |
@@ -750,4 +750,14 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 > **As built (Phase 7, docs/18 step 6.1).** Shared embedded-editor contracts and the additive
 > `EmbedOrigin`/`EmbedSession` migration are defined. They store credential HMACs, issuing-key and
 > tenant references, one-envelope scope, actions, parent origin and expiry/revocation state.
-> Runtime routes and the editor remain pending subsequent workstream steps.
+> Runtime routes and the editor are implemented in steps 6.2–6.6; verification is recorded in docs/18.
+
+> **As built (Phase 7, docs/18 steps 6.2–6.6).** Embedded sender routes
+> are implemented: `GET/PUT /embed/origins` (human ADMIN/OWNER), `POST /embed/sessions` and
+> `DELETE /embed/sessions/:id` (full backend API key), `POST /embed/sessions/exchange`
+> (body `{sessionId, launchToken}`), `POST /embed/session/envelope` (upload session), and
+> `POST /embed/session/close` (embedded bearer). Public frame HTML is `/embed/frame/:id`.
+> Launch lifetime is 60 seconds, access lifetime is 30 minutes from issuance, and revoking the
+> issuer key or removing the parent origin invalidates access. Bearers may read their own draft
+> and original PDF, edit its recipients/fields, and send only with the explicit send action.
+> All other authenticated and signer operations remain closed to embedded credentials.

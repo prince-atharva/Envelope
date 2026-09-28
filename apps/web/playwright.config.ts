@@ -34,7 +34,10 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-chrome',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: ['--test-third-party-cookie-phaseout'] },
+      },
     },
     {
       name: 'mobile-pixel7',

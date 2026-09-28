@@ -8,13 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- **HealthProHub embedded sender editor.** Open an API-uploaded draft or upload inside an iframe, add recipients, place PDF fields, save and send through the existing editor. One-time launch credentials and in-memory, one-envelope sessions enforce exact parent origins, actions, expiry and revocation. Includes the private ESM `@envelope/embed` SDK, origin management, copyable HealthProHub/direct-iframe guidance and an isolated partner host example. Recipient signing remains hosted.
+
 - **Integration guide in Settings.** A quick start walks through API-key creation, PDF upload, recipients, signing fields and sending. Search all 12 API-key operations with copyable cURL requests and response examples; learn the eight webhook events, raw-body signature verification, durable duplicate handling, acknowledgement and troubleshooting. Examples use placeholders and preserve existing credential-management controls (Phase 7, docs/18).
 
 - **Settings → Integrations.** Admins and Owners can create one-time API keys, choose read-only or full access, identify and revoke old keys, register and edit webhook endpoints, copy signing secrets once, deactivate or reactivate endpoints, inspect recent delivery attempts and retry failures inside the seven-day window. The screen uses the existing Phase 7 API and keeps credential values out of URLs, caches, storage and logs.
 
 ### Changed
 
-- **Documentation only:** Phase 7 now includes a proposed embedded sender editor, thin SDK, both upload entry modes, and a HealthProHub section in the Settings integration guide. ADR 0016 records the proposed one-envelope session boundary. Implementation and plan approval are pending; these capabilities are not yet available.
+- Phase 7 now includes the embedded sender editor and HealthProHub integration workstream (docs/18, ADR 0016); implementation and verification are recorded in docs/18.
 
 - Integration settings now group API keys and webhooks into consistent panels, with clearer metadata, status badges, larger actions and polished event-selection and delivery dialogs. Responsive and keyboard checks cover long content and focus restoration (Phase 7, docs/18).
 - Settings is now available to Admins as well as Owners. Admins can manage integrations; workspace user management remains Owner-only.

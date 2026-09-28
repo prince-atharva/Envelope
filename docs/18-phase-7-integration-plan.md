@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Existing integration work built; embedded editor/SDK extension approved; implementation in progress. Foundation shipped as `v0.7.0` |
+| **Status** | Built through embedded editor/SDK workstream 6; unreleased extension verified. Foundation shipped as `v0.7.0` |
 | **Version** | 1.1.0 |
-| **Last updated** | 27 September 2026 |
+| **Last updated** | 28 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 7 deliver across the integration API, management UI and user guide, and how is it built and checked? |
 
@@ -18,7 +18,7 @@ Phase 6 delivered compliance and is complete. Phase 7 delivers the integration c
 reviewable workstreams recorded together in this plan. The commit history contains earlier labels
 such as Phase 6b; those labels remain in Git history, while this document is the maintained Phase 7
 record. The released foundation and subsequent management UI work are included alongside the
-completed in-page guide. The embedded sender editor below is proposed, not yet available:
+completed in-page guide. The embedded sender editor below is built. Any tenant can integrate its application; HealthProHub is the worked example:
 
 ```
    BUILT ──────────────► API keys (server-to-server auth) and webhooks (event notifications), so
@@ -29,7 +29,7 @@ completed in-page guide. The embedded sender editor below is proposed, not yet a
                           including delivery history and retries.
    BUILT ──────────────► Follow the integration guide on the same page, with API examples,
                           webhook verification and troubleshooting.
-   PROPOSED ──────────► Embedded sender editor and thin JavaScript SDK for HealthProHub:
+   BUILT ─────────────► Embedded sender editor and thin JavaScript SDK for HealthProHub:
                           open an uploaded draft, or upload inside the embedded editor.
    OUT OF SCOPE ───────► Embedded recipient signing, delegation, in-person signing, and
                           self-serve multi-partner onboarding.
@@ -54,9 +54,9 @@ completed in-page guide. The embedded sender editor below is proposed, not yet a
 5. **A key or endpoint you no longer need can be revoked or deactivated**, immediately.
 6. **Follow the integration guide** for a complete API-key workflow, searchable endpoint reference,
    webhook receiver example and troubleshooting steps.
-7. **Proposed: prepare documents inside HealthProHub** using the existing Envelope upload, PDF
+7. **Available: prepare documents inside HealthProHub** using the existing Envelope upload, PDF
    preview, recipient, field-placement and review/send UI, without building another editor.
-8. **Proposed: follow a HealthProHub embedded-editor guide** in Settings → Integrations, covering
+8. **Available: follow a HealthProHub embedded-editor guide** in Settings → Integrations, covering
    both entry modes, secure backend setup, SDK usage, reopening drafts and webhook updates.
 
 ## The Phase 7 Finish Line
@@ -75,21 +75,21 @@ completed in-page guide. The embedded sender editor below is proposed, not yet a
       delivery history and redrive are implemented.
 - [x] Responsive panels and dialog polish preserve keyboard use and role restrictions.
 - [x] The in-page guide accurately documents all allowed API operations and webhook handling.
-- [x] Verification of the existing integration work is recorded below; it does not cover the proposed extension.
-- [ ] Both embedded entry modes support upload/prepare/review/send with the existing UI.
-- [ ] Sessions cannot access another envelope, tenant, dashboard, Settings or signing routes.
-- [ ] A draft can be saved, closed and reopened with a new authorized session.
-- [ ] One upload session creates at most one draft, including concurrent/retried uploads.
-- [ ] SDK and direct-iframe examples work without third-party cookies or exposed API keys.
-- [ ] Settings → Integrations includes the tested HealthProHub embedded-editor guide.
-- [ ] Extension verification passes, including cross-origin browser and credential-leakage tests.
+- [x] Verification of the existing integration work is recorded below; embedded verification is recorded separately below.
+- [x] Both embedded entry modes support upload/prepare/review/send with the existing UI.
+- [x] Sessions cannot access another envelope, tenant, dashboard, Settings or signing routes.
+- [x] A draft can be saved, closed and reopened with a new authorized session.
+- [x] One upload session creates at most one draft, including concurrent/retried uploads.
+- [x] SDK and direct-iframe examples work without third-party cookies or exposed API keys.
+- [x] Settings → Integrations includes the tested generic embedded-editor guide with a HealthProHub example.
+- [x] Extension verification passes, including cross-origin browser and credential-leakage tests.
 
 ## What We Need From You
 
 | Needed | Why | When |
 |---|---|---|
 | HealthProHub's actual integration requirements (which routes they call, what their receiver expects) | This phase built a generic mechanism against the documented spec; it has not yet been validated against a real partner integration | Before HealthProHub goes live |
-| Approval of the proposed embedded-editor workstream and ADR 0016 | Scope includes both entry modes, one-envelope access and hosted recipient signing | Before implementation |
+| Embedded-editor workstream and ADR 0016 approved on 27 September 2026 | Scope includes both entry modes, one-envelope access and hosted recipient signing | Before implementation |
 | HealthProHub deployment origins and backend framework | Configure trusted origins and adapt the backend example; placeholders suffice for this plan and isolated tests | Before partner deployment |
 
 ---
@@ -103,7 +103,7 @@ completed in-page guide. The embedded sender editor below is proposed, not yet a
 
 | Question | Decision |
 |---|---|
-| Scope | Existing API/webhook integration plus proposed embedded sender editor, thin SDK and HealthProHub guide. Embedded recipient signing, delegation, in-person signing and self-serve multi-partner onboarding remain outside this phase |
+| Scope | Existing API/webhook integration plus embedded sender editor, thin SDK and HealthProHub guide. Embedded recipient signing, delegation, in-person signing and self-serve multi-partner onboarding remain outside this phase |
 | Who is the first partner | HealthProHub, but the mechanism underneath is generic — not hardcoded to one tenant |
 | Where an API key's writes land | A per-tenant hidden `isServiceAccount` User, `role: ADMIN` (ADR 0015) — not tied to any one human |
 | Webhook secret storage | Encrypted (AES-256-GCM), not hashed — delivery must recover the raw secret to sign each request (ADR 0015) |
@@ -120,7 +120,7 @@ completed in-page guide. The embedded sender editor below is proposed, not yet a
 - [ADR 0015](adr/0015-api-keys-and-webhook-secrets-use-different-storage.md) — API keys and webhook
   secrets use different storage
 
-- [ADR 0016](adr/0016-scope-embedded-editor-sessions-to-one-envelope.md) — proposed embedded sender authentication and iframe boundary
+- [ADR 0016](adr/0016-scope-embedded-editor-sessions-to-one-envelope.md) — accepted embedded sender authentication and iframe boundary
 
 ## Phase 7 Workstreams and Commit Record
 
@@ -135,7 +135,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 3 | Responsive visual polish | ✅ Built | `bc4b198` |
 | 4 | In-page integration guide and API/webhook reference | ✅ Built | `4f05424` |
 | 5 | Existing integration verification and documentation | ✅ Verified | Historical verification record below |
-| 6 | Embedded sender editor, SDK and HealthProHub guide | Approved; implementation in progress | Steps 6.1–6.6 below; no implementation commits |
+| 6 | Embedded sender editor, SDK and HealthProHub guide | ✅ Built and verified | Steps 6.1–6.6 below |
 | 7 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
 
 ### Workstream 2: Settings Integration Management
@@ -517,7 +517,9 @@ These results predate the embedded-editor proposal and MUST NOT be treated as it
 - No package version or release tag changed. The consolidated Phase 7 release remains pending.
 
 
-## Workstream 6: Embedded Sender Editor and HealthProHub SDK (Proposed)
+<a id="workstream-6-embedded-sender-editor-and-healthprohub-sdk-proposed"></a>
+
+## Workstream 6: Embedded Sender Editor and SDK (Built)
 
 ### In Plain Terms
 
@@ -551,12 +553,12 @@ session. HealthProHub stores the record-to-envelope mapping in its own database,
 deduplicates event IDs, reconciles status through the API, and selects the completed PDF version
 explicitly. Browser callbacks are UI notifications, never authoritative completion evidence.
 
-### Technical Detail: Proposed Contract
+### Technical Detail: Implemented Contract
 
-All routes below use `/api/v1`. Proposed defaults and names become final only on plan approval.
+All routes below use `/api/v1`. These contracts are implemented and verified.
 No external runtime dependency is required; reuse Node crypto, Nest, Prisma, zod and the existing UI.
 
-| Decision | Proposed contract |
+| Decision | Implemented contract |
 |---|---|
 | Entry modes | `existing` requires an authorized same-tenant DRAFT `envelopeId`; `upload` starts unbound and atomically binds to its first successfully created envelope |
 | Actions | Required subset of `edit`, `send`; `edit` required for both modes; `send` optional and enforced server-side |
@@ -569,14 +571,14 @@ No external runtime dependency is required; reuse Node crypto, Nest, Prisma, zod
 | Isolation | Dedicated embedded principal and closed route allow-list; never convert the scoped credential into an unrestricted ADMIN session |
 | Publication | Workspace package `@envelope/embed` with ESM build and TypeScript declarations; registry publication/CDN hosting requires separate authorization |
 
-Proposed endpoints:
+Implemented endpoints:
 
 | Method/path | Authorization and purpose | Limits |
 |---|---|---|
 | `GET /embed/origins` | JWT ADMIN/OWNER; list own tenant's configured parent origins | Existing authenticated read limit |
 | `PUT /embed/origins` | JWT ADMIN/OWNER; replace exact-origin list, max 10 entries | 10/min per tenant |
 | `POST /embed/sessions` | Full API key; `{mode, envelopeId?, parentOrigin, externalActorId, actions}`; returns `{sessionId, launchToken, launchExpiresAt, frameUrl}` once | 30/min per key and tenant |
-| `POST /embed/sessions/exchange` | Dedicated launch-token validation, not normal JWT auth; body `{launchToken}`; atomic redemption returns `{accessToken, expiresAt, envelopeId?, mode, actions}` | 10/min per session plus 60/min per IP |
+| `POST /embed/sessions/exchange` | Dedicated launch-token validation, not normal JWT auth; body `{sessionId, launchToken}`; atomic redemption returns `{accessToken, expiresAt, envelopeId?, mode, actions}` | 10/min per session plus 60/min per IP |
 | `DELETE /embed/sessions/:id` | Issuing API key in same tenant; revoke idempotently, 204 | 30/min per key and tenant |
 | `POST /embed/session/close` | Embedded bearer only; revoke current session, 204 | 10/min per session |
 | `POST /embed/session/envelope` | Embedded upload-mode bearer only; existing multipart upload validation; atomically bind one created draft; return existing result on safe retry | Existing upload limits plus one successful draft per session |
@@ -638,7 +640,7 @@ Reuse maintenance scheduler/processor patterns. No development database or real 
 
 ### SDK and UI Contract
 
-Proposed `createEnvelopeEditor({container, frameUrl, launchToken, onEvent})` mounts one editor and
+The SDK `createEnvelopeEditor({container, frameUrl, launchToken, onEvent})` mounts one editor and
 returns `requestClose()` and `destroy()`. This is a planned API, not an installable example yet.
 `requestClose()` asks the UI to save or confirm discarding pending edits; `destroy()` immediately
 removes listeners/frame and makes no save guarantee. Both clear SDK-held secrets. On normal close,
@@ -664,17 +666,17 @@ dashboard or Settings in the embedded route. Preserve standalone behavior and ac
 
 | Step | Deliverable and reuse | Required tests | Status |
 |---|---|---|---|
-| 6.1 | Shared zod contracts/errors, schema migration, secret config and typed protocol; update docs/08 and docs/05 with As built notes only after implementation | Schema/contract and config tests, migration review, secret separation | Proposed |
-| 6.2 | Origin/session controllers, atomic exchange/upload binding, embedded guard and scoped service calls; reuse auth patterns, tenant services, audit and maintenance purge | API e2e for tenant/route/action isolation, revoked keys/origins, concurrent exchange/upload, lost upload response, expiry, purge and redaction | Proposed |
-| 6.3 | Dynamic embed HTML/header serving and dedicated UI transport; reuse upload/prepare/review components and autosave, retain normal sender routes | Component tests for permissions, dirty close, conflicts, expiry and teardown; standalone editor regressions; header/API tests | Proposed |
-| 6.4 | Dependency-light `packages/embed` SDK, build/typecheck/workspace wiring and plain JS/TypeScript usage examples; document direct iframe handshake too | Protocol tests: wrong origin/window/session/version, duplicate messages, timeout, cleanup and multiple frames | Proposed |
-| 6.5 | Settings origin management and HealthProHub guide section in the existing Integration guide | ADMIN/OWNER vs MEMBER tests, example/schema checks, copy/accessibility and browser guide navigation | Proposed |
-| 6.6 | Isolated HealthProHub-like host harness, cross-origin end-to-end flows, gallery, docs/changelog finish line and step commit references | Full required verification plus embedded security, cookie-independent operation and visual checks below | Proposed |
+| 6.1 | Shared zod contracts/errors, schema migration, secret config and typed protocol; update docs/08 and docs/05 with As built notes only after implementation | Schema/contract and config tests, migration review, secret separation | ✅ Built |
+| 6.2 | Origin/session controllers, atomic exchange/upload binding, embedded guard and scoped service calls; reuse auth patterns, tenant services, audit and maintenance purge | API e2e for tenant/route/action isolation, revoked keys/origins, concurrent exchange/upload, lost upload response, expiry, purge and redaction | ✅ Built |
+| 6.3 | Dynamic embed HTML/header serving and dedicated UI transport; reuse upload/prepare/review components and autosave, retain normal sender routes | Component tests for permissions, dirty close, conflicts, expiry and teardown; standalone editor regressions; header/API tests | ✅ Built |
+| 6.4 | Dependency-light `packages/embed` SDK, build/typecheck/workspace wiring and plain JS/TypeScript usage examples; document direct iframe handshake too | Protocol tests: wrong origin/window/session/version, duplicate messages, timeout, cleanup and multiple frames | ✅ Built |
+| 6.5 | Settings origin management and HealthProHub guide section in the existing Integration guide | ADMIN/OWNER vs MEMBER tests, example/schema checks, copy/accessibility and browser guide navigation | ✅ Built |
+| 6.6 | Isolated HealthProHub-like host harness, cross-origin end-to-end flows, gallery, docs/changelog finish line and step commit references | Full required verification plus embedded security, cookie-independent operation and visual checks below | ✅ Built |
 
 ### Settings → Integrations: HealthProHub Guide Acceptance
 
 The existing `IntegrationGuide.tsx` and `integration-reference.ts` MUST gain a discoverable
-**HealthProHub / Embedded editor** section. Keep management and current API/webhook guidance usable.
+**Embedded editor** section, available to every tenant with HealthProHub as a worked example. Keep management and current API/webhook guidance usable.
 The new section MUST include:
 
 1. A capability/status table distinguishing headless API, embedded preparation and hosted signing;
@@ -724,3 +726,55 @@ the planning origin; implementation evidence and final checks will be appended a
 Documentation-only change: review status/scope consistency, referenced local paths, proposed API
 and schema completeness, ADR/index links and `git diff --check`. Historical test results above remain
 historical; no product checks are claimed for this proposal.
+
+### Embedded editor build progress (28 September 2026)
+
+Steps 6.1–6.6 are implemented and verified; commit records follow.
+The convention review identified session/token binding and close-during-launch races. Redemption
+now requires the iframe session ID; a mismatched token is rejected without consuming it. Closed
+frames cannot activate a late bearer and revoke a successful late exchange. Upload/send closure
+is blocked until the operation settles. Origin input rejects noncanonical hosts and ports.
+
+The Settings guide includes both entry modes, backend issuance, SDK and direct iframe examples,
+origin management, hosted signing, verified webhooks and recovery. The local host harness uses
+real isolated services and never calls the HealthProHub production application.
+
+### Embedded Verification — 28 September 2026
+
+- Convention review: final focused review passed; session/token binding, closure races and
+  canonical-origin findings were fixed, with regression coverage.
+- Final lint passed. API, web and SDK typechecks and shared production build passed. Root
+  typecheck still reports only the eight known strict-undefined errors in shared/jurisdiction.test.ts.
+- Unit verification passed sequentially: 445 tests (shared 100, API 168, web 173, SDK 4).
+  The initial concurrent run timed out two existing PDF certificate tests and one guide test
+  under load; unchanged tests passed in isolation/sequential runs. No timeout was increased.
+- API e2e under Node 22.19.0: 241/242 passed initially; the new purge test incorrectly used
+  get() for scoped PinoLogger. After resolve() correction, all eight embedded API tests passed.
+- Full desktop browser suite: 32 existing scenarios passed. Both new scenarios initially used
+  a helper requiring a checkbox absent from this signature-only draft. The corrected workflows
+  passed in cookie-blocked Chromium and WebKit: four complete flows, through signed webhook and
+  final PDF download. The direct iframe snippet has schema/example checks, not a separate full
+  browser lifecycle run.
+- Full gallery: 27 existing scenarios passed; three new scenarios had an incorrect upload
+  heading locator. After correction, all six embedded/editor-guide scenarios passed at
+  375/768/1440px. Chromium full-page capture omitted cross-origin iframe pixels; viewport
+  captures corrected this and all three embedded capture scenarios passed again. Tablet
+  capture was visually inspected. Existing field-builder keyboard/placement regressions passed.
+- Every step snapshot passed independent lint, API/web/SDK typechecks where present, shared
+  production build and unit suites. The known shared test-file typecheck failure was excluded
+  from those package checks and remains reported above.
+- The isolated browser stack logged ERR_HTTP_HEADERS_SENT on the unchanged original file
+  endpoint's manually-ended 304 branch. Download bytes and functional checks passed. This
+  pre-existing branch remains unchanged; resolving it is outside this integration slice.
+- The additive migration was applied to the development database after the user reported a
+  missing EmbedOrigin table. No reset or data deletion was performed.
+- No release, tag, push, registry publication or HealthProHub application deployment occurred.
+
+| Step | Commit |
+|---|---|
+| 6.1 | 31c9e68 |
+| 6.2 | 8f68270 |
+| 6.3 | 77d190b |
+| 6.4 | ecaa5de |
+| 6.5 | 49b57eb |
+| 6.6 | Final host-harness/verification commit in this workstream |
