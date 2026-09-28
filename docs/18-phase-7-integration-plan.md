@@ -1100,7 +1100,7 @@ host-load flakes, not a regression from this step.
 | 8.2 | 758696f |
 | 8.3 | cec3746 |
 | 8.4 | f79aac6 |
-| 8.5 | (recorded after commit) |
+| 8.5 | 77e407f |
 
 ### Deliberate Simplifications
 
