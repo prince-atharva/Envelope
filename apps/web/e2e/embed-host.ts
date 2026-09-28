@@ -161,7 +161,10 @@ document.getElementById('close').onclick=()=>editor?.requestClose();
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Host did not bind');
   origin = `http://127.0.0.1:${address.port}`;
-  const allowed = await request.put(`${WEB_URL}/api/v1/embed/origins`, {
+  // Origins belong to the issuing key, not the tenant (docs/18 workstream 7,
+  // ADR 0017); the human management bearer sets them after the server
+  // (and so its own origin) exists.
+  const allowed = await request.put(`${WEB_URL}/api/v1/api-keys/${apiKey.id}/embed-origins`, {
     headers: manage,
     data: { origins: [origin] },
   });

@@ -35,7 +35,7 @@ describe('integration guide', () => {
     );
     expect(screen.getByLabelText('Upload session body').textContent).toContain('"upload"');
     expect(screen.getByText(/30 minutes after session creation/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Configure trusted origins' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Manage API keys and origins' }));
     expect(manage).toHaveBeenCalledOnce();
   });
   it('changes webhook payloads and explains the unsupported event', () => {

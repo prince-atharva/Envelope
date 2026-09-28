@@ -55,7 +55,7 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
           </table>
         </div>
         <Button className="mt-4 min-h-11" variant="secondary" onClick={onManage}>
-          Configure trusted origins
+          Manage API keys and origins
         </Button>
       </Card>
       <Card className="space-y-4">
@@ -89,9 +89,11 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
       <Card className="space-y-4">
         <h3 className="text-lg font-semibold">Connect your backend and frontend</h3>
         <p className="text-sm leading-6 text-slate-600">
-          Configure the exact application HTTPS origin in Manage connections. ADMIN/OWNER accounts
-          manage it with GET/PUT /api/v1/embed/origins. No wildcards or URL paths; HTTP loopback is
-          limited to isolated tests. Your host’s frame-src policy must also allow Envelope.
+          Origins belong to the API key that issues sessions, not the workspace as a whole: set them
+          when creating the key, or edit them afterward from its row in Manage connections (PUT
+          /api/v1/api-keys/:id/embed-origins, ADMIN/OWNER only). Enter the exact application HTTPS
+          origin, no wildcards or URL paths; HTTP loopback is limited to isolated tests. Your host’s
+          frame-src policy must also allow Envelope.
         </p>
         <ExampleBlock title="HealthProHub backend session" text={EMBED_BACKEND_EXAMPLE} />
         <ExampleBlock title="HealthProHub SDK mount" text={EMBED_SDK_EXAMPLE} />

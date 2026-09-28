@@ -502,9 +502,13 @@ export const api = {
       method: 'POST',
     }),
 
-  listEmbedOrigins: () => json<string[]>('/embed/origins'),
-  setEmbedOrigins: (origins: string[]) =>
-    json<string[]>('/embed/origins', jsonBody({ origins }, 'PUT')),
+  // Per-key, not tenant-wide (docs/18 workstream 7, ADR 0017): set at key
+  // creation via createApiKey's embedOrigins, edited afterward here.
+  setApiKeyEmbedOrigins: (id: string, origins: string[]) =>
+    json<ApiKeySummary>(
+      `/api-keys/${encodeURIComponent(id)}/embed-origins`,
+      jsonBody({ origins }, 'PUT'),
+    ),
 
   listUsers: () => json<TenantUser[]>('/users'),
 

@@ -17,7 +17,8 @@ import { TextField } from '../components/ui/Field';
 import { HashBlock } from '../components/ui/HashBlock';
 import { BoltIcon } from '../components/ui/icons';
 import { TabPanel, Tabs } from '../components/ui/Tabs';
-import { EmbedOriginsPanel } from '../features/integrations/EmbedOriginsPanel';
+import { ApiKeyEmbedOriginsDialog } from '../features/integrations/ApiKeyEmbedOriginsDialog';
+import { parseOriginsInput } from '../features/integrations/api-key-origins-form';
 import { IntegrationGuide } from '../features/integrations/IntegrationGuide';
 import {
   apiKeyAccessDescription,
@@ -36,11 +37,14 @@ import { useDocumentTitle } from '../lib/use-document-title';
 
 function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const originsFieldId = useId();
   const [input, setInput] = useState<CreateApiKeyInput>({
     label: '',
     readOnly: false,
     embedOrigins: [],
   });
+  const [originsText, setOriginsText] = useState('');
+  const [originErrors, setOriginErrors] = useState<string[]>([]);
   const mutation = useOneTimeSecretMutation({
     create: async (input: CreateApiKeyInput) => {
       const result = await api.createApiKey(input);
@@ -64,9 +68,27 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
       title={mutation.rawValue ? 'Copy your API key' : 'Create API key'}
       onOpen={() => {
         setInput({ label: '', readOnly: false, embedOrigins: [] });
+        setOriginsText('');
+        setOriginErrors([]);
         mutation.reset();
       }}
-      onSubmit={mutation.rawValue ? undefined : () => mutation.mutate(input)}
+      onSubmit={
+        mutation.rawValue
+          ? undefined
+          : () => {
+              if (input.readOnly) {
+                mutation.mutate({ ...input, embedOrigins: [] });
+                return;
+              }
+              const parsed = parseOriginsInput(originsText);
+              if (parsed.errors.length > 0) {
+                setOriginErrors(parsed.errors);
+                return;
+              }
+              setOriginErrors([]);
+              mutation.mutate({ ...input, embedOrigins: parsed.origins });
+            }
+      }
       actions={
         mutation.rawValue ? (
           <Button className="min-h-11" onClick={close}>
@@ -127,7 +149,31 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
             </span>
           </label>
           {!input.readOnly && (
-            <p className="text-xs text-slate-500">{apiKeyAccessDescription(false)}</p>
+            <>
+              <p className="text-xs text-slate-500">{apiKeyAccessDescription(false)}</p>
+              <div>
+                <label className="block text-sm font-medium" htmlFor={originsFieldId}>
+                  Embedded editor origins (optional)
+                </label>
+                <p className="mt-1 text-xs text-slate-500">
+                  One exact HTTPS origin per line, up to 10. Leave blank for a backend-only key.
+                </p>
+                <textarea
+                  id={originsFieldId}
+                  rows={2}
+                  className="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"
+                  placeholder="https://healthprohub.example"
+                  value={originsText}
+                  onChange={(event) => {
+                    setOriginsText(event.target.value);
+                    setOriginErrors([]);
+                  }}
+                />
+                {originErrors.map((message) => (
+                  <Alert key={message}>{message}</Alert>
+                ))}
+              </div>
+            </>
           )}
           {failure && <Alert reference={failure.reference}>{failure.message}</Alert>}
         </>
@@ -136,8 +182,17 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
   );
 }
 
-function ApiKeyRow({ apiKey, onRevoke }: { apiKey: ApiKeySummary; onRevoke: () => void }) {
+function ApiKeyRow({
+  apiKey,
+  onRevoke,
+  onEditOrigins,
+}: {
+  apiKey: ApiKeySummary;
+  onRevoke: () => void;
+  onEditOrigins: () => void;
+}) {
   const revoked = Boolean(apiKey.revokedAt);
+  const originCount = apiKey.embedOrigins?.length ?? 0;
   return (
     <li className="px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -152,9 +207,16 @@ function ApiKeyRow({ apiKey, onRevoke }: { apiKey: ApiKeySummary; onRevoke: () =
           </code>
         </div>
         {!revoked && (
-          <Button className="min-h-11 self-start" variant="secondary" onClick={onRevoke}>
-            Revoke
-          </Button>
+          <div className="flex flex-col gap-2 self-start sm:flex-row">
+            {!apiKey.readOnly && (
+              <Button className="min-h-11" variant="secondary" onClick={onEditOrigins}>
+                Edit origins
+              </Button>
+            )}
+            <Button className="min-h-11" variant="secondary" onClick={onRevoke}>
+              Revoke
+            </Button>
+          </div>
         )}
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -162,6 +224,13 @@ function ApiKeyRow({ apiKey, onRevoke }: { apiKey: ApiKeySummary; onRevoke: () =
         <Metadata label="Last used">
           {apiKey.lastUsedAt ? formatDateTime(apiKey.lastUsedAt) : 'Never used'}
         </Metadata>
+        {!apiKey.readOnly && (
+          <Metadata label="Embedded editor">
+            {originCount === 0
+              ? 'Backend only'
+              : `${originCount} origin${originCount === 1 ? '' : 's'}`}
+          </Metadata>
+        )}
         {apiKey.revokedAt && (
           <Metadata label="Revoked">{formatDateTime(apiKey.revokedAt)}</Metadata>
         )}
@@ -598,6 +667,7 @@ export function SettingsIntegrationsPage() {
     endpoint: WebhookEndpointSummary | null;
   }>({ open: false, endpoint: null });
   const [pending, setPending] = useState<Confirmation | null>(null);
+  const [editingOrigins, setEditingOrigins] = useState<ApiKeySummary | null>(null);
   const keys = useQuery({ queryKey: queryKeys.apiKeys, queryFn: api.listApiKeys });
   const endpoints = useQuery({
     queryKey: queryKeys.webhookEndpoints,
@@ -642,6 +712,11 @@ export function SettingsIntegrationsPage() {
       <SettingsNav />
       <ConfirmDialog pending={pending} onCancel={() => setPending(null)} />
       <CreateApiKeyDialog open={creatingKey} onClose={() => setCreatingKey(false)} />
+      <ApiKeyEmbedOriginsDialog
+        apiKey={editingOrigins}
+        open={editingOrigins !== null}
+        onClose={() => setEditingOrigins(null)}
+      />
       <DeliveryDialog endpoint={deliveryEndpoint} onClose={() => setDeliveryEndpoint(null)} />
       <WebhookDialog
         open={webhookDialog.open}
@@ -669,7 +744,6 @@ export function SettingsIntegrationsPage() {
         {view === 'guide' && <IntegrationGuide onManage={() => setView('manage')} />}
       </TabPanel>
       <TabPanel idPrefix={viewId} id="manage" hidden={view !== 'manage'} className="space-y-6">
-        <EmbedOriginsPanel />
         <Card
           as="section"
           padding="none"
@@ -695,7 +769,12 @@ export function SettingsIntegrationsPage() {
           ) : (keys.data ?? []).length ? (
             <ul className="divide-y divide-slate-100">
               {keys.data?.map((key) => (
-                <ApiKeyRow key={key.id} apiKey={key} onRevoke={() => confirmRevoke(key)} />
+                <ApiKeyRow
+                  key={key.id}
+                  apiKey={key}
+                  onRevoke={() => confirmRevoke(key)}
+                  onEditOrigins={() => setEditingOrigins(key)}
+                />
               ))}
             </ul>
           ) : keys.error ? null : (

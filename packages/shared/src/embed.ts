@@ -18,12 +18,6 @@ export const embedOriginSchema = z
     if (/^https:\/\/[a-zA-Z0-9.-]+(?::[0-9]{1,5})?$/.test(value)) return true;
     return /^http:\/\/(?:127\.0\.0\.1|\[::1\]|localhost)(?::[0-9]{1,5})?$/.test(value);
   }, 'Use an exact HTTPS origin (loopback HTTP is test-only)');
-export const setEmbedOriginsSchema = z.strictObject({
-  origins: z
-    .array(embedOriginSchema)
-    .max(10)
-    .refine((values) => new Set(values).size === values.length, 'Origins must be unique'),
-});
 export const embedActionsSchema = z
   .array(z.enum(['edit', 'send']))
   .min(1)

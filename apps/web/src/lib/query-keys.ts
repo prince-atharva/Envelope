@@ -11,7 +11,6 @@ export const queryKeys = {
   envelopeEvents: (id: string) => ['envelope', id, 'events'] as const,
   document: (id: string, version = 0) => ['document', id, version] as const,
   users: ['users'] as const,
-  embedOrigins: ['integrations', 'embed-origins'] as const,
   apiKeys: ['integrations', 'api-keys'] as const,
   webhookEndpoints: ['integrations', 'webhooks'] as const,
   webhookDeliveries: (endpointId: string) =>
