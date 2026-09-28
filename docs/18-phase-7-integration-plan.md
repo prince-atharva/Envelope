@@ -135,7 +135,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 4 | In-page integration guide and API/webhook reference | ✅ Built | `4f05424` |
 | 5 | Existing integration verification and documentation | ✅ Verified | Historical verification record below |
 | 6 | Embedded sender editor, SDK and HealthProHub guide | ✅ Built and verified | Steps 6.1–6.6 below |
-| 7 | Per-key embedded origins, plus a member ownership-scope fix | Accepted; planned | Steps 7.0–7.4; ADR 0017 |
+| 7 | Per-key embedded origins, plus a member ownership-scope fix | ✅ Built | Steps 7.0–7.4; ADR 0017 |
 | 8 | Webhook reliability and event contract v1 | Accepted; planned | Steps 8.1–8.5; ADR 0018 |
 | 9 | Webhook endpoint lifecycle tooling | Accepted; planned | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | Accepted; planned | Steps 10.1–10.5; ADR 0019 |
@@ -818,14 +818,14 @@ origins action. The separate workspace origin panel is removed after cutover. Ra
 shown once and remain on the integration server. Origins are public permission metadata.
 
 Finish line:
-- [ ] A MEMBER cannot read another MEMBER's envelope events or document bytes by id (step 7.0).
-- [ ] Every tenant can configure its own integration; HealthProHub appears only as an example.
-- [ ] Create a full key and its optional origins in one atomic request/dialog.
-- [ ] Backend-only and read-only key creation remain compatible with existing clients.
-- [ ] Two keys in one tenant cannot launch or continue sessions for each other's origins.
-- [ ] ADMIN/OWNER can edit origins on active full keys; MEMBER/key/embed credentials cannot.
-- [ ] Removing an origin/revoking a key invalidates affected sessions, with recovery guidance.
-- [ ] Migration preserves existing permissions/data; docs, examples and responsive UI agree.
+- [x] A MEMBER cannot read another MEMBER's envelope events or document bytes by id (step 7.0).
+- [x] Every tenant can configure its own integration; HealthProHub appears only as an example.
+- [x] Create a full key and its optional origins in one atomic request/dialog.
+- [x] Backend-only and read-only key creation remain compatible with existing clients.
+- [x] Two keys in one tenant cannot launch or continue sessions for each other's origins.
+- [x] ADMIN/OWNER can edit origins on active full keys; MEMBER/key/embed credentials cannot.
+- [x] Removing an origin/revoking a key invalidates affected sessions, with recovery guidance.
+- [x] Migration preserves existing permissions/data; docs, examples and responsive UI agree.
 
 Deployment origins remain per-tenant configuration, not values supplied to this repository's tests.
 
@@ -887,11 +887,11 @@ fields or defaulted input fields before their callers/projections are updated in
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 7.0 | `fix(api)`: apply `ownerScopeOf` to `GET :id/events` and `GET :id/file`, before the ETag/304 check | Extend `roles.e2e.test.ts`: a MEMBER gets 404 on another MEMBER's events/file, including with `If-None-Match`; ADMIN and API keys unaffected | Planned |
-| 7.1 | Shared key-create/summary contracts, errors, additive model/migration/backfill; reuse embedOriginSchema and existing key schemas | Defaults/invalid origins/read-only contracts; SQL review and migrated grants | Planned |
-| 7.2 | Atomic key/origin creation, scoped origin edit, session/upload authorization and removal of the tenant-wide `/embed/origins` routes; reuse ApiKeyService, EmbedSessionService, transaction locks and structured logs | Real API e2e for tenant/role/key isolation, concurrency, removal, revoke, empty lists | Planned |
-| 7.3 | Create-key origin controls, per-key display/edit dialog; remove separate panel; generic Embedded editor guide and examples | Component/copy tests, keyboard/focus, responsive origin lists and one-time secret cleanup | Planned |
-| 7.4 | Two integration-key host flows, migration/regression security tests, gallery, docs/05/08/10/index/changelog and commit evidence | Full mandatory verification, cookie-blocked Chromium/WebKit and independent snapshot checks | Planned |
+| 7.0 | `fix(api)`: apply `ownerScopeOf` to `GET :id/events` and `GET :id/file`, before the ETag/304 check | Extend `roles.e2e.test.ts`: a MEMBER gets 404 on another MEMBER's events/file, including with `If-None-Match`; ADMIN and API keys unaffected | ✅ Built |
+| 7.1 | Shared key-create/summary contracts, errors, additive model/migration/backfill; reuse embedOriginSchema and existing key schemas | Defaults/invalid origins/read-only contracts; SQL review and migrated grants | ✅ Built |
+| 7.2 | Atomic key/origin creation, scoped origin edit, session/upload authorization and removal of the tenant-wide `/embed/origins` routes; reuse ApiKeyService, EmbedSessionService, transaction locks and structured logs | Real API e2e for tenant/role/key isolation, concurrency, removal, revoke, empty lists | ✅ Built |
+| 7.3 | Create-key origin controls, per-key display/edit dialog; remove separate panel; generic Embedded editor guide and examples | Component/copy tests, keyboard/focus, responsive origin lists and one-time secret cleanup | ✅ Built |
+| 7.4 | Two integration-key host flows, migration/regression security tests, gallery, docs/05/08/10/index/changelog and commit evidence | Full mandatory verification, cookie-blocked Chromium/WebKit and independent snapshot checks | ✅ Built |
 
 Creating and changing origin permissions MUST log tenant/key IDs and count only, without keys,
 launch tokens, actor IDs or request payloads. Reuse the current rate-limit, AppException, zod,
@@ -909,8 +909,46 @@ parent. Origin fields are not CORS settings or substitutes for backend authentic
 No broad OAuth/partner onboarding wizard, per-envelope full API keys, theming, browser API-key
 use, embedded signing, external package publication or release/tag/push is included.
 
-**Approval status:** ADR 0017 is accepted and workstream 7 is authorized for implementation
-(steps 7.0–7.4 below are planned, not yet built). Workstream 6 remains built.
+**Approval status:** ADR 0017 is accepted; workstream 7 is built and verified (below).
+
+| Step | Commit |
+|---|---|
+| 7.0 | (recorded after commit) |
+| 7.1 | (recorded after commit) |
+| 7.2 | (recorded after commit) |
+| 7.3 | (recorded after commit) |
+| 7.4 | (recorded after commit) |
+
+### Workstream 7 Verification — 28 September 2026
+
+- `pnpm --filter @envelope/api typecheck`, `pnpm --filter @envelope/shared typecheck` and
+  `pnpm --filter @envelope/web typecheck` passed. Root `pnpm typecheck` reproduces only the
+  known pre-existing `shared/jurisdiction.test.ts` strict-undefined errors.
+- `npx biome check` passed on every file this workstream touched.
+- Migration `20260928070021_api_key_embed_origins` was reviewed by hand; its backfill was
+  exercised against the existing development database (1 pre-existing `EmbedOrigin` row, 0
+  eligible active full keys — 0 rows backfilled, as expected). `prisma migrate diff
+  --from-migrations ... --exit-code` reports no drift.
+- API e2e: `roles.e2e.test.ts` (9 tests, including the new step 7.0 scope regression),
+  `api-keys.e2e.test.ts` (7 tests) and `embed.e2e.test.ts` (9 tests, including the new
+  two-key-isolation and read-only/origin-rejection cases) all passed on Node 22.19.0.
+  Reproducing the bug this step fixed first: `embed.e2e.test.ts`'s upload-binding transaction
+  had a second, independent origin re-check against the old tenant-wide `EmbedOrigin` table
+  (`envelopes.service.ts`, the upload-binding transaction) that step 7.2 initially missed —
+  caught by the existing "binds concurrent/retried uploads" test failing with
+  `EMBED_SCOPE_DENIED` once the tenant-wide table stopped being populated; fixed in the same
+  step's snapshot before committing.
+- Browser e2e (desktop Chrome): the full existing `embed.spec.ts` (2 tests) and
+  `integrations.spec.ts` suites (5 existing + 1 new test covering per-key origin creation,
+  validation-by-line, independent second-key origins, and the add-vs-remove confirmation
+  behavior) passed.
+- UI gallery: `integration settings` and `HealthProHub embedded editor` scenarios passed on
+  desktop, tablet and mobile.
+- Convention review: reviewed the diff for tenancy (all origin reads/writes filter by
+  `apiKeyId`/`tenantId`), logging (only counts and ids logged, never origins' full URLs in a
+  way that would be unusual — origins are already public permission metadata, matching the
+  existing tenant-wide log line's precedent), and queue/audit ordering (none of this
+  workstream's writes touch queues or the audit trail). No findings.
 
 ## Workstream 8: Webhook Reliability and Event Contract v1 (Accepted)
 

@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Integration settings now group API keys and webhooks into consistent panels, with clearer metadata, status badges, larger actions and polished event-selection and delivery dialogs. Responsive and keyboard checks cover long content and focus restoration (Phase 7, docs/18).
 - Settings is now available to Admins as well as Owners. Admins can manage integrations; workspace user management remains Owner-only.
+- **Embedded editor origins are now per API key, not tenant-wide.** Creating a full API key can set its own embedded-editor origins (up to 10 exact HTTPS origins); a read-only key can't have any. An Admin or Owner edits a key's origins from its row in Settings → Integrations, with a confirmation step before removing one, since that ends its live editor sessions immediately. The former workspace-wide origin panel and its `GET`/`PUT /embed/origins` routes are removed — two keys in one tenant now have fully independent iframe permissions (Phase 7, docs/18 workstream 7, ADR 0017).
 
 ### Security
 

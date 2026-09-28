@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–6 complete; Phase 7 integration built through the embedded editor. An integration-hardening extension (workstreams 7–13) is planned |
+| **Status** | Phases 1–6 complete; Phase 7 integration built through per-key embedded origins (workstream 7). Workstreams 8–13 (integration hardening) are planned |
 | **Version** | 1.2.0 |
 | **Last updated** | 28 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
@@ -16,11 +16,11 @@
 >
 > **Phase 7** is the integration phase. [Its maintained plan](18-phase-7-integration-plan.md)
 > records the API-key and webhook foundation, Settings management, responsive polish, and the
-> in-page integration guide together, plus the implemented embedded sender editor, SDK and
-> HealthProHub guide. Workstreams 7–13 (per-key embed origins, webhook reliability and endpoint
-> tooling, partner references, API-key/download completeness, a hosted SDK, and one integration
-> contract catalog with a developer guide — ADRs 0017–0021) are accepted and planned, not yet
-> built. Earlier `6b` labels remain in the historical commit record.
+> in-page integration guide together, plus the implemented embedded sender editor, SDK,
+> HealthProHub guide and per-key embedded origins (workstream 7, ADR 0017). Workstreams 8–13
+> (webhook reliability and endpoint tooling, partner references, API-key/download completeness, a
+> hosted SDK, and one integration contract catalog with a developer guide — ADRs 0018–0021) are
+> accepted and planned, not yet built. Earlier `6b` labels remain in the historical commit record.
 
 ---
 

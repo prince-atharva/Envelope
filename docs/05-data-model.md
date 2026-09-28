@@ -564,7 +564,9 @@ Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug
 > externalActorId. The maintenance sweep removes operational sessions seven days after expiry,
 > without deleting or modifying audit evidence. All origin/key/session references are tenant scoped.
 
-> **Accepted Phase 7 refinement, implementation pending.** [Workstream 7](18-phase-7-integration-plan.md#workstream-7-per-key-embedded-origins-accepted)
-> and [ADR 0017](adr/0017-bind-embedded-origins-to-api-keys.md) move editor origins from the
-> tenant-wide list to each API key and add optional origin setup during key creation. Current
-> runtime contracts above remain in effect until workstream 7 is built.
+> **As built (Phase 7, docs/18 workstream 7).** `EmbedOrigin` above is superseded by
+> `ApiKeyEmbedOrigin` (`id`, `tenantId`, `apiKeyId`, `origin`, `createdByUserId`, `createdAt`;
+> unique `(apiKeyId, origin)`), reachable only through the API key it belongs to. `EmbedOrigin`
+> itself is kept, unread, purely as a migration rollback path (ADR 0017). Every embedded-session
+> issuance, bearer re-check and upload binding validates the origin against the issuing key, never
+> the tenant. See [ADR 0017](adr/0017-bind-embedded-origins-to-api-keys.md).

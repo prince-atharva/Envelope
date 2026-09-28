@@ -141,6 +141,68 @@ test('owner manages API keys, webhooks and a failed delivery', async ({ page }) 
   await expect(endpointRow).toContainText('Active');
 });
 
+test('each API key has its own embedded-editor origins (docs/18 workstream 7)', async ({
+  page,
+}) => {
+  await signUp(page, 'integrations-origins');
+  await page.goto('/settings/integrations');
+
+  // A read-only key never shows an origins field or an Edit origins action.
+  await page.getByRole('button', { name: 'Create API key' }).click();
+  await page.getByLabel('Key label').fill('Reporting only');
+  await page.getByLabel('Read-only key').check();
+  await expect(page.getByLabel('Embedded editor origins (optional)')).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
+  await page.getByRole('button', { name: 'I have saved the key' }).click();
+  const readOnlyRow = page.getByRole('listitem').filter({ hasText: 'Reporting only' });
+  await expect(readOnlyRow.getByRole('button', { name: 'Edit origins' })).toHaveCount(0);
+
+  // A full key can set an invalid line, see which line is wrong, fix it and
+  // create with one origin.
+  await page.getByRole('button', { name: 'Create API key' }).click();
+  await page.getByLabel('Key label').fill('HealthProHub integration');
+  await page
+    .getByLabel('Embedded editor origins (optional)')
+    .fill('https://healthprohub.example\nhttps://*.example');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
+  await expect(page.getByRole('alert')).toContainText('Line 2');
+  await page.getByLabel('Embedded editor origins (optional)').fill('https://healthprohub.example');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
+  await page.getByRole('button', { name: 'I have saved the key' }).click();
+  const integrationRow = page.getByRole('listitem').filter({ hasText: 'HealthProHub integration' });
+  await expect(integrationRow).toContainText('1 origin');
+
+  // A second key's own origins are independent of the first key's.
+  await page.getByRole('button', { name: 'Create API key' }).click();
+  await page.getByLabel('Key label').fill('Second integration');
+  await page.getByRole('dialog').getByRole('button', { name: 'Create key' }).click();
+  await page.getByRole('button', { name: 'I have saved the key' }).click();
+  const secondRow = page.getByRole('listitem').filter({ hasText: 'Second integration' });
+  await expect(secondRow).toContainText('Backend only');
+
+  // Adding an origin to the first key needs no confirmation; removing one does.
+  const originsField = page.getByLabel('HealthProHub integration’s embedded editor origins');
+  await integrationRow.getByRole('button', { name: 'Edit origins' }).click();
+  await originsField.fill('https://healthprohub.example\nhttps://staging.healthprohub.example');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save origins' }).click();
+  await expect(integrationRow).toContainText('2 origins');
+
+  await integrationRow.getByRole('button', { name: 'Edit origins' }).click();
+  await originsField.fill('https://staging.healthprohub.example');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save origins' }).click();
+  const removalDialog = page.getByRole('dialog', { name: 'Remove access for these origins?' });
+  await expect(removalDialog).toContainText('healthprohub.example');
+  await removalDialog.getByRole('button', { name: 'Go back' }).click();
+  await expect(page.getByRole('dialog', { name: 'Embedded editor origins' })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save origins' }).click();
+  await page
+    .getByRole('dialog', { name: 'Remove access for these origins?' })
+    .getByRole('button', { name: 'Remove and save' })
+    .click();
+  await expect(integrationRow).toContainText('1 origin');
+  await expect(integrationRow).not.toContainText('2 origins');
+});
+
 test('settings routes follow the Admin and Member role floor', async ({ page }) => {
   const adminEmail = await signUp(page, 'integrations-admin');
   await setRole(adminEmail, 'ADMIN');
