@@ -30,45 +30,25 @@ export class EmbedSessionService {
   hash(token: string): string {
     return createHmac('sha256', this.config.EMBED_SESSION_HASH_SECRET).update(token).digest('hex');
   }
-  async origins(user: AuthenticatedUser): Promise<string[]> {
+  /**
+   * One key's own approved origins (docs/18 workstream 7, ADR 0017) — never
+   * the tenant-wide list, so two keys in one tenant have independent iframe
+   * permissions even though both act as the same tenant's ADMIN scope.
+   */
+  private async apiKeyOrigins(apiKeyId: string): Promise<string[]> {
     return (
-      await this.prisma.embedOrigin.findMany({
-        where: { tenantId: user.tenantId },
-        orderBy: { origin: 'asc' },
+      await this.prisma.apiKeyEmbedOrigin.findMany({
+        where: { apiKeyId },
         select: { origin: true },
       })
     ).map((row) => row.origin);
-  }
-  async setOrigins(user: AuthenticatedUser, origins: string[]): Promise<string[]> {
-    if (
-      this.config.NODE_ENV !== 'test' &&
-      origins.some((origin) => !origin.startsWith('https://'))
-    ) {
-      throw new AppException('EMBED_ORIGIN_NOT_ALLOWED');
-    }
-    await this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${user.tenantId}, 1))`;
-      await tx.embedOrigin.deleteMany({ where: { tenantId: user.tenantId } });
-      await tx.embedOrigin.createMany({
-        data: origins.map((origin) => ({
-          tenantId: user.tenantId,
-          origin,
-          createdByUserId: user.id,
-        })),
-      });
-    });
-    this.logger.info(
-      { tenantId: user.tenantId, userId: user.id, count: origins.length },
-      'Embedded parent origins updated',
-    );
-    return this.origins(user);
   }
   async issue(
     user: AuthenticatedUser,
     input: CreateEmbedSessionInput,
   ): Promise<CreateEmbedSessionResponse> {
     if (!user.apiKeyId || user.embed) throw new AppException('EMBED_SCOPE_DENIED');
-    if (!(await this.origins(user)).includes(input.parentOrigin))
+    if (!(await this.apiKeyOrigins(user.apiKeyId)).includes(input.parentOrigin))
       throw new AppException('EMBED_ORIGIN_NOT_ALLOWED');
     if (input.mode === 'existing') {
       const envelope = await this.prisma.envelope.findFirst({
@@ -114,8 +94,8 @@ export class EmbedSessionService {
         where: { id: row.apiKeyId, tenantId: row.tenantId, revokedAt: null, readOnly: false },
         select: { id: true },
       }),
-      this.prisma.embedOrigin.findFirst({
-        where: { tenantId: row.tenantId, origin: row.parentOrigin },
+      this.prisma.apiKeyEmbedOrigin.findFirst({
+        where: { apiKeyId: row.apiKeyId, origin: row.parentOrigin },
         select: { id: true },
       }),
     ]);

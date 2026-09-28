@@ -5,17 +5,14 @@ import {
   createEnvelopeSchema,
   exchangeEmbedSessionSchema,
   MAX_UPLOAD_BYTES,
-  setEmbedOriginsSchema,
 } from '@envelope/shared';
 import {
   Body,
   Controller,
   Delete,
-  Get,
   HttpCode,
   Param,
   Post,
-  Put,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -25,7 +22,6 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiKeyAllowed } from '../auth/api-key.decorator';
 import { Client, CurrentUser, Public } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
-import { Roles } from '../auth/roles.decorator';
 import { AppException } from '../common/errors/app-exception';
 import { RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
@@ -39,26 +35,20 @@ import {
 import { EmbedAllowed } from './embed.decorator';
 import { EmbedSessionService } from './embed-session.service';
 
+/**
+ * Origin management moved to `PUT /api-keys/:id/embed-origins`
+ * (docs/18 workstream 7, ADR 0017) — origins are a property of the issuing
+ * key, not the tenant. This controller no longer serves `GET`/`PUT
+ * /embed/origins`: those routes shipped in this same unreleased phase and
+ * had no external caller, so they are removed outright rather than kept as
+ * a deprecated shim.
+ */
 @Controller('embed')
 export class EmbedController {
   constructor(
     private readonly sessions: EmbedSessionService,
     private readonly envelopes: EnvelopesService,
   ) {}
-  @Get('origins')
-  @Roles('ADMIN')
-  origins(@CurrentUser() user: AuthenticatedUser) {
-    return this.sessions.origins(user);
-  }
-  @Put('origins')
-  @Roles('ADMIN')
-  @RateLimit({ bucket: 'embed-origins', by: 'tenant', limit: 10 })
-  setOrigins(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new ZodValidationPipe(setEmbedOriginsSchema)) input: { origins: string[] },
-  ) {
-    return this.sessions.setOrigins(user, input.origins);
-  }
   @Post('sessions')
   @ApiKeyAllowed({ write: true })
   @RateLimit({ bucket: 'embed-issue', by: 'tenantKey', limit: 30 })

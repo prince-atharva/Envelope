@@ -3,8 +3,10 @@ import {
   type CreateApiKeyInput,
   type CreateApiKeyResponse,
   createApiKeySchema,
+  type SetApiKeyEmbedOriginsInput,
+  setApiKeyEmbedOriginsSchema,
 } from '@envelope/shared';
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -53,5 +55,20 @@ export class ApiKeysController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ApiKeySummary> {
     return this.apiKeys.revoke(id, user);
+  }
+
+  @Put(':id/embed-origins')
+  @Roles('ADMIN')
+  @RateLimit({ bucket: 'api-key-embed-origins', by: 'tenant', limit: 10 })
+  @ApiOperation({
+    summary: "Replace one key's embedded-editor parent origins (docs/18 workstream 7)",
+  })
+  @ApiBody({ schema: openApiSchema(setApiKeyEmbedOriginsSchema) })
+  setEmbedOrigins(
+    @Param('id', UuidParamPipe) id: string,
+    @Body(new ZodValidationPipe(setApiKeyEmbedOriginsSchema)) body: SetApiKeyEmbedOriginsInput,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ApiKeySummary> {
+    return this.apiKeys.setEmbedOrigins(id, body.origins, user);
   }
 }

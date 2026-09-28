@@ -210,6 +210,79 @@ describe('API keys (e2e)', () => {
     expect(revoked.body.code).toBe('API_KEY_INVALID');
   });
 
+  it('sets, and refuses to set, a key’s embedded-editor origins (docs/18 workstream 7, ADR 0017)', async () => {
+    const origin = 'https://healthprohub.example';
+    const created = await request(t.http)
+      .post('/api/v1/api-keys')
+      .set('Authorization', bearer(owner))
+      .send({ label: 'Origin edits', embedOrigins: [origin] })
+      .expect(201);
+    const { apiKey } = created.body as CreateApiKeyResponse;
+    expect(apiKey.embedOrigins).toEqual([origin]);
+
+    const edited = await request(t.http)
+      .put(`/api/v1/api-keys/${apiKey.id}/embed-origins`)
+      .set('Authorization', bearer(owner))
+      .send({ origins: [] })
+      .expect(200);
+    expect((edited.body as ApiKeySummary).embedOrigins).toEqual([]);
+
+    // A read-only key can never have origins, at creation or by edit.
+    const readOnly = await request(t.http)
+      .post('/api/v1/api-keys')
+      .set('Authorization', bearer(owner))
+      .send({ label: 'Read-only, no origins', readOnly: true })
+      .expect(201);
+    const readOnlyId = (readOnly.body as CreateApiKeyResponse).apiKey.id;
+    const readOnlyRejected = await request(t.http)
+      .put(`/api/v1/api-keys/${readOnlyId}/embed-origins`)
+      .set('Authorization', bearer(owner))
+      .send({ origins: [origin] });
+    expect(readOnlyRejected.status).toBe(403);
+    expect(readOnlyRejected.body.code).toBe('API_KEY_READ_ONLY');
+
+    // A key in another tenant reads exactly like "not found", not "forbidden".
+    const outsider = await registerUser(t.http, {
+      fullName: 'Outsider Owner',
+      organization: 'Outsider Co',
+    });
+    const alien = await request(t.http)
+      .post('/api/v1/api-keys')
+      .set('Authorization', bearer(outsider))
+      .send({ label: 'someone else’s key' })
+      .expect(201);
+    const crossTenant = await request(t.http)
+      .put(`/api/v1/api-keys/${(alien.body as CreateApiKeyResponse).apiKey.id}/embed-origins`)
+      .set('Authorization', bearer(owner))
+      .send({ origins: [origin] });
+    expect(crossTenant.status).toBe(404);
+    expect(crossTenant.body.code).toBe('NOT_FOUND');
+
+    // A revoked key gets 409 CONFLICT, not 401 — the web client treats any
+    // 401 as its own session expiring and silently refreshes (lib/api.ts),
+    // which would misreport whose credential actually expired.
+    await request(t.http)
+      .delete(`/api/v1/api-keys/${apiKey.id}`)
+      .set('Authorization', bearer(owner))
+      .expect(200);
+    const revokedEdit = await request(t.http)
+      .put(`/api/v1/api-keys/${apiKey.id}/embed-origins`)
+      .set('Authorization', bearer(owner))
+      .send({ origins: [origin] });
+    expect(revokedEdit.status).toBe(409);
+    expect(revokedEdit.body.code).toBe('CONFLICT');
+
+    // A MEMBER, an API key and an embedded bearer are all refused outright:
+    // this route carries neither @ApiKeyAllowed nor @EmbedAllowed.
+    const member = await inviteMember('Origin Member');
+    const memberAttempt = await request(t.http)
+      .put(`/api/v1/api-keys/${readOnlyId}/embed-origins`)
+      .set('Authorization', bearer(member))
+      .send({ origins: [] });
+    expect(memberAttempt.status).toBe(403);
+    expect(memberAttempt.body.code).toBe('FORBIDDEN_ROLE');
+  });
+
   it('refuses a MEMBER on every key-management route', async () => {
     const member = await inviteMember('Key Member');
     await request(t.http)

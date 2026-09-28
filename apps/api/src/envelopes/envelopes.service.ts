@@ -253,8 +253,10 @@ export class EnvelopesService {
               readOnly: false,
             },
           });
-          const origin = await tx.embedOrigin.findFirst({
-            where: { tenantId: user.tenantId, origin: session.parentOrigin },
+          // Per-key, not tenant-wide (docs/18 workstream 7, ADR 0017): the
+          // session's own issuing key must still have this exact origin.
+          const origin = await tx.apiKeyEmbedOrigin.findFirst({
+            where: { apiKeyId: session.apiKeyId, origin: session.parentOrigin },
           });
           if (!key || !origin || session.mode !== 'upload')
             throw new AppException('EMBED_SCOPE_DENIED');

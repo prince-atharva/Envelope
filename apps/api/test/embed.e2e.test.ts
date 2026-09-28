@@ -19,23 +19,28 @@ describe('embedded sender authority (e2e)', () => {
   let id: string;
   let otherId: string;
   let logs: ReturnType<typeof captureLogs>;
+  function setOrigins(apiKeyId: string, origins: string[]) {
+    return request(t.http)
+      .put(`/api/v1/api-keys/${apiKeyId}/embed-origins`)
+      .set('Authorization', bearer(owner))
+      .send({ origins });
+  }
   beforeAll(async () => {
     await truncateAll();
     t = await createTestApp();
     logs = captureLogs();
     owner = await registerUser(t.http);
+    // Origins are set on the same key at creation (docs/18 workstream 7,
+    // ADR 0017): each key has its own iframe permissions, not a tenant-wide
+    // list every full key shares.
     const created = await request(t.http)
       .post('/api/v1/api-keys')
       .set('Authorization', bearer(owner))
-      .send({ label: 'Embed host' })
+      .send({ label: 'Embed host', embedOrigins: [origin] })
       .expect(201);
     key = created.body.rawKey;
     keyId = created.body.apiKey.id;
-    await request(t.http)
-      .put('/api/v1/embed/origins')
-      .set('Authorization', bearer(owner))
-      .send({ origins: [origin] })
-      .expect(200);
+    expect(created.body.apiKey.embedOrigins).toEqual([origin]);
     id = (await prepareEnvelope(t.http, owner, [])).id;
     otherId = (await prepareEnvelope(t.http, owner, [])).id;
   });
@@ -102,11 +107,61 @@ describe('embedded sender authority (e2e)', () => {
       .set('Authorization', `Bearer ${key}`)
       .send({ ...body, envelopeId: alien.id })
       .expect(404);
-    await request(t.http)
-      .put('/api/v1/embed/origins')
+    // Origin management is human-session-only: an API key gets the closed-
+    // by-default refusal, not FORBIDDEN_ROLE, since the route carries no
+    // @ApiKeyAllowed (docs/18 workstream 7, ADR 0017).
+    const deniedToKey = await request(t.http)
+      .put(`/api/v1/api-keys/${keyId}/embed-origins`)
       .set('Authorization', `Bearer ${key}`)
       .send({ origins: [] })
       .expect(403);
+    expect(deniedToKey.body.code).toBe('API_KEY_NOT_ALLOWED');
+    // Read-only creation with a nonempty origin list is refused end to end,
+    // not only by the shared schema.
+    const roRejected = await request(t.http)
+      .post('/api/v1/api-keys')
+      .set('Authorization', bearer(owner))
+      .send({ label: 'read-with-origin', readOnly: true, embedOrigins: [origin] })
+      .expect(400);
+    expect(roRejected.body.code).toBe('VALIDATION_FAILED');
+  });
+  it("two keys in one tenant have independent origins; one key's origin cannot launch another's editor", async () => {
+    const otherOrigin = 'https://another-integration.example';
+    const second = await request(t.http)
+      .post('/api/v1/api-keys')
+      .set('Authorization', bearer(owner))
+      .send({ label: 'Second integration', embedOrigins: [otherOrigin] })
+      .expect(201);
+    const secondKey = second.body.rawKey as string;
+    const body = {
+      mode: 'existing',
+      envelopeId: id,
+      parentOrigin: origin,
+      externalActorId: 'staff:456',
+      actions: ['edit'],
+    };
+    // The first key's own origin still works for the first key.
+    await request(t.http)
+      .post('/api/v1/embed/sessions')
+      .set('Authorization', `Bearer ${key}`)
+      .send(body)
+      .expect(201);
+    // The second key cannot use the first key's origin, and vice versa.
+    await request(t.http)
+      .post('/api/v1/embed/sessions')
+      .set('Authorization', `Bearer ${secondKey}`)
+      .send(body)
+      .expect(403);
+    await request(t.http)
+      .post('/api/v1/embed/sessions')
+      .set('Authorization', `Bearer ${key}`)
+      .send({ ...body, parentOrigin: otherOrigin })
+      .expect(403);
+    await request(t.http)
+      .post('/api/v1/embed/sessions')
+      .set('Authorization', `Bearer ${secondKey}`)
+      .send({ ...body, parentOrigin: otherOrigin })
+      .expect(201);
   });
   it('serves frame HTML with the exact parent origin and no credential in URLs', async () => {
     const session = await issue();
@@ -163,10 +218,14 @@ describe('embedded sender authority (e2e)', () => {
       'users',
       'api-keys',
       'webhooks',
-      'embed/origins',
     ]) {
       await request(t.http).get(`/api/v1/${path}`).set('Authorization', auth).expect(403);
     }
+    await request(t.http)
+      .put(`/api/v1/api-keys/${keyId}/embed-origins`)
+      .set('Authorization', auth)
+      .send({ origins: [] })
+      .expect(403);
     await request(t.http)
       .get(`/api/v1/envelopes/${id}/file?version=1`)
       .set('Authorization', auth)
@@ -233,20 +292,12 @@ describe('embedded sender authority (e2e)', () => {
       .expect(401);
     const session = await issue();
     const access = await exchange(session);
-    await request(t.http)
-      .put('/api/v1/embed/origins')
-      .set('Authorization', bearer(owner))
-      .send({ origins: [] })
-      .expect(200);
+    await setOrigins(keyId, []).expect(200);
     await request(t.http)
       .get(`/api/v1/envelopes/${id}`)
       .set('Authorization', `Bearer ${access.accessToken}`)
       .expect(401);
-    await request(t.http)
-      .put('/api/v1/embed/origins')
-      .set('Authorization', bearer(owner))
-      .send({ origins: [origin] })
-      .expect(200);
+    await setOrigins(keyId, [origin]).expect(200);
     await ownerQuery(
       'UPDATE "EmbedSession" SET "expiresAt"=now()-interval \'1 minute\' WHERE id=$1',
       [session.sessionId],
