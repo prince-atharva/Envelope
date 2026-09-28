@@ -17,6 +17,13 @@ export const ERROR_CATALOG = {
   INTERNAL_ERROR: { status: 500, title: 'Internal server error' },
   SERVICE_UNAVAILABLE: { status: 503, title: 'Service unavailable' },
 
+  EMBED_ORIGIN_NOT_ALLOWED: { status: 403, title: 'Embedded parent origin is not allowed' },
+  EMBED_SESSION_INVALID: { status: 401, title: 'Invalid embedded session' },
+  EMBED_SESSION_EXPIRED: { status: 401, title: 'Embedded session expired' },
+  EMBED_LAUNCH_USED: { status: 409, title: 'Embedded launch already redeemed' },
+  EMBED_SCOPE_DENIED: { status: 403, title: 'Embedded session does not allow this action' },
+  EMBED_UPLOAD_BOUND: { status: 409, title: 'Embedded upload is already bound' },
+
   // Accounts and sessions
   INVALID_CREDENTIALS: { status: 401, title: 'Invalid email or password' },
   SESSION_EXPIRED: { status: 401, title: 'Session expired' },

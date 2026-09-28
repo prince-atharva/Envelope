@@ -745,3 +745,9 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 - SDKs (TypeScript, Python) — post-launch
 - Bulk send endpoint — Sprint 3–4
 - Template endpoints — Sprint 3–4
+
+
+> **As built (Phase 7, docs/18 step 6.1).** Shared embedded-editor contracts and the additive
+> `EmbedOrigin`/`EmbedSession` migration are defined. They store credential HMACs, issuing-key and
+> tenant references, one-envelope scope, actions, parent origin and expiry/revocation state.
+> Runtime routes and the editor remain pending subsequent workstream steps.

@@ -551,3 +551,9 @@ A nightly job SHOULD walk each envelope's chain and alert on any break. **An aud
 Every root entity carries `tenantId`. Enforcement is at the query layer via a Prisma middleware that injects the tenant filter on every read and write.
 
 Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug in the middleware cannot leak data across tenants (deferred to Phase 7 in the original roadmap). **As built (Phase 7, docs/18):** Phase 7 now covers integrations; this launch-readiness control remains deferred to Phase 8. Tenant isolation MUST have a dedicated test suite that attempts cross-tenant access on every endpoint. **As built (docs/17 step 13):** `apps/api/test/cross-tenant.e2e.test.ts`, table-driven over every route that takes an envelope id, including every Phase 6 route.
+
+
+> **As built (Phase 7, docs/18 step 6.1).** Shared embedded-editor contracts and the additive
+> `EmbedOrigin`/`EmbedSession` migration are defined. They store credential HMACs, issuing-key and
+> tenant references, one-envelope scope, actions, parent origin and expiry/revocation state.
+> Runtime routes and the editor remain pending subsequent workstream steps.

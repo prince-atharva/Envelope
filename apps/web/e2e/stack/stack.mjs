@@ -58,6 +58,7 @@ export const STACK_ENV = {
   REFRESH_TOKEN_SECRET: 'browser-e2e-refresh-secret-0123456789abcdefghij',
   SIGNING_TOKEN_SECRET: 'browser-e2e-signing-secret-0123456789abcdefghij',
   API_KEY_HASH_SECRET: 'browser-e2e-api-key-secret-0123456789abcdefghij',
+  EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible runs.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
 

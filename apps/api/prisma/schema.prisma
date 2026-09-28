@@ -103,6 +103,8 @@ model Tenant {
   /// at creation (ADR 0011).
   jurisdictionCode String @default("US")
 
+  embedOrigins     EmbedOrigin[]
+  embedSessions    EmbedSession[]
   users            User[]
   envelopes        Envelope[]
   apiKeys          ApiKey[]
@@ -150,6 +152,8 @@ model User {
   envelopes          Envelope[]        @relation("EnvelopeOwner")
   voidedEnvelopes    Envelope[]        @relation("EnvelopeVoidedBy")
   legalHoldEnvelopes Envelope[]        @relation("EnvelopeLegalHoldBy")
+  embedOrigins       EmbedOrigin[]
+  embedSessions      EmbedSession[]
   sessions           Session[]
   apiKeysActing      ApiKey[]          @relation("ApiKeyActingUser")
   apiKeysCreated     ApiKey[]          @relation("ApiKeyCreatedBy")
@@ -164,9 +168,10 @@ model User {
 /// tenant, matching docs/08's "whole tenant" scope, without `ownership.ts`
 /// needing any special case for a non-human caller.
 model ApiKey {
-  id       String @id @default(uuid(7)) @db.Uuid
-  tenantId String @db.Uuid
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  embedSessions EmbedSession[]
+  id            String         @id @default(uuid(7)) @db.Uuid
+  tenantId      String         @db.Uuid
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   label String
 
@@ -375,11 +380,12 @@ model Envelope {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  recipients Recipient[]
-  fields     DocumentField[]
-  versions   DocumentVersion[]
-  auditLogs  AuditTrail[]
-  downloads  CompletionDownload[]
+  recipients    Recipient[]
+  fields        DocumentField[]
+  versions      DocumentVersion[]
+  auditLogs     AuditTrail[]
+  embedSessions EmbedSession[]
+  downloads     CompletionDownload[]
 
   /// The All tab: newest first, with the id tiebreak the cursor compares on.
   @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)])
@@ -599,4 +605,45 @@ model AuditTrail {
 
   @@unique([envelopeId, sequence])
   @@index([recipientId])
+}
+
+/// Scoped browser preparation credentials (ADR 0016); never stores raw tokens.
+model EmbedOrigin {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  tenantId        String   @db.Uuid
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  origin          String
+  createdByUserId String   @db.Uuid
+  createdByUser   User     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime @default(now())
+
+  @@unique([tenantId, origin])
+  @@index([tenantId])
+}
+
+model EmbedSession {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  tenantId        String    @db.Uuid
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  apiKeyId        String    @db.Uuid
+  apiKey          ApiKey    @relation(fields: [apiKeyId], references: [id], onDelete: Restrict)
+  actingUserId    String    @db.Uuid
+  actingUser      User      @relation(fields: [actingUserId], references: [id], onDelete: Restrict)
+  envelopeId      String?   @db.Uuid
+  envelope        Envelope? @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
+  parentOrigin    String
+  externalActorId String
+  mode            String
+  actions         String[]
+  launchTokenHash String    @unique
+  accessTokenHash String?   @unique
+  launchExpiresAt DateTime
+  redeemedAt      DateTime?
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId, envelopeId])
+  @@index([apiKeyId])
+  @@index([expiresAt])
 }

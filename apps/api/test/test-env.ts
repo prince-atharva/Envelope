@@ -22,6 +22,7 @@ export const TEST_ENV: Record<string, string> = {
   REFRESH_TOKEN_SECRET: 'test-refresh-secret-0123456789abcdefghijklmnop',
   SIGNING_TOKEN_SECRET: 'test-signing-secret-0123456789abcdefghijklmnop',
   API_KEY_HASH_SECRET: 'test-api-key-secret-0123456789abcdefghijklmnop',
+  EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible tests.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
   // Milliseconds, not hours: lets retry/exhaustion tests finish quickly.

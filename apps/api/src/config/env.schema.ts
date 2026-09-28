@@ -91,6 +91,8 @@ export const envSchema = z
 
     /** HMAC key for API keys (docs/18). Rotating it revokes every issued key at once. */
     API_KEY_HASH_SECRET: secret,
+    EMBED_SESSION_HASH_SECRET: secret,
+    EMBED_SESSION_PURGE_CRON: z.string().trim().min(9).default('45 3 * * *'),
     /**
      * AES-256-GCM key that encrypts webhook signing secrets at rest (docs/18,
      * ADR 0015). Unlike the HMAC secrets above, a webhook secret must be
@@ -277,6 +279,21 @@ export const envSchema = z
         path: ['API_KEY_HASH_SECRET'],
         message:
           'must be different from JWT_ACCESS_SECRET, REFRESH_TOKEN_SECRET and SIGNING_TOKEN_SECRET',
+      });
+    }
+    if (
+      [
+        env.JWT_ACCESS_SECRET,
+        env.REFRESH_TOKEN_SECRET,
+        env.SIGNING_TOKEN_SECRET,
+        env.API_KEY_HASH_SECRET,
+        env.WEBHOOK_SECRET_ENC_KEY,
+      ].includes(env.EMBED_SESSION_HASH_SECRET)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMBED_SESSION_HASH_SECRET'],
+        message: 'must be different from other authentication and webhook secrets',
       });
     }
     if (env.NODE_ENV === 'production' && env.SEALED_RETENTION_MODE === 'GOVERNANCE') {

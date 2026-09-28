@@ -9,6 +9,7 @@ const valid = {
   REFRESH_TOKEN_SECRET: 'b'.repeat(40),
   SIGNING_TOKEN_SECRET: 'c'.repeat(40),
   API_KEY_HASH_SECRET: 'd'.repeat(40),
+  EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   WEBHOOK_SECRET_ENC_KEY: Buffer.alloc(32, 9).toString('base64'),
   S3_ACCESS_KEY_ID: 'key',
   S3_SECRET_ACCESS_KEY: 'super-secret-s3-value',
@@ -31,6 +32,15 @@ function problemsOf(env: Record<string, string>): string[] {
 }
 
 describe('parseEnv', () => {
+  it('requires a separate embedded-session HMAC secret', () => {
+    const { EMBED_SESSION_HASH_SECRET: _omit, ...without } = valid;
+    expect(problemsOf(without)).toEqual([expect.stringMatching(/^EMBED_SESSION_HASH_SECRET:/)]);
+    expect(problemsOf({ ...valid, EMBED_SESSION_HASH_SECRET: valid.API_KEY_HASH_SECRET })).toEqual([
+      'EMBED_SESSION_HASH_SECRET: must be different from other authentication and webhook secrets',
+    ]);
+    expect(parseEnv(valid).EMBED_SESSION_PURGE_CRON).toBe('45 3 * * *');
+  });
+
   it('accepts a complete environment and applies defaults', () => {
     const env = parseEnv(valid);
     expect(env.API_PORT).toBe(4000);

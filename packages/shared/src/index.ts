@@ -7,6 +7,7 @@ export * from './coordinates';
 export * from './document-categories';
 export * from './download';
 export * from './draft';
+export * from './embed';
 export * from './envelopes';
 export * from './errors';
 export * from './jurisdiction';
