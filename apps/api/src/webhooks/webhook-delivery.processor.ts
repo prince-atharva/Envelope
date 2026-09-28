@@ -1,3 +1,4 @@
+import { WEBHOOK_DELIVERY_HEADERS, webhookUserAgent } from '@envelope/shared';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -10,6 +11,7 @@ import {
   parseWebhookRetrySchedule,
   WEBHOOK_MAX_ATTEMPTS,
 } from '../queue/webhook-retry-schedule';
+import { APP_VERSION } from '../version';
 import type { WebhookDeliveryJobData } from './webhook-delivery.types';
 import { WebhookSecretCipher } from './webhook-secret-cipher';
 import { signWebhookPayload } from './webhook-signature';
@@ -68,7 +70,10 @@ export class WebhookDeliveryProcessor extends WorkerHost {
     // raced a delivery that had just succeeded.
     if (delivery.status === 'SUCCEEDED') return;
 
-    const attempt = job.attemptsMade + 1;
+    // The lifetime count across redrives (docs/18 workstream 8): `attempts`
+    // is never reset by redrive() any more, so this keeps counting from
+    // wherever an earlier redrive left off, rather than restarting at 1.
+    const lifetimeAttempt = delivery.attempts + 1;
     const rawBody = JSON.stringify(delivery.payload);
     let statusCode: number | undefined;
     let errorMessage: string | undefined;
@@ -87,8 +92,13 @@ export class WebhookDeliveryProcessor extends WorkerHost {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Signature-Timestamp': String(timestamp),
-          'X-Signature': `sha256=${signature}`,
+          'User-Agent': webhookUserAgent(APP_VERSION),
+          [WEBHOOK_DELIVERY_HEADERS.signatureTimestamp]: String(timestamp),
+          [WEBHOOK_DELIVERY_HEADERS.signature]: `sha256=${signature}`,
+          [WEBHOOK_DELIVERY_HEADERS.eventId]: delivery.eventId,
+          [WEBHOOK_DELIVERY_HEADERS.eventType]: delivery.eventType,
+          [WEBHOOK_DELIVERY_HEADERS.deliveryId]: delivery.id,
+          [WEBHOOK_DELIVERY_HEADERS.attempt]: String(lifetimeAttempt),
         },
         body: rawBody,
         // A webhook receiver is verified as a public, non-private address once;
@@ -102,8 +112,9 @@ export class WebhookDeliveryProcessor extends WorkerHost {
           where: { id: delivery.id },
           data: {
             status: 'SUCCEEDED',
-            attempts: attempt,
+            attempts: { increment: 1 },
             lastAttemptAt: new Date(),
+            nextAttemptAt: null,
             lastStatusCode: res.status,
             lastError: null,
           },
@@ -112,7 +123,7 @@ export class WebhookDeliveryProcessor extends WorkerHost {
           {
             deliveryId: delivery.id,
             eventType: delivery.eventType,
-            attempt,
+            attempt: lifetimeAttempt,
             statusCode: res.status,
           },
           'Webhook delivered',
@@ -124,12 +135,21 @@ export class WebhookDeliveryProcessor extends WorkerHost {
       errorMessage = error instanceof Error ? error.message : 'Unknown error';
     }
 
+    // job.attemptsMade is this job run's own count (redrive starts a fresh
+    // job), the same input BullMQ's registered backoff strategy just used to
+    // schedule the next try, if any — recomputing it here gives the same
+    // delay to show as "next retry at", without inventing a second source.
+    const jobAttemptsMade = job.attemptsMade + 1;
+    const willRetry = jobAttemptsMade < (job.opts.attempts ?? WEBHOOK_MAX_ATTEMPTS);
     await this.prisma.webhookDelivery.update({
       where: { id: delivery.id },
       data: {
         status: 'FAILED',
-        attempts: attempt,
+        attempts: { increment: 1 },
         lastAttemptAt: new Date(),
+        nextAttemptAt: willRetry
+          ? new Date(Date.now() + webhookBackoffStrategy(jobAttemptsMade))
+          : null,
         lastStatusCode: statusCode ?? null,
         lastError: errorMessage ?? 'Unknown error',
       },

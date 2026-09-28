@@ -78,15 +78,23 @@ export class WebhookQueueService {
   }
 
   /**
-   * Re-enqueues an existing delivery row unchanged (docs/08: "redrivable").
-   * A fresh jobId, distinct from the original `delivery-${id}`: BullMQ keeps
-   * failed jobs for `removeOnFail`'s window, so reusing the id could collide
-   * with a job that still exists.
+   * Re-enqueues an existing delivery row (docs/08: "redrivable"). `attempts`
+   * is left as-is, not reset: it is a lifetime count across every redrive
+   * (docs/18 workstream 8), not this job run's own count, so a delivery
+   * redriven after 6 failed attempts and failing once more correctly shows
+   * 7, not 1. A fresh jobId, distinct from the original `delivery-${id}`:
+   * BullMQ keeps failed jobs for `removeOnFail`'s window, so reusing the id
+   * could collide with a job that still exists.
    */
   async redrive(deliveryId: string): Promise<void> {
     await this.prisma.webhookDelivery.update({
       where: { id: deliveryId },
-      data: { status: 'PENDING', attempts: 0, lastError: null, lastStatusCode: null },
+      data: {
+        status: 'PENDING',
+        lastError: null,
+        lastStatusCode: null,
+        nextAttemptAt: null,
+      },
     });
     await this.queue.add(
       'redrive',

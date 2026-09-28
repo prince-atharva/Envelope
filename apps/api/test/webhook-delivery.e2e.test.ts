@@ -123,15 +123,19 @@ describe('webhook delivery pipeline (e2e)', () => {
   it('delivers with a verifiable HMAC signature over the exact bytes sent', async () => {
     const { endpoint, rawSecret } = await registerEndpoint();
     const queue = t.app.get(WebhookQueueService);
-    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', { envelopeId: 'env-1' });
+    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', {
+      envelopeId: '00000000-0000-4000-8000-000000000001',
+    });
 
     const delivery = await waitFor(() => received.at(0));
     const payload = JSON.parse(delivery.body) as {
       type: string;
+      apiVersion: string;
       data: { envelopeId: string };
     };
     expect(payload.type).toBe('envelope.sent');
-    expect(payload.data.envelopeId).toBe('env-1');
+    expect(payload.apiVersion).toBe('v1');
+    expect(payload.data.envelopeId).toBe('00000000-0000-4000-8000-000000000001');
 
     const timestamp = delivery.headers['x-signature-timestamp'];
     const signature = delivery.headers['x-signature'];
@@ -139,40 +143,74 @@ describe('webhook delivery pipeline (e2e)', () => {
     const expected = `sha256=${signWebhookPayload(rawSecret, Number(timestamp), delivery.body)}`;
     expect(signature).toBe(expected);
 
+    // Delivery headers (docs/18 workstream 8, ADR 0018): a receiver can log
+    // and deduplicate before parsing the body.
+    expect(delivery.headers['user-agent']).toMatch(/^Envelope-Webhooks\//);
+    expect(delivery.headers['x-envelope-event-id']).toBe(
+      (JSON.parse(delivery.body) as { id: string }).id,
+    );
+    expect(delivery.headers['x-envelope-event-type']).toBe('envelope.sent');
+    expect(delivery.headers['x-envelope-delivery-attempt']).toBe('1');
+    expect(typeof delivery.headers['x-envelope-delivery-id']).toBe('string');
+
     const deliveries = await waitFor(async () => {
       const list = await deliveriesFor(endpoint.id);
       return list.find((d) => d.status === 'SUCCEEDED');
     });
     expect(deliveries.lastStatusCode).toBe(200);
     expect(deliveries.attempts).toBe(1);
+    expect(deliveries.nextAttemptAt).toBeNull();
+    expect(delivery.headers['x-envelope-delivery-id']).toBe(deliveries.id);
   });
 
   it('retries a failing endpoint and succeeds once it recovers', async () => {
     const { endpoint } = await registerEndpoint();
     respondWith = (attempt) => (attempt === 1 ? 500 : 200);
     const queue = t.app.get(WebhookQueueService);
-    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', { envelopeId: 'env-2' });
+    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', {
+      envelopeId: '00000000-0000-4000-8000-000000000002',
+    });
+
+    // While the first attempt's retry is pending, nextAttemptAt is set —
+    // an admin can see when the next try is scheduled, not just that one
+    // failed.
+    const failedOnce = await waitFor(async () => {
+      const list = await deliveriesFor(endpoint.id);
+      return list.find((d) => d.status === 'FAILED');
+    });
+    expect(failedOnce.nextAttemptAt).toBeTruthy();
 
     const succeeded = await waitFor(async () => {
       const list = await deliveriesFor(endpoint.id);
       return list.find((d) => d.status === 'SUCCEEDED');
     }, 15_000);
     expect(succeeded.attempts).toBe(2);
+    expect(succeeded.nextAttemptAt).toBeNull();
     expect(received.length).toBe(2);
+    // The second, successful attempt reports its own real ordinal.
+    expect(received[1]?.headers['x-envelope-delivery-attempt']).toBe('2');
   });
 
-  it('exhausts after every attempt fails, then delivers once redriven', async () => {
+  it('exhausts after every attempt fails, then delivers once redriven — attempts keep counting across the redrive', async () => {
     const { endpoint } = await registerEndpoint();
     respondWith = () => 500;
     const queue = t.app.get(WebhookQueueService);
-    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', { envelopeId: 'env-3' });
+    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', {
+      envelopeId: '00000000-0000-4000-8000-000000000003',
+    });
 
+    // 7 total attempts (docs/18 workstream 8): BullMQ's `attempts` counts the
+    // first try as one of them, so the 6-entry documented delay schedule
+    // needs one more than its own length to run every delay, including the
+    // last (12h in production; the test schedule is overridden to
+    // milliseconds — apps/api/test/test-env.ts).
     const exhausted = await waitFor(async () => {
       const list = await deliveriesFor(endpoint.id);
       return list.find((d) => d.status === 'EXHAUSTED');
     }, 15_000);
-    expect(exhausted.attempts).toBe(6);
+    expect(exhausted.attempts).toBe(7);
     expect(exhausted.lastError).toContain('500');
+    expect(exhausted.nextAttemptAt).toBeNull();
 
     respondWith = () => 200;
     await request(t.http)
@@ -185,13 +223,17 @@ describe('webhook delivery pipeline (e2e)', () => {
       const match = list.find((d) => d.id === exhausted.id);
       return match?.status === 'SUCCEEDED' ? match : undefined;
     }, 15_000);
-    expect(redelivered.attempts).toBe(1);
+    // Not reset to 1: the delivery's lifetime count keeps counting past the
+    // 7 attempts it already made before redrive.
+    expect(redelivered.attempts).toBe(8);
   });
 
   it('refuses to redrive a delivery that is still pending or already succeeded', async () => {
     const { endpoint } = await registerEndpoint();
     const queue = t.app.get(WebhookQueueService);
-    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', { envelopeId: 'env-4' });
+    await queue.enqueue(owner.body.user.tenant.id, 'envelope.sent', {
+      envelopeId: '00000000-0000-4000-8000-000000000004',
+    });
     const succeeded = await waitFor(async () => {
       const list = await deliveriesFor(endpoint.id);
       return list.find((d) => d.status === 'SUCCEEDED');
@@ -207,7 +249,9 @@ describe('webhook delivery pipeline (e2e)', () => {
   it('does not deliver to an endpoint that is not subscribed to the event', async () => {
     await registerEndpoint(); // subscribed to envelope.sent only
     const queue = t.app.get(WebhookQueueService);
-    await queue.enqueue(owner.body.user.tenant.id, 'recipient.signed', { envelopeId: 'env-5' });
+    await queue.enqueue(owner.body.user.tenant.id, 'recipient.signed', {
+      envelopeId: '00000000-0000-4000-8000-000000000005',
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(received).toHaveLength(0);

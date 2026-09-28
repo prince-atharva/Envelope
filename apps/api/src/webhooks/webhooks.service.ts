@@ -49,9 +49,12 @@ function toDeliverySummary(delivery: WebhookDelivery): WebhookDeliverySummary {
     status: delivery.status,
     attempts: delivery.attempts,
     lastAttemptAt: delivery.lastAttemptAt?.toISOString() ?? null,
+    nextAttemptAt: delivery.nextAttemptAt?.toISOString() ?? null,
     lastStatusCode: delivery.lastStatusCode,
     lastError: delivery.lastError,
     createdAt: delivery.createdAt.toISOString(),
+    webhookEndpointId: delivery.webhookEndpointId,
+    envelopeId: delivery.envelopeId,
   };
 }
 
