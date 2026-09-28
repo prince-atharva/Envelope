@@ -1,4 +1,8 @@
-import type { WebhookDeliveryStatus, WebhookEventType } from '@envelope/shared';
+import type {
+  WebhookDeliveryEventType,
+  WebhookDeliveryStatus,
+  WebhookEventType,
+} from '@envelope/shared';
 
 export const WEBHOOK_EVENT_LABELS: Record<WebhookEventType, string> = {
   'envelope.sent': 'Envelope sent',
@@ -10,7 +14,16 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEventType, string> = {
   'envelope.completed': 'Envelope completed',
   'envelope.voided': 'Envelope cancelled',
   'envelope.expired': 'Envelope expired',
+  'envelope.extended': 'Envelope extended',
 };
+
+/**
+ * A delivery's event type can be `webhook.test` (docs/18 workstream 9),
+ * which is never subscribable and so isn't in WEBHOOK_EVENT_LABELS above.
+ */
+export function webhookDeliveryEventLabel(type: WebhookDeliveryEventType): string {
+  return type === 'webhook.test' ? 'Test event' : WEBHOOK_EVENT_LABELS[type];
+}
 
 export const WEBHOOK_DELIVERY_LABELS: Record<WebhookDeliveryStatus, string> = {
   PENDING: 'Pending',

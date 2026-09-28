@@ -26,6 +26,7 @@ import {
   canRedriveWebhookDelivery,
   WEBHOOK_DELIVERY_LABELS,
   WEBHOOK_EVENT_LABELS,
+  webhookDeliveryEventLabel,
 } from '../features/integrations/integration-presentation';
 import { useOneTimeSecretMutation } from '../features/integrations/use-one-time-secret-mutation';
 import { webhookInput } from '../features/integrations/webhook-form';
@@ -596,7 +597,7 @@ function DeliveryDialog({
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-semibold text-slate-900">
-                      {WEBHOOK_EVENT_LABELS[delivery.eventType]}
+                      {webhookDeliveryEventLabel(delivery.eventType)}
                     </p>
                     <Pill
                       tone={

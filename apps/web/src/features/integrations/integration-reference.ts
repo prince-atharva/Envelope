@@ -368,6 +368,17 @@ export const WEBHOOK_EXAMPLES: Partial<
       unsigned: 1,
     },
   },
+  'envelope.extended': {
+    description: 'The sender gave an expired envelope a new deadline, reopening it.',
+    data: {
+      envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeStatus: 'SENT',
+      expiresAt: '2026-11-11T10:00:00.000Z',
+      previousExpiresAt: '2026-10-11T10:00:00.000Z',
+      reopened: true,
+      reinvitedCount: 1,
+    },
+  },
 };
 export function webhookExample(type: WebhookEventType): string {
   return JSON.stringify(

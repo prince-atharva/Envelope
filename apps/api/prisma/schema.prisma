@@ -259,6 +259,11 @@ model WebhookDelivery {
   eventType String
   payload   Json
 
+  /// Denormalised from the payload, no foreign key (docs/18 workstream 8):
+  /// filters the tenant-wide deliveries browser by envelope without parsing
+  /// JSON per row. Null for a webhook.test delivery, which has no envelope.
+  envelopeId String? @db.Uuid
+
   status         WebhookDeliveryStatus @default(PENDING)
   attempts       Int                   @default(0)
   lastAttemptAt  DateTime?
@@ -272,6 +277,11 @@ model WebhookDelivery {
   /// The 7-day retention purge (docs/08: "retained 7 days").
   @@index([tenantId, createdAt])
   @@index([eventId])
+  /// The tenant-wide deliveries browser (docs/18 workstream 8 step 8.4),
+  /// filtered by envelope, or paged by id within a tenant or one endpoint.
+  @@index([tenantId, envelopeId])
+  @@index([tenantId, id])
+  @@index([webhookEndpointId, id])
 }
 
 /// One row per refresh token. Rotating a token revokes its row and links the

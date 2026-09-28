@@ -23,6 +23,7 @@ export const WEBHOOK_EVENT_TYPES = [
   'envelope.completed',
   'envelope.voided',
   'envelope.expired',
+  'envelope.extended',
 ] as const;
 export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
 
@@ -30,6 +31,38 @@ export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
 export const FIRED_WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = WEBHOOK_EVENT_TYPES.filter(
   (type) => type !== 'envelope.delivered',
 );
+
+/**
+ * A test delivery (docs/18 workstream 9) is never fired for a real envelope
+ * event and can never be subscribed to — it exists only as a
+ * `WebhookDelivery.eventType` value, so it needs its own type outside the
+ * subscribable `WebhookEventType` union.
+ */
+export const WEBHOOK_TEST_EVENT_TYPE = 'webhook.test' as const;
+export type WebhookDeliveryEventType = WebhookEventType | typeof WEBHOOK_TEST_EVENT_TYPE;
+
+/**
+ * The webhook contract's own version, carried on every payload (docs/18
+ * workstream 8, ADR 0018): additions are backward compatible, so a receiver
+ * written against `v1` keeps working as fields are added. A breaking change
+ * would ship as `v2`, not a mutation of what `v1` already promised.
+ */
+export const WEBHOOK_API_VERSION = 'v1' as const;
+
+/** Request headers on every delivery attempt (docs/18 workstream 8, ADR 0018). */
+export const WEBHOOK_DELIVERY_HEADERS = {
+  signature: 'X-Signature',
+  signatureTimestamp: 'X-Signature-Timestamp',
+  eventId: 'X-Envelope-Event-Id',
+  eventType: 'X-Envelope-Event-Type',
+  deliveryId: 'X-Envelope-Delivery-Id',
+  attempt: 'X-Envelope-Delivery-Attempt',
+} as const;
+
+/** `Envelope-Webhooks/<app version>`, so a receiver's own logs show which build sent a request. */
+export function webhookUserAgent(appVersion: string): string {
+  return `Envelope-Webhooks/${appVersion}`;
+}
 
 const webhookEventTypeSchema = z.enum(WEBHOOK_EVENT_TYPES);
 
@@ -83,24 +116,139 @@ export type ListWebhookDeliveriesQuery = z.infer<typeof listWebhookDeliveriesQue
 
 export type WebhookDeliveryStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'EXHAUSTED';
 
+/**
+ * The tenant-wide, filterable browsing route (docs/18 workstream 8 step 8.4),
+ * alongside the existing per-endpoint `GET /webhooks/:id/deliveries`, which
+ * is kept. `cursor` is opaque, the same idiom every other cursor in this API
+ * uses — the client never constructs one itself.
+ */
+export const listWebhookDeliveriesPageQuerySchema = z.strictObject({
+  endpointId: z.uuid().optional(),
+  status: z.enum(['PENDING', 'SUCCEEDED', 'FAILED', 'EXHAUSTED']).optional(),
+  eventType: webhookEventTypeSchema.optional(),
+  eventId: z.string().trim().min(1).optional(),
+  envelopeId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  cursor: z.string().optional(),
+});
+export type ListWebhookDeliveriesPageQuery = z.infer<typeof listWebhookDeliveriesPageQuerySchema>;
+
+export interface WebhookDeliveryPage {
+  items: WebhookDeliverySummary[];
+  nextCursor: string | null;
+}
+
 export interface WebhookDeliverySummary {
   id: string;
   eventId: string;
-  eventType: WebhookEventType;
+  eventType: WebhookDeliveryEventType;
   /** The event payload's `data` object, exactly as sent (or as it will be sent). */
   data: Record<string, unknown>;
   status: WebhookDeliveryStatus;
   attempts: number;
   lastAttemptAt: string | null;
+  /** Set while FAILED and a retry is scheduled; null once SUCCEEDED or EXHAUSTED. */
+  nextAttemptAt?: string | null;
   lastStatusCode: number | null;
   lastError: string | null;
   createdAt: string;
+  /** Optional in this step (docs/18 workstream 8 step 8.1); populated from 8.4 onward. */
+  webhookEndpointId?: string;
+  envelopeId?: string | null;
 }
 
-/** The body sent to a webhook endpoint (docs/08, "Payload"). */
+/** The body sent to a webhook endpoint (docs/08, "Payload"; docs/18 workstream 8). */
 export interface WebhookEventPayload<TData = Record<string, unknown>> {
   id: string;
   type: WebhookEventType;
+  /** Added in workstream 8; a receiver written before it ignores unknown fields. */
+  apiVersion?: typeof WEBHOOK_API_VERSION;
   createdAt: string;
   data: TData;
 }
+
+/**
+ * Per-event `data` schemas (docs/18 workstream 8): loose objects, not
+ * `z.strictObject`, so a later additive field never breaks a test or example
+ * parsing an existing payload. Used by the shared reference, the in-app
+ * guide and the webhook e2e suite — not to validate an inbound webhook,
+ * since Envelope only ever sends these, never receives them.
+ */
+export const webhookEventDataSchemas = {
+  'envelope.sent': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    envelopeStatus: z.string(),
+    sentAt: z.iso.datetime(),
+    expiresAt: z.iso.datetime().nullable(),
+    recipientCount: z.number().int(),
+    invitedCount: z.number().int(),
+  }),
+  'envelope.delivered': z.object({ envelopeId: z.uuid() }),
+  'envelope.viewed': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    recipientId: z.uuid(),
+    recipientEmail: z.string(),
+    envelopeStatus: z.string(),
+    viewedAt: z.iso.datetime(),
+  }),
+  'recipient.consented': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    recipientId: z.uuid(),
+    recipientEmail: z.string(),
+    envelopeStatus: z.string(),
+    consentGivenAt: z.iso.datetime(),
+  }),
+  'recipient.signed': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    recipientId: z.uuid(),
+    recipientEmail: z.string(),
+    envelopeStatus: z.string(),
+    signedAt: z.iso.datetime(),
+    allSigned: z.boolean(),
+    remainingSigners: z.number().int().min(0),
+  }),
+  'recipient.declined': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    recipientId: z.uuid(),
+    recipientEmail: z.string(),
+    envelopeStatus: z.string(),
+    declinedAt: z.iso.datetime(),
+  }),
+  'envelope.completed': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    envelopeStatus: z.string(),
+    completedAt: z.iso.datetime(),
+    finalVersionNumber: z.number().int(),
+    finalHash: z.string(),
+  }),
+  'envelope.voided': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    envelopeStatus: z.string(),
+    voidedAt: z.iso.datetime(),
+    fromStatus: z.string(),
+    reason: z.string().nullable(),
+  }),
+  'envelope.expired': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    envelopeStatus: z.string(),
+    expiredAt: z.iso.datetime(),
+    unsigned: z.number().int().min(0),
+  }),
+  'envelope.extended': z.object({
+    envelopeId: z.uuid(),
+    envelopeTitle: z.string(),
+    envelopeStatus: z.string(),
+    expiresAt: z.iso.datetime(),
+    previousExpiresAt: z.iso.datetime().nullable(),
+    reopened: z.boolean(),
+    reinvitedCount: z.number().int().min(0),
+  }),
+} as const satisfies Record<WebhookEventType, z.ZodType>;
