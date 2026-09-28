@@ -563,3 +563,8 @@ Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug
 > return that single envelope. Audit metadata retains embedSessionId and partner-asserted
 > externalActorId. The maintenance sweep removes operational sessions seven days after expiry,
 > without deleting or modifying audit evidence. All origin/key/session references are tenant scoped.
+
+> **Accepted Phase 7 refinement, implementation pending.** [Workstream 7](18-phase-7-integration-plan.md#workstream-7-per-key-embedded-origins-accepted)
+> and [ADR 0017](adr/0017-bind-embedded-origins-to-api-keys.md) move editor origins from the
+> tenant-wide list to each API key and add optional origin setup during key creation. Current
+> runtime contracts above remain in effect until workstream 7 is built.

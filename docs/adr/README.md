@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Active |
 | **Version** | 1.0.0 |
-| **Last updated** | 27 September 2026 |
+| **Last updated** | 28 September 2026 |
 | **Audience** | Engineering |
 | **What this doc answers** | How do we record significant decisions, and what has been decided? |
 
@@ -87,6 +87,12 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0015](0015-api-keys-and-webhook-secrets-use-different-storage.md) | API keys and webhook secrets use different storage | Accepted |
 
 | [0016](0016-scope-embedded-editor-sessions-to-one-envelope.md) | Scope embedded editor sessions to one envelope | Accepted |
+
+| [0017](0017-bind-embedded-origins-to-api-keys.md) | Bind embedded origins to API keys | Accepted |
+| [0018](0018-evolve-webhooks-additively.md) | Evolve webhooks additively | Accepted |
+| [0019](0019-partner-reference-and-optional-idempotency.md) | Partner references and optional idempotency | Accepted |
+| [0020](0020-serve-the-embed-sdk-as-a-hosted-script.md) | Serve the embed SDK as a hosted script | Accepted |
+| [0021](0021-one-integration-contract-catalog.md) | One integration contract catalog | Accepted |
 
 ### Planned
 

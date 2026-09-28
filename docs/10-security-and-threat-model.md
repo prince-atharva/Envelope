@@ -357,3 +357,8 @@ Signing limits key on the **token**, not the IP — corporate NAT means many leg
 - [ ] Secrets absent from the repository history (not merely from `HEAD`)
 - [ ] Penetration test completed, findings remediated
 - [ ] Incident runbook written and walked through with the on-call team
+
+> **Accepted Phase 7 refinement, implementation pending.** [Workstream 7](18-phase-7-integration-plan.md#workstream-7-per-key-embedded-origins-accepted)
+> and [ADR 0017](adr/0017-bind-embedded-origins-to-api-keys.md) move editor origins from the
+> tenant-wide list to each API key and add optional origin setup during key creation. Current
+> runtime contracts above remain in effect until workstream 7 is built.

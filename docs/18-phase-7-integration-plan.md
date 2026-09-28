@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Built through embedded editor/SDK workstream 6; unreleased extension verified. Foundation shipped as `v0.7.0` |
-| **Version** | 1.1.0 |
+| **Status** | Built through embedded editor/SDK workstream 6. Foundation shipped as `v0.7.0`. Workstreams 7–13 (integration hardening) are planned; release remains workstream 14 |
+| **Version** | 1.2.0 |
 | **Last updated** | 28 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 7 deliver across the integration API, management UI and user guide, and how is it built and checked? |
@@ -41,8 +41,8 @@ completed in-page guide. The embedded sender editor below is built. Any tenant c
 
 ## What You Can Do at the End of Phase 7
 
-1. **Create an API key** from Settings, once your workspace has at least one. The raw key is shown
-   once, at creation; only its hash is ever stored. A key can be marked read-only.
+1. **Create an API key** from Settings. The raw key is shown once, at creation; only its hash is
+   ever stored. A key can be marked read-only.
 2. **Use the key to create and send envelopes** through the same HTTP API the web app uses:
    `POST /v1/envelopes`, the draft fields and recipients routes, and `POST /v1/envelopes/:id/send`.
    Every envelope a key creates belongs to the workspace as a whole, not to any one person, and
@@ -89,8 +89,7 @@ completed in-page guide. The embedded sender editor below is built. Any tenant c
 | Needed | Why | When |
 |---|---|---|
 | HealthProHub's actual integration requirements (which routes they call, what their receiver expects) | This phase built a generic mechanism against the documented spec; it has not yet been validated against a real partner integration | Before HealthProHub goes live |
-| Embedded-editor workstream and ADR 0016 approved on 27 September 2026 | Scope includes both entry modes, one-envelope access and hosted recipient signing | Before implementation |
-| HealthProHub deployment origins and backend framework | Configure trusted origins and adapt the backend example; placeholders suffice for this plan and isolated tests | Before partner deployment |
+| HealthProHub deployment origins and backend framework | Register the exact origins on their API key and adapt the backend example; placeholders suffice for this plan and isolated tests | Before partner deployment |
 
 ---
 ---
@@ -136,7 +135,14 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 4 | In-page integration guide and API/webhook reference | ✅ Built | `4f05424` |
 | 5 | Existing integration verification and documentation | ✅ Verified | Historical verification record below |
 | 6 | Embedded sender editor, SDK and HealthProHub guide | ✅ Built and verified | Steps 6.1–6.6 below |
-| 7 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
+| 7 | Per-key embedded origins, plus a member ownership-scope fix | Accepted; planned | Steps 7.0–7.4; ADR 0017 |
+| 8 | Webhook reliability and event contract v1 | Accepted; planned | Steps 8.1–8.5; ADR 0018 |
+| 9 | Webhook endpoint lifecycle tooling | Accepted; planned | Steps 9.1–9.6; ADR 0018 |
+| 10 | Partner references and safe retries | Accepted; planned | Steps 10.1–10.5; ADR 0019 |
+| 11 | API-key lifecycle, downloads and limits | Accepted; planned | Steps 11.1–11.5 |
+| 12 | Hosted SDK and runnable partner example | Accepted; planned | Steps 12.1–12.3; ADR 0020 |
+| 13 | One integration contract, OpenAPI and developer guide | Accepted; planned | Steps 13.1–13.4; ADR 0021 |
+| 14 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
 
 ### Workstream 2: Settings Integration Management
 
@@ -395,8 +401,8 @@ to `CHANGELOG.md` under `[Unreleased]`. Release/version/tag work remains a separ
 
 ### Guide Deliberate Simplifications
 
-- The completed guide workstream introduced no new permissions, SDK or endpoints. The proposed
-  workstream 6 adds embedded sender preparation; recipient signing remains hosted.
+- The completed guide workstream introduced no new permissions, SDK or endpoints. Workstream 6
+  adds embedded sender preparation; recipient signing remains hosted.
 - No live API console, credential persistence or requests to user webhook destinations from the guide.
 - No new OpenAPI generation pipeline; this page documents the existing implemented contracts.
 - No invented receiver response body or delivery-confirmation event.
@@ -526,7 +532,8 @@ These results predate the embedded-editor proposal and MUST NOT be treated as it
 HealthProHub staff stay in HealthProHub while Envelope supplies the document editor in a framed
 panel. The SDK is a small helper that opens that panel and reports UI events; it does not contain
 another PDF renderer or replace HealthProHub's backend. A signer still follows an emailed link to
-Envelope. This work is planned only; no SDK package or embedded session API exists today.
+Envelope. This work is built: the `@envelope/embed` SDK package and the embedded session API both
+exist today.
 
 ```
 Existing document:
@@ -641,7 +648,8 @@ Reuse maintenance scheduler/processor patterns. No development database or real 
 ### SDK and UI Contract
 
 The SDK `createEnvelopeEditor({container, frameUrl, launchToken, onEvent})` mounts one editor and
-returns `requestClose()` and `destroy()`. This is a planned API, not an installable example yet.
+returns `requestClose()` and `destroy()`. This API is built and installable from the workspace
+(`packages/embed`); workstream 12 makes it installable outside this monorepo as a hosted script.
 `requestClose()` asks the UI to save or confirm discarding pending edits; `destroy()` immediately
 removes listeners/frame and makes no save guarantee. Both clear SDK-held secrets. On normal close,
 revoke the session; HealthProHub SHOULD revoke it server-side when its own page/session ends.
@@ -713,19 +721,19 @@ WebKit run alone does not certify every production Safari environment.
 
 No embedded recipient signing, broad SSO, partner envelope browser, native React editor package,
 white-label theming, external CDN/package publication or automatic HealthProHub deployment. No new
-release or tag is implied by adding this workstream. Plan approval is required before product code.
+release or tag was implied by this workstream; release remains a separate authorized workstream 14.
 
 ### Approval
 
 The user approved this workstream on 27 September 2026 with “continue”. ADR 0016 is accepted;
-steps 6.1–6.6 are authorized for implementation. Proposed contract terminology below records
-the planning origin; implementation evidence and final checks will be appended as work completes.
+steps 6.1–6.6 were authorized for implementation and are now built and verified (below).
 
-### Planning Validation
+### Planning Validation (Historical)
 
-Documentation-only change: review status/scope consistency, referenced local paths, proposed API
-and schema completeness, ADR/index links and `git diff --check`. Historical test results above remain
-historical; no product checks are claimed for this proposal.
+Before implementation, this workstream's plan was reviewed as a documentation-only change: status/scope
+consistency, referenced local paths, proposed API and schema completeness, ADR/index links and
+`git diff --check`. That review predates code and is retained for history; it does not stand in for
+the product verification recorded below.
 
 ### Embedded editor build progress (28 September 2026)
 
@@ -777,4 +785,456 @@ real isolated services and never calls the HealthProHub production application.
 | 6.3 | 77d190b |
 | 6.4 | ecaa5de |
 | 6.5 | 49b57eb |
-| 6.6 | Final host-harness/verification commit in this workstream |
+| 6.6 | 1b88ca7 |
+
+## Workstream 7: Per-Key Embedded Origins (Accepted)
+
+### In Plain Terms
+
+Any tenant can integrate its own application; HealthProHub is a worked example. The existing
+implementation already enforces tenant isolation. This extension improves setup and separates
+each integration's iframe permissions. It does not add a HealthProHub allow-list.
+
+Step 7.0 is a standalone, unrelated security fix folded into this workstream because it was found
+while auditing the same controller family: `GET /envelopes/:id/events` and `GET /envelopes/:id/file`
+never applied the same per-owner scope that `GET /envelopes/:id` already does, so a MEMBER could read
+another MEMBER's audit events and document bytes by id. It ships first, on its own commit.
+
+```
+Admin/Owner creates key
+       |
+       +-- Backend only ------> no origins; existing server API works
+       |
+       +-- Embedded editor ---> full key + exact application origins
+                                 |
+                                 +--> backend authorizes staff/record
+                                 +--> issues one-envelope session
+                                 +--> frontend opens SDK/iframe
+```
+
+The Create API key dialog MUST offer optional embedded-editor setup. A read-only key cannot
+launch a writable editor. Existing full keys MAY gain origins later through an Edit embedded
+origins action. The separate workspace origin panel is removed after cutover. Raw keys are
+shown once and remain on the integration server. Origins are public permission metadata.
+
+Finish line:
+- [ ] A MEMBER cannot read another MEMBER's envelope events or document bytes by id (step 7.0).
+- [ ] Every tenant can configure its own integration; HealthProHub appears only as an example.
+- [ ] Create a full key and its optional origins in one atomic request/dialog.
+- [ ] Backend-only and read-only key creation remain compatible with existing clients.
+- [ ] Two keys in one tenant cannot launch or continue sessions for each other's origins.
+- [ ] ADMIN/OWNER can edit origins on active full keys; MEMBER/key/embed credentials cannot.
+- [ ] Removing an origin/revoking a key invalidates affected sessions, with recovery guidance.
+- [ ] Migration preserves existing permissions/data; docs, examples and responsive UI agree.
+
+Deployment origins remain per-tenant configuration, not values supplied to this repository's tests.
+
+### Technical Detail and Decisions
+
+ADR 0017 supersedes only ADR 0016's tenant-wide origin management. Its other session, HMAC,
+signing and iframe boundaries remain accepted. No accepted ADR is rewritten.
+
+| Question | Decision |
+|---|---|
+| Origin owner | API key within its tenant; never a global partner registry |
+| Headless keys | Optional empty list preserves existing API access; cannot issue editor sessions |
+| Read-only keys | Origin list must be empty; shared zod rejects contradictory creation |
+| Origin changes | Human ADMIN/OWNER JWT only; no raw-key rotation required |
+| Existing grants | Backfill legacy tenant origins onto active full keys; review/narrow afterward |
+| Legacy setup | `EmbedOrigin` table kept only as a migration rollback path; its `GET`/`PUT /embed/origins` routes are removed outright — they shipped in this same unreleased phase and have no external caller, so there is nothing to keep compatible |
+
+#### Schema and Migration
+
+Add `ApiKeyEmbedOrigin`: UUID id, tenantId, apiKeyId, canonical origin, createdByUserId and
+createdAt. Add ApiKey/Tenant/User inverse relations, unique `(apiKeyId, origin)`, tenant/key lookup
+indexes, and restricted foreign keys. Extend key creation to write key, acting user and origins
+in one transaction. Do not edit migration 20260927090000_embedded_editor: it has already been
+applied to local databases. Add a reviewed SQL migration and backfill with tenant-matching joins.
+Keep legacy EmbedOrigin rows for rollback; authorization stops reading them after cutover.
+
+#### Buildable Contract Sequencing
+
+Step 7.1 introduces the new origin-aware schemas/DTOs alongside existing exports, without
+wiring them into current controllers or changing existing required caller fields. Step 7.2
+switches the API service/controller to those contracts; step 7.3 switches the management UI.
+Each snapshot MUST build and pass its tests independently; do not introduce required summary
+fields or defaulted input fields before their callers/projections are updated in the owning step.
+
+#### Public API Contract
+
+- `POST /api/v1/api-keys`: existing ADMIN/OWNER JWT route and lifecycle rate limit; add optional
+  `embedOrigins: string[] = []`, max ten canonical HTTPS origins. Read-only + nonempty returns
+  `400 VALIDATION_FAILED`. Return origins in ApiKeySummary without changing the one-time rawKey.
+- `GET /api/v1/api-keys` and revoke response include `embedOrigins`; include relations in one
+  query, avoiding one lookup per key. Origins are safe metadata, never key credentials.
+- `PUT /api/v1/api-keys/:id/embed-origins`: human ADMIN/OWNER JWT, ten changes/min per tenant,
+  UUID validation, strict `{origins}` schema, max ten. Return ApiKeySummary. Tenant-mismatched ID
+  is 404 NOT_FOUND; read-only is 403 API_KEY_READ_ONLY; a revoked key is **409 CONFLICT** — not a
+  401, because the web client treats any 401 as its own session expiring and silently refreshes
+  (`apps/web/src/lib/api.ts`), which would misreport whose credential actually expired.
+- `POST /embed/sessions`: existing full-key issuance, same rate limits; approved parent origin
+  MUST belong to that key and tenant. Empty/unmatched reuses the existing **403
+  EMBED_ORIGIN_NOT_ALLOWED** (ADR 0016) rather than a new code.
+- Session exchange still requires `{sessionId, launchToken}`. Bearer authentication, frame HTML
+  and upload transaction re-check origin against the issuing key. Removal affects live sessions.
+- `GET`/`PUT /embed/origins` are **removed**, not deprecated: they were built in this same
+  unreleased phase and have no external caller. No new error code is introduced for them.
+- No new error code is required for this workstream; it reuses NOT_FOUND, API_KEY_READ_ONLY,
+  CONFLICT and EMBED_ORIGIN_NOT_ALLOWED. Management remains closed to API keys and embedded
+  bearers; generic server API authentication does not use Origin.
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 7.0 | `fix(api)`: apply `ownerScopeOf` to `GET :id/events` and `GET :id/file`, before the ETag/304 check | Extend `roles.e2e.test.ts`: a MEMBER gets 404 on another MEMBER's events/file, including with `If-None-Match`; ADMIN and API keys unaffected | Planned |
+| 7.1 | Shared key-create/summary contracts, errors, additive model/migration/backfill; reuse embedOriginSchema and existing key schemas | Defaults/invalid origins/read-only contracts; SQL review and migrated grants | Planned |
+| 7.2 | Atomic key/origin creation, scoped origin edit, session/upload authorization and removal of the tenant-wide `/embed/origins` routes; reuse ApiKeyService, EmbedSessionService, transaction locks and structured logs | Real API e2e for tenant/role/key isolation, concurrency, removal, revoke, empty lists | Planned |
+| 7.3 | Create-key origin controls, per-key display/edit dialog; remove separate panel; generic Embedded editor guide and examples | Component/copy tests, keyboard/focus, responsive origin lists and one-time secret cleanup | Planned |
+| 7.4 | Two integration-key host flows, migration/regression security tests, gallery, docs/05/08/10/index/changelog and commit evidence | Full mandatory verification, cookie-blocked Chromium/WebKit and independent snapshot checks | Planned |
+
+Creating and changing origin permissions MUST log tenant/key IDs and count only, without keys,
+launch tokens, actor IDs or request payloads. Reuse the current rate-limit, AppException, zod,
+TenantPrismaService/explicit tenant filters, audit and logging rules. Session actions/envelope
+scope, HMAC secret, purge and hosted signer flow do not change.
+
+The guide MUST distinguish already implemented tenant integration from this setup refinement while
+it is still being built (step 7.3 ships it once the API side is live, not before). Explain creating
+headless vs embedded keys, exact-origin matching, editing/removal,
+backend staff/record authorization, SDK memory-only handshake, webhook reconciliation and final
+PDF retrieval. Show a generic application example and optionally a HealthProHub worked example.
+Production normal HTML keeps deny-frame headers; only the scoped dynamic iframe HTML allows its
+parent. Origin fields are not CORS settings or substitutes for backend authentication.
+
+No broad OAuth/partner onboarding wizard, per-envelope full API keys, theming, browser API-key
+use, embedded signing, external package publication or release/tag/push is included.
+
+**Approval status:** ADR 0017 is accepted and workstream 7 is authorized for implementation
+(steps 7.0–7.4 below are planned, not yet built). Workstream 6 remains built.
+
+## Workstream 8: Webhook Reliability and Event Contract v1 (Accepted)
+
+### In Plain Terms
+
+A partner's receiver should be able to trust the schedule and headers this system documents, and
+every webhook should carry enough data to update the partner's own record without a follow-up API
+call. Two bugs are fixed here: the `recipient.signed` event always claimed the envelope was only
+partially signed, even when that signature was the last one needed, and the documented 12-hour
+retry never actually ran because the queue was configured for one fewer attempt than the schedule
+has entries.
+
+Finish line:
+- [ ] `recipient.signed` reports the envelope's real status, including when it is now fully signed.
+- [ ] The documented 10s/1m/5m/30m/2h/12h schedule delivers 7 total attempts, and the 12h delay runs.
+- [ ] Every fired event includes `apiVersion` and the envelope's title; each event's own commonly
+      needed fields (status, recipient email, reason) are present without a follow-up API call.
+- [ ] `envelope.extended` fires when an expired envelope is reopened.
+- [ ] Every delivery request carries an event-id, event-type, delivery-id, attempt-number header and
+      a versioned `User-Agent`, so a receiver can log and deduplicate without parsing the body first.
+- [ ] Admins can browse and retry deliveries with filters and paging, not only per-endpoint.
+
+### Technical Detail and Decisions
+
+ADR 0018 governs this and workstream 9: all changes to the webhook contract are additive so that an
+existing receiver, written against the `v0.7.0` contract, keeps working without changes.
+
+| Question | Decision |
+|---|---|
+| Versioning | Add `apiVersion: 'v1'` to every payload; existing consumers ignore unknown fields by convention (documented, not enforced) |
+| Attempt count | 7 total attempts (1 try + 6 retries), matching the 6-entry documented schedule; `attempts` counts across redrives instead of resetting |
+| New fields | Only added to existing event payloads, never renamed or removed, so a receiver parsing today's shape keeps working |
+| New event | `envelope.extended`, added to `WEBHOOK_EVENT_TYPES`; an "all events" subscription starts receiving it |
+| Recipient decline reason | Not added to the webhook payload — a signer's free-text reason can contain health information; it stays behind the authenticated `GET` detail route |
+| Delivery browsing | New tenant-wide `GET /webhooks/deliveries` with filters, alongside the existing per-endpoint route, which is kept |
+
+#### Schema and Migration
+
+`packages/shared/src/webhooks.ts` gains `WEBHOOK_API_VERSION`, the `envelope.extended` event type,
+a non-subscribable `webhook.test` type (workstream 9), header name constants, per-event zod data
+schemas (loose objects, so later additive fields do not break them), and
+`listWebhookDeliveriesPageQuerySchema` (`endpointId?`, `status?`, `eventType?`, `eventId?`,
+`envelopeId?`, `limit` 1–100 default 50, `cursor?`). `WebhookDeliverySummary` gains
+`webhookEndpointId`, `envelopeId` and `nextAttemptAt`.
+
+One migration, `webhook_delivery_envelope`: nullable `WebhookDelivery.envelopeId` (denormalized, no
+foreign key, the same pattern `tenantId` already uses on this table), indexes on
+`(tenantId, envelopeId)`, `(tenantId, id)` and `(webhookEndpointId, id)`, backfilled from each row's
+stored `payload->'data'->>'envelopeId'`.
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 8.1 | Shared event/header/query contracts, `envelopeId` migration and backfill, web event label | Contract and migration tests | Planned |
+| 8.2 | Fix `WEBHOOK_MAX_ATTEMPTS` to 7, stop resetting `attempts` on redrive, write `nextAttemptAt`, add delivery headers and `User-Agent` | `webhook-retry-schedule.test.ts`; corrected `webhook-delivery.e2e.test.ts` expectations (7 attempts; redrive keeps counting; headers present) | Planned |
+| 8.3 | Richer, additive per-event payloads including the `recipient.signed` fix and `envelope.extended` | `webhook-events.e2e.test.ts` parses every payload against the shared schemas | Planned |
+| 8.4 | `GET /webhooks/deliveries`, `GET /webhooks/deliveries/:id`, `POST /webhooks/deliveries/:id/retry` (session ADMIN/OWNER only); old per-endpoint routes kept, documented as deprecated | API e2e: paging, each filter, cross-tenant 404, API-key and MEMBER 403 | Planned |
+| 8.5 | Web: deliveries dialog gains filters, Load more, event-id copy, envelope id, attempt/next-retry display; guide and docs/08 As-built note | Component and browser tests; gallery | Planned |
+
+Correcting `webhook-delivery.e2e.test.ts`'s attempt-count assertions (6 → 7) makes the test match
+the schedule this system has always documented; it is a fix to match the documented contract, not
+a weakening. No existing assertion is deleted or loosened.
+
+### Deliberate Simplifications
+
+- `envelope.delivered` still never fires (unchanged from workstream 1; see "The `envelope.delivered`
+  Gap" above).
+- No event replay by time range; the 7-day delivery history remains the only lookback.
+- Ordering between events for the same envelope is not guaranteed; a receiver reconciles by reading
+  current status, not by trusting event arrival order.
+
+---
+
+## Workstream 9: Webhook Endpoint Lifecycle Tooling (Accepted)
+
+### In Plain Terms
+
+Today a lost webhook secret can only be recovered by deactivating the endpoint and registering a
+new one, which permanently uses up one of the tenant's 5 endpoint slots, since revoked/inactive
+endpoints still count against that cap and cannot be deleted. There is also no way to send a test
+event to check a receiver is wired correctly, and a receiver that starts failing gets no signal that
+it has been silently exhausted every delivery — this workstream adds a test event, secret rotation
+with an overlap window, a way to permanently delete an inactive endpoint, and an automatic
+deactivation with an email to the tenant's admins after enough consecutive failures.
+
+Finish line:
+- [ ] An ADMIN/OWNER can send a test event to a registered endpoint without it counting as a real delivery.
+- [ ] A secret can be rotated with an overlap window during which both the old and new secret verify.
+- [ ] The 5-endpoint cap counts only active endpoints; an inactive endpoint can be permanently deleted.
+- [ ] An endpoint that fails enough consecutive real deliveries is automatically deactivated, and
+      every human ADMIN/OWNER in the tenant is emailed.
+
+### Technical Detail and Decisions
+
+| Question | Decision |
+|---|---|
+| Test event | One attempt, no retry, no alert, does not count toward auto-disable or the delivery history's real event data |
+| Rotation | New secret returned once; both old and new verify during a configurable overlap (default 24h, 0–72h); the header carries both signatures as `sha256=<new>,sha256=<old>` during the window |
+| Cap accounting | Active endpoints only, checked under a tenant advisory lock on create and on reactivation; a separate total-row cap of 20 bounds unbounded inactive accumulation |
+| Permanent delete | Only for an inactive endpoint; deletes its deliveries in the same transaction. The released `DELETE /webhooks/:id` (deactivate) is unchanged |
+| Auto-disable | A conditional `updateMany` (so only one delivery attempt trips it) at `WEBHOOK_AUTO_DISABLE_THRESHOLD` consecutive real-delivery exhaustions; success resets the counter; reactivating clears the disabled state |
+| Notification | Email every human ADMIN/OWNER (never the hidden service-account user); the email names the endpoint's host only, never its full URL or secret |
+
+#### Schema, Configuration and Env Vars
+
+One migration on `WebhookEndpoint`: `previousSecretCiphertext?`, `previousSecretExpiresAt?`,
+`secretRotatedAt?`, `consecutiveFailures Int @default(0)`, `disabledAt?`, `disabledReason?`.
+
+New env var `WEBHOOK_AUTO_DISABLE_THRESHOLD` (default 10; `test-env.ts` 2; `apps/web/e2e/stack/stack.mjs` 3),
+added to `env.schema.ts` and `.env.example`.
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 9.1 | Migration: rotation and health fields; env var wiring | Migration review; config test | Planned |
+| 9.2 | `POST /webhooks/:id/test` (202, one attempt, no alert) | API e2e: delivered/failed test event, does not affect auto-disable counter | Planned |
+| 9.3 | `POST /webhooks/:id/rotate-secret` with overlap-window dual signing | Unit tests in `webhook-signature.test.ts`; e2e: both secrets verify in-window, only new one after; secret absent from logs | Planned |
+| 9.4 | Active-only cap accounting; `DELETE /webhooks/:id/permanent` | API e2e: cap counts only active, reactivation re-checks cap, delete requires inactive | Planned |
+| 9.5 | Auto-disable on repeated exhaustion; admin email via `MailQueueService`/`email.processor.ts`; reactivation clears state | API e2e; `mail.e2e.test.ts` (admins emailed, service account not); `templates.test.ts` | Planned |
+| 9.6 | Web: Send test event, Rotate secret, Delete permanently, disabled banner with Reactivate, "n of 5 active" counter | Component/browser tests; gallery | Planned |
+
+### Deliberate Simplifications
+
+- The auto-disable threshold is a single global config value, not per-tenant configurable.
+- No "end the overlap window early" action; a tenant that wants the old secret to stop working
+  immediately rotates again with `overlapHours: 0`.
+- No bulk retry across many deliveries at once.
+
+---
+
+## Workstream 10: Partner References and Safe Retries (Accepted)
+
+### In Plain Terms
+
+A partner currently has no way to attach its own record identifier to an envelope, so it must keep
+its own mapping from `envelopeId` to its record purely by remembering the id returned at creation —
+if that response is lost, there is no way to look the envelope back up by the partner's own key.
+This workstream adds an optional reference (`externalId`) and small metadata to an envelope, echoes
+both in every webhook, and adds an optional `Idempotency-Key` to envelope creation and embedded
+session creation so a retried request after a lost response does not create a duplicate.
+
+Finish line:
+- [ ] An envelope can carry an optional `externalId` and small metadata, set at creation or while a draft.
+- [ ] The envelope list can be filtered by `externalId`.
+- [ ] Every webhook for an envelope includes its `externalId` and metadata.
+- [ ] A retried `POST /envelopes` or `POST /embed/sessions` with the same `Idempotency-Key` and body
+      does not create a second envelope or session.
+
+### Technical Detail and Decisions
+
+ADR 0019 governs this workstream.
+
+| Question | Decision |
+|---|---|
+| `externalId` | Optional, 1–200 characters, restricted charset; not unique (a partner's own system enforces its own uniqueness); fixed once the envelope is sent |
+| `metadata` | Optional, at most 10 string-valued keys, 2 KB total; same DRAFT-only mutability as `externalId` |
+| Idempotency scope | `POST /envelopes` and `POST /embed/sessions` only; both keys are **optional**, unlike the existing required key on send/extend |
+| Idempotency storage | A reference to the created resource, never the raw response body or a launch token, reusing `IdempotencyService` |
+| Replayed session request | Reissues a fresh launch token bound to the same `sessionId`, rather than returning a stale, likely-expired token |
+
+#### Schema and Migration
+
+One migration: `Envelope.externalId String? @db.VarChar(200)`, `Envelope.metadata Json?`, index
+`(tenantId, externalId)`; `EmbedSession` gains matching reference columns for the upload-mode flow.
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 10.1 | Migration; shared `externalIdSchema`/`envelopeMetadataSchema` | Schema validation tests; migration review | Planned |
+| 10.2 | Set on create/draft-PATCH/upload-mode session; list filter; redaction | API e2e across create, draft, list, embed, cross-tenant | Planned |
+| 10.3 | Echo `externalId`/`metadata` in every webhook payload | `webhook-events.e2e.test.ts` | Planned |
+| 10.4 | Optional `Idempotency-Key` on envelope create and embed session create; session replay reissues a launch token | API e2e: replay, key/body mismatch (422), no-key double-submit still creates two drafts (documented, not a regression), reissued token invalidates the old one | Planned |
+| 10.5 | Web: Reference row on envelope detail; guide and docs/08 notes | Component/browser tests | Planned |
+
+### Deliberate Simplifications
+
+- `externalId` supports only exact-match filtering; metadata values are not searchable.
+- Both fields are fixed once an envelope is sent, like every other draft-only field.
+- No idempotency on recipient/field mutation routes; only creation gets it, matching how send and
+  extend already work.
+
+---
+
+## Workstream 11: API-Key Lifecycle, Downloads and Limits (Accepted)
+
+### In Plain Terms
+
+An API key can create and send an envelope today but cannot cancel it or send a reminder, and there
+is no route to fetch the completed PDF or its certificate page without knowing the exact final
+version number. This workstream also fixes a pre-existing database deadlock that two rapid actions
+on one envelope can trigger, which matters more once partners are calling the API back-to-back.
+
+Finish line:
+- [ ] A full API key can void an envelope and send a reminder; extend remains session-only.
+- [ ] `GET /envelopes/:id/documents/{original,completed,certificate}` exist and are read-only-key accessible.
+- [ ] The pre-existing audit-write deadlock (docs/18, "A Pre-Existing Race") no longer occurs under
+      two rapid actions on the same envelope.
+- [ ] Rate-limit headers reflect the most restrictive limit that actually applied to the request.
+
+### Technical Detail and Decisions
+
+| Question | Decision |
+|---|---|
+| Deadlock fix | Lock the envelope row first in every audit-writing transaction that currently updates Recipient first (the mail-worker transactions), matching the lock order `cancel.service.ts` already uses, instead of adding transaction-retry logic everywhere |
+| Void/remind for keys | `@ApiKeyAllowed({write:true})` added to both; read-only keys get the existing `API_KEY_READ_ONLY` |
+| Certificate | Extracted on demand from the sealed final PDF (no separate stored file); a bounded, tenant-rate-limited operation |
+| Rate-limit headers | The most restrictive of the limiters that counted the request wins, instead of whichever ran last overwriting the others |
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 11.1 | `fix(api)`: lock the envelope first in mail-worker audit transactions | New `audit-concurrency.e2e.test.ts` reproduces the deadlock first, then proves the fix | Planned |
+| 11.2 | `@ApiKeyAllowed` on void and remind | API e2e: read-only 403, service-account actor, `envelope.voided` fires | Planned |
+| 11.3 | `GET /envelopes/:id/documents/{original,completed,certificate}`; fix the `/file` 304 `ERR_HTTP_HEADERS_SENT` branch | New `documents.e2e.test.ts`; unit test for certificate extraction | Planned |
+| 11.4 | Per-key rate tracking; most-restrictive `X-RateLimit-*`; CORS exposes them | `rate-limits.e2e.test.ts` | Planned |
+| 11.5 | Guide entries; docs/08 As-built notes | Component/browser tests | Planned |
+
+Step 11.1 touches the mail and lifecycle modules, outside the integration surface proper, because
+the deadlock it fixes becomes more likely once partners call the API without the pacing a human
+using the web app naturally has.
+
+### Deliberate Simplifications
+
+- No API-key rename or expiry; rotating a key means creating a new one and revoking the old.
+- Audit export and legal hold remain session-only, ADMIN-only routes.
+
+---
+
+## Workstream 12: Hosted SDK and Runnable Partner Example (Accepted)
+
+### In Plain Terms
+
+Today `@envelope/embed`'s built output still imports this repository's private, unpublished
+`@envelope/shared` package and zod at runtime, so nothing outside this monorepo can actually load
+it, and the only complete, working example of a partner integration is test code partners never
+see. This workstream makes the SDK load as a plain script tag from a URL this system serves, the
+way widely used embedded widgets do, and publishes a runnable, dependency-free example application.
+
+Finish line:
+- [ ] `<script src=".../embed/sdk/v1/envelope.js">` works in a plain HTML page, with no build step
+      and no access to this repository's other packages.
+- [ ] A complete, runnable example partner application exists and is exercised by the browser suite.
+
+### Technical Detail and Decisions
+
+ADR 0020 governs this workstream.
+
+| Question | Decision |
+|---|---|
+| Distribution | The API serves a versioned, self-contained script at a stable URL; no CDN, no npm publication |
+| Runtime dependencies | None — the protocol validation is hand-written in the package, with a parity test against the existing zod schema so the two cannot silently drift |
+| Build format | Vite library mode: an ES module and an IIFE global (`EnvelopeEmbed`), plus `.d.ts` declarations |
+| Versioning | A major-version path segment (`/sdk/v1/`); no per-patch URLs or subresource integrity in this phase |
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 12.1 | Self-contained SDK: hand-written protocol validator, Vite ESM+IIFE build, `.d.ts` output; `@envelope/shared` moves to devDependencies | Parity test against `embedEventSchema`; existing SDK unit tests | Planned |
+| 12.2 | API serves `GET /embed/sdk/v1/envelope.js` and `.mjs` with cross-origin headers, caching and an ETag; 503 if the build is missing in production | New `embed-sdk.e2e.test.ts` | Planned |
+| 12.3 | `examples/embedded-partner/`: zero-dependency Node example app; `embed-host.ts` wraps it so e2e exercises the real example | Full browser e2e using the example; gallery | Planned |
+
+### Deliberate Simplifications
+
+- No CDN hosting, npm publication or subresource-integrity hash in this phase; the hosted script is
+  the distribution mechanism.
+- No Python, PHP, C# or Java SDK; the reference examples are cURL and Node only.
+
+---
+
+## Workstream 13: One Integration Contract, OpenAPI and Developer Guide (Accepted)
+
+### In Plain Terms
+
+Today the same facts — which routes accept an API key, what a webhook payload contains, which error
+codes exist — are written out separately in `docs/08`, the in-app guide and the code itself, and
+they have already drifted apart in about 15 places. This workstream builds one shared catalog that
+the in-app guide, the OpenAPI document and a new repository-hosted developer guide all read from, so
+they cannot drift again without a failing test, and it publishes that developer guide as a standalone
+markdown document a tenant can hand to a partner who has no login.
+
+Finish line:
+- [ ] A single shared catalog lists every API-key-accessible operation, every webhook event and every
+      error code; a test fails if a controller's actual API-key allow-list disagrees with it.
+- [ ] The served OpenAPI document includes response schemas, an API-key security scheme and the embed
+      routes, and a committed snapshot lets it be reviewed without a running server.
+- [ ] `docs/developers/` is a complete, standalone guide: quick start, concepts, auth, envelopes,
+      webhooks, embedded editor, errors, limits, recipes and a generated reference.
+- [ ] The in-app guide's cURL examples run without hand-editing hard-coded IDs.
+
+### Technical Detail and Decisions
+
+ADR 0021 governs this workstream.
+
+| Question | Decision |
+|---|---|
+| Source of truth | A new `packages/shared/src/integration-contract.ts`: the operations catalog, webhook event reference, header list and error guide |
+| Drift prevention | A reflection test compares the catalog's API-key-accessible route list against each controller's actual `@ApiKeyAllowed` metadata; a markdown-table drift test compares generated sections of `docs/developers/*` against the catalog |
+| OpenAPI | Adds response schemas, an `apiKey` bearer scheme alongside `session`, embed route tags and webhook payload components; a committed `docs/developers/openapi.json` snapshot, regenerated only with `UPDATE_OPENAPI=1`; still gated by `API_DOCS_ENABLED` in production |
+| Developer guide location | `docs/developers/`, a non-numbered folder — docs 00–11 are the specification and 12+ are phase plans; a partner-facing guide is neither and needs to be shareable as its own folder |
+| Example correctness | cURL examples carry ids through shell variables extracted with `jq`, not hard-coded UUIDs in the URL |
+
+#### Implementation Steps (One Commit per Step)
+
+| Step | Deliverable | Checks | Status |
+|---|---|---|---|
+| 13.1 | `integration-contract.ts` and `api-responses.ts`; reflection drift test | `integration-contract.test.ts` | Planned |
+| 13.2 | OpenAPI security schemes, response schemas, embed tags, committed snapshot | `openapi.e2e.test.ts` | Planned |
+| 13.3 | In-app guide reads from the catalog; `jq`-based examples; self-contained webhook receiver example; generic `EmbeddedEditorGuide`; setup-checklist card | Component and browser tests; gallery | Planned |
+| 13.4 | `docs/developers/*` guide with generated, drift-checked sections; As-built notes on docs/03/08/10; root README rewrite; docs index and CHANGELOG | `integration-docs.test.ts` runs in `pnpm test` | Planned |
+
+### Deliberate Simplifications
+
+- Response-schema coverage in OpenAPI targets the routes this catalog documents, not every internal
+  route in the API.
+- The developer guide is markdown only; no separate hosted documentation site in this phase.
+
+---
+
+## Workstream 14: Release
+
+Planned, separate authorization required. No product version bump, changelog release section or
+tag until the user explicitly authorizes a release, following `.claude/skills/release/SKILL.md`.

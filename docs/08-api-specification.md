@@ -761,3 +761,8 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 > issuer key or removing the parent origin invalidates access. Bearers may read their own draft
 > and original PDF, edit its recipients/fields, and send only with the explicit send action.
 > All other authenticated and signer operations remain closed to embedded credentials.
+
+> **Accepted Phase 7 refinement, implementation pending.** [Workstream 7](18-phase-7-integration-plan.md#workstream-7-per-key-embedded-origins-accepted)
+> and [ADR 0017](adr/0017-bind-embedded-origins-to-api-keys.md) move editor origins from the
+> tenant-wide list to each API key and add optional origin setup during key creation. Current
+> runtime contracts above remain in effect until workstream 7 is built.
