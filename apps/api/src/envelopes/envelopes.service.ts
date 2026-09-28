@@ -713,9 +713,21 @@ export class EnvelopesService {
    * scale follow-up API pass, docs/16 step 14). Oldest first, same order as
    * the detail's own `auditTrail`, so paging continues where it left off.
    */
-  async listEvents(id: string, query: ListEnvelopeEventsQuery): Promise<EnvelopeEventsResponse> {
-    const exists = await this.db.envelope.findUnique({ where: { id }, select: { id: true } });
-    if (!exists) throw new AppException('NOT_FOUND', 'Envelope not found.');
+  async listEvents(
+    id: string,
+    query: ListEnvelopeEventsQuery,
+    ownerId?: string,
+  ): Promise<EnvelopeEventsResponse> {
+    const exists = await this.db.envelope.findUnique({
+      where: { id },
+      select: { id: true, ownerId: true },
+    });
+    // A MEMBER reading another member's events reads exactly like "not
+    // found" (docs/17 step 5; docs/18 workstream 7 step 7.0) — matching
+    // get() and getETag() above, which already scope the same way.
+    if (!exists || (ownerId && exists.ownerId !== ownerId)) {
+      throw new AppException('NOT_FOUND', 'Envelope not found.');
+    }
 
     const after = query.cursor ? decodeEventsCursor(query.cursor) : 0;
     const rows = await this.db.auditTrail.findMany({
@@ -746,12 +758,13 @@ export class EnvelopesService {
     };
   }
 
-  private async findVersion(id: string, versionNumber: number) {
+  private async findVersion(id: string, versionNumber: number, ownerId?: string) {
     const envelope = await this.db.envelope.findUnique({
       where: { id },
       select: {
         originalFilename: true,
         purgedAt: true,
+        ownerId: true,
         versions: {
           where: { versionNumber },
           select: {
@@ -765,7 +778,12 @@ export class EnvelopesService {
       },
     });
     const version = envelope?.versions[0];
-    if (!envelope || !version) throw new AppException('NOT_FOUND', 'Document not found.');
+    // A MEMBER reading another member's document reads exactly like "not
+    // found" (docs/17 step 5; docs/18 workstream 7 step 7.0), checked before
+    // any ETag/304 answer so a 304 never leaks that a document exists.
+    if (!envelope || !version || (ownerId && envelope.ownerId !== ownerId)) {
+      throw new AppException('NOT_FOUND', 'Document not found.');
+    }
     if (envelope.purgedAt) {
       throw new AppException(
         'ENVELOPE_PURGED',
@@ -784,8 +802,9 @@ export class EnvelopesService {
   async documentVersionMeta(
     id: string,
     versionNumber: number,
+    ownerId?: string,
   ): Promise<{ sha256: string; sizeBytes: number; filename: string }> {
-    const { envelope, version } = await this.findVersion(id, versionNumber);
+    const { envelope, version } = await this.findVersion(id, versionNumber, ownerId);
     return {
       sha256: version.hash,
       sizeBytes: version.sizeBytes,
@@ -794,8 +813,8 @@ export class EnvelopesService {
   }
 
   /** Streams one version of the document from storage. */
-  async openDocument(id: string, versionNumber: number): Promise<OpenedDocument> {
-    const { envelope, version } = await this.findVersion(id, versionNumber);
+  async openDocument(id: string, versionNumber: number, ownerId?: string): Promise<OpenedDocument> {
+    const { envelope, version } = await this.findVersion(id, versionNumber, ownerId);
 
     // The sealed file is read by the version id recorded when it was locked (ADR 0007).
     const object =

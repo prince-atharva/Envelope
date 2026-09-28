@@ -146,7 +146,7 @@ describe('roles and users (e2e)', () => {
     expect(counts.body.all).toBe(1);
   });
 
-  it("a MEMBER cannot open another member's envelope — the same answer as a nonexistent one", async () => {
+  it("a MEMBER cannot open, read the events of, or download the document of another member's envelope — every one the same answer as a nonexistent one (docs/18 workstream 7 step 7.0)", async () => {
     const memberA = await invite('MEMBER', 'Opaque A');
     const memberB = await invite('MEMBER', 'Opaque B');
     const draft = await prepareEnvelope(t.http, memberB, [{ name: 'Z', email: uniqueEmail('z') }]);
@@ -156,6 +156,42 @@ describe('roles and users (e2e)', () => {
       .set('Authorization', bearer(memberA))
       .expect(404);
     expect(res.body.code).toBe('NOT_FOUND');
+
+    const eventsAsA = await request(t.http)
+      .get(`/api/v1/envelopes/${draft.id}/events`)
+      .set('Authorization', bearer(memberA))
+      .expect(404);
+    expect(eventsAsA.body.code).toBe('NOT_FOUND');
+
+    const fileAsA = await request(t.http)
+      .get(`/api/v1/envelopes/${draft.id}/file`)
+      .set('Authorization', bearer(memberA))
+      .expect(404);
+    expect(fileAsA.body.code).toBe('NOT_FOUND');
+
+    // The real ETag, fetched as the owner, still doesn't unlock a 304 for a
+    // MEMBER who isn't the owner — the scope check runs before the
+    // conditional-request shortcut, so it can't leak that the document
+    // exists via a 304 either.
+    const fileAsOwner = await request(t.http)
+      .get(`/api/v1/envelopes/${draft.id}/file`)
+      .set('Authorization', bearer(memberB))
+      .expect(200);
+    const etag = fileAsOwner.headers.etag as string;
+    expect(etag).toBeTruthy();
+    const conditionalAsA = await request(t.http)
+      .get(`/api/v1/envelopes/${draft.id}/file`)
+      .set('Authorization', bearer(memberA))
+      .set('If-None-Match', etag)
+      .expect(404);
+    expect(conditionalAsA.body.code).toBe('NOT_FOUND');
+
+    // OWNER (and, identically, ADMIN — same non-MEMBER code path) still sees
+    // the whole tenant, unaffected by the scope check.
+    await request(t.http)
+      .get(`/api/v1/envelopes/${draft.id}/events`)
+      .set('Authorization', bearer(owner))
+      .expect(200);
   });
 
   it("a MEMBER cannot cancel another member's envelope; an ADMIN can", async () => {

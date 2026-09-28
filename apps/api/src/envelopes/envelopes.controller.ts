@@ -190,8 +190,9 @@ export class EnvelopesController {
   events(
     @Param('id', UuidParamPipe) id: string,
     @Query(new ZodValidationPipe(listEnvelopeEventsQuerySchema)) query: ListEnvelopeEventsQuery,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<EnvelopeEventsResponse> {
-    return this.envelopes.listEvents(id, query);
+    return this.envelopes.listEvents(id, query, ownerScopeOf(user));
   }
 
   @Get(':id/file')
@@ -204,6 +205,7 @@ export class EnvelopesController {
     @Param('id', UuidParamPipe) id: string,
     @Query(new ZodValidationPipe(documentQuerySchema)) query: z.infer<typeof documentQuerySchema>,
     @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile | undefined> {
     // A version's bytes never change once created, so this can be cached
@@ -211,15 +213,18 @@ export class EnvelopesController {
     // authorized per tenant, not for a shared cache to serve to anyone
     // (100M-row scale follow-up API pass, docs/16 step 14). The ETag check
     // is answered from the cheap metadata lookup alone: a cache hit never
-    // touches object storage.
-    const meta = await this.envelopes.documentVersionMeta(id, query.version);
+    // touches object storage. The scope check happens inside this lookup,
+    // before any ETag/304 answer (docs/18 workstream 7 step 7.0), so a
+    // MEMBER can't learn another member's document exists via a 304 either.
+    const scope = ownerScopeOf(user);
+    const meta = await this.envelopes.documentVersionMeta(id, query.version, scope);
     const etag = `"${meta.sha256}"`;
     res.set({ 'Cache-Control': 'private, max-age=31536000, immutable', ETag: etag });
     if (ifNoneMatch === etag) {
       res.status(304).end();
       return undefined;
     }
-    const document = await this.envelopes.openDocument(id, query.version);
+    const document = await this.envelopes.openDocument(id, query.version, scope);
     return new StreamableFile(document.body, {
       type: 'application/pdf',
       length: document.sizeBytes,

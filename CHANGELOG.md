@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Integration settings now group API keys and webhooks into consistent panels, with clearer metadata, status badges, larger actions and polished event-selection and delivery dialogs. Responsive and keyboard checks cover long content and focus restoration (Phase 7, docs/18).
 - Settings is now available to Admins as well as Owners. Admins can manage integrations; workspace user management remains Owner-only.
 
+### Security
+
+- A MEMBER could read another MEMBER's envelope audit events (`GET /envelopes/:id/events`) and document bytes (`GET /envelopes/:id/file`) by id, because both routes were missing the same per-owner scope `GET /envelopes/:id` already applies. Both now return `404 NOT_FOUND` for another member's envelope, checked before any ETag/304 answer so a 304 can't leak that the document exists either. ADMIN, OWNER and API-key access are unaffected (Phase 7, docs/18 workstream 7 step 7.0).
+
 
 ## [0.7.0] - 2026-09-26
 
