@@ -36,7 +36,11 @@ import { useDocumentTitle } from '../lib/use-document-title';
 
 function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [input, setInput] = useState<CreateApiKeyInput>({ label: '', readOnly: false });
+  const [input, setInput] = useState<CreateApiKeyInput>({
+    label: '',
+    readOnly: false,
+    embedOrigins: [],
+  });
   const mutation = useOneTimeSecretMutation({
     create: async (input: CreateApiKeyInput) => {
       const result = await api.createApiKey(input);
@@ -59,7 +63,7 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
       onClose={close}
       title={mutation.rawValue ? 'Copy your API key' : 'Create API key'}
       onOpen={() => {
-        setInput({ label: '', readOnly: false });
+        setInput({ label: '', readOnly: false, embedOrigins: [] });
         mutation.reset();
       }}
       onSubmit={mutation.rawValue ? undefined : () => mutation.mutate(input)}
