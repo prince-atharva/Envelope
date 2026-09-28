@@ -13,6 +13,7 @@ export const queryKeys = {
   users: ['users'] as const,
   apiKeys: ['integrations', 'api-keys'] as const,
   webhookEndpoints: ['integrations', 'webhooks'] as const,
-  webhookDeliveries: (endpointId: string) =>
-    ['integrations', 'webhooks', endpointId, 'deliveries'] as const,
+  /** Filters are part of the key so changing one starts a fresh page chain (docs/18 workstream 8 step 8.5). */
+  webhookDeliveries: (endpointId: string, status?: string, eventType?: string) =>
+    ['integrations', 'webhooks', endpointId, 'deliveries', status ?? '', eventType ?? ''] as const,
 };

@@ -126,11 +126,13 @@ test('owner manages API keys, webhooks and a failed delivery', async ({ page }) 
   await dialog.getByText('Event data').click();
   await expect(dialog.getByText(/browser-fixture/)).toBeVisible();
   const retryResponse = page.waitForResponse(
-    (response) => response.url().includes('/redrive') && response.request().method() === 'POST',
+    (response) => response.url().includes('/retry') && response.request().method() === 'POST',
   );
   await dialog.getByRole('button', { name: 'Retry' }).click();
   await expect((await retryResponse).ok()).toBeTruthy();
-  await expect(dialog.getByText('Delivered')).toBeVisible({ timeout: 10_000 });
+  await expect(dialog.getByRole('listitem').getByText('Delivered')).toBeVisible({
+    timeout: 10_000,
+  });
   await expect(dialog.getByRole('button', { name: 'Retry' })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Close' }).click();
 
@@ -139,6 +141,83 @@ test('owner manages API keys, webhooks and a failed delivery', async ({ page }) 
   await expect(endpointRow).toContainText('Inactive');
   await endpointRow.getByRole('button', { name: 'Reactivate' }).click();
   await expect(endpointRow).toContainText('Active');
+});
+
+test('the deliveries dialog filters by status and event, copies ids, and pages (docs/18 workstream 8 step 8.5)', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await signUp(page, 'integrations-deliveries');
+  await page.goto('/settings/integrations');
+
+  receiver = createServer((_request, response) => {
+    response.writeHead(204);
+    response.end();
+  });
+  await new Promise<void>((resolve, reject) =>
+    receiver?.listen(0, '127.0.0.1', resolve).once('error', reject),
+  );
+  const address = receiver.address();
+  if (!address || typeof address === 'string')
+    throw new Error('Local webhook receiver did not bind');
+  const endpointUrl = `http://127.0.0.1:${address.port}/deliveries-filter`;
+
+  await page.getByRole('button', { name: 'Add webhook' }).click();
+  await page.getByLabel('Endpoint URL').fill(endpointUrl);
+  await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
+  await page.getByRole('button', { name: 'I have saved the secret' }).click();
+  const endpointRow = page.getByRole('listitem').filter({ hasText: endpointUrl });
+
+  const envelopeId = '11111111-1111-4111-8111-111111111111';
+  const eventId = `evt_filter_${Date.now()}`;
+  const client = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `INSERT INTO "WebhookDelivery"
+         (id, "tenantId", "webhookEndpointId", "eventId", "eventType", "envelopeId", payload, status, attempts, "lastAttemptAt", "createdAt")
+       SELECT gen_random_uuid(), "tenantId", id, $1, 'envelope.sent', $2::uuid, $3::jsonb, 'SUCCEEDED', 1, now(), now()
+       FROM "WebhookEndpoint" WHERE url = $4`,
+      [eventId, envelopeId, JSON.stringify({ data: { envelopeId } }), endpointUrl],
+    );
+    await client.query(
+      `INSERT INTO "WebhookDelivery"
+         (id, "tenantId", "webhookEndpointId", "eventId", "eventType", payload, status, attempts, "lastAttemptAt", "lastError", "createdAt")
+       SELECT gen_random_uuid(), "tenantId", id, $1, 'envelope.voided', $2::jsonb, 'EXHAUSTED', 7, now(), 'Receiver refused the connection', now()
+       FROM "WebhookEndpoint" WHERE url = $3`,
+      [
+        `evt_filter2_${Date.now()}`,
+        JSON.stringify({ data: { envelopeId: 'another-envelope' } }),
+        endpointUrl,
+      ],
+    );
+  } finally {
+    await client.end();
+  }
+
+  await endpointRow.getByRole('button', { name: 'Deliveries' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('listitem')).toHaveCount(2);
+
+  await dialog.getByLabel('Status').selectOption('SUCCEEDED');
+  await expect(dialog.getByRole('listitem')).toHaveCount(1);
+  await expect(dialog.getByRole('listitem')).toContainText('Envelope sent');
+  await dialog.getByLabel('Status').selectOption('');
+
+  await dialog.getByLabel('Event', { exact: true }).selectOption('envelope.voided');
+  await expect(dialog.getByRole('listitem')).toHaveCount(1);
+  await expect(dialog.getByRole('listitem')).toContainText('Envelope cancelled');
+  await dialog.getByLabel('Event', { exact: true }).selectOption('');
+  await expect(dialog.getByRole('listitem')).toHaveCount(2);
+
+  const sentRow = dialog.getByRole('listitem').filter({ hasText: 'Envelope sent' });
+  await sentRow.getByRole('button', { name: `Event id ${eventId}` }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(eventId);
+  await sentRow.getByRole('button', { name: `Envelope id ${envelopeId}` }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(envelopeId);
+
+  await dialog.getByRole('button', { name: 'Close' }).click();
 });
 
 test('each API key has its own embedded-editor origins (docs/18 workstream 7)', async ({

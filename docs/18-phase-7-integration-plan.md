@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Built through workstream 7 and webhook contract/reliability steps 8.1–8.4 (workstream 8). Foundation shipped as `v0.7.0`. Step 8.5 and workstreams 9–13 remain planned; release remains workstream 14 |
+| **Status** | Built through workstream 7 and workstream 8 (webhook reliability, event contract v1, delivery browsing). Foundation shipped as `v0.7.0`. Workstreams 9–13 remain planned; release remains workstream 14 |
 | **Version** | 1.2.0 |
 | **Last updated** | 28 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -136,7 +136,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 5 | Existing integration verification and documentation | ✅ Verified | Historical verification record below |
 | 6 | Embedded sender editor, SDK and HealthProHub guide | ✅ Built and verified | Steps 6.1–6.6 below |
 | 7 | Per-key embedded origins, plus a member ownership-scope fix | ✅ Built | Steps 7.0–7.4; ADR 0017 |
-| 8 | Webhook reliability and event contract v1 | Steps 8.1–8.4 ✅ Built; 8.5 planned | Steps 8.1–8.5; ADR 0018 |
+| 8 | Webhook reliability and event contract v1 | ✅ Built | Steps 8.1–8.5; ADR 0018 |
 | 9 | Webhook endpoint lifecycle tooling | Accepted; planned | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | Accepted; planned | Steps 10.1–10.5; ADR 0019 |
 | 11 | API-key lifecycle, downloads and limits | Accepted; planned | Steps 11.1–11.5 |
@@ -1007,7 +1007,7 @@ stored `payload->'data'->>'envelopeId'`.
 | 8.2 | Fix `WEBHOOK_MAX_ATTEMPTS` to 7, stop resetting `attempts` on redrive, write `nextAttemptAt`, add delivery headers and `User-Agent` | `webhook-retry-schedule.test.ts`; corrected `webhook-delivery.e2e.test.ts` expectations (7 attempts; redrive keeps counting; headers present) | Implemented; verification pending |
 | 8.3 | Richer, additive per-event payloads including the `recipient.signed` fix and `envelope.extended` | `webhook-events.e2e.test.ts` parses every payload against the shared schemas | Implemented; verification pending |
 | 8.4 | `GET /webhooks/deliveries`, `GET /webhooks/deliveries/:id`, `POST /webhooks/deliveries/:id/retry` (session ADMIN/OWNER only); old per-endpoint routes kept, documented as deprecated | API e2e: paging, each filter, cross-tenant 404, API-key and MEMBER 403 | ✅ Built |
-| 8.5 | Web: deliveries dialog gains filters, Load more, event-id copy, envelope id, attempt/next-retry display; guide and docs/08 As-built note | Component and browser tests; gallery | Planned |
+| 8.5 | Web: deliveries dialog gains filters, Load more, event-id copy, envelope id, attempt/next-retry display; guide and docs/08 As-built note | Component and browser tests; gallery | ✅ Built |
 
 #### Implementation record (steps 8.1–8.4, 28 September 2026)
 
@@ -1063,12 +1063,44 @@ Correcting `webhook-delivery.e2e.test.ts`'s attempt-count assertions (6 → 7) m
 the schedule this system has always documented; it is a fix to match the documented contract, not
 a weakening. No existing assertion is deleted or loosened.
 
+#### Step 8.5: Web Deliveries Dialog
+
+The endpoint-scoped Deliveries dialog now reads through the tenant-wide, paged route from step 8.4
+(`GET /webhooks/deliveries?endpointId=...`) instead of the deprecated per-endpoint one, and its
+retry button calls `POST /webhooks/deliveries/:id/retry` instead of the deprecated redrive route.
+Status and event-type filters sit above the list; each filter change starts a fresh page chain
+(reusing the same `useInfiniteQuery` idiom `EnvelopeDetailPage.tsx`'s own "Load more events" already
+uses), with a "Load more deliveries" button once a page is exhausted. Each delivery row shows a
+small copy-to-clipboard control for its event id and, when present, its envelope id — reusing the
+existing `useCopyToClipboard` hook rather than the full `HashBlock` card, which is sized for a
+document fingerprint, not an inline list row. A delivery's own "next retry at" time is shown when
+one is scheduled.
+
+**Tests:** `apps/web/e2e/integrations.spec.ts` gained a dedicated browser test covering both
+filters, the load-more page chain's underlying route, and both copy-id buttons (Chromium clipboard
+permissions, matching the existing pattern `upload-and-view.spec.ts` and the guide's own copy tests
+already use). Two existing tests needed small, mechanical fixes once the new event-type filter
+`<select>` made "Delivered"/"Envelope completed" ambiguous text matches inside the dialog
+(`integrations.spec.ts`'s redrive assertion, and the gallery's own delivery screenshot check) —
+both were narrowed to the specific list item, not weakened.
+
+**Verification:** `pnpm typecheck` (web), `pnpm lint`, the full web unit suite (179 tests), the
+full `integrations.spec.ts` file (7 tests, twice) and the `integration settings` gallery scenario
+on desktop/tablet/mobile all passed. The full desktop-chrome suite (36 files) was run twice; each
+run had exactly one unrelated test fail near the end (once in `embed.spec.ts`, once in a different
+`integrations.spec.ts` test, both on basic setup steps — an iframe count and a registration page
+load — that share no code with this step), and both passed cleanly and quickly when rerun alone.
+Given two different tests failed on two different, unrelated, environment-shaped symptoms across
+two runs, on a host already noted as heavily loaded during this workstream, these are recorded as
+host-load flakes, not a regression from this step.
+
 | Step | Commit |
 |---|---|
 | 8.1 | 1fd4485 |
 | 8.2 | 758696f |
 | 8.3 | cec3746 |
 | 8.4 | f79aac6 |
+| 8.5 | (recorded after commit) |
 
 ### Deliberate Simplifications
 

@@ -44,8 +44,11 @@ import {
   type UserProfile,
   type VoidEnvelopeInput,
   type VoidEnvelopeResponse,
+  type WebhookDeliveryPage,
+  type WebhookDeliveryStatus,
   type WebhookDeliverySummary,
   type WebhookEndpointSummary,
+  type WebhookEventType,
 } from '@envelope/shared';
 
 const API_BASE = '/api/v1';
@@ -492,13 +495,28 @@ export const api = {
   deactivateWebhookEndpoint: (id: string) =>
     json<WebhookEndpointSummary>(`/webhooks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
-  listWebhookDeliveries: (endpointId: string, limit = 50) =>
-    json<WebhookDeliverySummary[]>(
-      `/webhooks/${encodeURIComponent(endpointId)}/deliveries?limit=${limit}`,
-    ),
+  /**
+   * Tenant-wide, filterable and paged (docs/18 workstream 8 step 8.4) —
+   * used here scoped to one endpoint via `endpointId`, in place of the
+   * deprecated GET /webhooks/:id/deliveries.
+   */
+  listWebhookDeliveriesPage: (filters: {
+    endpointId?: string;
+    status?: WebhookDeliveryStatus;
+    eventType?: WebhookEventType;
+    eventId?: string;
+    envelopeId?: string;
+    cursor?: string;
+  }) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) params.set(key, value);
+    }
+    return json<WebhookDeliveryPage>(`/webhooks/deliveries?${params.toString()}`);
+  },
 
-  redriveWebhookDelivery: (deliveryId: string) =>
-    json<WebhookDeliverySummary>(`/webhooks/${encodeURIComponent(deliveryId)}/redrive`, {
+  retryWebhookDelivery: (deliveryId: string) =>
+    json<WebhookDeliverySummary>(`/webhooks/deliveries/${encodeURIComponent(deliveryId)}/retry`, {
       method: 'POST',
     }),
 

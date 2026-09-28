@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–6 complete; Phase 7 integration built through per-key embedded origins (workstream 7) and webhook contract/reliability/delivery-browsing steps 8.1–8.4 (workstream 8). Remaining integration hardening is planned |
+| **Status** | Phases 1–6 complete; Phase 7 integration built through per-key embedded origins (workstream 7) and webhook contracts, reliability and delivery browsing (workstream 8). Remaining integration hardening is planned |
 | **Version** | 1.2.0 |
 | **Last updated** | 28 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
@@ -17,12 +17,12 @@
 > **Phase 7** is the integration phase. [Its maintained plan](18-phase-7-integration-plan.md)
 > records the API-key and webhook foundation, Settings management, responsive polish, and the
 > in-page integration guide together, plus the implemented embedded sender editor, SDK,
-> HealthProHub guide and per-key embedded origins (workstream 7, ADR 0017). Steps 8.1–8.4 (webhook
-> event contracts, delivery reliability and tenant-wide delivery browsing, ADR 0018) are built and
-> verified. Step 8.5 and workstreams 9–13 (the web deliveries dialog, endpoint tooling, partner
-> references, API-key/download completeness, a hosted SDK, and one integration contract catalog
-> with a developer guide — ADRs 0018–0021) remain accepted and planned. Earlier `6b` labels remain
-> in the historical commit record.
+> HealthProHub guide and per-key embedded origins (workstream 7, ADR 0017). Workstream 8 (webhook
+> event contracts, delivery reliability and the tenant-wide, filterable deliveries dialog, ADR 0018)
+> is built and verified. Workstreams 9–13 (endpoint tooling, partner references, API-key/download
+> completeness, a hosted SDK, and one integration contract catalog with a developer guide — ADRs
+> 0018–0021) remain accepted and planned. Earlier `6b` labels remain in the historical commit
+> record.
 
 ---
 

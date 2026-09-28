@@ -2,10 +2,11 @@ import {
   type ApiKeySummary,
   type CreateApiKeyInput,
   FIRED_WEBHOOK_EVENT_TYPES,
+  type WebhookDeliveryStatus,
   type WebhookEndpointSummary,
   type WebhookEventType,
 } from '@envelope/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { SettingsNav } from '../components/layout/SettingsNav';
 import { Alert } from '../components/ui/Alert';
@@ -15,10 +16,11 @@ import { type Confirmation, ConfirmDialog } from '../components/ui/ConfirmDialog
 import { DialogShell } from '../components/ui/DialogShell';
 import { TextField } from '../components/ui/Field';
 import { HashBlock } from '../components/ui/HashBlock';
-import { BoltIcon } from '../components/ui/icons';
+import { BoltIcon, CheckIcon, CopyIcon } from '../components/ui/icons';
 import { TabPanel, Tabs } from '../components/ui/Tabs';
 import { ApiKeyEmbedOriginsDialog } from '../features/integrations/ApiKeyEmbedOriginsDialog';
 import { parseOriginsInput } from '../features/integrations/api-key-origins-form';
+import { webhookDeliveriesQuery } from '../features/integrations/deliveries-query';
 import { IntegrationGuide } from '../features/integrations/IntegrationGuide';
 import {
   apiKeyAccessDescription,
@@ -34,6 +36,7 @@ import { api } from '../lib/api';
 import { describeError, fieldErrorsOf } from '../lib/errors';
 import { formatDateTime } from '../lib/format';
 import { queryKeys } from '../lib/query-keys';
+import { useCopyToClipboard } from '../lib/use-copy';
 import { useDocumentTitle } from '../lib/use-document-title';
 
 function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -530,6 +533,37 @@ function WebhookCard({
   );
 }
 
+/** A small inline copy affordance for an id, not the full HashBlock card. */
+function CopyIdButton({ value, label }: { value: string; label: string }) {
+  const { state, copy } = useCopyToClipboard();
+  return (
+    <button
+      type="button"
+      onClick={() => void copy(value)}
+      aria-label={`${label} ${value}`}
+      className="inline-flex min-h-11 items-center gap-1 rounded px-1 font-mono text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+    >
+      <span className="max-w-40 truncate sm:max-w-none">{value}</span>
+      {state === 'copied' ? (
+        <CheckIcon className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+      ) : (
+        <CopyIcon className="h-3.5 w-3.5 shrink-0" />
+      )}
+      <span className="sr-only" role="status">
+        {state === 'copied' ? `${label} copied to the clipboard.` : ''}
+      </span>
+    </button>
+  );
+}
+
+const DELIVERY_STATUS_FILTERS: { value: WebhookDeliveryStatus | ''; label: string }[] = [
+  { value: '', label: 'All statuses' },
+  { value: 'PENDING', label: WEBHOOK_DELIVERY_LABELS.PENDING },
+  { value: 'FAILED', label: WEBHOOK_DELIVERY_LABELS.FAILED },
+  { value: 'SUCCEEDED', label: WEBHOOK_DELIVERY_LABELS.SUCCEEDED },
+  { value: 'EXHAUSTED', label: WEBHOOK_DELIVERY_LABELS.EXHAUSTED },
+];
+
 function DeliveryDialog({
   endpoint,
   onClose,
@@ -537,31 +571,48 @@ function DeliveryDialog({
   endpoint: WebhookEndpointSummary | null;
   onClose: () => void;
 }) {
+  const filterId = useId();
   const queryClient = useQueryClient();
   const [redrivenIds, setRedrivenIds] = useState<Set<string>>(() => new Set());
-  const deliveries = useQuery({
-    queryKey: queryKeys.webhookDeliveries(endpoint?.id ?? ''),
-    queryFn: () => api.listWebhookDeliveries(endpoint?.id ?? ''),
+  const [status, setStatus] = useState<WebhookDeliveryStatus | ''>('');
+  const [eventType, setEventType] = useState<WebhookEventType | ''>('');
+  const deliveries = useInfiniteQuery({
+    ...webhookDeliveriesQuery(endpoint?.id ?? '', status || undefined, eventType || undefined),
     enabled: Boolean(endpoint),
   });
-  const redrive = useMutation({
-    mutationFn: api.redriveWebhookDelivery,
+  const items = deliveries.data?.pages.flatMap((page) => page.items) ?? [];
+  const retry = useMutation({
+    mutationFn: api.retryWebhookDelivery,
     onSuccess: (updated) => {
       if (!endpoint) return;
       setRedrivenIds((current) => new Set(current).add(updated.id));
       queryClient.setQueryData(
-        queryKeys.webhookDeliveries(endpoint.id),
+        queryKeys.webhookDeliveries(endpoint.id, status || undefined, eventType || undefined),
         (current: typeof deliveries.data) =>
-          current?.map((item) => (item.id === updated.id ? updated : item)),
+          current && {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              items: page.items.map((item) => (item.id === updated.id ? updated : item)),
+            })),
+          },
       );
       window.setTimeout(() => {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.webhookDeliveries(endpoint.id) });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.webhookDeliveries(
+            endpoint.id,
+            status || undefined,
+            eventType || undefined,
+          ),
+        });
       }, 750);
     },
   });
   const close = () => {
     setRedrivenIds(new Set());
-    redrive.reset();
+    setStatus('');
+    setEventType('');
+    retry.reset();
     onClose();
   };
 
@@ -585,72 +636,146 @@ function DeliveryDialog({
           </p>
         </div>
       )}
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <label className="font-medium text-slate-600" htmlFor={`${filterId}-status`}>
+            Status
+          </label>
+          <select
+            id={`${filterId}-status`}
+            value={status}
+            onChange={(event) => setStatus(event.target.value as WebhookDeliveryStatus | '')}
+            className="min-h-11 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+          >
+            {DELIVERY_STATUS_FILTERS.map((option) => (
+              <option key={option.value || 'all'} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="font-medium text-slate-600" htmlFor={`${filterId}-event`}>
+            Event
+          </label>
+          <select
+            id={`${filterId}-event`}
+            value={eventType}
+            onChange={(event) => setEventType(event.target.value as WebhookEventType | '')}
+            className="min-h-11 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+          >
+            <option value="">All events</option>
+            {FIRED_WEBHOOK_EVENT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {WEBHOOK_EVENT_LABELS[type]}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       {deliveries.error && <ErrorAlert error={deliveries.error} />}
-      {redrive.error && <ErrorAlert error={redrive.error} />}
+      {retry.error && <ErrorAlert error={retry.error} />}
       {deliveries.isLoading ? (
         <Loading label="Loading webhook deliveries" />
-      ) : (deliveries.data ?? []).length ? (
-        <ul className="space-y-3">
-          {deliveries.data?.map((delivery) => (
-            <li key={delivery.id} className="min-w-0 rounded-xl border border-slate-200 p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {webhookDeliveryEventLabel(delivery.eventType)}
+      ) : items.length ? (
+        <>
+          <ul className="space-y-3">
+            {items.map((delivery) => (
+              <li
+                key={delivery.id}
+                className="min-w-0 rounded-xl border border-slate-200 p-4 sm:p-5"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {webhookDeliveryEventLabel(delivery.eventType)}
+                      </p>
+                      <Pill
+                        tone={
+                          delivery.status === 'SUCCEEDED'
+                            ? 'green'
+                            : delivery.status === 'PENDING'
+                              ? 'slate'
+                              : 'red'
+                        }
+                      >
+                        {WEBHOOK_DELIVERY_LABELS[delivery.status]}
+                      </Pill>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Created {formatDateTime(delivery.createdAt)} · {delivery.attempts}{' '}
+                      {delivery.attempts === 1 ? 'attempt' : 'attempts'}
                     </p>
-                    <Pill
-                      tone={
-                        delivery.status === 'SUCCEEDED'
-                          ? 'green'
-                          : delivery.status === 'PENDING'
-                            ? 'slate'
-                            : 'red'
-                      }
-                    >
-                      {WEBHOOK_DELIVERY_LABELS[delivery.status]}
-                    </Pill>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {delivery.lastAttemptAt
+                        ? `Last attempt ${formatDateTime(delivery.lastAttemptAt)}`
+                        : 'Not attempted yet'}
+                      {delivery.lastStatusCode ? ` · HTTP ${delivery.lastStatusCode}` : ''}
+                      {delivery.nextAttemptAt
+                        ? ` · Next retry ${formatDateTime(delivery.nextAttemptAt)}`
+                        : ''}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-slate-400">
+                      <span className="font-medium text-slate-500">Event</span>
+                      <CopyIdButton value={delivery.eventId} label="Event id" />
+                      {delivery.envelopeId && (
+                        <>
+                          <span className="ml-2 font-medium text-slate-500">Envelope</span>
+                          <CopyIdButton value={delivery.envelopeId} label="Envelope id" />
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Created {formatDateTime(delivery.createdAt)} · {delivery.attempts}{' '}
-                    {delivery.attempts === 1 ? 'attempt' : 'attempts'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {delivery.lastAttemptAt
-                      ? `Last attempt ${formatDateTime(delivery.lastAttemptAt)}`
-                      : 'Not attempted yet'}
-                    {delivery.lastStatusCode ? ` · HTTP ${delivery.lastStatusCode}` : ''}
-                  </p>
+                  {canRedriveWebhookDelivery(delivery.status) && !redrivenIds.has(delivery.id) && (
+                    <Button
+                      className="min-h-11"
+                      variant="secondary"
+                      loading={retry.isPending && retry.variables === delivery.id}
+                      onClick={() => retry.mutate(delivery.id)}
+                    >
+                      Retry
+                    </Button>
+                  )}
                 </div>
-                {canRedriveWebhookDelivery(delivery.status) && !redrivenIds.has(delivery.id) && (
-                  <Button
-                    className="min-h-11"
-                    variant="secondary"
-                    loading={redrive.isPending && redrive.variables === delivery.id}
-                    onClick={() => redrive.mutate(delivery.id)}
-                  >
-                    Retry
-                  </Button>
+                {delivery.lastError && (
+                  <p className="mt-4 break-words rounded-lg bg-red-50 px-3 py-3 text-sm text-red-800">
+                    {delivery.lastError}
+                  </p>
                 )}
-              </div>
-              {delivery.lastError && (
-                <p className="mt-4 break-words rounded-lg bg-red-50 px-3 py-3 text-sm text-red-800">
-                  {delivery.lastError}
-                </p>
-              )}
-              <details className="mt-3">
-                <summary className="min-h-11 cursor-pointer content-center rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  Event data
-                </summary>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">
-                  {JSON.stringify(delivery.data, null, 2)}
-                </pre>
-              </details>
-            </li>
-          ))}
-        </ul>
+                <details className="mt-3">
+                  <summary className="min-h-11 cursor-pointer content-center rounded-lg px-2 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                    Event data
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">
+                    {JSON.stringify(delivery.data, null, 2)}
+                  </pre>
+                </details>
+              </li>
+            ))}
+          </ul>
+          {deliveries.hasNextPage && (
+            <div className="flex justify-center pt-1">
+              <Button
+                className="min-h-11"
+                variant="secondary"
+                loading={deliveries.isFetchingNextPage}
+                onClick={() => void deliveries.fetchNextPage()}
+              >
+                Load more deliveries
+              </Button>
+            </div>
+          )}
+        </>
       ) : deliveries.error ? null : (
-        <Empty title="No deliveries yet" body="Events sent to this endpoint will appear here." />
+        <Empty
+          title="No deliveries yet"
+          body={
+            status || eventType
+              ? 'No deliveries match this filter.'
+              : 'Events sent to this endpoint will appear here.'
+          }
+        />
       )}
     </DialogShell>
   );

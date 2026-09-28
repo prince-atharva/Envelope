@@ -559,7 +559,9 @@ test('integration settings', async ({ page }) => {
     await galleryDb.end();
   }
   await page.getByRole('button', { name: 'Deliveries' }).click();
-  await expect(page.getByRole('dialog').getByText('Envelope completed')).toBeVisible();
+  await expect(
+    page.getByRole('dialog').getByRole('listitem').getByText('Envelope completed'),
+  ).toBeVisible();
   await shot(page, 'integrations-deliveries', {
     area: 'settings',
     caption: 'A successful webhook delivery with its status and attempt details.',

@@ -362,14 +362,17 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               <ExampleBlock title="Receiver acknowledgement" text={'HTTP/1.1 204 No Content'} />
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Non-2xx responses and timeouts cause retries with increasing delays. In Manage
-                connections → Deliveries, inspect attempts, last HTTP status, errors and event data.
-                Failed deliveries can be retried within seven days; delivery history is purged after
-                that window. The displayed event data is what Envelope sent, not your server’s
-                response body.
+                connections → Deliveries, filter by status or event, load more, and inspect
+                attempts, last HTTP status, next scheduled retry, errors and event data. Failed
+                deliveries can be retried within seven days; delivery history is purged after that
+                window. The displayed event data is what Envelope sent, not your server’s response
+                body.
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 The management redrive route uses a delivery id, not an endpoint id, and requires a
-                signed-in session. Use the Deliveries dialog to retry after fixing the receiver.
+                signed-in session; GET /webhooks/deliveries lists across every endpoint at once,
+                with the same filters the Deliveries dialog offers. Use the Deliveries dialog to
+                retry after fixing the receiver.
               </p>
             </Card>
           </>
