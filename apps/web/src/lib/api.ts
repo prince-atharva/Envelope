@@ -502,6 +502,10 @@ export const api = {
       method: 'POST',
     }),
 
+  listEmbedOrigins: () => json<string[]>('/embed/origins'),
+  setEmbedOrigins: (origins: string[]) =>
+    json<string[]>('/embed/origins', jsonBody({ origins }, 'PUT')),
+
   listUsers: () => json<TenantUser[]>('/users'),
 
   inviteUser: (input: InviteUserInput) => json<InviteUserResponse>('/users', jsonBody(input)),

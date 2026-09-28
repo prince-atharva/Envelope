@@ -8,7 +8,11 @@ import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { TabPanel, Tabs } from '../../components/ui/Tabs';
-import { useCopyToClipboard } from '../../lib/use-copy';
+import { HealthProHubGuide } from './HealthProHubGuide';
+import { ExampleBlock } from './IntegrationExampleBlock';
+
+export { ExampleBlock } from './IntegrationExampleBlock';
+
 import { WEBHOOK_EVENT_LABELS } from './integration-presentation';
 import {
   apiBaseUrl,
@@ -19,45 +23,6 @@ import {
   webhookExample,
 } from './integration-reference';
 import { WEBHOOK_RECEIVER } from './webhook-receiver-example';
-
-export function ExampleBlock({ title, text }: { title: string; text: string }) {
-  const { state, copy } = useCopyToClipboard();
-  return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-1">
-        <span className="text-xs font-semibold text-slate-300">{title}</span>
-        <button
-          type="button"
-          onClick={() => void copy(text)}
-          aria-label={`Copy ${title}`}
-          className="min-h-11 shrink-0 rounded px-2 text-xs font-semibold text-emerald-300 hover:text-white focus-visible:outline-emerald-300"
-        >
-          {state === 'copied' ? 'Copied!' : 'Copy'}
-        </button>
-      </div>
-      <section
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users need to scroll long code examples.
-        tabIndex={0}
-        aria-label={title}
-        className="max-h-[32rem] overflow-auto p-4 text-xs leading-6 text-slate-100 focus-visible:outline-emerald-300"
-      >
-        <pre>
-          <code>{text}</code>
-        </pre>
-      </section>
-      <p
-        role="status"
-        className={state === 'failed' ? 'px-4 pb-3 text-xs text-amber-300' : 'sr-only'}
-      >
-        {state === 'copied'
-          ? `${title} copied.`
-          : state === 'failed'
-            ? 'Could not copy. Select the example and copy it manually.'
-            : ''}
-      </p>
-    </div>
-  );
-}
 
 function EndpointCard({ endpoint, base }: { endpoint: EndpointReference; base: string }) {
   return (
@@ -125,6 +90,7 @@ const sections = [
   { id: 'api', label: 'API reference' },
   { id: 'webhooks', label: 'Webhook guide' },
   { id: 'help', label: 'Troubleshooting' },
+  { id: 'healthprohub', label: 'Embedded editor' },
 ] as const;
 type Section = (typeof sections)[number]['id'];
 
@@ -176,6 +142,9 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
         variant="underline"
         className="[&_button]:min-h-11"
       />
+      <TabPanel idPrefix={prefix} id="healthprohub" hidden={section !== 'healthprohub'}>
+        {section === 'healthprohub' && <HealthProHubGuide onManage={onManage} />}
+      </TabPanel>
       <TabPanel idPrefix={prefix} id="start" hidden={section !== 'start'} className="space-y-5">
         {section === 'start' && (
           <>

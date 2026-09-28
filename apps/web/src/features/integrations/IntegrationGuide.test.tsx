@@ -26,6 +26,18 @@ describe('integration guide', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Manage connections' }));
     expect(manage).toHaveBeenCalledOnce();
   });
+  it('explains both HealthProHub entry modes and links to origin management', () => {
+    const manage = vi.fn();
+    render(<IntegrationGuide onManage={manage} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Embedded editor' }));
+    expect(screen.getByLabelText('Existing draft session body').textContent).toContain(
+      '"existing"',
+    );
+    expect(screen.getByLabelText('Upload session body').textContent).toContain('"upload"');
+    expect(screen.getByText(/30 minutes after session creation/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Configure trusted origins' }));
+    expect(manage).toHaveBeenCalledOnce();
+  });
   it('changes webhook payloads and explains the unsupported event', () => {
     render(<IntegrationGuide onManage={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Webhook guide' }));

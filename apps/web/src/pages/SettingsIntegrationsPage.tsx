@@ -17,6 +17,7 @@ import { TextField } from '../components/ui/Field';
 import { HashBlock } from '../components/ui/HashBlock';
 import { BoltIcon } from '../components/ui/icons';
 import { TabPanel, Tabs } from '../components/ui/Tabs';
+import { EmbedOriginsPanel } from '../features/integrations/EmbedOriginsPanel';
 import { IntegrationGuide } from '../features/integrations/IntegrationGuide';
 import {
   apiKeyAccessDescription,
@@ -664,6 +665,7 @@ export function SettingsIntegrationsPage() {
         {view === 'guide' && <IntegrationGuide onManage={() => setView('manage')} />}
       </TabPanel>
       <TabPanel idPrefix={viewId} id="manage" hidden={view !== 'manage'} className="space-y-6">
+        <EmbedOriginsPanel />
         <Card
           as="section"
           padding="none"
