@@ -48,6 +48,7 @@ import { AppException } from '../common/errors/app-exception';
 import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { EmbedAllowed } from '../embed/embed.decorator';
 import { EnvelopesService } from './envelopes.service';
 import {
   TenantUploadRateLimitGuard,
@@ -147,6 +148,7 @@ export class EnvelopesController {
   }
 
   @Get(':id')
+  @EmbedAllowed('read')
   @ApiKeyAllowed({ write: false })
   @ApiOperation({ summary: 'An envelope with its document versions and audit trail' })
   async get(
@@ -193,6 +195,7 @@ export class EnvelopesController {
   }
 
   @Get(':id/file')
+  @EmbedAllowed('read')
   @ApiKeyAllowed({ write: false })
   @ApiOperation({ summary: 'Download a document version (default: version 0, the original)' })
   @ApiQuery({ name: 'version', required: false, schema: { type: 'integer', minimum: 0 } })

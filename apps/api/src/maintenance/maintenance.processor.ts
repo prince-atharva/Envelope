@@ -5,6 +5,7 @@ import { AlertService } from '../alert/alert.service';
 import { MAINTENANCE_QUEUE } from '../queue/queue.module';
 import { AuditChainCheckService } from './audit-chain-check.service';
 import { AutoReminderService } from './auto-reminder.service';
+import { EmbedSessionPurgeService } from './embed-session-purge.service';
 import { ExpirySweepService, type SweepResult } from './expiry-sweep.service';
 import {
   AUDIT_CHAIN_CHECK_JOB,
@@ -25,6 +26,7 @@ import { WebhookDeliveryPurgeService } from './webhook-delivery-purge.service';
 @Processor(MAINTENANCE_QUEUE, { concurrency: 1 })
 export class MaintenanceProcessor extends WorkerHost {
   constructor(
+    private readonly embedPurge: EmbedSessionPurgeService,
     private readonly expiry: ExpirySweepService,
     private readonly reminders: AutoReminderService,
     private readonly chainCheck: AuditChainCheckService,
@@ -39,6 +41,8 @@ export class MaintenanceProcessor extends WorkerHost {
 
   private runJob(name: string): Promise<SweepResult> {
     switch (name) {
+      case 'embed-session-purge':
+        return this.embedPurge.run();
       case EXPIRY_SWEEP_JOB:
         return this.expiry.run();
       case AUTO_REMINDERS_JOB:

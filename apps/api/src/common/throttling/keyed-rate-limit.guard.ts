@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   applyDecorators,
   type CanActivate,
@@ -19,7 +20,7 @@ export interface KeyedRateLimit extends RateLimitRule {
    * What the count is kept for: the signed-in user's workspace, or the account
    * a sign-in names (the email in the body, lower-cased).
    */
-  by: 'tenant' | 'account';
+  by: 'tenant' | 'account' | 'embed' | 'embedLaunch' | 'tenantKey';
 }
 
 /**
@@ -58,6 +59,13 @@ export class KeyedRateLimitGuard implements CanActivate {
     if (!key) return true;
 
     const res = context.switchToHttp().getResponse<Response>();
+    if (rule.by === 'tenantKey' && req.user?.apiKeyId) {
+      const keyCount = await countRequest(this.storage, res, req.user.apiKeyId, {
+        ...rule,
+        bucket: `${rule.bucket}-key`,
+      });
+      if (keyCount.limited) throw rateLimited(keyCount.retryAfter);
+    }
     const count = await countRequest(this.storage, res, key, rule);
     if (!count.limited) return true;
     this.logger.warn(
@@ -76,7 +84,12 @@ export class KeyedRateLimitGuard implements CanActivate {
 }
 
 function keyOf(rule: KeyedRateLimit, req: Request): string | undefined {
-  if (rule.by === 'tenant') return req.user?.tenantId;
+  if (rule.by === 'embed') return req.user?.embed?.id;
+  if (rule.by === 'embedLaunch') {
+    const token: unknown = (req.body as { launchToken?: unknown } | undefined)?.launchToken;
+    return typeof token === 'string' ? createHash('sha256').update(token).digest('hex') : undefined;
+  }
+  if (rule.by === 'tenant' || rule.by === 'tenantKey') return req.user?.tenantId;
   const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
   return typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : undefined;
 }

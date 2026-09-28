@@ -8,6 +8,7 @@ import { TenantUploadRateLimitGuard, UploadSizeGuard } from './upload.guards';
 @Module({
   imports: [UploadsModule, ComplianceModule],
   controllers: [EnvelopesController],
+  exports: [EnvelopesService, UploadSizeGuard, TenantUploadRateLimitGuard],
   providers: [EnvelopesService, UploadSizeGuard, TenantUploadRateLimitGuard],
 })
 export class EnvelopesModule {}

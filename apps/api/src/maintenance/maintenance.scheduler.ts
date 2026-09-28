@@ -30,6 +30,7 @@ export class MaintenanceScheduler implements OnApplicationBootstrap {
 
   schedules(): Schedule[] {
     return [
+      { id: 'embed-session-purge', pattern: this.config.EMBED_SESSION_PURGE_CRON },
       { id: EXPIRY_SWEEP_JOB, everyMs: this.config.EXPIRY_SWEEP_EVERY_MS },
       { id: AUTO_REMINDERS_JOB, everyMs: this.config.REMINDER_SWEEP_EVERY_MS },
       { id: AUDIT_CHAIN_CHECK_JOB, pattern: this.config.AUDIT_CHAIN_CHECK_CRON },

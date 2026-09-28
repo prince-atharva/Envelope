@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AlertService } from '../alert/alert.service';
+import type { RequestContext } from '../common/request-context';
 import type { AuditTrail, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { type ChainVerification, computeEventHash, verifyChain } from './audit-chain';
@@ -95,10 +97,13 @@ export class AuditService {
     private readonly prisma: PrismaService,
     private readonly alerts: AlertService,
     @InjectPinoLogger(AuditService.name) private readonly logger: PinoLogger,
+    @Optional() private readonly cls?: ClsService<RequestContext>,
   ) {}
 
   async record(tx: AuditTransaction, input: AuditEventInput): Promise<AuditTrail> {
     try {
+      const embedActor = this.cls?.isActive() ? this.cls.get('embedActor') : undefined;
+      if (embedActor) input = { ...input, metadata: { ...input.metadata, ...embedActor } };
       // Serialise writers per envelope so two events can never claim the same place in the chain.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.envelopeId}, 0))`;
 

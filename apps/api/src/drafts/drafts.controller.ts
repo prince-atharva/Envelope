@@ -27,6 +27,7 @@ import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { EmbedAllowed } from '../embed/embed.decorator';
 import { rejectPixelCoordinates } from './draft-validation';
 import { DraftsService } from './drafts.service';
 
@@ -66,6 +67,7 @@ export class DraftsController {
   constructor(private readonly drafts: DraftsService) {}
 
   @Patch(':id')
+  @EmbedAllowed('edit')
   @ApiKeyAllowed({ write: true })
   @ApiOperation({ summary: 'Change a draft envelope: title, message, signing order' })
   @ApiHeader(IF_MATCH_HEADER)
@@ -81,6 +83,7 @@ export class DraftsController {
   }
 
   @Post(':id/recipients')
+  @EmbedAllowed('edit')
   @ApiKeyAllowed({ write: true })
   @ApiOperation({ summary: 'Add someone to a draft' })
   @ApiHeader(IF_MATCH_HEADER)
@@ -96,6 +99,7 @@ export class DraftsController {
   }
 
   @Patch(':id/recipients/:recipientId')
+  @EmbedAllowed('edit')
   @ApiKeyAllowed({ write: true })
   @ApiOperation({ summary: 'Change someone on a draft' })
   @ApiHeader(IF_MATCH_HEADER)
@@ -113,6 +117,7 @@ export class DraftsController {
 
   @Delete(':id/recipients/:recipientId')
   @HttpCode(200)
+  @EmbedAllowed('edit')
   @ApiKeyAllowed({ write: true })
   @ApiOperation({ summary: 'Remove someone from a draft, along with their fields' })
   @ApiHeader(IF_MATCH_HEADER)
@@ -131,6 +136,7 @@ export class DraftsController {
    * update would only add ways for the two to disagree.
    */
   @Put(':id/fields')
+  @EmbedAllowed('edit')
   @ApiKeyAllowed({ write: true })
   @ApiOperation({ summary: 'Save where everyone signs (replaces the whole layout)' })
   @ApiHeader(IF_MATCH_HEADER)

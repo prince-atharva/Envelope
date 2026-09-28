@@ -13,6 +13,7 @@ import { ThrottlingModule } from './common/throttling/throttling.module';
 import { CompletionModule } from './completion/completion.module';
 import { ConfigModule } from './config/config.module';
 import { DraftsModule } from './drafts/drafts.module';
+import { EmbedModule } from './embed/embed.module';
 import { EnvelopesModule } from './envelopes/envelopes.module';
 import { HealthModule } from './health/health.module';
 import { LifecycleModule } from './lifecycle/lifecycle.module';
@@ -55,6 +56,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     AuditModule,
     AlertModule.forRoot('queued'),
     AuthModule,
+    EmbedModule,
     ApiKeysModule,
     EnvelopesModule,
     DraftsModule,

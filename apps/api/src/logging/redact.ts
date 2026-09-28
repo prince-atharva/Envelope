@@ -11,6 +11,11 @@
 export const REDACTED = '[redacted]';
 
 const SENSITIVE_KEYS = [
+  'launchToken',
+  'launchTokenHash',
+  'accessTokenHash',
+  'externalActorId',
+  'EMBED_SESSION_HASH_SECRET',
   'password',
   'passwordHash',
   'currentPassword',
@@ -66,6 +71,7 @@ const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^:/?#\s]+:)[^@/?#\s]+@/gi;
 /** Masks credentials that can appear inside any free-text string. */
 export function scrubSecrets(text: string): string {
   return text
+    .replace(/\b(?:eel_|eea_)[a-f0-9]{64}\b/g, REDACTED)
     .replace(BEARER, `$1 ${REDACTED}`)
     .replace(JWT, REDACTED)
     .replace(SIGNING_PATH, `$1${REDACTED}`)

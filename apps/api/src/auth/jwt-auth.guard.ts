@@ -1,3 +1,4 @@
+import { EMBED_ACCESS_PREFIX } from '@envelope/shared';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService, TokenExpiredError } from '@nestjs/jwt';
@@ -6,6 +7,8 @@ import { ClsService } from 'nestjs-cls';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppException } from '../common/errors/app-exception';
 import type { RequestContext } from '../common/request-context';
+import { EMBED_ALLOWED, type EmbedPermission } from '../embed/embed.decorator';
+import { EmbedSessionService } from '../embed/embed-session.service';
 import { API_KEY_PREFIX, ApiKeyGuard } from './api-key.guard';
 import { IS_PUBLIC_KEY } from './auth.decorators';
 import type { AccessTokenClaims } from './auth.types';
@@ -27,6 +30,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
     private readonly sessions: SessionService,
+    private readonly embedSessions: EmbedSessionService,
     private readonly apiKeys: ApiKeyGuard,
     private readonly cls: ClsService<RequestContext>,
     @InjectPinoLogger(JwtAuthGuard.name) private readonly logger: PinoLogger,
@@ -38,13 +42,47 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
+    if (isPublic) {
+      const authorization = context.switchToHttp().getRequest<Request>().headers.authorization;
+      if (authorization?.startsWith(`Bearer ${EMBED_ACCESS_PREFIX}`))
+        throw new AppException('EMBED_SCOPE_DENIED');
+      return true;
+    }
 
     const req = context.switchToHttp().getRequest<Request>();
     const [scheme, token] = (req.headers.authorization ?? '').split(' ');
     if (scheme !== 'Bearer' || !token) {
       this.logger.debug('Request without a bearer token');
       throw new AppException('UNAUTHENTICATED');
+    }
+
+    if (token.startsWith(EMBED_ACCESS_PREFIX)) {
+      const permission = this.reflector.get<EmbedPermission | undefined>(
+        EMBED_ALLOWED,
+        context.getHandler(),
+      );
+      if (!permission) throw new AppException('EMBED_SCOPE_DENIED');
+      const user = await this.embedSessions.authenticate(token);
+      const embed = user.embed;
+      if (!embed) throw new AppException('EMBED_SCOPE_DENIED');
+      if (permission === 'edit' || permission === 'send') {
+        if (!embed.actions.includes(permission)) throw new AppException('EMBED_SCOPE_DENIED');
+      }
+      if (permission === 'upload' && embed.mode !== 'upload')
+        throw new AppException('EMBED_SCOPE_DENIED');
+      if (['read', 'edit', 'send'].includes(permission)) {
+        if (!embed.envelopeId || req.params.id !== embed.envelopeId)
+          throw new AppException('EMBED_SCOPE_DENIED');
+        if (
+          req.path.endsWith('/file') &&
+          req.query.version !== undefined &&
+          req.query.version !== '0'
+        ) {
+          throw new AppException('EMBED_SCOPE_DENIED');
+        }
+      }
+      req.user = user;
+      return true;
     }
 
     if (token.startsWith(API_KEY_PREFIX)) {

@@ -233,9 +233,37 @@ export class EnvelopesService {
       metadata: { sha256: pdf.sha256, 'envelope-id': envelopeId, version: '0' },
     });
 
+    let boundEnvelopeId: string = envelopeId;
     const originalFilename = displayFilename(upload.originalname);
     try {
       await this.db.$transaction(async (tx) => {
+        if (user.embed) {
+          // Binding and creation commit together; a retry recovers the same draft (ADR 0016).
+          await tx.$executeRaw`SELECT id FROM "EmbedSession" WHERE id = ${user.embed.id}::uuid AND "tenantId" = ${user.tenantId}::uuid FOR UPDATE`;
+          const session = await tx.embedSession.findFirst({
+            where: { id: user.embed.id, tenantId: user.tenantId },
+          });
+          if (!session || session.revokedAt || session.expiresAt <= new Date())
+            throw new AppException('EMBED_SESSION_EXPIRED');
+          const key = await tx.apiKey.findFirst({
+            where: {
+              id: session.apiKeyId,
+              tenantId: user.tenantId,
+              revokedAt: null,
+              readOnly: false,
+            },
+          });
+          const origin = await tx.embedOrigin.findFirst({
+            where: { tenantId: user.tenantId, origin: session.parentOrigin },
+          });
+          if (!key || !origin || session.mode !== 'upload')
+            throw new AppException('EMBED_SCOPE_DENIED');
+          if (session.envelopeId) {
+            boundEnvelopeId = session.envelopeId;
+            return;
+          }
+        }
+
         await tx.envelope.create({
           data: {
             id: envelopeId,
@@ -255,6 +283,12 @@ export class EnvelopesService {
             policyVersion: policy.version,
           },
         });
+        if (user.embed) {
+          await tx.embedSession.updateMany({
+            where: { id: user.embed.id, tenantId: user.tenantId },
+            data: { envelopeId },
+          });
+        }
         await tx.documentVersion.create({
           data: {
             envelopeId,
@@ -306,7 +340,13 @@ export class EnvelopesService {
       },
       'Envelope created',
     );
-    return this.get(envelopeId);
+    if (boundEnvelopeId !== envelopeId) await this.storage.delete(key).catch(() => undefined);
+    if (user.embed)
+      this.logger.info(
+        { embedSessionId: user.embed.id, envelopeId: boundEnvelopeId },
+        'Embedded upload bound',
+      );
+    return this.get(boundEnvelopeId);
   }
 
   /**

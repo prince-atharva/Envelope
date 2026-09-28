@@ -12,6 +12,13 @@ export interface AuthenticatedUser {
   role: UserRole;
   /** Set only when the caller authenticated with an API key, never a JWT (docs/18). */
   apiKeyId?: string;
+  embed?: {
+    id: string;
+    envelopeId: string | null;
+    mode: string;
+    actions: string[];
+    externalActorId: string;
+  };
 }
 
 /** Claims inside the short-lived access token. */

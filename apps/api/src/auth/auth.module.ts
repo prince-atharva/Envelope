@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { AppConfig } from '../config/app-config';
+import { EmbedAuthModule } from '../embed/embed-auth.module';
 import { MailProducerModule } from '../mail/mail.module';
 import { ApiKeyGuard } from './api-key.guard';
 import { AuthController } from './auth.controller';
@@ -17,6 +18,7 @@ const TOKEN_AUDIENCE = 'digitalsign';
 @Module({
   imports: [
     MailProducerModule,
+    EmbedAuthModule,
     JwtModule.registerAsync({
       inject: [AppConfig],
       useFactory: (config: AppConfig) => ({

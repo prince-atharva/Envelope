@@ -17,6 +17,7 @@ import { IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempotency-header
 import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { EmbedAllowed } from '../embed/embed.decorator';
 import { SendingService } from './sending.service';
 
 @ApiTags('sending')
@@ -29,6 +30,7 @@ export class SendingController {
   ) {}
 
   @Post(':id/send')
+  @EmbedAllowed('send')
   @HttpCode(200)
   @ApiKeyAllowed({ write: true })
   @RateLimit(LIMITS.createAndSend)

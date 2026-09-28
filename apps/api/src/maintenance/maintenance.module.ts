@@ -3,6 +3,7 @@ import { MailProducerModule } from '../mail/mail.module';
 import { WebhookProducerModule } from '../webhooks/webhooks.module';
 import { AuditChainCheckService } from './audit-chain-check.service';
 import { AutoReminderService } from './auto-reminder.service';
+import { EmbedSessionPurgeService } from './embed-session-purge.service';
 import { ExpirySweepService } from './expiry-sweep.service';
 import { MaintenanceProcessor } from './maintenance.processor';
 import { MaintenanceScheduler } from './maintenance.scheduler';
@@ -22,6 +23,7 @@ import { WebhookDeliveryPurgeService } from './webhook-delivery-purge.service';
     SessionCleanupService,
     RetentionService,
     WebhookDeliveryPurgeService,
+    EmbedSessionPurgeService,
   ],
   exports: [
     ExpirySweepService,
@@ -30,6 +32,7 @@ import { WebhookDeliveryPurgeService } from './webhook-delivery-purge.service';
     SessionCleanupService,
     RetentionService,
     WebhookDeliveryPurgeService,
+    EmbedSessionPurgeService,
   ],
 })
 export class MaintenanceWorkerModule {}
