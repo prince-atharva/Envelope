@@ -2,7 +2,9 @@ import { randomBytes } from 'node:crypto';
 import type {
   CreateWebhookEndpointInput,
   CreateWebhookEndpointResponse,
+  ListWebhookDeliveriesPageQuery,
   UpdateWebhookEndpointInput,
+  WebhookDeliveryPage,
   WebhookDeliverySummary,
   WebhookEndpointSummary,
   WebhookEventType,
@@ -25,6 +27,25 @@ const DEFAULT_DELIVERIES_LIMIT = 50;
 const MAX_DELIVERIES_LIMIT = 100;
 /** "Failed deliveries are retained 7 days" (docs/08, "Delivery"). */
 const REDRIVABLE_WINDOW_MS = 7 * 24 * 3600 * 1000;
+
+interface DeliveryCursor {
+  createdAt: Date;
+  id: string;
+}
+
+/** Same idiom as envelopes.service.ts's own cursor (docs/18 workstream 8 step 8.4). */
+function encodeDeliveryCursor(delivery: Pick<WebhookDelivery, 'createdAt' | 'id'>): string {
+  return Buffer.from(`${delivery.createdAt.toISOString()}|${delivery.id}`).toString('base64url');
+}
+
+function decodeDeliveryCursor(cursor: string): DeliveryCursor {
+  const [timestamp, id] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+  const createdAt = new Date(timestamp ?? '');
+  if (!id || Number.isNaN(createdAt.getTime())) {
+    throw new AppException('BAD_REQUEST', 'The page cursor is invalid.');
+  }
+  return { createdAt, id };
+}
 
 function toEndpointSummary(endpoint: WebhookEndpoint): WebhookEndpointSummary {
   return {
@@ -203,6 +224,52 @@ export class WebhooksService {
       where: { id: delivery.id },
     });
     return toDeliverySummary(refreshed);
+  }
+
+  /**
+   * Tenant-wide, filterable delivery browsing (docs/18 workstream 8 step
+   * 8.4), alongside the existing per-endpoint `listDeliveries` above, which
+   * is kept — this route is additive, not a replacement.
+   */
+  async listDeliveriesPage(
+    actor: AuthenticatedUser,
+    query: ListWebhookDeliveriesPageQuery,
+  ): Promise<WebhookDeliveryPage> {
+    const cursor = query.cursor ? decodeDeliveryCursor(query.cursor) : undefined;
+    const rows = await this.prisma.webhookDelivery.findMany({
+      where: {
+        tenantId: actor.tenantId,
+        ...(query.endpointId ? { webhookEndpointId: query.endpointId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.eventType ? { eventType: query.eventType } : {}),
+        ...(query.eventId ? { eventId: query.eventId } : {}),
+        ...(query.envelopeId ? { envelopeId: query.envelopeId } : {}),
+        ...(cursor
+          ? {
+              OR: [
+                { createdAt: { lt: cursor.createdAt } },
+                { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    const page = rows.slice(0, query.limit);
+    const last = page.at(-1);
+    return {
+      items: page.map(toDeliverySummary),
+      nextCursor: rows.length > query.limit && last ? encodeDeliveryCursor(last) : null,
+    };
+  }
+
+  async getDelivery(id: string, actor: AuthenticatedUser): Promise<WebhookDeliverySummary> {
+    const delivery = await this.prisma.webhookDelivery.findFirst({
+      where: { id, tenantId: actor.tenantId },
+    });
+    if (!delivery) throw new AppException('NOT_FOUND', 'Webhook delivery not found.');
+    return toDeliverySummary(delivery);
   }
 
   private async findInTenant(id: string, tenantId: string): Promise<WebhookEndpoint> {

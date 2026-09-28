@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Built through per-key embedded origins (workstream 7). Foundation shipped as `v0.7.0`. Steps 8.1–8.3 are implemented with verification in progress; steps 8.4–8.5 and workstreams 9–13 remain planned; release remains workstream 14 |
+| **Status** | Built through workstream 7 and webhook contract/reliability steps 8.1–8.4 (workstream 8). Foundation shipped as `v0.7.0`. Step 8.5 and workstreams 9–13 remain planned; release remains workstream 14 |
 | **Version** | 1.2.0 |
 | **Last updated** | 28 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -136,7 +136,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 5 | Existing integration verification and documentation | ✅ Verified | Historical verification record below |
 | 6 | Embedded sender editor, SDK and HealthProHub guide | ✅ Built and verified | Steps 6.1–6.6 below |
 | 7 | Per-key embedded origins, plus a member ownership-scope fix | ✅ Built | Steps 7.0–7.4; ADR 0017 |
-| 8 | Webhook reliability and event contract v1 | Accepted; planned | Steps 8.1–8.5; ADR 0018 |
+| 8 | Webhook reliability and event contract v1 | Steps 8.1–8.4 ✅ Built; 8.5 planned | Steps 8.1–8.5; ADR 0018 |
 | 9 | Webhook endpoint lifecycle tooling | Accepted; planned | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | Accepted; planned | Steps 10.1–10.5; ADR 0019 |
 | 11 | API-key lifecycle, downloads and limits | Accepted; planned | Steps 11.1–11.5 |
@@ -1006,10 +1006,10 @@ stored `payload->'data'->>'envelopeId'`.
 | 8.1 | Shared event/header/query contracts, `envelopeId` migration and backfill, web event label | Contract and migration tests | Implemented; verification pending |
 | 8.2 | Fix `WEBHOOK_MAX_ATTEMPTS` to 7, stop resetting `attempts` on redrive, write `nextAttemptAt`, add delivery headers and `User-Agent` | `webhook-retry-schedule.test.ts`; corrected `webhook-delivery.e2e.test.ts` expectations (7 attempts; redrive keeps counting; headers present) | Implemented; verification pending |
 | 8.3 | Richer, additive per-event payloads including the `recipient.signed` fix and `envelope.extended` | `webhook-events.e2e.test.ts` parses every payload against the shared schemas | Implemented; verification pending |
-| 8.4 | `GET /webhooks/deliveries`, `GET /webhooks/deliveries/:id`, `POST /webhooks/deliveries/:id/retry` (session ADMIN/OWNER only); old per-endpoint routes kept, documented as deprecated | API e2e: paging, each filter, cross-tenant 404, API-key and MEMBER 403 | Planned |
+| 8.4 | `GET /webhooks/deliveries`, `GET /webhooks/deliveries/:id`, `POST /webhooks/deliveries/:id/retry` (session ADMIN/OWNER only); old per-endpoint routes kept, documented as deprecated | API e2e: paging, each filter, cross-tenant 404, API-key and MEMBER 403 | ✅ Built |
 | 8.5 | Web: deliveries dialog gains filters, Load more, event-id copy, envelope id, attempt/next-retry display; guide and docs/08 As-built note | Component and browser tests; gallery | Planned |
 
-#### Implementation record (steps 8.1–8.3, 28 September 2026)
+#### Implementation record (steps 8.1–8.4, 28 September 2026)
 
 The current build adds event/query/header contracts, delivery envelope indexes and backfill,
 seven total delivery attempts, lifetime counts across redrive, retry timestamps and delivery
@@ -1024,39 +1024,51 @@ Regression coverage validates every fired event against the shared schema, check
 and consent do not duplicate events, checks one and two signer counts, and verifies extension
 idempotency. The migration test shadows the delivery table with a temporary table and rolls back
 all fixture and migration changes. The backfill leaves malformed historical envelope IDs null
-without changing their stored payloads. Steps 8.4–8.5 remain planned. Independent snapshot checks and commit references
-will be recorded here after they complete.
+without changing their stored payloads.
 
-Verification of the complete implementation:
+Step 8.4 adds `GET /webhooks/deliveries` (tenant-wide, filterable by endpoint, status, event type,
+event id and envelope id, paged with the same `(createdAt, id)` cursor idiom `envelopes.service.ts`
+already uses), `GET /webhooks/deliveries/:id`, and `POST /webhooks/deliveries/:id/retry` as a
+clearer-named alias for the existing per-delivery redrive. The two existing per-endpoint routes
+(`GET /webhooks/:id/deliveries`, `POST /webhooks/:id/redrive`) are kept and marked `deprecated` in
+the served OpenAPI document; nothing about their behavior changes. `envelope.completed`'s
+`completedAt` now comes from the transaction's own committed value, not a second clock read after
+it — the two could previously disagree by however long sealing's transaction took to commit.
+
+Verification of the complete implementation (steps 8.1–8.4), rerun cleanly after step 8.4 was added:
 
 | Check | Result |
 |---|---|
 | `pnpm lint` | Passed |
-| `pnpm typecheck` | Existing shared `jurisdiction.test.ts` strict-undefined failures at lines 48–51 and 81–84; API, web and embed typechecks passed separately, and the shared production build passed |
+| `pnpm typecheck` | Existing shared `jurisdiction.test.ts` strict-undefined failures only; API, web, embed typechecks and the shared production build passed separately |
 | `pnpm test` | 472 passed: shared 116, API 173, web 179, embed 4 |
-| API e2e, Node 22.19.0, `ENV_FILE=none` | 248 passed across 36 files on the complete rerun |
-| Browser e2e, desktop-chrome, isolated stack | 35 passed on the complete rerun; tracing enabled |
-| Targeted webhook e2e | 14 passed across events, delivery and migration suites |
+| API e2e, Node 22.19.0 | 251 passed across 36 files |
+| Browser e2e, desktop-chrome, isolated stack | 35 passed (rerun after the sealing.service.ts fix; step 8.4 does not touch apps/web) |
+| Targeted webhook e2e (events, delivery, migration, endpoints, browsing) | 31 passed |
+| Every step's own tree (8.1, 8.2, 8.3, 8.4) | Independently rebuilt and typechecked/linted/unit-tested in a scratch worktree; each builds on its own |
 
-The initial browser migration failed on a legacy `browser-fixture` envelope ID. The guarded
-backfill now preserves that payload and leaves its new column null; the partially applied migration
-was completed forward only in `digitalsign_browser_test`, without resetting a database. The first
-API run found a new test-helper mistake: after explicitly recording consent, the test attempted
-consent again using a session that no longer supplies a notice hash. The test now continues with
-adoption and submission directly after its consent assertions.
-
-The first browser run then reached the error boundary during the approver test's registration.
-That test passed in isolation and the full rerun passed all 35 tests; the original rendering
-error's root cause was not established, so it is recorded as an unresolved initial-run issue,
-not dismissed as a confirmed flake. Snapshot unit checks initially exceeded unchanged five-second
-limits while overlapping both e2e suites on a heavily loaded host. The affected PDF-sealing and
-integration-guide suites passed in isolation (19 and 5 tests respectively); snapshot verification
-is run with packages sequential and at most two unit-test workers. No assertions or timeouts
-were weakened.
+Two flakes were investigated and are recorded, not dismissed:
+- Running `webhooks.e2e.test.ts`'s new delivery-browsing test required its own dedicated app and
+  worker instance (`WEBHOOK_ALLOW_INSECURE_LOCAL_URLS` is read once at boot, and the file's shared
+  instance must keep rejecting loopback URLs for its own existing rejection test) — it initially
+  timed out waiting on the default 10s budget under load from adjacent e2e files in the same run;
+  raised to 15s, matching the same budget `webhook-delivery.e2e.test.ts`'s own worker-dependent
+  wait already uses, and confirmed stable across repeated runs both alone and alongside its sibling
+  webhook files.
+- One `ECONNRESET` on `sealing.e2e.test.ts`'s concurrent-signers test appeared during a run that
+  briefly overlapped with another e2e invocation on the same host; it passed cleanly, repeatedly,
+  once runs were no longer overlapping, and is unrelated to any file this workstream changed.
 
 Correcting `webhook-delivery.e2e.test.ts`'s attempt-count assertions (6 → 7) makes the test match
 the schedule this system has always documented; it is a fix to match the documented contract, not
 a weakening. No existing assertion is deleted or loosened.
+
+| Step | Commit |
+|---|---|
+| 8.1 | (recorded after commit) |
+| 8.2 | (recorded after commit) |
+| 8.3 | (recorded after commit) |
+| 8.4 | (recorded after commit) |
 
 ### Deliberate Simplifications
 

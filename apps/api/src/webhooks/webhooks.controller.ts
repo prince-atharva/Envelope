@@ -2,10 +2,13 @@ import {
   type CreateWebhookEndpointInput,
   type CreateWebhookEndpointResponse,
   createWebhookEndpointSchema,
+  type ListWebhookDeliveriesPageQuery,
   type ListWebhookDeliveriesQuery,
+  listWebhookDeliveriesPageQuerySchema,
   listWebhookDeliveriesQuerySchema,
   type UpdateWebhookEndpointInput,
   updateWebhookEndpointSchema,
+  type WebhookDeliveryPage,
   type WebhookDeliverySummary,
   type WebhookEndpointSummary,
 } from '@envelope/shared';
@@ -82,6 +85,9 @@ export class WebhooksController {
   @ApiOperation({
     summary:
       'Redrive a failed or exhausted delivery. NOTE: :id is a delivery id here, not an endpoint id (docs/08)',
+    deprecated: true,
+    description:
+      'Deprecated: use POST /webhooks/deliveries/:id/retry instead (docs/18 workstream 8 step 8.4). Kept for existing callers.',
   })
   redrive(
     @Param('id', UuidParamPipe) deliveryId: string,
@@ -90,9 +96,52 @@ export class WebhooksController {
     return this.webhooks.redriveDelivery(deliveryId, user);
   }
 
+  @Get('deliveries')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Recent delivery attempts across every endpoint, newest first, filterable and paged',
+  })
+  listDeliveriesPage(
+    @Query(new ZodValidationPipe(listWebhookDeliveriesPageQuerySchema))
+    query: ListWebhookDeliveriesPageQuery,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WebhookDeliveryPage> {
+    return this.webhooks.listDeliveriesPage(user, query);
+  }
+
+  @Get('deliveries/:id')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'One delivery attempt, by delivery id' })
+  getDelivery(
+    @Param('id', UuidParamPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WebhookDeliverySummary> {
+    return this.webhooks.getDelivery(id, user);
+  }
+
+  @Post('deliveries/:id/retry')
+  @Roles('ADMIN')
+  @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({
+    summary:
+      'Retry a failed or exhausted delivery (an alias for POST /webhooks/:id/redrive, with a clearer id)',
+  })
+  retryDelivery(
+    @Param('id', UuidParamPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WebhookDeliverySummary> {
+    return this.webhooks.redriveDelivery(id, user);
+  }
+
   @Get(':id/deliveries')
   @Roles('ADMIN')
-  @ApiOperation({ summary: 'Recent delivery attempts for one endpoint, newest first' })
+  @ApiOperation({
+    summary: 'Recent delivery attempts for one endpoint, newest first',
+    deprecated: true,
+    description:
+      'Deprecated: use GET /webhooks/deliveries?endpointId=:id instead (docs/18 workstream 8 step 8.4), which adds filtering and paging. Kept for existing callers.',
+  })
   @ApiQuery({
     name: 'limit',
     required: false,

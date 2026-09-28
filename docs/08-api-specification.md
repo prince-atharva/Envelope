@@ -673,6 +673,14 @@ Failed deliveries are retained 7 days and redrivable via `POST /v1/webhooks/:id/
 > than deleting the row (its delivery history is kept); every event except `envelope.delivered`
 > (see "Events" above) fires and delivers exactly as specified.
 
+> **As built (Phase 7, docs/18 step 8.4).** `GET /v1/webhooks/deliveries` browses every delivery
+> across the tenant's endpoints, newest first, filterable by `endpointId`, `status`, `eventType`,
+> `eventId` and `envelopeId`, and paged with an opaque cursor (`limit` 1–100, default 50).
+> `GET /v1/webhooks/deliveries/:id` reads one. `POST /v1/webhooks/deliveries/:id/retry` is a
+> clearer-named alias for the existing per-delivery redrive above. All three are session ADMIN/OWNER
+> only, like every other webhook management route. `GET /v1/webhooks/:id/deliveries` and
+> `POST /v1/webhooks/:id/redrive` are kept and marked deprecated, not removed.
+
 ## Errors
 
 RFC 7807:

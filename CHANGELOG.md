@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Richer webhook event payloads (Phase 7, docs/18 steps 8.1–8.3).** Events include the contract version and envelope title, viewing and consent include the current envelope status, and signing includes whether all signatures are collected and how many remain. Sender cancellations include their reason; recipient decline reasons stay private. `envelope.extended` reports deadline changes and reopening. Delivery records gain an indexed envelope identifier.
 
+- **Tenant-wide webhook delivery browsing (Phase 7, docs/18 step 8.4).** `GET /webhooks/deliveries` lists every delivery across a tenant's endpoints, newest first, filterable by endpoint, status, event type, event id and envelope id, and paged. `GET /webhooks/deliveries/:id` reads one; `POST /webhooks/deliveries/:id/retry` retries it. The existing per-endpoint routes are kept, marked deprecated in the served API documentation.
+
 - **HealthProHub embedded sender editor.** Open an API-uploaded draft or upload inside an iframe, add recipients, place PDF fields, save and send through the existing editor. One-time launch credentials and in-memory, one-envelope sessions enforce exact parent origins, actions, expiry and revocation. Includes the private ESM `@envelope/embed` SDK, origin management, copyable HealthProHub/direct-iframe guidance and an isolated partner host example. Recipient signing remains hosted.
 
 - **Integration guide in Settings.** A quick start walks through API-key creation, PDF upload, recipients, signing fields and sending. Search all 12 API-key operations with copyable cURL requests and response examples; learn the eight webhook events, raw-body signature verification, durable duplicate handling, acknowledgement and troubleshooting. Examples use placeholders and preserve existing credential-management controls (Phase 7, docs/18).
@@ -25,6 +27,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Integration settings now group API keys and webhooks into consistent panels, with clearer metadata, status badges, larger actions and polished event-selection and delivery dialogs. Responsive and keyboard checks cover long content and focus restoration (Phase 7, docs/18).
 - Settings is now available to Admins as well as Owners. Admins can manage integrations; workspace user management remains Owner-only.
 - **Embedded editor origins are now per API key, not tenant-wide.** Creating a full API key can set its own embedded-editor origins (up to 10 exact HTTPS origins); a read-only key can't have any. An Admin or Owner edits a key's origins from its row in Settings → Integrations, with a confirmation step before removing one, since that ends its live editor sessions immediately. The former workspace-wide origin panel and its `GET`/`PUT /embed/origins` routes are removed — two keys in one tenant now have fully independent iframe permissions (Phase 7, docs/18 workstream 7, ADR 0017).
+
+### Fixed
+
+- The `recipient.signed` webhook always reported the envelope as `PARTIALLY_SIGNED`, even on the last signature — it now reads the envelope's real status within the same transaction and adds `allSigned`/`remainingSigners`, so a partner can tell the last signature landed without a follow-up API call (Phase 7, docs/18 step 8.3).
+- The documented 12-hour webhook retry never ran: the queue was configured for one fewer attempt than the retry schedule has entries. All 6 documented delays now run, over 7 total attempts (Phase 7, docs/18 step 8.2).
+- `envelope.completed`'s `completedAt` could differ from the value actually stored on the envelope, since it read the clock a second time after the sealing transaction committed. It now reports the transaction's own committed value (Phase 7, docs/18 step 8.3).
 
 ### Security
 
