@@ -32,12 +32,36 @@ export default defineConfig(() => {
   const proxy = { '/api': { target: apiTarget, xfwd: true } };
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'envelope-frame-denial',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (!req.url?.startsWith('/api/')) {
+              res.setHeader('X-Frame-Options', 'DENY');
+              res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+            }
+            next();
+          });
+        },
+        configurePreviewServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (!req.url?.startsWith('/api/')) {
+              res.setHeader('X-Frame-Options', 'DENY');
+              res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+            }
+            next();
+          });
+        },
+      },
+    ],
     // The web app uses no VITE_ variables, so no .env file is loaded for it.
     envDir: false as const,
     resolve: { alias: { '@envelope/shared': sharedSource } },
     server: { host, port, strictPort: true, proxy },
     preview: { host, port, strictPort: true, proxy },
-    build: { sourcemap: true, target: 'es2022' },
+    build: { manifest: true, sourcemap: true, target: 'es2022' },
   };
 });

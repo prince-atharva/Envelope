@@ -21,9 +21,10 @@ import {
 } from '../components/ui/icons';
 import { ReviewPageSkeleton } from '../components/ui/Skeletons';
 import { recipientColor } from '../features/builder/recipient-colors';
+import { useEditorRuntime } from '../features/embed/editor-runtime';
 import { summariseSend } from '../features/sending/progress';
 import { SendDialog } from '../features/sending/SendDialog';
-import { api } from '../lib/api';
+
 import { describeError } from '../lib/errors';
 import { formatBytes, formatDateTime } from '../lib/format';
 import { countFields, describeSigningOrder, roleNoun } from '../lib/labels';
@@ -59,6 +60,8 @@ function summariseFields(fields: FieldInfo[]): { key: string; text: string }[] {
  * says who is emailed now and who later, and only that dialog sends.
  */
 export function ReviewPage() {
+  const runtime = useEditorRuntime();
+  const api = runtime.api;
   const { id = '' } = useParams<{ id: string }>();
   const [sending, setSending] = useState(false);
 
@@ -82,7 +85,7 @@ export function ReviewPage() {
   if (!envelope) return <Alert>This document could not be found.</Alert>;
 
   // Sent already: there is nothing left to review.
-  if (envelope.status !== 'DRAFT') return <Navigate to={`/dashboard/envelopes/${id}`} replace />;
+  if (envelope.status !== 'DRAFT') return <Navigate to={runtime.detail(id)} replace />;
 
   const issues = checkReadyToSend(envelope);
   const ready = issues.length === 0;
@@ -111,7 +114,7 @@ export function ReviewPage() {
           {/* Back link */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <Link
-              to={`/dashboard/envelopes/${envelope.id}/prepare`}
+              to={runtime.prepare(envelope.id)}
               className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-800 transition-colors"
             >
               <svg
@@ -161,7 +164,7 @@ export function ReviewPage() {
           )}
 
           <ButtonLink
-            to={`/dashboard/envelopes/${envelope.id}/prepare`}
+            to={runtime.prepare(envelope.id)}
             variant="secondary"
             className="text-xs py-2 px-3.5 shadow-2xs"
           >
@@ -169,7 +172,7 @@ export function ReviewPage() {
           </ButtonLink>
 
           <Button
-            disabled={!ready}
+            disabled={!ready || !runtime.canSend}
             onClick={() => setSending(true)}
             variant="primary"
             className="text-xs py-2 px-4 shadow-2xs inline-flex items-center gap-1.5 font-bold"
@@ -225,7 +228,7 @@ export function ReviewPage() {
           </ul>
           <div className="pt-1">
             <ButtonLink
-              to={`/dashboard/envelopes/${envelope.id}/prepare`}
+              to={runtime.prepare(envelope.id)}
               variant="secondary"
               className="text-xs py-1.5 px-3 bg-white"
             >

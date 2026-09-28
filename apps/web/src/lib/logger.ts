@@ -21,7 +21,9 @@ const SIGNING_PATH = /(\/sign\/)[^/?#\s"':)]+/gi;
  * keeps the token from leaving the browser at all.
  */
 export function redactSigningLinks(text: string): string {
-  return text.replace(SIGNING_PATH, '$1[redacted]');
+  return text
+    .replace(SIGNING_PATH, '$1[redacted]')
+    .replace(/\b(?:eel_|eea_)[a-f0-9]{64}\b/g, '[redacted]');
 }
 
 /**

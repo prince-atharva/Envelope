@@ -1,11 +1,12 @@
 import { DOCUMENT_CATEGORIES, MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { type DragEvent, type FormEvent, useId, useState } from 'react';
+import { type DragEvent, type FormEvent, useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { TextField } from '../components/ui/Field';
-import { api } from '../lib/api';
+import { useEditorRuntime } from '../features/embed/editor-runtime';
+
 import { describeError } from '../lib/errors';
 import { formatBytes } from '../lib/format';
 import { DOCUMENT_CATEGORY_LABEL } from '../lib/labels';
@@ -31,6 +32,8 @@ function titleFromFileName(name: string): string {
 type Phase = 'idle' | 'uploading' | 'processing';
 
 export function NewEnvelopePage() {
+  const runtime = useEditorRuntime();
+  const api = runtime.api;
   useDocumentTitle('Upload document');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -44,6 +47,11 @@ export function NewEnvelopePage() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<{ message: string; reference?: string } | null>(null);
+
+  useEffect(
+    () => runtime.registerClose?.(async () => (phase === 'idle' ? true : 'busy')),
+    [runtime, phase],
+  );
 
   async function choose(candidate: File | undefined) {
     if (!candidate) return;
@@ -84,7 +92,8 @@ export function NewEnvelopePage() {
         },
       );
       await queryClient.invalidateQueries({ queryKey: ['envelopes'] });
-      await navigate(`/dashboard/envelopes/${envelope.id}`);
+      runtime.uploaded?.(envelope.id);
+      await navigate(runtime.embedded ? runtime.prepare(envelope.id) : runtime.detail(envelope.id));
     } catch (caught) {
       setError(describeError(caught));
       setPhase('idle');
@@ -225,9 +234,15 @@ export function NewEnvelopePage() {
         )}
 
         <div className="flex flex-wrap justify-end gap-3">
-          <ButtonLink to="/dashboard" variant="secondary">
-            Cancel
-          </ButtonLink>
+          {runtime.embedded ? (
+            <Button variant="secondary" onClick={runtime.close}>
+              Cancel
+            </Button>
+          ) : (
+            <ButtonLink to="/dashboard" variant="secondary">
+              Cancel
+            </ButtonLink>
+          )}
           <Button type="submit" loading={busy} disabled={!file}>
             Upload document
           </Button>

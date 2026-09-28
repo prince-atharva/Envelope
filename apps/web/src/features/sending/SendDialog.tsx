@@ -5,16 +5,17 @@ import {
   MAX_MESSAGE_LENGTH,
 } from '@envelope/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { DialogShell } from '../../components/ui/DialogShell';
-import { ApiError, api } from '../../lib/api';
+import { ApiError } from '../../lib/api';
 import { describeError } from '../../lib/errors';
 import { formatDate } from '../../lib/format';
 import { names } from '../../lib/labels';
 import { queryKeys } from '../../lib/query-keys';
+import { useEditorRuntime } from '../embed/editor-runtime';
 import { summariseSend } from './progress';
 import { ReminderChoice } from './ReminderChoice';
 
@@ -42,6 +43,8 @@ export function SendDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const runtime = useEditorRuntime();
+  const api = runtime.api;
   const keyRef = useRef<string>(crypto.randomUUID());
   const [expiresInDays, setExpiresInDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [message, setMessage] = useState(envelope.message ?? '');
@@ -68,10 +71,14 @@ export function SendDialog({
         keyRef.current,
       ),
     onSuccess: async () => {
+      if (runtime.embedded) {
+        runtime.sent?.(envelope.id);
+        return;
+      }
       // Navigate before refreshing: the review page redirects on its own as
       // soon as it sees the envelope is sent, and that redirect has no banner.
       const state: SentState = { sentTo: names(summary.now.map((person) => person.name)) };
-      await navigate(`/dashboard/envelopes/${envelope.id}`, { replace: true, state });
+      await navigate(runtime.detail(envelope.id), { replace: true, state });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.envelope(envelope.id) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.envelopes }),
@@ -81,10 +88,15 @@ export function SendDialog({
       // Sent already, perhaps by a first attempt whose answer never arrived.
       if (error instanceof ApiError && error.code === 'ENVELOPE_NOT_DRAFT') {
         await queryClient.invalidateQueries({ queryKey: queryKeys.envelope(envelope.id) });
-        await navigate(`/dashboard/envelopes/${envelope.id}`, { replace: true });
+        await navigate(runtime.detail(envelope.id), { replace: true });
       }
     },
   });
+
+  useEffect(
+    () => runtime.registerClose?.(async () => (mutation.isPending ? 'busy' : true)),
+    [runtime, mutation.isPending],
+  );
 
   const failure = mutation.error ? describeError(mutation.error) : null;
 

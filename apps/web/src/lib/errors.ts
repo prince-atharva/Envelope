@@ -3,6 +3,9 @@ import { ApiError } from './api';
 import { formatBytes } from './format';
 
 const MESSAGES: Partial<Record<ErrorCode, string>> = {
+  EMBED_SESSION_EXPIRED: 'Your editor session ended. Reopen the document from HealthProHub.',
+  EMBED_SESSION_INVALID: 'This editor session is no longer available. Reopen it from HealthProHub.',
+  EMBED_SCOPE_DENIED: 'This editor session does not allow that action.',
   INVALID_CREDENTIALS: 'That email and password do not match.',
   EMAIL_ALREADY_REGISTERED: 'An account with this email already exists. Try signing in instead.',
   SESSION_EXPIRED: 'Your session has ended. Please sign in again.',

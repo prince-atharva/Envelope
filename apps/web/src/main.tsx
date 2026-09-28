@@ -21,6 +21,7 @@ const VerifyPage = lazy(() => import('./features/verify/VerifyPage'));
 // A tenant invitation and a completion download link are both public, token-only pages.
 const AcceptInvitePage = lazy(() => import('./features/invite/AcceptInvitePage'));
 const DownloadPage = lazy(() => import('./features/download/DownloadPage'));
+const EmbeddedApp = lazy(() => import('./features/embed/EmbeddedApp'));
 const SenderApp = lazy(() => import('./SenderApp'));
 
 const queryClient = new QueryClient({
@@ -41,20 +42,26 @@ createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
-        <BrowserRouter>
-          <ScrollToTop />
-          {/* Neutral on purpose: this also covers the signer's and Verify's
-              chunks, and a signer must never see the sender app's frame. */}
+        {window.location.pathname.startsWith('/api/v1/embed/frame/') ? (
           <Suspense fallback={<TopProgressBar />}>
-            <Routes>
-              <Route path="/sign/:token" element={<SigningPage />} />
-              <Route path="/verify" element={<VerifyPage />} />
-              <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
-              <Route path="/download/:token" element={<DownloadPage />} />
-              <Route path="*" element={<SenderApp />} />
-            </Routes>
+            <EmbeddedApp />
           </Suspense>
-        </BrowserRouter>
+        ) : (
+          <BrowserRouter>
+            <ScrollToTop />
+            {/* Neutral on purpose: this also covers the signer's and Verify's
+              chunks, and a signer must never see the sender app's frame. */}
+            <Suspense fallback={<TopProgressBar />}>
+              <Routes>
+                <Route path="/sign/:token" element={<SigningPage />} />
+                <Route path="/verify" element={<VerifyPage />} />
+                <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
+                <Route path="/download/:token" element={<DownloadPage />} />
+                <Route path="*" element={<SenderApp />} />
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        )}
       </ErrorBoundary>
     </QueryClientProvider>
   </StrictMode>,

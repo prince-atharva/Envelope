@@ -10,7 +10,7 @@ import {
 } from '@envelope/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { type PageRenderInfo, PdfViewer, type PdfViewerHandle } from '../components/pdf/PdfViewer';
 import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
@@ -24,7 +24,8 @@ import { FieldPalette } from '../features/builder/FieldPalette';
 import { RecipientPanel } from '../features/builder/RecipientPanel';
 import { moveRecipient, toggleGroupedWithPrevious } from '../features/builder/recipient-order';
 import { useAutosave } from '../features/builder/useAutosave';
-import { api } from '../lib/api';
+import { useEditorRuntime } from '../features/embed/editor-runtime';
+
 import { describeError } from '../lib/errors';
 import { FIELD_LABEL, roleNoun } from '../lib/labels';
 import { queryKeys } from '../lib/query-keys';
@@ -44,6 +45,9 @@ const SAVE_LABEL: Record<string, string> = {
 };
 
 export function PreparePage() {
+  const runtime = useEditorRuntime();
+  const api = runtime.api;
+  const navigate = useNavigate();
   const { id = '' } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const viewerRef = useRef<PdfViewerHandle>(null);
@@ -135,11 +139,17 @@ export function PreparePage() {
     async (run: () => Promise<unknown>) => {
       // Field edits are saved first: a recipient change bumps the draft
       // revision, which would otherwise make the pending layout save stale.
-      if (state.dirty) await autosave.saveNow(state.fields);
+      if (state.dirty && !(await autosave.saveNow(state.fields))) return;
       await recipientMutation.mutateAsync(run);
     },
     [autosave, recipientMutation, state.dirty, state.fields],
   );
+
+  const persistBeforeLeaving = useCallback(async () => {
+    if (recipientMutation.isPending) return false;
+    return !state.dirty || (await autosave.saveNow(state.fields));
+  }, [recipientMutation.isPending, state.dirty, state.fields, autosave.saveNow]);
+  useEffect(() => runtime.registerClose?.(persistBeforeLeaving), [runtime, persistBeforeLeaving]);
 
   const fieldCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -260,7 +270,7 @@ export function PreparePage() {
 
   // Sent already: fields can no longer change, so show the progress instead.
   if (envelope.status !== 'DRAFT') {
-    return <Navigate to={`/dashboard/envelopes/${envelope.id}`} replace />;
+    return <Navigate to={runtime.detail(envelope.id)} replace />;
   }
 
   const selectedField = state.fields.find((field) => field.id === state.selection[0]);
@@ -275,22 +285,24 @@ export function PreparePage() {
         <div className="min-w-0 flex-1 space-y-1.5">
           {/* Back link */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-            <Link
-              to={`/dashboard/envelopes/${envelope.id}`}
-              className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-800 transition-colors"
-            >
-              <svg
-                className="h-3.5 w-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
+            {!runtime.embedded && (
+              <Link
+                to={runtime.detail(envelope.id)}
+                className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-800 transition-colors"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              <span>Back to document details</span>
-            </Link>
+                <svg
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span>Back to document details</span>
+              </Link>
+            )}
           </div>
 
           {/* Title, Step Badge & Metadata */}
@@ -345,23 +357,44 @@ export function PreparePage() {
             )}
           </div>
 
-          <ButtonLink
-            to={`/dashboard/envelopes/${envelope.id}`}
-            variant="secondary"
-            size="sm"
-            className="shadow-2xs"
-          >
-            Save and exit
-          </ButtonLink>
+          {runtime.embedded ? (
+            <Button
+              variant="secondary"
+              onClick={runtime.close}
+              disabled={recipientMutation.isPending}
+            >
+              Save and exit
+            </Button>
+          ) : (
+            <ButtonLink
+              to={runtime.detail(envelope.id)}
+              variant="secondary"
+              size="sm"
+              className="shadow-2xs"
+            >
+              Save and exit
+            </ButtonLink>
+          )}
 
-          <ButtonLink
-            to={`/dashboard/envelopes/${envelope.id}/review`}
-            variant="primary"
-            className="text-xs py-2 px-4 shadow-2xs inline-flex items-center gap-1.5"
-          >
-            <span>Continue to review</span>
-            <ArrowRightIcon className="h-4 w-4" />
-          </ButtonLink>
+          {runtime.embedded ? (
+            <Button
+              disabled={!runtime.canSend || !readyToSend || recipientMutation.isPending}
+              onClick={async () => {
+                if (await persistBeforeLeaving()) await navigate(runtime.review(envelope.id));
+              }}
+            >
+              Review and send <ArrowRightIcon className="h-4 w-4" />
+            </Button>
+          ) : (
+            <ButtonLink
+              to={runtime.review(envelope.id)}
+              variant="primary"
+              className="text-xs py-2 px-4 shadow-2xs inline-flex items-center gap-1.5"
+            >
+              <span>Continue to review</span>
+              <ArrowRightIcon className="h-4 w-4" />
+            </ButtonLink>
+          )}
         </div>
       </div>
 

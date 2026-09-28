@@ -1,6 +1,7 @@
 import type { FieldInfo } from '@envelope/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, api } from '../../lib/api';
+import { ApiError } from '../../lib/api';
+import { useEditorRuntime } from '../embed/editor-runtime';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
 
@@ -19,44 +20,57 @@ export function useAutosave(
   revision: number,
   onSaved: (fields: FieldInfo[], revision: number) => void,
 ) {
+  const runtime = useEditorRuntime();
+  const api = runtime.api;
   const [state, setState] = useState<SaveState>('idle');
   const revisionRef = useRef(revision);
   const pendingRef = useRef<FieldInfo[] | null>(null);
-  const inFlightRef = useRef(false);
+  const inFlightRef = useRef<Promise<boolean> | null>(null);
+  const mountedRef = useRef(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     revisionRef.current = revision;
   }, [revision]);
 
-  const flush = useCallback(async () => {
-    if (inFlightRef.current) return;
-    const fields = pendingRef.current;
-    if (!fields) return;
-
-    pendingRef.current = null;
-    inFlightRef.current = true;
-    setState('saving');
-
-    try {
-      const result = await api.saveFields(envelopeId, fields, revisionRef.current);
-      revisionRef.current = result.draftRevision;
-      onSaved(result.fields, result.draftRevision);
-      setState('saved');
-    } catch (error) {
-      // 412: someone else changed the draft. Anything we send now would
-      // overwrite their work, so stop and let the page offer a reload.
-      setState(
-        error instanceof ApiError && error.code === 'DRAFT_REVISION_MISMATCH'
-          ? 'conflict'
-          : 'error',
-      );
-      pendingRef.current = fields;
-    } finally {
-      inFlightRef.current = false;
-      if (pendingRef.current && state !== 'conflict') void flush();
+  const flush = useCallback(async (): Promise<boolean> => {
+    if (inFlightRef.current !== null) {
+      if (!(await inFlightRef.current)) return false;
     }
-  }, [envelopeId, onSaved, state]);
+    if (!pendingRef.current) return true;
+    const run = async () => {
+      while (pendingRef.current && mountedRef.current) {
+        const fields = pendingRef.current;
+        pendingRef.current = null;
+        setState('saving');
+        try {
+          const result = await api.saveFields(envelopeId, fields, revisionRef.current);
+          revisionRef.current = result.draftRevision;
+          if (!mountedRef.current) return false;
+          if (pendingRef.current === null) onSaved(result.fields, result.draftRevision);
+          runtime.saved?.(envelopeId, result.draftRevision);
+          setState('saved');
+        } catch (error) {
+          pendingRef.current ??= fields;
+          if (mountedRef.current)
+            setState(
+              error instanceof ApiError && error.code === 'DRAFT_REVISION_MISMATCH'
+                ? 'conflict'
+                : 'error',
+            );
+          return false;
+        }
+      }
+      return mountedRef.current;
+    };
+    const task = run();
+    inFlightRef.current = task;
+    try {
+      return await task;
+    } finally {
+      if (inFlightRef.current === task) inFlightRef.current = null;
+    }
+  }, [api, envelopeId, onSaved, runtime]);
 
   const save = useCallback(
     (fields: FieldInfo[]) => {
@@ -78,7 +92,9 @@ export function useAutosave(
   );
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);

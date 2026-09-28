@@ -108,6 +108,15 @@ describe('embedded sender authority (e2e)', () => {
       .send({ origins: [] })
       .expect(403);
   });
+  it('serves frame HTML with the exact parent origin and no credential in URLs', async () => {
+    const session = await issue();
+    const frame = await request(t.http).get(`/api/v1/embed/frame/${session.sessionId}`).expect(200);
+    expect(frame.headers['content-security-policy']).toContain(`frame-ancestors ${origin}`);
+    expect(frame.headers['x-frame-options']).toBeUndefined();
+    expect(frame.headers['cache-control']).toBe('no-store');
+    expect(frame.text).not.toContain(session.launchToken);
+    expect(frame.text).toContain('embed-bootstrap');
+  });
   it('rejects a swapped launch token without consuming it', async () => {
     const first = await issue();
     const second = await issue();
