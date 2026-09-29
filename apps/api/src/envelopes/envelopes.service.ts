@@ -7,6 +7,7 @@ import {
   type EnvelopeDetail,
   type EnvelopeEventsResponse,
   type EnvelopeListResponse,
+  type EnvelopeMetadata,
   type EnvelopeSummary,
   type ListEnvelopeEventsQuery,
   type ListEnvelopesQuery,
@@ -158,6 +159,7 @@ const LIST_FIELDS = {
   completedAt: true,
   ownerId: true,
   legalHoldAt: true,
+  externalId: true,
 } as const;
 
 type ListRow = Pick<Envelope, keyof typeof LIST_FIELDS>;
@@ -177,6 +179,7 @@ function toSummary(
     expiresAt: envelope.expiresAt?.toISOString() ?? null,
     progress: progressOf(envelope, recipients),
     legalHoldAt: envelope.legalHoldAt?.toISOString() ?? null,
+    externalId: envelope.externalId,
   };
 }
 
@@ -234,6 +237,11 @@ export class EnvelopesService {
     });
 
     let boundEnvelopeId: string = envelopeId;
+    // An embedded upload's reference comes from the session its partner's
+    // backend issued, never from the browser's own form (ADR 0019).
+    let reference: { externalId?: string; metadata?: EnvelopeMetadata } = user.embed
+      ? {}
+      : { externalId: input.externalId, metadata: input.metadata };
     const originalFilename = displayFilename(upload.originalname);
     try {
       await this.db.$transaction(async (tx) => {
@@ -264,6 +272,10 @@ export class EnvelopesService {
             boundEnvelopeId = session.envelopeId;
             return;
           }
+          reference = {
+            externalId: session.externalId ?? undefined,
+            metadata: (session.metadata as EnvelopeMetadata | null) ?? undefined,
+          };
         }
 
         await tx.envelope.create({
@@ -277,6 +289,8 @@ export class EnvelopesService {
             pageCount: pdf.pageCount,
             originalHash: pdf.sha256,
             documentCategory: input.documentCategory,
+            externalId: reference.externalId,
+            ...(reference.metadata ? { metadata: reference.metadata } : {}),
             jurisdictionCode: policy.code,
             // PolicySnapshot is a plain, JSON-safe interface; Prisma's Json
             // input type just needs an index signature, which a named
@@ -369,7 +383,7 @@ export class EnvelopesService {
     const rows: WithProgressRecipients[] = await this.db.envelope.findMany({
       where: {
         AND: [
-          viewWhere(query.view, query.status, ownerId),
+          viewWhere(query.view, query.status, ownerId, query.externalId),
           cursor
             ? {
                 // The plain <= bound gives the planner an index range scan on
@@ -409,7 +423,15 @@ export class EnvelopesService {
     const after = query.cursor ? decodeAttentionCursor(query.cursor) : undefined;
     const now = after?.at ?? new Date();
     const rows = await this.db.$queryRaw<{ id: string; rank: number; since: Date }[]>(
-      attentionPageQuery(tenantId, now, query.limit + 1, query.status, after, ownerId),
+      attentionPageQuery(
+        tenantId,
+        now,
+        query.limit + 1,
+        query.status,
+        after,
+        ownerId,
+        query.externalId,
+      ),
     );
     const page = rows.slice(0, query.limit);
     // Through the tenant filter as well, so a row can only ever be this tenant's.
@@ -543,6 +565,7 @@ export class EnvelopesService {
           policyVersion: true,
           legalHoldReason: true,
           purgedAt: true,
+          metadata: true,
           owner: { select: { id: true, fullName: true } },
           voidedBy: { select: { id: true, fullName: true } },
           legalHoldBy: { select: { id: true, fullName: true } },
@@ -629,6 +652,7 @@ export class EnvelopesService {
 
     return {
       ...toSummary(envelope, envelope.recipients),
+      metadata: (envelope.metadata as EnvelopeMetadata | null) ?? null,
       originalHash: envelope.originalHash,
       finalHash: envelope.finalHash,
       completedAt: envelope.completedAt?.toISOString() ?? null,

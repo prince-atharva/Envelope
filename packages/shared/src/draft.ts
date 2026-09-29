@@ -7,6 +7,7 @@ import {
   MAX_RECIPIENT_NAME_LENGTH,
   MAX_RECIPIENTS_PER_ENVELOPE,
 } from './limits';
+import { envelopeMetadataSchema, externalIdSchema } from './partner-reference';
 
 /**
  * Preparing a draft: who signs, where they sign, and the envelope's settings.
@@ -69,6 +70,10 @@ export const updateEnvelopeSchema = z
     /** The note that goes out with the invitation. Null clears it. */
     message: z.string().trim().max(MAX_MESSAGE_LENGTH).nullable().optional(),
     sequentialSigning: z.boolean().optional(),
+    /** The partner's own id (docs/18 workstream 10). Null clears it. */
+    externalId: externalIdSchema.nullable().optional(),
+    /** Replaces all the labels. Null clears them. */
+    metadata: envelopeMetadataSchema.nullable().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { error: 'Change at least one value' });
 export type UpdateEnvelopeInput = z.infer<typeof updateEnvelopeSchema>;

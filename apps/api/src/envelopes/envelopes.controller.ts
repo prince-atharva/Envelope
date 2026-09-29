@@ -78,7 +78,7 @@ export class EnvelopesController {
   @UseInterceptors(
     UploadErrorsInterceptor,
     FileInterceptor('file', {
-      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 4, fieldSize: 16 * 1024, parts: 6 },
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 6, fieldSize: 16 * 1024, parts: 8 },
     }),
   )
   @ApiOperation({
@@ -97,6 +97,17 @@ export class EnvelopesController {
         title: { type: 'string', maxLength: 200 },
         documentCategory: { type: 'string', enum: [...DOCUMENT_CATEGORIES] },
         jurisdictionCode: { type: 'string', description: "Overrides the tenant's default" },
+        externalId: {
+          type: 'string',
+          maxLength: 200,
+          description:
+            'Your own id for this envelope, echoed in every webhook (letters, digits, _ . : @ -)',
+        },
+        metadata: {
+          type: 'string',
+          description:
+            'JSON object of up to 10 string values (2 KB in total), echoed in every webhook',
+        },
       },
     },
   })
@@ -140,6 +151,12 @@ export class EnvelopesController {
     schema: { type: 'integer', minimum: 1, maximum: 100 },
   })
   @ApiQuery({ name: 'cursor', required: false, schema: { type: 'string' } })
+  @ApiQuery({
+    name: 'externalId',
+    required: false,
+    schema: { type: 'string', maxLength: 200 },
+    description: 'Only envelopes created with this externalId',
+  })
   list(
     @Query(new ZodValidationPipe(listEnvelopesQuerySchema)) query: ListEnvelopesQuery,
     @CurrentUser() user: AuthenticatedUser,

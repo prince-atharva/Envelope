@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { updateEnvelopeSchema } from './draft';
+import { createEmbedSessionSchema } from './embed';
+import { createEnvelopeSchema, listEnvelopesQuerySchema } from './envelopes';
 import {
   MAX_EXTERNAL_ID_LENGTH,
   MAX_METADATA_BYTES,
@@ -53,5 +56,46 @@ describe('envelopeMetadataSchema', () => {
     const wide = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`k${i}`, '€'.repeat(90)]));
     expect(JSON.stringify(wide).length).toBeLessThan(MAX_METADATA_BYTES);
     expect(envelopeMetadataSchema.safeParse(wide).success).toBe(false);
+  });
+});
+
+describe('where the fields are accepted', () => {
+  it('reads metadata from multipart JSON text on create, and rejects text that is not JSON', () => {
+    const ok = createEnvelopeSchema.safeParse({ externalId: 'r-1', metadata: '{"a":"b"}' });
+    expect(ok.success && ok.data.metadata).toEqual({ a: 'b' });
+    expect(createEnvelopeSchema.safeParse({ metadata: 'not json' }).success).toBe(false);
+    expect(createEnvelopeSchema.safeParse({ metadata: '[1]' }).success).toBe(false);
+  });
+
+  it('lets a draft update set or clear both fields', () => {
+    expect(updateEnvelopeSchema.safeParse({ externalId: null }).success).toBe(true);
+    expect(updateEnvelopeSchema.safeParse({ metadata: null }).success).toBe(true);
+    expect(
+      updateEnvelopeSchema.safeParse({ externalId: 'r-2', metadata: { a: 'b' } }).success,
+    ).toBe(true);
+  });
+
+  it('filters the list on an exact externalId', () => {
+    expect(listEnvelopesQuerySchema.parse({ externalId: 'r-1' }).externalId).toBe('r-1');
+    expect(listEnvelopesQuerySchema.safeParse({ externalId: 'a b' }).success).toBe(false);
+  });
+
+  it('carries the fields on an upload-mode session only', () => {
+    const common = {
+      parentOrigin: 'https://app.example.com',
+      externalActorId: 'staff-1',
+      actions: ['edit'],
+    };
+    expect(
+      createEmbedSessionSchema.safeParse({ ...common, mode: 'upload', externalId: 'r-1' }).success,
+    ).toBe(true);
+    expect(
+      createEmbedSessionSchema.safeParse({
+        ...common,
+        mode: 'existing',
+        envelopeId: '0195f0c0-0000-7000-8000-000000000000',
+        externalId: 'r-1',
+      }).success,
+    ).toBe(false);
   });
 });

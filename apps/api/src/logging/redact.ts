@@ -15,6 +15,9 @@ const SENSITIVE_KEYS = [
   'launchTokenHash',
   'accessTokenHash',
   'externalActorId',
+  // A partner's own record id and labels can identify a patient (docs/18 workstream 10).
+  'externalId',
+  'metadata',
   'EMBED_SESSION_HASH_SECRET',
   'password',
   'passwordHash',

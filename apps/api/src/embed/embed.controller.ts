@@ -93,7 +93,7 @@ export class EmbedController {
   @UseInterceptors(
     UploadErrorsInterceptor,
     FileInterceptor('file', {
-      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 4, fieldSize: 16 * 1024, parts: 6 },
+      limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 6, fieldSize: 16 * 1024, parts: 8 },
     }),
   )
   upload(
@@ -103,6 +103,9 @@ export class EmbedController {
     @Body(new ZodValidationPipe(createEnvelopeSchema)) input: CreateEnvelopeInput,
   ) {
     if (user.embed?.mode !== 'upload') throw new AppException('EMBED_SCOPE_DENIED');
+    // The reference comes from the session issued by the partner's backend, not this form.
+    if (input.externalId !== undefined || input.metadata !== undefined)
+      throw new AppException('EMBED_SCOPE_DENIED');
     if (user.embed.envelopeId) return this.envelopes.get(user.embed.envelopeId);
     if (!file) throw new AppException('FILE_REQUIRED');
     return this.envelopes.create(user, file, input, client);

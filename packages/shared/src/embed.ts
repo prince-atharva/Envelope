@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { envelopeMetadataSchema, externalIdSchema } from './partner-reference';
 
 export const EMBED_PROTOCOL_VERSION = 1;
 export const EMBED_LAUNCH_TTL_MS = 60_000;
@@ -37,7 +38,13 @@ const common = {
 };
 export const createEmbedSessionSchema = z.discriminatedUnion('mode', [
   z.strictObject({ ...common, mode: z.literal('existing'), envelopeId: z.uuid() }),
-  z.strictObject({ ...common, mode: z.literal('upload') }),
+  z.strictObject({
+    ...common,
+    mode: z.literal('upload'),
+    /** Applied to the draft this session's upload creates (docs/18 workstream 10). */
+    externalId: externalIdSchema.optional(),
+    metadata: envelopeMetadataSchema.optional(),
+  }),
 ]);
 export const exchangeEmbedSessionSchema = z.strictObject({
   sessionId: z.uuid(),

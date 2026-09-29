@@ -70,6 +70,12 @@ export class EmbedSessionService {
         parentOrigin: input.parentOrigin,
         externalActorId: input.externalActorId,
         actions: input.actions,
+        ...(input.mode === 'upload'
+          ? {
+              externalId: input.externalId,
+              ...(input.metadata ? { metadata: input.metadata } : {}),
+            }
+          : {}),
         launchTokenHash: this.hash(launchToken),
         launchExpiresAt: new Date(now + EMBED_LAUNCH_TTL_MS),
         expiresAt: new Date(now + EMBED_SESSION_TTL_MS),

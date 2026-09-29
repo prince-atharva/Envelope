@@ -31,6 +31,7 @@ export function viewWhere(
   view: Exclude<EnvelopeView, 'attention'>,
   status: EnvelopeStatus | undefined,
   ownerId?: string,
+  externalId?: string,
 ): Prisma.EnvelopeWhereInput {
   const byView: Record<typeof view, Prisma.EnvelopeWhereInput> = {
     all: {},
@@ -43,7 +44,11 @@ export function viewWhere(
       status: { in: ['VOIDED', 'DECLINED'] },
     },
   };
-  const extra = [...(status ? [{ status }] : []), ...(ownerId ? [{ ownerId }] : [])];
+  const extra = [
+    ...(status ? [{ status }] : []),
+    ...(ownerId ? [{ ownerId }] : []),
+    ...(externalId ? [{ externalId }] : []),
+  ];
   return extra.length === 0 ? byView[view] : { AND: [byView[view], ...extra] };
 }
 
@@ -156,12 +161,19 @@ const ATTENTION_WORKING_SET = [...OPEN_ENVELOPE_STATUSES, 'EXPIRED', 'DECLINED']
  * rank (1 to 5, or null) and the time it has waited since. Raw SQL is not
  * scoped by the tenant extension, so the tenant id is always passed in.
  */
-export function rankedEnvelopes(tenantId: string, now: Date, ownerId?: string): Prisma.Sql {
+export function rankedEnvelopes(
+  tenantId: string,
+  now: Date,
+  ownerId?: string,
+  externalId?: string,
+): Prisma.Sql {
   const open = Prisma.join(OPEN_ENVELOPE_STATUSES.map((s) => Prisma.sql`${s}`));
   const workingSet = Prisma.join(ATTENTION_WORKING_SET.map((s) => Prisma.sql`${s}`));
   // Set only for a MEMBER (docs/17 step 5): their Needs-attention ranks only
   // envelopes they own, same as every other view.
   const ownerFilter = ownerId ? Prisma.sql`AND "ownerId" = ${ownerId}::uuid` : Prisma.empty;
+  // The partner's own id, exact match (docs/18 workstream 10).
+  const externalIdFilter = externalId ? Prisma.sql`AND "externalId" = ${externalId}` : Prisma.empty;
   return Prisma.sql`
     WITH e AS (
       SELECT id, status, "expiresAt", "expiredAt", "declinedAt"
@@ -169,6 +181,7 @@ export function rankedEnvelopes(tenantId: string, now: Date, ownerId?: string): 
        WHERE "tenantId" = ${tenantId}::uuid
          AND status IN (${workingSet})
          ${ownerFilter}
+         ${externalIdFilter}
     ),
     r AS (
       SELECT rr."envelopeId",
@@ -225,12 +238,13 @@ export function attentionPageQuery(
   status: EnvelopeStatus | undefined,
   after: AttentionCursor | undefined,
   ownerId?: string,
+  externalId?: string,
 ): Prisma.Sql {
   const statusFilter = status ? Prisma.sql`AND status = ${status}` : Prisma.empty;
   const afterFilter = after
     ? Prisma.sql`AND (rank, since, id) > (${after.rank}, ${utc(after.since)}, ${after.id}::uuid)`
     : Prisma.empty;
-  return Prisma.sql`${rankedEnvelopes(tenantId, now, ownerId)}
+  return Prisma.sql`${rankedEnvelopes(tenantId, now, ownerId, externalId)}
     SELECT id, rank, since FROM ranked
      WHERE rank IS NOT NULL ${statusFilter} ${afterFilter}
      ORDER BY rank, since, id

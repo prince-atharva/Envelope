@@ -13,7 +13,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 import { toFieldInfo, toRecipientInfo } from './draft-mappers';
@@ -110,6 +110,11 @@ export class DraftsService {
     ifMatch?: number,
   ): Promise<{ draftRevision: number }> {
     const started = performance.now();
+    // The partner's own reference is asserted by its backend; the browser in
+    // an embedded editor must not rewrite it (docs/18 workstream 10, ADR 0019).
+    if (user.embed && (input.externalId !== undefined || input.metadata !== undefined)) {
+      throw new AppException('EMBED_SCOPE_DENIED');
+    }
 
     const draftRevision = await this.db.$transaction(async (tx) => {
       const revision = await this.lockDraft(tx, envelopeId, ifMatch);
@@ -121,6 +126,8 @@ export class DraftsService {
           ...(input.sequentialSigning === undefined
             ? {}
             : { sequentialSigning: input.sequentialSigning }),
+          ...(input.externalId === undefined ? {} : { externalId: input.externalId }),
+          ...(input.metadata === undefined ? {} : { metadata: input.metadata ?? Prisma.DbNull }),
         },
       });
       await this.audit.record(tx, {
@@ -129,8 +136,8 @@ export class DraftsService {
         actorUserId: user.id,
         ipAddress: client.ip,
         userAgent: client.userAgent,
-        // The values themselves are not recorded: a title or a message can hold
-        // patient data, and the audit trail cannot be edited afterwards.
+        // The values themselves are not recorded: a title, a message or a partner
+        // reference can hold patient data, and the audit trail cannot be edited afterwards.
         metadata: { changed: Object.keys(input).sort(), draftRevision: revision },
       });
       return revision;

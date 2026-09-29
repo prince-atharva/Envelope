@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { DOCUMENT_CATEGORIES, type DocumentCategory } from './document-categories';
 import type { FieldInfo, RecipientInfo } from './draft';
 import { MAX_LEGAL_HOLD_REASON_LENGTH } from './limits';
+import {
+  type EnvelopeMetadata,
+  envelopeMetadataFieldSchema,
+  externalIdSchema,
+} from './partner-reference';
 
 export const ENVELOPE_STATUSES = [
   'DRAFT',
@@ -52,6 +57,10 @@ export const createEnvelopeSchema = z.strictObject({
   documentCategory: z.enum(DOCUMENT_CATEGORIES).default('OTHER'),
   /** Overrides the tenant's default jurisdiction for this envelope only (docs/07). */
   jurisdictionCode: z.string().trim().min(2).max(10).optional(),
+  /** The partner's own id for this document; echoed in webhooks (docs/18 workstream 10). */
+  externalId: externalIdSchema.optional(),
+  /** Small string labels, as JSON text in the multipart form. */
+  metadata: envelopeMetadataFieldSchema.optional(),
 });
 export type CreateEnvelopeInput = z.infer<typeof createEnvelopeSchema>;
 
@@ -75,6 +84,8 @@ export const listEnvelopesQuerySchema = z.strictObject({
   view: z.enum(ENVELOPE_VIEWS).default('all'),
   /** Only this status, within the view (docs/08). */
   status: z.enum(ENVELOPE_STATUSES).optional(),
+  /** Exact match on the partner's own id, within the view (docs/18 workstream 10). */
+  externalId: externalIdSchema.optional(),
 });
 export type ListEnvelopesQuery = z.infer<typeof listEnvelopesQuerySchema>;
 
@@ -121,6 +132,8 @@ export interface EnvelopeSummary {
   attention?: { reason: AttentionReason; since: string };
   /** Set once someone places a legal hold; overrides every retention sweep (docs/17 step 7). */
   legalHoldAt: string | null;
+  /** The partner's own id for this envelope, if it set one. */
+  externalId: string | null;
 }
 
 /** GET /envelopes/counts: every tab's count, in one query. */
@@ -169,6 +182,8 @@ export interface RecipientDetail extends RecipientInfo {
 }
 
 export interface EnvelopeDetail extends EnvelopeSummary {
+  /** Small string labels the partner attached; null if none. Fixed once sent. */
+  metadata: EnvelopeMetadata | null;
   /** SHA-256 of DocumentVersion 0, the document as uploaded (after sanitising). */
   originalHash: string;
   /** SHA-256 of the sealed, finished document. Not printed in it (docs/06, Correction 3). */
