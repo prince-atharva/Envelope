@@ -1,6 +1,7 @@
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type {
+  AuthResponse,
   CreateWebhookEndpointResponse,
   WebhookDeliverySummary,
   WebhookEndpointSummary,
@@ -21,9 +22,9 @@ import {
   type TestWorker,
   waitFor,
 } from './helpers/app';
-import { registerUser, type SignedInUser } from './helpers/auth';
+import { registerUser, type SignedInUser, uniqueEmail } from './helpers/auth';
 import { ownerQuery, truncateAll } from './helpers/db';
-import { bearer } from './helpers/signing';
+import { bearer, emailsTo } from './helpers/signing';
 
 interface ReceivedRequest {
   headers: http.IncomingHttpHeaders;
@@ -451,5 +452,195 @@ describe('webhook endpoint lifecycle (e2e)', () => {
       await as(stranger, 'delete', `/${endpoint.id}/permanent`).expect(404);
       expect((await listEndpoints()).some((e) => e.id === endpoint.id)).toBe(true);
     });
+  });
+
+  describe('auto-disable', () => {
+    const INVITE_LINK = /\/accept-invite\/([0-9a-f]{64})/;
+
+    async function invite(role: 'ADMIN' | 'MEMBER'): Promise<SignedInUser> {
+      const email = uniqueEmail(role.toLowerCase());
+      await request(t.http)
+        .post('/api/v1/users')
+        .set('Authorization', bearer(owner))
+        .send({ fullName: `Lifecycle ${role}`, email, role })
+        .expect(201);
+      const message = await waitFor(() => emailsTo(worker.mailbox, email, 'user-invited').at(-1));
+      const token = INVITE_LINK.exec(message.text)?.[1];
+      const accepted = await request(t.http)
+        .post(`/api/v1/auth/invitations/${token}/accept`)
+        .send({ password: 'a fresh chosen password' })
+        .expect(200);
+      return {
+        email,
+        password: 'a fresh chosen password',
+        accessToken: (accepted.body as AuthResponse).accessToken,
+        cookie: '',
+        body: accepted.body as AuthResponse,
+      };
+    }
+
+    let eventCounter = 0;
+    async function fireEvent(): Promise<void> {
+      eventCounter += 1;
+      await t.app.get(WebhookQueueService).enqueue(owner.body.user.tenant.id, 'envelope.sent', {
+        envelopeId: `00000000-0000-4000-8000-${String(eventCounter).padStart(12, '0')}`,
+      });
+    }
+
+    async function state(id: string): Promise<WebhookEndpointSummary> {
+      const found = (await listEndpoints()).find((e) => e.id === id);
+      if (!found) throw new Error('endpoint missing');
+      return found;
+    }
+
+    it('turns an endpoint off after repeated exhausted deliveries and emails only human admins, once', async () => {
+      const admin = await invite('ADMIN');
+      const member = await invite('MEMBER');
+      await request(t.http)
+        .post('/api/v1/api-keys')
+        .set('Authorization', bearer(owner))
+        .send({ label: 'creates the service account' })
+        .expect(201);
+      const service = await ownerQuery<{ email: string }>(
+        `SELECT email FROM "User" WHERE "tenantId" = $1 AND "isServiceAccount"`,
+        [owner.body.user.tenant.id],
+      );
+      const serviceEmail = service.rows[0]?.email;
+      expect(serviceEmail).toBeTruthy();
+
+      const { endpoint, rawSecret } = await createEndpoint();
+      respondWith = () => 500;
+      await fireEvent();
+      await fireEvent();
+
+      const disabled = await waitFor(async () => {
+        const current = await state(endpoint.id);
+        return current.isActive ? undefined : current;
+      }, 20_000);
+      expect(disabled.disabledAt).toBeTruthy();
+      expect(disabled.disabledReason).toContain('2 deliveries in a row');
+      expect(disabled.consecutiveFailures).toBeGreaterThanOrEqual(2);
+
+      const ownerMail = await waitFor(() =>
+        emailsTo(worker.mailbox, owner.email, 'webhook-disabled').at(0),
+      );
+      await waitFor(() => emailsTo(worker.mailbox, admin.email, 'webhook-disabled').at(0));
+      expect(ownerMail.subject).toBe('Webhook endpoint 127.0.0.1 was turned off');
+      // Host only: never the path a URL may carry, and never the secret.
+      expect(ownerMail.text).not.toContain('/hook');
+      expect(ownerMail.text).not.toContain(rawSecret);
+      expect(ownerMail.text).toContain('/settings/integrations');
+
+      // Let any straggler job run before asserting who was NOT mailed and that nobody got two.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(emailsTo(worker.mailbox, member.email, 'webhook-disabled')).toHaveLength(0);
+      expect(emailsTo(worker.mailbox, serviceEmail ?? '', 'webhook-disabled')).toHaveLength(0);
+      expect(emailsTo(worker.mailbox, owner.email, 'webhook-disabled')).toHaveLength(1);
+      expect(emailsTo(worker.mailbox, admin.email, 'webhook-disabled')).toHaveLength(1);
+
+      // Off means off: no more events are sent to it.
+      const before = received.length;
+      await fireEvent();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      expect(received.length).toBe(before);
+
+      // Reactivating starts fresh, and a second collapse is a new event that is mailed again.
+      const reactivated = await request(t.http)
+        .patch(`/api/v1/webhooks/${endpoint.id}`)
+        .set('Authorization', bearer(owner))
+        .send({ isActive: true })
+        .expect(200);
+      const summary = reactivated.body as WebhookEndpointSummary;
+      expect(summary.isActive).toBe(true);
+      expect(summary.consecutiveFailures).toBe(0);
+      expect(summary.disabledAt).toBeNull();
+      expect(summary.disabledReason).toBeNull();
+
+      await fireEvent();
+      await fireEvent();
+      await waitFor(async () => ((await state(endpoint.id)).isActive ? undefined : true), 20_000);
+      await waitFor(() => {
+        const mails = emailsTo(worker.mailbox, owner.email, 'webhook-disabled');
+        return mails.length === 2 ? mails : undefined;
+      });
+    }, 60_000);
+
+    it('resets the streak on any success, so scattered failures never disable an endpoint', async () => {
+      const { endpoint } = await createEndpoint();
+      let failing = true;
+      respondWith = () => (failing ? 500 : 200);
+
+      await fireEvent();
+      await waitFor(
+        async () => ((await state(endpoint.id)).consecutiveFailures === 1 ? true : undefined),
+        15_000,
+      );
+
+      failing = false;
+      await fireEvent();
+      await waitFor(
+        async () => ((await state(endpoint.id)).consecutiveFailures === 0 ? true : undefined),
+        15_000,
+      );
+
+      failing = true;
+      await fireEvent();
+      await waitFor(
+        async () => ((await state(endpoint.id)).consecutiveFailures === 1 ? true : undefined),
+        15_000,
+      );
+      expect((await state(endpoint.id)).isActive).toBe(true);
+      expect(emailsTo(worker.mailbox, owner.email, 'webhook-disabled')).toHaveLength(0);
+    }, 60_000);
+
+    it('does not count a manual retry of the same failed delivery as another failure', async () => {
+      const { endpoint } = await createEndpoint();
+      respondWith = () => 500;
+      await fireEvent();
+      const exhausted = await waitFor(
+        async () => (await deliveriesFor(endpoint.id)).find((d) => d.status === 'EXHAUSTED'),
+        15_000,
+      );
+      await waitFor(async () =>
+        (await state(endpoint.id)).consecutiveFailures === 1 ? true : undefined,
+      );
+
+      await request(t.http)
+        .post(`/api/v1/webhooks/deliveries/${exhausted.id}/retry`)
+        .set('Authorization', bearer(owner))
+        .expect(200);
+      await waitFor(async () => {
+        const again = (await deliveriesFor(endpoint.id)).find((d) => d.id === exhausted.id);
+        return again?.status === 'EXHAUSTED' && again.attempts > exhausted.attempts
+          ? true
+          : undefined;
+      }, 15_000);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const current = await state(endpoint.id);
+      expect(current.consecutiveFailures).toBe(1);
+      expect(current.isActive).toBe(true);
+    }, 45_000);
+
+    it('never counts a failed test event toward the streak', async () => {
+      const { endpoint } = await createEndpoint();
+      respondWith = () => 500;
+      for (let i = 0; i < 3; i++) {
+        await request(t.http)
+          .post(`/api/v1/webhooks/${endpoint.id}/test`)
+          .set('Authorization', bearer(owner))
+          .expect(202);
+      }
+      await waitFor(async () => {
+        const list = await deliveriesFor(endpoint.id);
+        return list.length === 3 && list.every((d) => d.status === 'EXHAUSTED') ? true : undefined;
+      }, 15_000);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const current = await state(endpoint.id);
+      expect(current.isActive).toBe(true);
+      expect(current.consecutiveFailures).toBe(0);
+      expect(emailsTo(worker.mailbox, owner.email, 'webhook-disabled')).toHaveLength(0);
+    }, 30_000);
   });
 });

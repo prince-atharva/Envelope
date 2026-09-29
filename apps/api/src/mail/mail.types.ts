@@ -97,6 +97,18 @@ export interface DownloadRenewedJob {
   requestId?: string;
 }
 
+/**
+ * Tells one workspace admin that a webhook endpoint was turned off after
+ * repeated failures (docs/18 workstream 9). Ids only: the worker reads the
+ * endpoint and the person, and puts only the endpoint's host in the email.
+ */
+export interface WebhookDisabledJob {
+  template: 'webhook-disabled';
+  endpointId: string;
+  userId: string;
+  requestId?: string;
+}
+
 /** Values an alert may carry: ids, codes and counts, never personal data or secrets. */
 export type AlertFields = Record<string, string | number | boolean | null>;
 
@@ -124,6 +136,7 @@ export type EmailJobData =
   | MoreTimeRequestedJob
   | UserInvitedJob
   | DownloadRenewedJob
+  | WebhookDisabledJob
   | AlertEmailJob;
 export type EmailTemplate = EmailJobData['template'];
 

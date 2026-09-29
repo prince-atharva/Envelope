@@ -8,6 +8,7 @@ import { MailTransportService, MemoryMailbox } from './mail-transport.service';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer } from './signing-link.mailer';
 import { UserInviteMailer } from './user-invite.mailer';
+import { WebhookNoticeMailer } from './webhook-notice.mailer';
 
 /**
  * The SMTP transport on its own, for the worker's alerts: they are sent
@@ -41,6 +42,7 @@ export class MailProducerModule {}
     LifecycleMailer,
     UserInviteMailer,
     DownloadRenewMailer,
+    WebhookNoticeMailer,
   ],
   exports: [MailTransportModule],
 })

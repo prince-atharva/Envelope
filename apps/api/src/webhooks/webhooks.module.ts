@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MailProducerModule } from '../mail/mail.module';
 import { WebhookDeliveryProcessor } from './webhook-delivery.processor';
 import { WebhookQueueService } from './webhook-queue.service';
 import { WebhookSecretCipher } from './webhook-secret-cipher';
@@ -41,7 +42,7 @@ export class WebhooksModule {}
 
 /** Imported by the worker: signs and sends deliveries (docs/08, docs/18). */
 @Module({
-  imports: [WebhookCryptoModule],
+  imports: [WebhookCryptoModule, MailProducerModule],
   providers: [WebhookDeliveryProcessor],
 })
 export class WebhookDeliveryWorkerModule {}

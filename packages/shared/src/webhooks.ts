@@ -110,6 +110,11 @@ export interface WebhookEndpointSummary {
    * and the previous secret. Null when no overlap window is open.
    */
   previousSecretExpiresAt: string | null;
+  /** Real deliveries in a row that failed every retry; any success resets it. */
+  consecutiveFailures: number;
+  /** Set when the endpoint was turned off automatically; cleared when it is reactivated. */
+  disabledAt: string | null;
+  disabledReason: string | null;
   createdAt: string;
   updatedAt: string;
 }

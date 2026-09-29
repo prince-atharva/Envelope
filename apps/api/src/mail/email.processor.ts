@@ -13,6 +13,7 @@ import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer, type SigningLinkResult } from './signing-link.mailer';
 import { renderAlertEmail, renderWelcomeEmail } from './templates';
 import { UserInviteMailer } from './user-invite.mailer';
+import { WebhookNoticeMailer } from './webhook-notice.mailer';
 
 /**
  * Worker side of email. Every log line written while a job runs carries the job
@@ -28,6 +29,7 @@ export class EmailProcessor extends WorkerHost {
     private readonly lifecycle: LifecycleMailer,
     private readonly userInvites: UserInviteMailer,
     private readonly downloadRenewals: DownloadRenewMailer,
+    private readonly webhookNotices: WebhookNoticeMailer,
     private readonly config: AppConfig,
     private readonly alerts: AlertService,
     @InjectPinoLogger(EmailProcessor.name) private readonly logger: PinoLogger,
@@ -71,6 +73,8 @@ export class EmailProcessor extends WorkerHost {
         return this.userInvites.send(data);
       case 'download-renewed':
         return this.downloadRenewals.send(data);
+      case 'webhook-disabled':
+        return this.webhookNotices.sendDisabled(data);
     }
   }
 

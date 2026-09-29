@@ -33,6 +33,7 @@ const SENSITIVE_KEYS = [
   'keyHash',
   'secret',
   'secretCiphertext',
+  'previousSecretCiphertext',
   'apiKey',
   'authorization',
   'cookie',

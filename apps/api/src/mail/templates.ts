@@ -542,6 +542,54 @@ export function renderUserInvitedEmail(notice: UserInvitedNotice): RenderedEmail
   return { to: notice.to, subject, html, text };
 }
 
+export interface WebhookDisabledNotice {
+  to: string;
+  recipientName: string;
+  workspaceName: string;
+  /** The hostname only: the path and query of a webhook URL can carry a secret. */
+  endpointHost: string;
+  failureThreshold: number;
+  settingsUrl: string;
+}
+
+/** To a workspace admin: an endpoint failed too often and was turned off (docs/18 workstream 9). */
+export function renderWebhookDisabledEmail(notice: WebhookDisabledNotice): RenderedEmail {
+  const host = oneLine(notice.endpointHost);
+  const workspace = oneLine(notice.workspaceName);
+  const subject = `Webhook endpoint ${host} was turned off`;
+  const intro = `The webhook endpoint at ${host} in "${workspace}" was turned off automatically after ${notice.failureThreshold} deliveries in a row failed every retry.`;
+  const impact =
+    'Events that happen while it is off are not sent to it. Failed deliveries stay available to retry for seven days.';
+  const action =
+    'Fix the receiver, then open Settings → Integrations, use Send test event to check it, and reactivate the endpoint.';
+  const footer = `You received this email because you are an admin of "${workspace}" on ${BRAND.fullName}.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.recipientName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(impact)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(action)}</p>
+     ${button(notice.settingsUrl, 'Open integration settings')}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.recipientName)},`,
+    '',
+    intro,
+    '',
+    impact,
+    '',
+    action,
+    '',
+    `Open integration settings: ${notice.settingsUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
 export interface DownloadRenewedNotice {
   to: string;
   name: string;

@@ -17,6 +17,7 @@ import type {
   SigningLinkEmailJob,
   UserInvitedJob,
   VoidedNoticeJob,
+  WebhookDisabledJob,
   WelcomeEmailJob,
 } from './mail.types';
 
@@ -283,6 +284,40 @@ export class MailQueueService implements OnModuleInit {
       'Email job enqueued',
     );
     return job.id;
+  }
+
+  /**
+   * Tells each of a workspace's admins an endpoint was turned off (docs/18
+   * workstream 9). One job per person and disable event, so a retried job
+   * never emails the others again and a later disable of the same endpoint
+   * (after a reactivation) is a new event.
+   */
+  async enqueueWebhookDisabled(
+    endpointId: string,
+    disabledAt: Date,
+    userIds: readonly string[],
+  ): Promise<void> {
+    if (userIds.length === 0) return;
+    const requestId = this.cls.isActive() ? this.cls.getId() : undefined;
+    const created = await this.queue.addBulk(
+      userIds.map((userId) => {
+        const data: WebhookDisabledJob = {
+          template: 'webhook-disabled',
+          endpointId,
+          userId,
+          requestId,
+        };
+        return {
+          name: data.template,
+          data,
+          opts: { jobId: `webhook-disabled-${endpointId}-${userId}-${disabledAt.getTime()}` },
+        };
+      }),
+    );
+    this.logger.info(
+      { queue: EMAIL_QUEUE, count: created.length, template: 'webhook-disabled', endpointId },
+      'Email jobs enqueued in bulk',
+    );
   }
 
   /** An alert raised in the API, for the worker to email. Gated before it gets here. */

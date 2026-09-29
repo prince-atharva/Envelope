@@ -8,6 +8,7 @@ import {
   renderMoreTimeEmail,
   renderSigningLinkEmail,
   renderVoidedEmail,
+  renderWebhookDisabledEmail,
   renderWelcomeEmail,
   signedFilename,
 } from './templates';
@@ -282,5 +283,30 @@ describe('completion emails', () => {
     expect(signedFilename('Lease 2026.pdf')).toBe('Lease 2026 (signed).pdf');
     expect(signedFilename('Øresund "draft"/v2.PDF')).toBe('Øresund _draft_v2 (signed).pdf');
     expect(signedFilename('.pdf')).toBe('document (signed).pdf');
+  });
+});
+
+describe('webhook disabled notice', () => {
+  const notice = {
+    to: 'admin@example.com',
+    recipientName: 'Ada <Admin>',
+    workspaceName: 'Riverside\nClinic',
+    endpointHost: 'hooks.partner.example',
+    failureThreshold: 10,
+    settingsUrl: 'https://app.example.com/settings/integrations',
+  };
+
+  it('names the host and threshold, points to the settings, and stays on one subject line', () => {
+    const email = renderWebhookDisabledEmail(notice);
+    expect(email.to).toBe('admin@example.com');
+    expect(email.subject).toBe('Webhook endpoint hooks.partner.example was turned off');
+    expect(email.text).toContain('after 10 deliveries in a row failed every retry');
+    expect(email.text).toContain('Riverside Clinic');
+    expect(email.text).toContain(
+      'Open integration settings: https://app.example.com/settings/integrations',
+    );
+    expect(email.html).toContain('href="https://app.example.com/settings/integrations"');
+    expect(email.html).toContain('Ada &lt;Admin&gt;');
+    expect(email.html.match(/<a /g)).toHaveLength(1);
   });
 });

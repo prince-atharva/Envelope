@@ -8,6 +8,7 @@ import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AlertService } from '../alert/alert.service';
 import { AppConfig } from '../config/app-config';
+import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WEBHOOK_DELIVERY_QUEUE } from '../queue/queue.module';
 import {
@@ -56,6 +57,7 @@ export class WebhookDeliveryProcessor extends WorkerHost {
     private readonly cipher: WebhookSecretCipher,
     private readonly alerts: AlertService,
     private readonly config: AppConfig,
+    private readonly mail: MailQueueService,
     @InjectPinoLogger(WebhookDeliveryProcessor.name) private readonly logger: PinoLogger,
   ) {
     super();
@@ -145,6 +147,9 @@ export class WebhookDeliveryProcessor extends WorkerHost {
           },
           'Webhook delivered',
         );
+        if (delivery.eventType !== WEBHOOK_TEST_EVENT_TYPE) {
+          await this.resetFailureStreak(delivery.webhookEndpointId);
+        }
         return;
       }
       errorMessage = `HTTP ${res.status}`;
@@ -203,14 +208,97 @@ export class WebhookDeliveryProcessor extends WorkerHost {
         });
     }
     // A test delivery is a one-off check the admin is watching (docs/18
-    // workstream 9): nobody needs paging about it.
+    // workstream 9): nobody needs paging about it, and it says nothing about
+    // whether real events are getting through.
     if (job?.name === WEBHOOK_TEST_EVENT_TYPE) return;
+    if (deliveryId) await this.recordExhaustion(deliveryId);
     void this.alerts.raise(
       'webhook-delivery-exhausted',
       'A webhook delivery failed permanently',
       { deliveryId: deliveryId ?? null, attemptsMade },
       error,
     );
+  }
+
+  /** Any real success ends a streak: "consecutive" failures (docs/18 workstream 9). */
+  private async resetFailureStreak(endpointId: string): Promise<void> {
+    await this.prisma.webhookEndpoint
+      .updateMany({
+        where: { id: endpointId, consecutiveFailures: { gt: 0 } },
+        data: { consecutiveFailures: 0 },
+      })
+      .catch((error: unknown) => {
+        this.logger.warn({ endpointId, err: error }, 'Could not reset webhook failure streak');
+      });
+  }
+
+  /**
+   * Counts one more real delivery that ran out of retries and, at the
+   * threshold, turns the endpoint off and tells its admins (docs/18
+   * workstream 9). The increment is atomic; the conditional `updateMany`
+   * means that when several deliveries cross the threshold together, exactly
+   * one of them disables the endpoint and sends the emails.
+   */
+  private async recordExhaustion(deliveryId: string): Promise<void> {
+    try {
+      const delivery = await this.prisma.webhookDelivery.findUnique({
+        where: { id: deliveryId },
+        select: { webhookEndpointId: true, attempts: true },
+      });
+      if (!delivery) return;
+      // A manual retry that fails again is the same bad event, not a new one:
+      // only a delivery's first run of attempts counts toward the streak.
+      if (delivery.attempts > WEBHOOK_MAX_ATTEMPTS) return;
+      const endpointId = delivery.webhookEndpointId;
+      const endpoint = await this.prisma.webhookEndpoint.update({
+        where: { id: endpointId },
+        data: { consecutiveFailures: { increment: 1 } },
+        select: { tenantId: true, isActive: true, consecutiveFailures: true },
+      });
+      const threshold = this.config.WEBHOOK_AUTO_DISABLE_THRESHOLD;
+      if (!endpoint.isActive || endpoint.consecutiveFailures < threshold) return;
+
+      const disabledAt = new Date();
+      const { count } = await this.prisma.webhookEndpoint.updateMany({
+        where: { id: endpointId, isActive: true },
+        data: {
+          isActive: false,
+          disabledAt,
+          disabledReason: `Turned off automatically: ${threshold} deliveries in a row failed every retry.`,
+        },
+      });
+      if (count === 0) return;
+
+      const admins = await this.prisma.user.findMany({
+        where: {
+          tenantId: endpoint.tenantId,
+          isServiceAccount: false,
+          role: { in: ['OWNER', 'ADMIN'] },
+          // A pending invitation is not yet a person who can act on this.
+          inviteTokenHash: null,
+        },
+        select: { id: true },
+      });
+      await this.mail.enqueueWebhookDisabled(
+        endpointId,
+        disabledAt,
+        admins.map((admin) => admin.id),
+      );
+      this.logger.warn(
+        {
+          webhookEndpointId: endpointId,
+          tenantId: endpoint.tenantId,
+          threshold,
+          notified: admins.length,
+        },
+        'Webhook endpoint disabled after repeated failures',
+      );
+    } catch (error) {
+      this.logger.error(
+        { deliveryId, err: error },
+        'Could not record webhook failure or disable the endpoint',
+      );
+    }
   }
 
   @OnWorkerEvent('stalled')

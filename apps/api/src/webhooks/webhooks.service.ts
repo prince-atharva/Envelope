@@ -69,6 +69,9 @@ function toEndpointSummary(endpoint: WebhookEndpoint): WebhookEndpointSummary {
       endpoint.previousSecretExpiresAt.getTime() > Date.now()
         ? endpoint.previousSecretExpiresAt.toISOString()
         : null,
+    consecutiveFailures: endpoint.consecutiveFailures,
+    disabledAt: endpoint.disabledAt?.toISOString() ?? null,
+    disabledReason: endpoint.disabledReason,
     createdAt: endpoint.createdAt.toISOString(),
     updatedAt: endpoint.updatedAt.toISOString(),
   };
@@ -180,11 +183,21 @@ export class WebhooksService {
             ? { subscribedEvents: input.subscribedEvents }
             : {}),
           ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+          // A fresh start: otherwise the very next failure would trip the
+          // threshold again, and the banner would outlive the problem.
+          ...(input.isActive === true && !current.isActive
+            ? { consecutiveFailures: 0, disabledAt: null, disabledReason: null }
+            : {}),
         },
       });
     });
     this.logger.info(
-      { webhookEndpointId: id, tenantId: actor.tenantId, updatedBy: actor.id },
+      {
+        webhookEndpointId: id,
+        tenantId: actor.tenantId,
+        updatedBy: actor.id,
+        ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+      },
       'Webhook endpoint updated',
     );
     return toEndpointSummary(updated);
