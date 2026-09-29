@@ -1323,11 +1323,11 @@ recorded here as a focus-timing flake under load, not as a proven one.
 
 | Step | Commit |
 |---|---|
-| 10.1 | _recorded after the commits_ |
-| 10.2 | _recorded after the commits_ |
-| 10.3 | _recorded after the commits_ |
-| 10.4 | _recorded after the commits_ |
-| 10.5 | _recorded after the commits_ |
+| 10.1 | f46b209 |
+| 10.2 | 9c16f1d |
+| 10.3 | 7aa48ab |
+| 10.4 | 4d64d43 |
+| 10.5 | bf05e5d |
 
 
 ### Deliberate Simplifications
