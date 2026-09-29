@@ -375,6 +375,12 @@ model Envelope {
   /// Optional note included in the invitation email (docs/08, POST /send).
   message String? @db.Text
 
+  /// The integrating partner's own id for this envelope, and a few small
+  /// string labels (docs/18 workstream 10, ADR 0019). Not unique; both are
+  /// fixed once the envelope leaves DRAFT.
+  externalId String? @db.VarChar(200)
+  metadata   Json?
+
   /// Bumped by every draft edit. The builder sends the value it loaded back as
   /// `If-Match`, so two tabs editing one draft cannot silently overwrite each
   /// other; a stale value is answered with 412 DRAFT_REVISION_MISMATCH.
@@ -421,6 +427,8 @@ model Envelope {
   @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)])
   /// Every other status tab, same cursor shape.
   @@index([tenantId, status, createdAt(sort: Desc), id(sort: Desc)])
+  /// GET /envelopes?externalId= (docs/18 workstream 10).
+  @@index([tenantId, externalId])
   @@index([ownerId])
   /// The expiry sweep: open envelopes past their deadline.
   @@index([status, expiresAt])
@@ -688,6 +696,9 @@ model EmbedSession {
   externalActorId String
   mode            String
   actions         String[]
+  /// Applied to the draft an upload-mode session creates (docs/18 workstream 10).
+  externalId      String?   @db.VarChar(200)
+  metadata        Json?
   launchTokenHash String    @unique
   accessTokenHash String?   @unique
   launchExpiresAt DateTime

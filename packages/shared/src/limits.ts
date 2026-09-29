@@ -72,3 +72,11 @@ export const MAX_WEBHOOK_ENDPOINT_ROWS_PER_TENANT = 20;
 /** Webhook secret rotation: how long the previous secret keeps verifying (docs/18 workstream 9). */
 export const DEFAULT_WEBHOOK_SECRET_OVERLAP_HOURS = 24;
 export const MAX_WEBHOOK_SECRET_OVERLAP_HOURS = 72;
+
+/** Partner reference on an envelope (docs/18 workstream 10, ADR 0019). */
+export const MAX_EXTERNAL_ID_LENGTH = 200;
+export const MAX_METADATA_KEYS = 10;
+export const MAX_METADATA_KEY_LENGTH = 40;
+export const MAX_METADATA_VALUE_LENGTH = 500;
+/** Total serialised size, so a partner cannot use metadata as a document store. */
+export const MAX_METADATA_BYTES = 2048;
