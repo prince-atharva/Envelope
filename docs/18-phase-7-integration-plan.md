@@ -1203,6 +1203,15 @@ code was at fault as far as could be shown: the same two files passed together a
 then passed on a rerun, so it is recorded as an unexplained load-related timeout, the same block
 that timed out under load in workstream 8.
 
+| Step | Commit |
+|---|---|
+| 9.1 | 59127e4 |
+| 9.2 | 16df61a |
+| 9.3 | 24ba40d |
+| 9.4 | 9a17783 |
+| 9.5 | 60eecc4 |
+| 9.6 | fe25e60 |
+
 ### Deliberate Simplifications
 
 - The auto-disable threshold is a single global config value, not per-tenant configurable.
