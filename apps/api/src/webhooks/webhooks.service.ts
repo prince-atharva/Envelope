@@ -9,7 +9,7 @@ import type {
   WebhookEndpointSummary,
   WebhookEventType,
 } from '@envelope/shared';
-import { MAX_WEBHOOK_ENDPOINTS_PER_TENANT } from '@envelope/shared';
+import { MAX_WEBHOOK_ENDPOINTS_PER_TENANT, WEBHOOK_TEST_EVENT_TYPE } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -196,6 +196,24 @@ export class WebhooksService {
   }
 
   /**
+   * Sends one `webhook.test` event to check the receiver (docs/18 workstream
+   * 9). Returns the PENDING delivery straight away; the worker records the
+   * outcome, which the deliveries list then shows.
+   */
+  async sendTest(id: string, actor: AuthenticatedUser): Promise<WebhookDeliverySummary> {
+    await this.findInTenant(id, actor.tenantId);
+    const deliveryId = await this.webhookQueue.enqueueTest(actor.tenantId, id);
+    this.logger.info(
+      { webhookEndpointId: id, deliveryId, tenantId: actor.tenantId, requestedBy: actor.id },
+      'Webhook test event requested',
+    );
+    const delivery = await this.prisma.webhookDelivery.findUniqueOrThrow({
+      where: { id: deliveryId },
+    });
+    return toDeliverySummary(delivery);
+  }
+
+  /**
    * `id` here is a WebhookDelivery id, not a WebhookEndpoint id (docs/08:
    * `POST /v1/webhooks/:id/redrive`) — worth this explicit note since every
    * other route under `/webhooks/:id` takes an endpoint id. Only a
@@ -210,7 +228,10 @@ export class WebhooksService {
       where: { id: deliveryId, tenantId: actor.tenantId },
     });
     if (!delivery) throw new AppException('NOT_FOUND', 'Webhook delivery not found.');
+    // A test delivery is one attempt by design; redriving it would give it the
+    // full retry schedule and, on failure, count toward auto-disable.
     const redrivable =
+      delivery.eventType !== WEBHOOK_TEST_EVENT_TYPE &&
       (delivery.status === 'FAILED' || delivery.status === 'EXHAUSTED') &&
       Date.now() - delivery.createdAt.getTime() <= REDRIVABLE_WINDOW_MS;
     if (!redrivable) throw new AppException('WEBHOOK_DELIVERY_NOT_REDRIVABLE');

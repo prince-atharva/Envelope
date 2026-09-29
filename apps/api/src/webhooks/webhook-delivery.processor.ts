@@ -1,4 +1,8 @@
-import { WEBHOOK_DELIVERY_HEADERS, webhookUserAgent } from '@envelope/shared';
+import {
+  WEBHOOK_DELIVERY_HEADERS,
+  WEBHOOK_TEST_EVENT_TYPE,
+  webhookUserAgent,
+} from '@envelope/shared';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import type { Job } from 'bullmq';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
@@ -185,6 +189,9 @@ export class WebhookDeliveryProcessor extends WorkerHost {
           );
         });
     }
+    // A test delivery is a one-off check the admin is watching (docs/18
+    // workstream 9): nobody needs paging about it.
+    if (job?.name === WEBHOOK_TEST_EVENT_TYPE) return;
     void this.alerts.raise(
       'webhook-delivery-exhausted',
       'A webhook delivery failed permanently',

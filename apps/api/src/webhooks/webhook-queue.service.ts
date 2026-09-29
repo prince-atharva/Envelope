@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   WEBHOOK_API_VERSION,
+  WEBHOOK_TEST_EVENT_TYPE,
   type WebhookEventPayload,
   type WebhookEventType,
 } from '@envelope/shared';
@@ -93,6 +94,45 @@ export class WebhookQueueService {
       { tenantId, type, eventId, endpoints: targets.length },
       'Webhook deliveries enqueued',
     );
+  }
+
+  /**
+   * One test delivery to one endpoint (docs/18 workstream 9): a single
+   * attempt, so a failure is reported once instead of retried for 15 hours,
+   * and never counted toward auto-disable or alerting. Unlike `enqueue`, it
+   * goes to the named endpoint even if that endpoint is inactive or not
+   * subscribed to anything, since checking a receiver is the point.
+   */
+  async enqueueTest(tenantId: string, endpointId: string): Promise<string> {
+    const eventId = `evt_${randomUUID()}`;
+    const payload: WebhookEventPayload = {
+      id: eventId,
+      type: WEBHOOK_TEST_EVENT_TYPE,
+      apiVersion: WEBHOOK_API_VERSION,
+      createdAt: new Date().toISOString(),
+      data: { message: 'This is a test event sent from Envelope. No action is needed.' },
+    };
+    const delivery = await this.prisma.webhookDelivery.create({
+      data: {
+        tenantId,
+        webhookEndpointId: endpointId,
+        eventId,
+        eventType: WEBHOOK_TEST_EVENT_TYPE,
+        envelopeId: null,
+        payload: payload as unknown as Prisma.InputJsonValue,
+      },
+      select: { id: true },
+    });
+    await this.queue.add(
+      WEBHOOK_TEST_EVENT_TYPE,
+      { deliveryId: delivery.id },
+      { jobId: `delivery-${delivery.id}`, attempts: 1 },
+    );
+    this.logger.info(
+      { tenantId, webhookEndpointId: endpointId, deliveryId: delivery.id, eventId },
+      'Webhook test delivery enqueued',
+    );
+    return delivery.id;
   }
 
   /**

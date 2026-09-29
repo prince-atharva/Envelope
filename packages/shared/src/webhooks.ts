@@ -160,7 +160,8 @@ export interface WebhookDeliverySummary {
 /** The body sent to a webhook endpoint (docs/08, "Payload"; docs/18 workstream 8). */
 export interface WebhookEventPayload<TData = Record<string, unknown>> {
   id: string;
-  type: WebhookEventType;
+  /** `webhook.test` only for a test delivery (docs/18 workstream 9). */
+  type: WebhookDeliveryEventType;
   /** Added in workstream 8; a receiver written before it ignores unknown fields. */
   apiVersion?: typeof WEBHOOK_API_VERSION;
   createdAt: string;

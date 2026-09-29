@@ -78,6 +78,21 @@ export class WebhooksController {
     return this.webhooks.deactivate(id, user);
   }
 
+  @Post(':id/test')
+  @Roles('ADMIN')
+  @HttpCode(202)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({
+    summary:
+      'Send one webhook.test event to this endpoint. One attempt, no retries; it never counts toward auto-disable',
+  })
+  sendTest(
+    @Param('id', UuidParamPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WebhookDeliverySummary> {
+    return this.webhooks.sendTest(id, user);
+  }
+
   @Post(':id/redrive')
   @Roles('ADMIN')
   @HttpCode(200)
