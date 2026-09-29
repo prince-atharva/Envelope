@@ -3,6 +3,8 @@ import type {
   CreateWebhookEndpointInput,
   CreateWebhookEndpointResponse,
   ListWebhookDeliveriesPageQuery,
+  RotateWebhookSecretInput,
+  RotateWebhookSecretResponse,
   UpdateWebhookEndpointInput,
   WebhookDeliveryPage,
   WebhookDeliverySummary,
@@ -55,6 +57,14 @@ function toEndpointSummary(endpoint: WebhookEndpoint): WebhookEndpointSummary {
     secretDisplayHint: endpoint.secretDisplayHint,
     subscribedEvents: endpoint.subscribedEvents as WebhookEventType[],
     isActive: endpoint.isActive,
+    secretRotatedAt: endpoint.secretRotatedAt?.toISOString() ?? null,
+    // Only a window that is still open: an elapsed one no longer changes what is signed.
+    previousSecretExpiresAt:
+      endpoint.previousSecretCiphertext &&
+      endpoint.previousSecretExpiresAt &&
+      endpoint.previousSecretExpiresAt.getTime() > Date.now()
+        ? endpoint.previousSecretExpiresAt.toISOString()
+        : null,
     createdAt: endpoint.createdAt.toISOString(),
     updatedAt: endpoint.updatedAt.toISOString(),
   };
@@ -90,6 +100,10 @@ export class WebhooksService {
     @InjectPinoLogger(WebhooksService.name) private readonly logger: PinoLogger,
   ) {}
 
+  private newRawSecret(): string {
+    return `${SECRET_PREFIX}${randomBytes(32).toString('base64url')}`;
+  }
+
   private urlCheckOptions() {
     return { allowInsecureLocal: this.config.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS };
   }
@@ -112,7 +126,7 @@ export class WebhooksService {
     }
     await assertWebhookUrlIsSafe(input.url, this.urlCheckOptions());
 
-    const rawSecret = `${SECRET_PREFIX}${randomBytes(32).toString('base64url')}`;
+    const rawSecret = this.newRawSecret();
     const endpoint = await this.prisma.webhookEndpoint.create({
       data: {
         tenantId: actor.tenantId,
@@ -158,6 +172,54 @@ export class WebhooksService {
       'Webhook endpoint updated',
     );
     return toEndpointSummary(updated);
+  }
+
+  /**
+   * Replaces the signing secret (docs/18 workstream 9). The new secret is
+   * returned once. With `overlapHours > 0` the secret being replaced keeps
+   * signing alongside it until the window ends, so a receiver can switch
+   * without a gap; rotating again inside a window drops the older secret,
+   * since only one previous secret is kept.
+   */
+  async rotateSecret(
+    id: string,
+    input: RotateWebhookSecretInput,
+    actor: AuthenticatedUser,
+  ): Promise<RotateWebhookSecretResponse> {
+    const rawSecret = this.newRawSecret();
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Two simultaneous rotations must each replace a secret they actually
+      // read, or the second would leave the first's new secret in no column.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`webhook-secret:${id}`}, 3))`;
+      const endpoint = await tx.webhookEndpoint.findFirst({
+        where: { id, tenantId: actor.tenantId },
+      });
+      if (!endpoint) throw new AppException('NOT_FOUND', 'Webhook endpoint not found.');
+      const overlap = input.overlapHours > 0;
+      return tx.webhookEndpoint.update({
+        where: { id },
+        data: {
+          secretCiphertext: this.cipher.encrypt(rawSecret),
+          secretDisplayHint: rawSecret.slice(0, DISPLAY_PREFIX_LENGTH),
+          secretRotatedAt: now,
+          previousSecretCiphertext: overlap ? endpoint.secretCiphertext : null,
+          previousSecretExpiresAt: overlap
+            ? new Date(now.getTime() + input.overlapHours * 3600 * 1000)
+            : null,
+        },
+      });
+    });
+    this.logger.info(
+      {
+        webhookEndpointId: id,
+        tenantId: actor.tenantId,
+        rotatedBy: actor.id,
+        overlapHours: input.overlapHours,
+      },
+      'Webhook secret rotated',
+    );
+    return { endpoint: toEndpointSummary(updated), rawSecret };
   }
 
   /**

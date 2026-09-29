@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { signWebhookPayload } from './webhook-signature';
+import { buildWebhookSignatureHeader, signWebhookPayload } from './webhook-signature';
 
 describe('signWebhookPayload', () => {
   it('matches docs/08’s exact construction: HMAC_SHA256(secret, "{timestamp}.{raw_body}")', () => {
@@ -29,5 +29,25 @@ describe('signWebhookPayload', () => {
   it('produces a lowercase 64-character hex string', () => {
     const signature = signWebhookPayload('s', 1, '{}');
     expect(signature).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe('buildWebhookSignatureHeader', () => {
+  const body = '{"id":"evt_1"}';
+
+  it('is a single sha256= value with one secret, the same as before rotation existed', () => {
+    expect(buildWebhookSignatureHeader(['new'], 5, body)).toBe(
+      `sha256=${signWebhookPayload('new', 5, body)}`,
+    );
+  });
+
+  it('lists the current secret first, then the previous one, while rotating', () => {
+    const header = buildWebhookSignatureHeader(['new', 'old'], 5, body);
+    expect(header).toBe(
+      `sha256=${signWebhookPayload('new', 5, body)},sha256=${signWebhookPayload('old', 5, body)}`,
+    );
+    const parts = header.split(',');
+    expect(parts).toHaveLength(2);
+    expect(parts[0]).not.toBe(parts[1]);
   });
 });

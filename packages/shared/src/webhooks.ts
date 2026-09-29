@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { MAX_WEBHOOK_DESCRIPTION_LENGTH } from './limits';
+import {
+  DEFAULT_WEBHOOK_SECRET_OVERLAP_HOURS,
+  MAX_WEBHOOK_DESCRIPTION_LENGTH,
+  MAX_WEBHOOK_SECRET_OVERLAP_HOURS,
+} from './limits';
 
 /**
  * Outbound event notifications for a third-party integration (docs/08,
@@ -99,9 +103,36 @@ export interface WebhookEndpointSummary {
   secretDisplayHint: string;
   subscribedEvents: WebhookEventType[];
   isActive: boolean;
+  /** When the signing secret was last rotated; null if it never has been. */
+  secretRotatedAt: string | null;
+  /**
+   * While in the future, deliveries carry a signature for both the current
+   * and the previous secret. Null when no overlap window is open.
+   */
+  previousSecretExpiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * Rotates an endpoint's signing secret (docs/18 workstream 9). For
+ * `overlapHours` the previous secret keeps verifying alongside the new one;
+ * 0 ends the old secret immediately. An empty body means the default.
+ */
+export const rotateWebhookSecretSchema = z
+  .strictObject({
+    overlapHours: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_WEBHOOK_SECRET_OVERLAP_HOURS)
+      .default(DEFAULT_WEBHOOK_SECRET_OVERLAP_HOURS),
+  })
+  .default({ overlapHours: DEFAULT_WEBHOOK_SECRET_OVERLAP_HOURS });
+export type RotateWebhookSecretInput = z.infer<typeof rotateWebhookSecretSchema>;
+
+/** The new raw secret is returned only here, once. */
+export type RotateWebhookSecretResponse = CreateWebhookEndpointResponse;
 
 /** The raw secret is returned only here, once, at creation. It is never shown again. */
 export interface CreateWebhookEndpointResponse {

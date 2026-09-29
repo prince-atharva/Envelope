@@ -6,6 +6,9 @@ import {
   type ListWebhookDeliveriesQuery,
   listWebhookDeliveriesPageQuerySchema,
   listWebhookDeliveriesQuerySchema,
+  type RotateWebhookSecretInput,
+  type RotateWebhookSecretResponse,
+  rotateWebhookSecretSchema,
   type UpdateWebhookEndpointInput,
   updateWebhookEndpointSchema,
   type WebhookDeliveryPage,
@@ -76,6 +79,23 @@ export class WebhooksController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<WebhookEndpointSummary> {
     return this.webhooks.deactivate(id, user);
+  }
+
+  @Post(':id/rotate-secret')
+  @Roles('ADMIN')
+  @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({
+    summary:
+      'Rotate the signing secret. The new secret is shown once; the old one keeps verifying for overlapHours (default 24, 0-72)',
+  })
+  @ApiBody({ schema: openApiSchema(rotateWebhookSecretSchema) })
+  rotateSecret(
+    @Param('id', UuidParamPipe) id: string,
+    @Body(new ZodValidationPipe(rotateWebhookSecretSchema)) body: RotateWebhookSecretInput,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RotateWebhookSecretResponse> {
+    return this.webhooks.rotateSecret(id, body, user);
   }
 
   @Post(':id/test')

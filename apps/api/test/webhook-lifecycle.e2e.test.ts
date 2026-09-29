@@ -9,8 +9,12 @@ import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { WebhookDeliveryPurgeService } from '../src/maintenance/webhook-delivery-purge.service';
 import { WEBHOOK_DELIVERY_QUEUE } from '../src/queue/queue.module';
+import { WebhookQueueService } from '../src/webhooks/webhook-queue.service';
+import { signWebhookPayload } from '../src/webhooks/webhook-signature';
 import {
+  captureLogs,
   createTestApp,
   createTestWorker,
   type TestApp,
@@ -18,7 +22,7 @@ import {
   waitFor,
 } from './helpers/app';
 import { registerUser, type SignedInUser } from './helpers/auth';
-import { truncateAll } from './helpers/db';
+import { ownerQuery, truncateAll } from './helpers/db';
 import { bearer } from './helpers/signing';
 
 interface ReceivedRequest {
@@ -189,6 +193,143 @@ describe('webhook endpoint lifecycle (e2e)', () => {
         .set('Authorization', bearer(owner))
         .expect(202);
       await waitFor(() => received.at(0));
+    });
+  });
+
+  describe('secret rotation', () => {
+    async function rotate(
+      id: string,
+      body?: { overlapHours?: number },
+    ): Promise<CreateWebhookEndpointResponse> {
+      const req = request(t.http)
+        .post(`/api/v1/webhooks/${id}/rotate-secret`)
+        .set('Authorization', bearer(owner));
+      const res = await (body ? req.send(body) : req).expect(200);
+      return res.body as CreateWebhookEndpointResponse;
+    }
+
+    async function sendEvent(): Promise<ReceivedRequest> {
+      received = [];
+      await t.app.get(WebhookQueueService).enqueue(owner.body.user.tenant.id, 'envelope.sent', {
+        envelopeId: '00000000-0000-4000-8000-0000000000a1',
+      });
+      return waitFor(() => received.at(0));
+    }
+
+    function signatures(hit: ReceivedRequest): string[] {
+      return String(hit.headers['x-signature']).split(',');
+    }
+
+    function expectedSignature(secret: string, hit: ReceivedRequest): string {
+      return `sha256=${signWebhookPayload(secret, Number(hit.headers['x-signature-timestamp']), hit.body)}`;
+    }
+
+    it('signs with both secrets during the overlap window, current secret first', async () => {
+      await deactivateAll();
+      const created = await createEndpoint();
+      const rotated = await rotate(created.endpoint.id, { overlapHours: 24 });
+
+      expect(rotated.rawSecret).not.toBe(created.rawSecret);
+      expect(rotated.endpoint.secretDisplayHint).toBe(rotated.rawSecret.slice(0, 12));
+      expect(rotated.endpoint.secretRotatedAt).toBeTruthy();
+      const closes = new Date(String(rotated.endpoint.previousSecretExpiresAt)).getTime();
+      expect(closes).toBeGreaterThan(Date.now() + 23 * 3600 * 1000);
+      expect(closes).toBeLessThan(Date.now() + 25 * 3600 * 1000);
+
+      const hit = await sendEvent();
+      expect(signatures(hit)).toEqual([
+        expectedSignature(rotated.rawSecret, hit),
+        expectedSignature(created.rawSecret, hit),
+      ]);
+    });
+
+    it('signs with only the new secret when the overlap is 0', async () => {
+      await deactivateAll();
+      const created = await createEndpoint();
+      const rotated = await rotate(created.endpoint.id, { overlapHours: 0 });
+      expect(rotated.endpoint.previousSecretExpiresAt).toBeNull();
+
+      const hit = await sendEvent();
+      expect(signatures(hit)).toEqual([expectedSignature(rotated.rawSecret, hit)]);
+      expect(signatures(hit)[0]).not.toBe(expectedSignature(created.rawSecret, hit));
+    });
+
+    it('defaults to a 24 hour window with no body, and rejects an overlap over 72 hours', async () => {
+      await deactivateAll();
+      const created = await createEndpoint();
+      const rotated = await rotate(created.endpoint.id);
+      const closes = new Date(String(rotated.endpoint.previousSecretExpiresAt)).getTime();
+      expect(closes).toBeGreaterThan(Date.now() + 23 * 3600 * 1000);
+
+      await request(t.http)
+        .post(`/api/v1/webhooks/${created.endpoint.id}/rotate-secret`)
+        .set('Authorization', bearer(owner))
+        .send({ overlapHours: 73 })
+        .expect(400);
+      await request(t.http)
+        .post(`/api/v1/webhooks/${created.endpoint.id}/rotate-secret`)
+        .set('Authorization', bearer(owner))
+        .send({ overlapHours: 24, extra: true })
+        .expect(400);
+    });
+
+    it('drops the older secret when rotated again inside a window', async () => {
+      await deactivateAll();
+      const first = await createEndpoint();
+      const second = await rotate(first.endpoint.id, { overlapHours: 24 });
+      const third = await rotate(first.endpoint.id, { overlapHours: 24 });
+
+      const hit = await sendEvent();
+      expect(signatures(hit)).toEqual([
+        expectedSignature(third.rawSecret, hit),
+        expectedSignature(second.rawSecret, hit),
+      ]);
+    });
+
+    it('stops signing with the old secret once the window has passed, and the purge clears it', async () => {
+      await deactivateAll();
+      const created = await createEndpoint();
+      const rotated = await rotate(created.endpoint.id, { overlapHours: 24 });
+      await ownerQuery(
+        `UPDATE "WebhookEndpoint" SET "previousSecretExpiresAt" = now() - interval '1 minute' WHERE id = $1`,
+        [created.endpoint.id],
+      );
+
+      const hit = await sendEvent();
+      expect(signatures(hit)).toEqual([expectedSignature(rotated.rawSecret, hit)]);
+      expect((await listEndpoints())[0]?.previousSecretExpiresAt).toBeNull();
+
+      await worker.module.get(WebhookDeliveryPurgeService).run();
+      const row = await ownerQuery<{ previousSecretCiphertext: string | null }>(
+        `SELECT "previousSecretCiphertext" FROM "WebhookEndpoint" WHERE id = $1`,
+        [created.endpoint.id],
+      );
+      expect(row.rows[0]?.previousSecretCiphertext).toBeNull();
+    });
+
+    it('is tenant-scoped, and never logs either secret', async () => {
+      await deactivateAll();
+      const created = await createEndpoint();
+      const stranger = await registerUser(t.http, {
+        fullName: 'Rotation Stranger',
+        organization: 'Stranger Clinic',
+      });
+      await request(t.http)
+        .post(`/api/v1/webhooks/${created.endpoint.id}/rotate-secret`)
+        .set('Authorization', bearer(stranger))
+        .send({ overlapHours: 1 })
+        .expect(404);
+
+      const logs = captureLogs();
+      try {
+        const rotated = await rotate(created.endpoint.id, { overlapHours: 1 });
+        await sendEvent();
+        expect(logs.find('Webhook secret rotated')).toHaveLength(1);
+        expect(logs.text()).not.toContain(rotated.rawSecret);
+        expect(logs.text()).not.toContain(created.rawSecret);
+      } finally {
+        logs.restore();
+      }
     });
   });
 });

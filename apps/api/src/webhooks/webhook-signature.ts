@@ -13,3 +13,19 @@ export function signWebhookPayload(
 ): string {
   return createHmac('sha256', secret).update(`${timestampSeconds}.${rawBody}`).digest('hex');
 }
+
+/**
+ * The `X-Signature` header value: `sha256=<hex>` for the current secret and,
+ * while a rotation's overlap window is open, a second `sha256=<hex>` for the
+ * previous one, comma-separated, current first (docs/18 workstream 9). A
+ * receiver accepts the request if any listed signature matches.
+ */
+export function buildWebhookSignatureHeader(
+  secrets: readonly string[],
+  timestampSeconds: number,
+  rawBody: string,
+): string {
+  return secrets
+    .map((secret) => `sha256=${signWebhookPayload(secret, timestampSeconds, rawBody)}`)
+    .join(',');
+}

@@ -29,6 +29,15 @@ export class WebhookDeliveryPurgeService {
     if (count > 0) {
       this.logger.info({ purged: count }, 'Old webhook deliveries purged');
     }
+    // A finished rotation overlap window: the previous secret no longer signs
+    // anything, so it should not stay stored (docs/18 workstream 9).
+    const { count: cleared } = await this.prisma.webhookEndpoint.updateMany({
+      where: { previousSecretExpiresAt: { lt: now } },
+      data: { previousSecretCiphertext: null, previousSecretExpiresAt: null },
+    });
+    if (cleared > 0) {
+      this.logger.info({ cleared }, 'Expired webhook previous secrets cleared');
+    }
     return { scanned: count, changed: count, failed: 0 };
   }
 }

@@ -18,7 +18,7 @@ import {
 import { APP_VERSION } from '../version';
 import type { WebhookDeliveryJobData } from './webhook-delivery.types';
 import { WebhookSecretCipher } from './webhook-secret-cipher';
-import { signWebhookPayload } from './webhook-signature';
+import { buildWebhookSignatureHeader } from './webhook-signature';
 import { assertWebhookUrlIsSafe } from './webhook-url-guard';
 
 /** "A 2xx within 5 seconds counts as success" (docs/08, "Delivery"). */
@@ -88,9 +88,18 @@ export class WebhookDeliveryProcessor extends WorkerHost {
       await assertWebhookUrlIsSafe(delivery.webhookEndpoint.url, {
         allowInsecureLocal: this.config.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS,
       });
-      const secret = this.cipher.decrypt(delivery.webhookEndpoint.secretCiphertext);
+      const endpoint = delivery.webhookEndpoint;
+      // Read at send time, not enqueue time, so a rotation takes effect for
+      // deliveries already queued (docs/18 workstream 9).
+      const secrets = [this.cipher.decrypt(endpoint.secretCiphertext)];
+      if (
+        endpoint.previousSecretCiphertext &&
+        endpoint.previousSecretExpiresAt &&
+        endpoint.previousSecretExpiresAt.getTime() > Date.now()
+      ) {
+        secrets.push(this.cipher.decrypt(endpoint.previousSecretCiphertext));
+      }
       const timestamp = Math.floor(Date.now() / 1000);
-      const signature = signWebhookPayload(secret, timestamp, rawBody);
 
       const res = await fetch(delivery.webhookEndpoint.url, {
         method: 'POST',
@@ -98,7 +107,11 @@ export class WebhookDeliveryProcessor extends WorkerHost {
           'Content-Type': 'application/json',
           'User-Agent': webhookUserAgent(APP_VERSION),
           [WEBHOOK_DELIVERY_HEADERS.signatureTimestamp]: String(timestamp),
-          [WEBHOOK_DELIVERY_HEADERS.signature]: `sha256=${signature}`,
+          [WEBHOOK_DELIVERY_HEADERS.signature]: buildWebhookSignatureHeader(
+            secrets,
+            timestamp,
+            rawBody,
+          ),
           [WEBHOOK_DELIVERY_HEADERS.eventId]: delivery.eventId,
           [WEBHOOK_DELIVERY_HEADERS.eventType]: delivery.eventType,
           [WEBHOOK_DELIVERY_HEADERS.deliveryId]: delivery.id,
