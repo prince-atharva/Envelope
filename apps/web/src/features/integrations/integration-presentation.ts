@@ -32,9 +32,21 @@ export const WEBHOOK_DELIVERY_LABELS: Record<WebhookDeliveryStatus, string> = {
   EXHAUSTED: 'Failed',
 };
 
-export function canRedriveWebhookDelivery(status: WebhookDeliveryStatus): boolean {
-  return status === 'FAILED' || status === 'EXHAUSTED';
+/** A test delivery is one attempt by design and is never retried (docs/18 workstream 9). */
+export function canRedriveWebhookDelivery(
+  status: WebhookDeliveryStatus,
+  eventType?: WebhookDeliveryEventType,
+): boolean {
+  return eventType !== 'webhook.test' && (status === 'FAILED' || status === 'EXHAUSTED');
 }
+
+/** How long the previous secret keeps working after a rotation (docs/18 workstream 9). */
+export const SECRET_OVERLAP_OPTIONS = [
+  { hours: 24, label: '24 hours (recommended)' },
+  { hours: 72, label: '72 hours' },
+  { hours: 1, label: '1 hour' },
+  { hours: 0, label: 'Not at all. The old secret stops working now' },
+] as const;
 
 export function apiKeyAccessLabel(readOnly: boolean): string {
   return readOnly ? 'Read only' : 'Full access';

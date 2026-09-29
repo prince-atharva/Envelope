@@ -20,7 +20,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Settings → Integrations.** Admins and Owners can create one-time API keys, choose read-only or full access, identify and revoke old keys, register and edit webhook endpoints, copy signing secrets once, deactivate or reactivate endpoints, inspect recent delivery attempts and retry failures inside the seven-day window. The screen uses the existing Phase 7 API and keeps credential values out of URLs, caches, storage and logs.
 
+- **Webhook endpoint lifecycle (Phase 7, docs/18 workstream 9).** Send a test event to check a receiver (one attempt, never counted as a failure). Rotate a signing secret with an overlap of 0 to 72 hours, during which requests carry both signatures. Only active endpoints count toward the limit of five, and an inactive endpoint can be deleted permanently. An endpoint whose deliveries keep failing every retry is turned off automatically and its workspace admins are emailed; reactivating it starts fresh. The Deliveries dialog polls a pending result, and the integration guide and its receiver example handle the two-signature header.
+
 ### Changed
+
+- The published webhook verifier example accepts a comma-separated `X-Signature` so a receiver keeps working through a secret rotation (Phase 7, docs/18 step 9.6).
 
 - Webhook deliveries run all six documented retry delays (seven total attempts), keep lifetime attempt counts across manual retries, and expose the next retry timestamp. Requests include event, delivery and attempt headers and a versioned User-Agent (Phase 7, docs/18 step 8.2).
 

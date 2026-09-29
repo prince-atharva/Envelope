@@ -681,6 +681,23 @@ Failed deliveries are retained 7 days and redrivable via `POST /v1/webhooks/:id/
 > only, like every other webhook management route. `GET /v1/webhooks/:id/deliveries` and
 > `POST /v1/webhooks/:id/redrive` are kept and marked deprecated, not removed.
 
+> **As built (Phase 7, docs/18 workstream 9).** Endpoint lifecycle routes, all session
+> ADMIN/OWNER only:
+> `POST /v1/webhooks/:id/test` (202) sends one `webhook.test` event: a single attempt, no retries,
+> no alert, and never counted toward auto-disable; it cannot be retried. `POST
+> /v1/webhooks/:id/rotate-secret` takes an optional `{ "overlapHours": 0-72 }` (default 24) and
+> returns the new secret once; while the window is open `X-Signature` lists two comma-separated
+> values, `sha256=<new>,sha256=<old>`, and a receiver accepts the request if any one matches.
+> Rotating again inside a window drops the older secret. `DELETE /v1/webhooks/:id/permanent` (204)
+> removes an inactive endpoint and its deliveries; an active one returns `409
+> WEBHOOK_ENDPOINT_ACTIVE`. Only **active** endpoints count toward the limit of five; twenty saved
+> endpoints in all returns `409 WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED`, and reactivating faces the
+> same limit. After `WEBHOOK_AUTO_DISABLE_THRESHOLD` (default 10) real deliveries in a row exhaust
+> every retry the endpoint is deactivated (`disabledAt`, `disabledReason`, `consecutiveFailures`
+> in its summary) and each human OWNER/ADMIN is emailed, naming only the endpoint's host.
+> Reactivating clears that state. Endpoint summaries also gain `secretRotatedAt` and
+> `previousSecretExpiresAt`.
+
 ## Errors
 
 RFC 7807:

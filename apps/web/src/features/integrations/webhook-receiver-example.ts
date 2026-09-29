@@ -1,15 +1,21 @@
 // Keep the displayed verifier executable so tests exercise exactly what users copy (docs/21).
 export const WEBHOOK_VERIFIER = `function verifyWebhook(rawBody, timestamp, signature, secret) {
   if (typeof timestamp !== 'string' || !/^\\d{1,12}$/.test(timestamp)) return false;
-  if (typeof signature !== 'string' || !/^sha256=[a-f0-9]{64}$/.test(signature)) return false;
+  if (typeof signature !== 'string') return false;
   const seconds = Number(timestamp);
   if (Math.abs(Date.now() / 1000 - seconds) > 300) return false;
   const expected = createHmac('sha256', secret)
     .update(timestamp + '.')
     .update(rawBody)
     .digest();
-  const received = Buffer.from(signature.slice(7), 'hex');
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  // While a secret is being rotated the header lists one signature per
+  // accepted secret, comma-separated. Accept the request if any one matches.
+  return signature.split(',').some((part) => {
+    const candidate = part.trim();
+    if (!/^sha256=[a-f0-9]{64}$/.test(candidate)) return false;
+    const received = Buffer.from(candidate.slice(7), 'hex');
+    return received.length === expected.length && timingSafeEqual(received, expected);
+  });
 }`;
 
 export const WEBHOOK_RECEIVER = `import { createHmac, timingSafeEqual } from 'node:crypto';

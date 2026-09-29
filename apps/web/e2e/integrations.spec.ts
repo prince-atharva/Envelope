@@ -443,3 +443,116 @@ test('integration guide documents all key operations and webhook setup on every 
   await page.getByRole('button', { name: 'Manage connections', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Create API key' })).toBeVisible();
 });
+
+test('owner tests a webhook, rotates its secret, sees an automatic shutdown and deletes it', async ({
+  page,
+}) => {
+  const requests: { type: string | undefined; signature: string | undefined }[] = [];
+  let status = 204;
+  receiver = createServer((request, response) => {
+    request.resume();
+    request.on('end', () => {
+      requests.push({
+        type: request.headers['x-envelope-event-type'] as string | undefined,
+        signature: request.headers['x-signature'] as string | undefined,
+      });
+      response.writeHead(status);
+      response.end();
+    });
+  });
+  await new Promise<void>((resolve, reject) =>
+    receiver?.listen(0, '127.0.0.1', resolve).once('error', reject),
+  );
+  const address = receiver.address();
+  if (!address || typeof address === 'string')
+    throw new Error('Local webhook receiver did not bind');
+  const endpointUrl = `http://127.0.0.1:${address.port}/lifecycle`;
+
+  await signUp(page, 'webhook-lifecycle-owner');
+  await page.goto('/settings/integrations');
+  await page.getByRole('button', { name: 'Add webhook' }).click();
+  await page.getByLabel('Endpoint URL').fill(endpointUrl);
+  await page.getByRole('dialog').getByRole('button', { name: 'Add webhook' }).click();
+  await page.getByRole('button', { name: 'I have saved the secret' }).click();
+  const row = page
+    .getByRole('listitem')
+    .filter({ has: page.getByText(endpointUrl, { exact: true }) });
+  await expect(page.getByText('1 of 5 active endpoints')).toBeVisible();
+
+  // A test event: delivered, once, and shown in the deliveries list.
+  await row.getByRole('button', { name: 'Send test event' }).click();
+  const deliveries = page.getByRole('dialog');
+  await expect(deliveries.getByText('Test event', { exact: true })).toBeVisible();
+  await expect(
+    deliveries.getByRole('listitem').getByText('Delivered', { exact: true }),
+  ).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(deliveries.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+  expect(requests.map((item) => item.type)).toEqual(['webhook.test']);
+  expect(requests[0]?.signature).toMatch(/^sha256=[a-f0-9]{64}$/);
+
+  // A failing receiver: reported as failed, with no retry offered for a test event.
+  status = 500;
+  await deliveries.getByRole('button', { name: 'Close' }).click();
+  await row.getByRole('button', { name: 'Send test event' }).click();
+  await expect(deliveries.getByText('HTTP 500').first()).toBeVisible({ timeout: 10_000 });
+  await expect(deliveries.getByRole('listitem').getByText('Failed', { exact: true })).toBeVisible();
+  await expect(deliveries.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+  await deliveries.getByRole('button', { name: 'Close' }).click();
+  status = 204;
+
+  // Rotating: the new secret is shown once, and requests then carry two signatures.
+  await row.getByRole('button', { name: 'Rotate secret' }).click();
+  const rotate = page.getByRole('dialog');
+  await expect(rotate.getByLabel('Keep the old secret working for')).toHaveValue('24');
+  await rotate.getByRole('button', { name: 'Rotate secret' }).click();
+  await expect(page.getByTestId('rotated-webhook-secret')).toContainText(/^whsec_/);
+  await expect(
+    rotate.getByText(/each request carries a signature for the new secret/),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'I have saved the secret' }).click();
+  await expect(page.getByTestId('rotated-webhook-secret')).toHaveCount(0);
+  await expect(row).toContainText('Also accepted until');
+  await row.getByRole('button', { name: 'Send test event' }).click();
+  await expect(
+    deliveries.getByRole('listitem').getByText('Delivered', { exact: true }).first(),
+  ).toBeVisible({
+    timeout: 10_000,
+  });
+  await deliveries.getByRole('button', { name: 'Close' }).click();
+  await expect
+    .poll(() => requests.at(-1)?.signature?.split(',').length, { timeout: 10_000 })
+    .toBe(2);
+
+  // An endpoint the platform turned off says so, and offers reactivate and delete.
+  const client = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE "WebhookEndpoint"
+          SET "isActive" = false, "disabledAt" = now(), "consecutiveFailures" = 3,
+              "disabledReason" = 'Turned off automatically: 3 deliveries in a row failed every retry.'
+        WHERE url = $1`,
+      [endpointUrl],
+    );
+  } finally {
+    await client.end();
+  }
+  await page.reload();
+  await expect(page.getByText('0 of 5 active endpoints')).toBeVisible();
+  await expect(row.getByText('Turned off automatically', { exact: true })).toBeVisible();
+  await expect(row).toContainText('3 deliveries in a row failed every retry');
+  await row.getByRole('button', { name: 'Reactivate' }).click();
+  await expect(row.getByText('Turned off automatically', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('1 of 5 active endpoints')).toBeVisible();
+
+  // Deleting needs the endpoint to be inactive first, and a confirmation.
+  await expect(row.getByRole('button', { name: 'Delete permanently' })).toHaveCount(0);
+  await row.getByRole('button', { name: 'Deactivate' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Deactivate webhook' }).click();
+  await row.getByRole('button', { name: 'Delete permanently' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete webhook' }).click();
+  await expect(row).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'No webhooks' })).toBeVisible();
+});

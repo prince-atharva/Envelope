@@ -34,6 +34,8 @@ import {
   type ReminderSettingsResponse,
   type RemindInput,
   type RemindResponse,
+  type RotateWebhookSecretInput,
+  type RotateWebhookSecretResponse,
   type SaveFieldsResponse,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
@@ -494,6 +496,18 @@ export const api = {
 
   deactivateWebhookEndpoint: (id: string) =>
     json<WebhookEndpointSummary>(`/webhooks/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  sendWebhookTestEvent: (id: string) =>
+    json<WebhookDeliverySummary>(`/webhooks/${encodeURIComponent(id)}/test`, { method: 'POST' }),
+
+  rotateWebhookSecret: (id: string, input: RotateWebhookSecretInput) =>
+    json<RotateWebhookSecretResponse>(
+      `/webhooks/${encodeURIComponent(id)}/rotate-secret`,
+      jsonBody(input),
+    ),
+
+  deleteWebhookEndpointPermanently: (id: string) =>
+    json<void>(`/webhooks/${encodeURIComponent(id)}/permanent`, { method: 'DELETE' }),
 
   /**
    * Tenant-wide, filterable and paged (docs/18 workstream 8 step 8.4) —

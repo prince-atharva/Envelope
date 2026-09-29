@@ -2,6 +2,7 @@ import {
   type ApiKeySummary,
   type CreateApiKeyInput,
   FIRED_WEBHOOK_EVENT_TYPES,
+  MAX_WEBHOOK_ENDPOINTS_PER_TENANT,
   type WebhookDeliveryStatus,
   type WebhookEndpointSummary,
   type WebhookEventType,
@@ -30,6 +31,7 @@ import {
   WEBHOOK_EVENT_LABELS,
   webhookDeliveryEventLabel,
 } from '../features/integrations/integration-presentation';
+import { RotateSecretDialog } from '../features/integrations/RotateSecretDialog';
 import { useOneTimeSecretMutation } from '../features/integrations/use-one-time-secret-mutation';
 import { webhookInput } from '../features/integrations/webhook-form';
 import { api } from '../lib/api';
@@ -474,16 +476,24 @@ function WebhookDialog({
 
 function WebhookCard({
   endpoint,
+  testing,
   onEdit,
   onDeactivate,
   onReactivate,
   onDeliveries,
+  onTest,
+  onRotate,
+  onDelete,
 }: {
   endpoint: WebhookEndpointSummary;
+  testing: boolean;
   onEdit: () => void;
   onDeactivate: () => void;
   onReactivate: () => void;
   onDeliveries: () => void;
+  onTest: () => void;
+  onRotate: () => void;
+  onDelete: () => void;
 }) {
   const events = endpoint.subscribedEvents.length
     ? endpoint.subscribedEvents.map((event) => WEBHOOK_EVENT_LABELS[event]).join(', ')
@@ -511,10 +521,33 @@ function WebhookCard({
           <code className="break-all text-xs">{endpoint.secretDisplayHint}…</code>
         </Metadata>
         <Metadata label="Updated">{formatDateTime(endpoint.updatedAt)}</Metadata>
+        {endpoint.previousSecretExpiresAt && (
+          <Metadata label="Previous secret">
+            Also accepted until {formatDateTime(endpoint.previousSecretExpiresAt)}
+          </Metadata>
+        )}
       </dl>
+      {endpoint.disabledAt && !endpoint.isActive && (
+        <div className="mt-5">
+          <Alert tone="warning">
+            <p className="font-medium">Turned off automatically</p>
+            <p className="mt-1">
+              {endpoint.disabledReason ?? 'Too many deliveries in a row failed.'} No new events are
+              sent to it. Fix your receiver, send a test event, then reactivate it.
+            </p>
+            <p className="mt-1 text-xs opacity-80">{formatDateTime(endpoint.disabledAt)}</p>
+          </Alert>
+        </div>
+      )}
       <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 sm:justify-end">
         <Button className="min-h-11" variant="secondary" onClick={onDeliveries}>
           Deliveries
+        </Button>
+        <Button className="min-h-11" variant="secondary" loading={testing} onClick={onTest}>
+          Send test event
+        </Button>
+        <Button className="min-h-11" variant="secondary" onClick={onRotate}>
+          Rotate secret
         </Button>
         <Button className="min-h-11" variant="secondary" onClick={onEdit}>
           Edit
@@ -524,9 +557,14 @@ function WebhookCard({
             Deactivate
           </Button>
         ) : (
-          <Button className="min-h-11" onClick={onReactivate}>
-            Reactivate
-          </Button>
+          <>
+            <Button className="min-h-11" variant="danger" onClick={onDelete}>
+              Delete permanently
+            </Button>
+            <Button className="min-h-11" onClick={onReactivate}>
+              Reactivate
+            </Button>
+          </>
         )}
       </div>
     </li>
@@ -579,6 +617,11 @@ function DeliveryDialog({
   const deliveries = useInfiniteQuery({
     ...webhookDeliveriesQuery(endpoint?.id ?? '', status || undefined, eventType || undefined),
     enabled: Boolean(endpoint),
+    // A test event's result arrives moments after it is sent (docs/18 workstream 9).
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((page) => page.items.some((item) => item.status === 'PENDING'))
+        ? 1500
+        : false,
   });
   const items = deliveries.data?.pages.flatMap((page) => page.items) ?? [];
   const retry = useMutation({
@@ -727,16 +770,17 @@ function DeliveryDialog({
                       )}
                     </div>
                   </div>
-                  {canRedriveWebhookDelivery(delivery.status) && !redrivenIds.has(delivery.id) && (
-                    <Button
-                      className="min-h-11"
-                      variant="secondary"
-                      loading={retry.isPending && retry.variables === delivery.id}
-                      onClick={() => retry.mutate(delivery.id)}
-                    >
-                      Retry
-                    </Button>
-                  )}
+                  {canRedriveWebhookDelivery(delivery.status, delivery.eventType) &&
+                    !redrivenIds.has(delivery.id) && (
+                      <Button
+                        className="min-h-11"
+                        variant="secondary"
+                        loading={retry.isPending && retry.variables === delivery.id}
+                        onClick={() => retry.mutate(delivery.id)}
+                      >
+                        Retry
+                      </Button>
+                    )}
                 </div>
                 {delivery.lastError && (
                   <p className="mt-4 break-words rounded-lg bg-red-50 px-3 py-3 text-sm text-red-800">
@@ -794,6 +838,7 @@ export function SettingsIntegrationsPage() {
   }>({ open: false, endpoint: null });
   const [pending, setPending] = useState<Confirmation | null>(null);
   const [editingOrigins, setEditingOrigins] = useState<ApiKeySummary | null>(null);
+  const [rotatingEndpoint, setRotatingEndpoint] = useState<WebhookEndpointSummary | null>(null);
   const keys = useQuery({ queryKey: queryKeys.apiKeys, queryFn: api.listApiKeys });
   const endpoints = useQuery({
     queryKey: queryKeys.webhookEndpoints,
@@ -816,6 +861,22 @@ export function SettingsIntegrationsPage() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.webhookEndpoints });
     },
   });
+  const sendTest = useMutation({
+    mutationFn: (endpoint: WebhookEndpointSummary) => api.sendWebhookTestEvent(endpoint.id),
+    onSuccess: async (_delivery, endpoint) => {
+      await queryClient.invalidateQueries({
+        queryKey: ['integrations', 'webhooks', endpoint.id, 'deliveries'],
+      });
+      setDeliveryEndpoint(endpoint);
+    },
+  });
+  const deleteEndpoint = useMutation({
+    mutationFn: api.deleteWebhookEndpointPermanently,
+    onSuccess: async () => {
+      setPending(null);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.webhookEndpoints });
+    },
+  });
   const confirmRevoke = (key: ApiKeySummary) =>
     setPending({
       title: `Revoke ${key.label}?`,
@@ -833,6 +894,21 @@ export function SettingsIntegrationsPage() {
       onConfirm: () => endpointState.mutate({ id: endpoint.id, active: false }),
     });
 
+  const confirmDelete = (endpoint: WebhookEndpointSummary) =>
+    setPending({
+      title: 'Delete this webhook permanently?',
+      body: (
+        <p>
+          The endpoint and its delivery history are removed and cannot be recovered. Its signing
+          secret stops working for good.
+        </p>
+      ),
+      confirmLabel: 'Delete webhook',
+      destructive: true,
+      onConfirm: () => deleteEndpoint.mutate(endpoint.id),
+    });
+  const activeCount = (endpoints.data ?? []).filter((endpoint) => endpoint.isActive).length;
+
   return (
     <div className="space-y-6 pb-8">
       <SettingsNav />
@@ -844,6 +920,7 @@ export function SettingsIntegrationsPage() {
         onClose={() => setEditingOrigins(null)}
       />
       <DeliveryDialog endpoint={deliveryEndpoint} onClose={() => setDeliveryEndpoint(null)} />
+      <RotateSecretDialog endpoint={rotatingEndpoint} onClose={() => setRotatingEndpoint(null)} />
       <WebhookDialog
         open={webhookDialog.open}
         endpoint={webhookDialog.endpoint}
@@ -927,6 +1004,14 @@ export function SettingsIntegrationsPage() {
             </div>
           )}
           {endpointState.error && <ErrorAlert error={endpointState.error} />}
+          {sendTest.error && <ErrorAlert error={sendTest.error} />}
+          {deleteEndpoint.error && <ErrorAlert error={deleteEndpoint.error} />}
+          {(endpoints.data ?? []).length > 0 && (
+            <p className="px-4 pt-4 text-xs text-slate-500 sm:px-6">
+              {activeCount} of {MAX_WEBHOOK_ENDPOINTS_PER_TENANT} active endpoints. Deactivated
+              endpoints do not count toward the limit.
+            </p>
+          )}
           {endpoints.isLoading ? (
             <Loading label="Loading webhooks" />
           ) : (endpoints.data ?? []).length ? (
@@ -935,6 +1020,10 @@ export function SettingsIntegrationsPage() {
                 <WebhookCard
                   key={endpoint.id}
                   endpoint={endpoint}
+                  testing={sendTest.isPending && sendTest.variables?.id === endpoint.id}
+                  onTest={() => sendTest.mutate(endpoint)}
+                  onRotate={() => setRotatingEndpoint(endpoint)}
+                  onDelete={() => confirmDelete(endpoint)}
                   onEdit={() => setWebhookDialog({ open: true, endpoint })}
                   onDeactivate={() => confirmDeactivate(endpoint)}
                   onReactivate={() => endpointState.mutate({ id: endpoint.id, active: true })}

@@ -589,6 +589,41 @@ test('integration settings', async ({ page }) => {
     caption: 'Revoked keys and inactive endpoints with long content.',
     fullPage: true,
   });
+
+  const disabledDb = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await disabledDb.connect();
+  try {
+    await disabledDb.query(
+      `UPDATE "WebhookEndpoint"
+          SET "disabledAt" = now(), "consecutiveFailures" = 3,
+              "disabledReason" = 'Turned off automatically: 3 deliveries in a row failed every retry.'
+        WHERE "isActive" = false`,
+    );
+  } finally {
+    await disabledDb.end();
+  }
+  await page.reload();
+  await expect(page.getByText('Turned off automatically', { exact: true })).toBeVisible();
+  await shot(page, 'integrations-webhook-disabled', {
+    area: 'settings',
+    caption: 'An endpoint turned off automatically after repeated failures.',
+    fullPage: true,
+  });
+  await page.getByRole('button', { name: 'Rotate secret', exact: true }).click();
+  await shot(page, 'integrations-rotate-secret', {
+    area: 'settings',
+    caption: 'Choosing how long the old signing secret keeps working.',
+  });
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Rotate secret', exact: true })
+    .click();
+  await expect(page.getByTestId('rotated-webhook-secret')).toBeVisible();
+  await shot(page, 'integrations-rotated-secret-once', {
+    area: 'settings',
+    caption: 'The new signing secret is shown once.',
+    mask: [page.getByTestId('rotated-webhook-secret')],
+  });
 });
 
 test('integration developer guide', async ({ page }) => {

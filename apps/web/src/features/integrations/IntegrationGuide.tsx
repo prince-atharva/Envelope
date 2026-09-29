@@ -340,6 +340,12 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                 bytes, using your signing secret. Reject timestamps outside five minutes and compare
                 in constant time. Do not parse or reserialize JSON before verification.
               </p>
+              <p className="mb-4 text-sm leading-6 text-slate-600">
+                While you rotate a signing secret, X-Signature lists two signatures separated by a
+                comma, the new secret first: sha256=NEW,sha256=OLD. Accept the request when any one
+                of them matches the secret you hold; the example below does. This lets you switch
+                your receiver to the new secret before the old one stops working.
+              </p>
               <ExampleBlock title="Node.js receiver example" text={WEBHOOK_RECEIVER} />
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 Before running this example, implement event-inbox.mjs: saveEventOnce must
@@ -367,6 +373,15 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                 deliveries can be retried within seven days; delivery history is purged after that
                 window. The displayed event data is what Envelope sent, not your server’s response
                 body.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Use Send test event on an endpoint to check your receiver: it delivers one
+                webhook.test event, signed like any other, with one attempt and no retries. Treat it
+                as a normal request that needs no action, and expect it in Deliveries. A test never
+                counts toward automatic deactivation. An endpoint whose deliveries fail every retry
+                ten times in a row (the default) is turned off and your workspace admins are
+                emailed; fix the receiver, send a test event and reactivate it. Deactivated
+                endpoints do not use one of your five active slots and can be deleted permanently.
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 The management redrive route uses a delivery id, not an endpoint id, and requires a
@@ -424,7 +439,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               ],
               [
                 'Signature mismatch or repeated delivery',
-                'Use the signing secret, not the API key. Verify untouched request bytes and timestamp; keep the server clock accurate. Acknowledge promptly after durable storage and deduplicate event.id.',
+                'Use the signing secret, not the API key. Verify untouched request bytes and timestamp; keep the server clock accurate. During a secret rotation X-Signature carries two comma-separated signatures; accept if either matches. Acknowledge promptly after durable storage and deduplicate event.id.',
               ],
             ].map(([title, description]) => (
               <Card key={title}>

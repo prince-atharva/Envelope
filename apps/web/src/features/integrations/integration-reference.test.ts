@@ -87,6 +87,15 @@ describe('published webhook verifier', () => {
     expect(verify(Buffer.from(`${body} `), timestamp, signature(timestamp), secret)).toBe(false);
     expect(verify(body, timestamp, signature(timestamp), 'wrong-secret')).toBe(false);
   });
+  it('accepts a rotation header listing several signatures if any one matches', () => {
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const stale = `sha256=${'0'.repeat(64)}`;
+    expect(verify(body, timestamp, `${stale},${signature(timestamp)}`, secret)).toBe(true);
+    expect(verify(body, timestamp, `${signature(timestamp)}, ${stale}`, secret)).toBe(true);
+    expect(verify(body, timestamp, `${stale},${stale}`, secret)).toBe(false);
+    expect(verify(body, timestamp, `${signature(timestamp)},garbage`, secret)).toBe(true);
+    expect(verify(body, timestamp, `garbage,${stale}`, secret)).toBe(false);
+  });
   it('rejects old and future replays and malformed headers without throwing', () => {
     for (const offset of [-301, 301]) {
       const timestamp = String(Math.floor(Date.now() / 1000) + offset);

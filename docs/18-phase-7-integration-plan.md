@@ -137,7 +137,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 6 | Embedded sender editor, SDK and HealthProHub guide | ✅ Built and verified | Steps 6.1–6.6 below |
 | 7 | Per-key embedded origins, plus a member ownership-scope fix | ✅ Built | Steps 7.0–7.4; ADR 0017 |
 | 8 | Webhook reliability and event contract v1 | ✅ Built | Steps 8.1–8.5; ADR 0018 |
-| 9 | Webhook endpoint lifecycle tooling | Accepted; planned | Steps 9.1–9.6; ADR 0018 |
+| 9 | Webhook endpoint lifecycle tooling | ✅ Built | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | Accepted; planned | Steps 10.1–10.5; ADR 0019 |
 | 11 | API-key lifecycle, downloads and limits | Accepted; planned | Steps 11.1–11.5 |
 | 12 | Hosted SDK and runnable partner example | Accepted; planned | Steps 12.1–12.3; ADR 0020 |
@@ -1125,10 +1125,10 @@ with an overlap window, a way to permanently delete an inactive endpoint, and an
 deactivation with an email to the tenant's admins after enough consecutive failures.
 
 Finish line:
-- [ ] An ADMIN/OWNER can send a test event to a registered endpoint without it counting as a real delivery.
-- [ ] A secret can be rotated with an overlap window during which both the old and new secret verify.
-- [ ] The 5-endpoint cap counts only active endpoints; an inactive endpoint can be permanently deleted.
-- [ ] An endpoint that fails enough consecutive real deliveries is automatically deactivated, and
+- [x] An ADMIN/OWNER can send a test event to a registered endpoint without it counting as a real delivery.
+- [x] A secret can be rotated with an overlap window during which both the old and new secret verify.
+- [x] The 5-endpoint cap counts only active endpoints; an inactive endpoint can be permanently deleted.
+- [x] An endpoint that fails enough consecutive real deliveries is automatically deactivated, and
       every human ADMIN/OWNER in the tenant is emailed.
 
 ### Technical Detail and Decisions
@@ -1154,12 +1154,54 @@ added to `env.schema.ts` and `.env.example`.
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 9.1 | Migration: rotation and health fields; env var wiring | Migration review; config test | Planned |
-| 9.2 | `POST /webhooks/:id/test` (202, one attempt, no alert) | API e2e: delivered/failed test event, does not affect auto-disable counter | Planned |
-| 9.3 | `POST /webhooks/:id/rotate-secret` with overlap-window dual signing | Unit tests in `webhook-signature.test.ts`; e2e: both secrets verify in-window, only new one after; secret absent from logs | Planned |
-| 9.4 | Active-only cap accounting; `DELETE /webhooks/:id/permanent` | API e2e: cap counts only active, reactivation re-checks cap, delete requires inactive | Planned |
-| 9.5 | Auto-disable on repeated exhaustion; admin email via `MailQueueService`/`email.processor.ts`; reactivation clears state | API e2e; `mail.e2e.test.ts` (admins emailed, service account not); `templates.test.ts` | Planned |
-| 9.6 | Web: Send test event, Rotate secret, Delete permanently, disabled banner with Reactivate, "n of 5 active" counter | Component/browser tests; gallery | Planned |
+| 9.1 | Migration: rotation and health fields; env var wiring | Migration review; config test | ✅ Built |
+| 9.2 | `POST /webhooks/:id/test` (202, one attempt, no alert) | API e2e: delivered/failed test event, does not affect auto-disable counter | ✅ Built |
+| 9.3 | `POST /webhooks/:id/rotate-secret` with overlap-window dual signing | Unit tests in `webhook-signature.test.ts`; e2e: both secrets verify in-window, only new one after; secret absent from logs | ✅ Built |
+| 9.4 | Active-only cap accounting; `DELETE /webhooks/:id/permanent` | API e2e: cap counts only active, reactivation re-checks cap, delete requires inactive | ✅ Built |
+| 9.5 | Auto-disable on repeated exhaustion; admin email via `MailQueueService`/`email.processor.ts`; reactivation clears state | API e2e; `mail.e2e.test.ts` (admins emailed, service account not); `templates.test.ts` | ✅ Built |
+| 9.6 | Web: Send test event, Rotate secret, Delete permanently, disabled banner with Reactivate, "n of 5 active" counter | Component/browser tests; gallery | ✅ Built |
+
+#### Implementation record (steps 9.1–9.6, 29 September 2026)
+
+Built as planned, with these specifics worth knowing:
+
+- **Error codes.** Two codes were added beyond the plan's text: `WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED`
+  (the 20-row bound) and `WEBHOOK_ENDPOINT_ACTIVE` (permanent delete of an active endpoint). The
+  existing five-endpoint code now means five *active* endpoints.
+- **Test events** are stored as ordinary `WebhookDelivery` rows with `eventType = webhook.test` and
+  a null `envelopeId`, sent as a job with `attempts: 1`; a failure ends as `EXHAUSTED` after one
+  attempt. They are excluded from the failure counter, the exhaustion alert and retry (a retry
+  returns `WEBHOOK_DELIVERY_NOT_REDRIVABLE`). They work for inactive endpoints, since checking a
+  receiver before reactivating it is the point.
+- **Rotation** keeps one previous secret. Rotating inside an open window drops the older one. The
+  nightly delivery purge clears an expired previous secret's ciphertext. The verifier example in
+  the in-app guide now accepts a comma-separated `X-Signature`; without that change a receiver
+  copied from the guide would have rejected every request during a rotation.
+- **Cap accounting** runs under one per-tenant advisory lock shared by create, reactivate and
+  permanent delete, so two simultaneous requests cannot both take the last slot.
+- **Auto-disable** increments atomically in the worker, then disables through a conditional
+  `updateMany` so exactly one delivery trips it. Recipients are non-service-account OWNER/ADMIN
+  users with an accepted invitation, one email job each, keyed by endpoint, person and disable
+  time. Manual deactivation sends no email. Only a delivery's first run of attempts counts toward
+  the streak: a manual retry that fails again is the same bad event, so it cannot trip the
+  threshold by itself.
+- **Checks moved.** The admin-email assertions live in `webhook-lifecycle.e2e.test.ts` rather than
+  `mail.e2e.test.ts`, next to the behaviour they prove; the template has its own unit test in
+  `templates.test.ts`. The browser test simulates the disabled state with SQL (real auto-disable
+  needs real envelope traffic and is proven by the API e2e).
+- **Migration.** `20260929090000_webhook_endpoint_lifecycle` is additive. `prisma migrate dev`
+  asked to reset the dev database because an earlier migration file was edited after being applied,
+  so the SQL came from `prisma migrate diff` and was written by hand; nothing was reset.
+
+**Verification (29 September 2026).** `pnpm lint` passed; `pnpm typecheck` showed only the known
+`jurisdiction.test.ts` failures; `pnpm test` 479 passed (shared 116, API 177, web 182, embed 4);
+API e2e (Node 22.19.0) 37 files, 269 tests passed; desktop-chrome browser e2e 37 passed; the Prisma
+drift check reported no difference; the `integration settings` gallery ran on desktop, tablet and
+mobile. One earlier full API e2e run failed two tests in `webhooks.e2e.test.ts`'s tenant-wide
+delivery browsing block (15s and 10s timeouts waiting on its dedicated worker). Neither file's
+code was at fault as far as could be shown: the same two files passed together and the whole suite
+then passed on a rerun, so it is recorded as an unexplained load-related timeout, the same block
+that timed out under load in workstream 8.
 
 ### Deliberate Simplifications
 
