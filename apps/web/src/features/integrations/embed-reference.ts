@@ -32,7 +32,11 @@ if (!response.ok) throw new Error('Editor session could not be issued');
 const session = await response.json();
 // Return session only to the authorized caller with Cache-Control: no-store.
 // Do not log session, cache it, or persist its launchToken.
-// For upload inside the editor: mode: 'upload', omit envelopeId.
+// For upload inside the editor: mode: 'upload', omit envelopeId. Add externalId (your
+// record's id) and metadata to have them recorded on the draft it creates and echoed in
+// every webhook; the browser in the editor cannot set or change them.
+// Send an Idempotency-Key header (a UUID) when issuing: a retry after a lost response gets
+// a fresh launchToken for the same session and the earlier token stops working.
 // Save the resulting draft.created envelopeId against the authorized record.
 // Revoke this session when the HealthProHub page/login ends:
 // DELETE /api/v1/embed/sessions/:sessionId using the issuing backend API key.`;

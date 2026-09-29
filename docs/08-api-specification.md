@@ -149,6 +149,19 @@ Create a draft.
 
 `documentCategory` is validated against the jurisdiction's blocked list — see [07-compliance-layer.md](07-compliance-layer.md).
 
+> **As built (Phase 7, docs/18 workstream 10, ADR 0019).** Creation is a single multipart
+> `POST /v1/envelopes` (the PDF in `file`), not the JSON body above. It accepts two optional form
+> fields that let an integrating partner attach its own reference: `externalId` (1–200 characters
+> of letters, digits and `_ . : @ -`; not unique) and `metadata` (a JSON object as text, at most 10
+> string values, 2 KB in total). Both appear on the envelope detail, may be changed or cleared with
+> `PATCH /v1/envelopes/:id` while the envelope is a draft, and are fixed once it is sent.
+> `GET /v1/envelopes?externalId=` returns only exact matches. An optional `Idempotency-Key`
+> header (8–128 letters, digits, dots, dashes or colons) makes a retry after a lost response
+> return the envelope the first request created, with `Idempotency-Replayed: true`, instead of a
+> second draft; the same key with a different body or file is `422 IDEMPOTENCY_KEY_MISMATCH`, and
+> without a key every request still creates a new draft. The values are never written to the audit
+> trail or the logs, only the names of the fields that changed.
+
 ### `POST /v1/envelopes/:id/documents`
 
 `multipart/form-data`, field `file`. Max 25 MB, 500 pages.
@@ -620,6 +633,10 @@ The `detail` wording is deliberate. The system genuinely cannot distinguish betw
 > recipient decline reasons remain private. Receivers SHOULD ignore unknown additive fields and
 > unknown event types.
 
+> **As built (Phase 7, docs/18 step 10.3, ADR 0019).** Every envelope event's `data` also carries
+> `externalId` and `metadata` as the envelope has them at the moment the event is queued, each
+> `null` when none was set — present, never absent.
+
 ### Payload
 
 ```json
@@ -801,6 +818,14 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 > issuer key or removing the parent origin invalidates access. Bearers may read their own draft
 > and original PDF, edit its recipients/fields, and send only with the explicit send action.
 > All other authenticated and signer operations remain closed to embedded credentials.
+
+> **As built (Phase 7, docs/18 workstream 10, ADR 0019).** An `upload`-mode `POST /embed/sessions`
+> also accepts `externalId` and `metadata` (same rules as for an envelope), which are applied to
+> the draft the session's upload creates; the browser inside the editor can read them (they are on the
+> envelope detail it loads) but can neither set nor change them. An optional `Idempotency-Key` makes a retry return the same `sessionId` with a **fresh**
+> `launchToken` and `launchExpiresAt`, and the earlier token stops working: the first token is
+> never stored, and may be spent or expired. A session that has already been opened answers
+> `409 EMBED_LAUNCH_USED`; a revoked one answers `401 EMBED_SESSION_INVALID`.
 
 > **As built (Phase 7, docs/18 workstream 7).** `POST /api-keys` accepts an optional
 > `embedOrigins` array (up to 10 exact HTTPS origins; empty for a read-only key), returned on every

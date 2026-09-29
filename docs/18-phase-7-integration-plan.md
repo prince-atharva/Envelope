@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Built through workstream 7 and workstream 8 (webhook reliability, event contract v1, delivery browsing). Foundation shipped as `v0.7.0`. Workstreams 9–13 remain planned; release remains workstream 14 |
-| **Version** | 1.2.0 |
-| **Last updated** | 28 September 2026 |
+| **Status** | Built through workstream 10 (partner references and safe retries). Foundation shipped as `v0.7.0`. Workstreams 11–13 remain planned; release remains workstream 14 |
+| **Version** | 1.3.0 |
+| **Last updated** | 29 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 7 deliver across the integration API, management UI and user guide, and how is it built and checked? |
 
@@ -138,7 +138,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 7 | Per-key embedded origins, plus a member ownership-scope fix | ✅ Built | Steps 7.0–7.4; ADR 0017 |
 | 8 | Webhook reliability and event contract v1 | ✅ Built | Steps 8.1–8.5; ADR 0018 |
 | 9 | Webhook endpoint lifecycle tooling | ✅ Built | Steps 9.1–9.6; ADR 0018 |
-| 10 | Partner references and safe retries | Accepted; planned | Steps 10.1–10.5; ADR 0019 |
+| 10 | Partner references and safe retries | ✅ Built | Steps 10.1–10.5; ADR 0019 |
 | 11 | API-key lifecycle, downloads and limits | Accepted; planned | Steps 11.1–11.5 |
 | 12 | Hosted SDK and runnable partner example | Accepted; planned | Steps 12.1–12.3; ADR 0020 |
 | 13 | One integration contract, OpenAPI and developer guide | Accepted; planned | Steps 13.1–13.4; ADR 0021 |
@@ -1233,10 +1233,10 @@ both in every webhook, and adds an optional `Idempotency-Key` to envelope creati
 session creation so a retried request after a lost response does not create a duplicate.
 
 Finish line:
-- [ ] An envelope can carry an optional `externalId` and small metadata, set at creation or while a draft.
-- [ ] The envelope list can be filtered by `externalId`.
-- [ ] Every webhook for an envelope includes its `externalId` and metadata.
-- [ ] A retried `POST /envelopes` or `POST /embed/sessions` with the same `Idempotency-Key` and body
+- [x] An envelope can carry an optional `externalId` and small metadata, set at creation or while a draft.
+- [x] The envelope list can be filtered by `externalId`.
+- [x] Every webhook for an envelope includes its `externalId` and metadata.
+- [x] A retried `POST /envelopes` or `POST /embed/sessions` with the same `Idempotency-Key` and body
       does not create a second envelope or session.
 
 ### Technical Detail and Decisions
@@ -1260,11 +1260,75 @@ One migration: `Envelope.externalId String? @db.VarChar(200)`, `Envelope.metadat
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 10.1 | Migration; shared `externalIdSchema`/`envelopeMetadataSchema` | Schema validation tests; migration review | Planned |
-| 10.2 | Set on create/draft-PATCH/upload-mode session; list filter; redaction | API e2e across create, draft, list, embed, cross-tenant | Planned |
-| 10.3 | Echo `externalId`/`metadata` in every webhook payload | `webhook-events.e2e.test.ts` | Planned |
-| 10.4 | Optional `Idempotency-Key` on envelope create and embed session create; session replay reissues a launch token | API e2e: replay, key/body mismatch (422), no-key double-submit still creates two drafts (documented, not a regression), reissued token invalidates the old one | Planned |
-| 10.5 | Web: Reference row on envelope detail; guide and docs/08 notes | Component/browser tests | Planned |
+| 10.1 | Migration; shared `externalIdSchema`/`envelopeMetadataSchema` | Schema validation tests; migration review | ✅ Built |
+| 10.2 | Set on create/draft-PATCH/upload-mode session; list filter; redaction | API e2e across create, draft, list, embed, cross-tenant | ✅ Built |
+| 10.3 | Echo `externalId`/`metadata` in every webhook payload | `webhook-events.e2e.test.ts` | ✅ Built |
+| 10.4 | Optional `Idempotency-Key` on envelope create and embed session create; session replay reissues a launch token | API e2e: replay, key/body mismatch (422), no-key double-submit still creates two drafts (documented, not a regression), reissued token invalidates the old one | ✅ Built |
+| 10.5 | Web: Reference row on envelope detail; guide and docs/08 notes | Component/browser tests | ✅ Built |
+
+#### Implementation record (steps 10.1–10.5, 29 September 2026)
+
+Built as planned, with these specifics worth knowing:
+
+- **Where the fields are accepted.** `externalId` and `metadata` are accepted on the multipart
+  `POST /envelopes`, on `PATCH /envelopes/:id` (either may be `null` to clear) and on an
+  upload-mode `POST /embed/sessions`; `GET /envelopes?externalId=` filters, including inside the
+  Needs-attention view (the raw ranking SQL takes the filter too). `metadata` is JSON text in a
+  multipart form and an object elsewhere. Sizes are counted in UTF-8 bytes, without `Buffer`, so
+  the same schema runs in the browser.
+- **The embedded browser cannot write the reference.** A session's own `externalId`/`metadata`
+  (columns on `EmbedSession`, set by the partner's backend) are applied when its upload creates
+  the draft. The form on `POST /embed/session/envelope` and `PATCH /envelopes/:id` refuse the
+  fields with `EMBED_SCOPE_DENIED` for an embedded bearer. The bearer can *read* them, because the
+  envelope detail it loads carries them.
+- **Never in the audit trail or logs.** A draft update records only the names of the keys that
+  changed (as before); `externalId` and `metadata` are in `logging/redact.ts`'s sensitive keys,
+  since a partner's record id can identify a patient. The e2e suite asserts a metadata value
+  appears in neither `GET /envelopes/:id/events` nor the captured logs.
+- **Webhooks.** Both fields are added in `WebhookQueueService.enqueue` beside the title, read in
+  the same lookup, and are required (but nullable) keys in every fired event's data schema, so an
+  absent reference is `null`, not a missing key. `envelope.delivered`, never fired, is unchanged.
+- **Idempotency.** `IdempotencyService.run()` (required key, whole response stored) behaves as
+  before for send and extend. A new `runReferenced()` takes an optional key and stores only a
+  reference (an envelope id, a session id) in Redis, rebuilding the response on a replay. A
+  present-but-malformed key is refused (`IDEMPOTENCY_KEY_REQUIRED`) rather than ignored. The
+  envelope-create scope is the tenant plus the calling key (or user), and the request fingerprint
+  includes the PDF's SHA-256. A replayed session request calls `reissueLaunch`, which replaces the
+  launch-token hash atomically for the issuing key only, so the old token stops working; a session
+  already opened answers `EMBED_LAUNCH_USED`, a revoked one `EMBED_SESSION_INVALID`.
+- **Multipart limits** on both upload routes rose from 4 fields / 6 parts to 6 fields / 8 parts
+  for the two new text fields.
+- **Web.** Envelope detail shows a "Partner reference" group beside the created-by line (id and
+  labels, rendered as text) only when either is set. The Settings guide documents the new
+  inputs, the optional `Idempotency-Key`, the `externalId` list filter, the two webhook fields and
+  the embedded-session behaviour; its troubleshooting line that said upload has no replay
+  guarantee is corrected. The guide's webhook payload examples were already missing several
+  fields (for example `envelopeTitle`); bringing them fully in line is workstream 13.
+- **docs.** As-built notes in docs/05 (schema) and docs/08 (create, webhooks, embed sessions).
+
+**Verification (29 September 2026).** `pnpm lint` passed; `pnpm typecheck` showed only the known
+`jurisdiction.test.ts` failures, and the api, web and embed packages typecheck clean on their own;
+`pnpm test` 495 passed (shared 127, embed 4, API 177, web 187); API e2e (Node 22.19.0) 39 files,
+290 tests passed; desktop-chrome browser e2e 38 passed; the Prisma drift check reported no
+difference. The convention review found one blocking lint error (`role="group"` on a `span`,
+fixed with a `fieldset`) and one scope issue (the create idempotency scope was tenant-wide; now
+per key or user), both fixed, plus missing coverage for the void, decline and expiry events, added.
+One browser failure was the new spec's own: its raw SQL update left `updatedAt` alone, so the
+detail's ETag answered the reload with a 304 and the stale page; the helper now moves
+`updatedAt` as the API would. In the first full browser run,
+`integrations.spec.ts › integration dialogs support keyboard navigation and restore focus` failed
+once; it passed alone, with its whole file, and in a complete rerun, and nothing this workstream
+touched is on its path. Its failure message was not captured, so the cause is unexplained; it is
+recorded here as a focus-timing flake under load, not as a proven one.
+
+| Step | Commit |
+|---|---|
+| 10.1 | _recorded after the commits_ |
+| 10.2 | _recorded after the commits_ |
+| 10.3 | _recorded after the commits_ |
+| 10.4 | _recorded after the commits_ |
+| 10.5 | _recorded after the commits_ |
+
 
 ### Deliberate Simplifications
 

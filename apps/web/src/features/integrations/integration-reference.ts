@@ -67,6 +67,9 @@ export const ENDPOINTS: readonly EndpointReference[] = [
       'Multipart file (required): PDF, up to 25 MiB and 500 pages; encrypted PDFs are rejected.',
       'title (optional): 1–200 characters; defaults to the filename without its extension.',
       'documentCategory (optional): defaults to OTHER. jurisdictionCode (optional): overrides the workspace default. Policy is fixed at creation.',
+      'externalId (optional): your own id for this document, 1–200 characters of letters, digits and _ . : @ -. Not unique. Echoed in every webhook and used to filter the list.',
+      'metadata (optional): a JSON object as text, up to 10 string values and 2 KB in total. Echoed in every webhook.',
+      'Idempotency-Key (optional): 8–128 letters, digits, dots, dashes or colons. Repeating the same key and body within 24 hours returns the envelope the first request created (Idempotency-Replayed: true) instead of a second draft. Without a key, every request creates a new draft.',
     ],
     response: detailExcerpt,
     responseNote:
@@ -84,6 +87,7 @@ export const ENDPOINTS: readonly EndpointReference[] = [
       'view: all (default), attention, waiting, completed, cancelled or drafts.',
       'status: optional envelope status. limit: 1–100 (default 20). cursor: nextCursor from the previous response.',
       'Pass the returned cursor unchanged and URL-encode it. Continue until nextCursor is null.',
+      'externalId: only documents created with exactly this id. Recover a document whose creation response you lost.',
     ],
     query: '?view=drafts&limit=20',
     response: { items: [], nextCursor: null },
@@ -171,6 +175,7 @@ export const ENDPOINTS: readonly EndpointReference[] = [
     inputs: [
       'At least one of: title (1–200 characters), message (up to 2,000 characters; null clears it), sequentialSigning (boolean).',
       'With sequentialSigning true, equal routingOrder values sign together; lower groups go first.',
+      'externalId (string or null) and metadata (object or null) replace your reference while the document is a draft; they are fixed once it is sent.',
     ],
     body: { title: 'Consulting agreement', sequentialSigning: true },
     response: { draftRevision: 1 },
@@ -380,13 +385,16 @@ export const WEBHOOK_EXAMPLES: Partial<
     },
   },
 };
+/** What every envelope event also carries (docs/18 workstream 10): null and null when none was set. */
+const REFERENCE_EXAMPLE = { externalId: 'visit:1001', metadata: { department: 'billing' } };
+
 export function webhookExample(type: WebhookEventType): string {
   return JSON.stringify(
     {
       id: 'evt_55555555-5555-4555-8555-555555555555',
       type,
       createdAt: time,
-      data: WEBHOOK_EXAMPLES[type]?.data,
+      data: { ...WEBHOOK_EXAMPLES[type]?.data, ...REFERENCE_EXAMPLE },
     },
     null,
     2,

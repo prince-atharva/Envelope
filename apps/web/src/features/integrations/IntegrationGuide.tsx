@@ -328,8 +328,10 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               <ExampleBlock title="Webhook payload" text={webhookExample(event)} />
               <p className="mt-3 text-xs leading-6 text-slate-500">
                 envelope.delivered is reserved and never emitted: SMTP acceptance does not prove
-                inbox delivery. Use envelope.sent and envelope.viewed. Some events include recipient
-                email addresses; protect stored payloads as personal data.
+                inbox delivery. Use envelope.sent and envelope.viewed. Every envelope event carries
+                the envelope's externalId and metadata (null when none was set), so you can find
+                your own record without a lookup table. Some events include recipient email
+                addresses and your own labels; protect stored payloads as personal data.
               </p>
             </Card>
             <Card>
@@ -431,7 +433,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               ],
               [
                 'Send refused',
-                'Check NOT_READY_TO_SEND issues. Add a signer or approver and a required field for every signer. Keep the same Idempotency-Key and body when retrying a send after a network failure. Upload and recipient creation do not offer that send replay guarantee.',
+                'Check NOT_READY_TO_SEND issues. Add a signer or approver and a required field for every signer. Keep the same Idempotency-Key and body when retrying a send after a network failure. Upload accepts an optional Idempotency-Key that returns the same draft on a retry; recipient creation offers no replay guarantee.',
               ],
               [
                 'Webhook not arriving',

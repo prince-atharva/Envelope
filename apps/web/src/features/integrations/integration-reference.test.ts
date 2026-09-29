@@ -3,6 +3,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   addRecipientSchema,
   createEnvelopeSchema,
+  envelopeMetadataSchema,
+  externalIdSchema,
   FIRED_WEBHOOK_EVENT_TYPES,
   saveFieldsSchema,
   sendEnvelopeSchema,
@@ -107,6 +109,13 @@ describe('published webhook verifier', () => {
     const timestamp = String(Math.floor(Date.now() / 1000));
     for (const value of [undefined, [], 'sha256=00', 'bad', `sha256=${'z'.repeat(64)}`]) {
       expect(verify(body, timestamp, value, secret)).toBe(false);
+    }
+  });
+  it('shows the partner reference on every webhook example, in a shape the API accepts', () => {
+    for (const type of FIRED_WEBHOOK_EVENT_TYPES) {
+      const { data } = JSON.parse(webhookExample(type));
+      expect(externalIdSchema.safeParse(data.externalId).success, type).toBe(true);
+      expect(envelopeMetadataSchema.safeParse(data.metadata).success, type).toBe(true);
     }
   });
 });

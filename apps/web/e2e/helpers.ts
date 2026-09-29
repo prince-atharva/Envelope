@@ -413,3 +413,26 @@ export async function passDeadline(envelopeId: string): Promise<void> {
     await client.end();
   }
 }
+
+/**
+ * Gives an envelope a partner reference, straight in the stack's test database:
+ * a browser session cannot set one (only the API can, docs/18 workstream 10).
+ */
+export async function setPartnerReference(
+  envelopeId: string,
+  externalId: string,
+  metadata: Record<string, string>,
+): Promise<void> {
+  const client = new pg.Client({ connectionString: STACK_ENV.DIRECT_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE "Envelope"
+          SET "externalId" = $2, metadata = $3::jsonb, "updatedAt" = now() AT TIME ZONE 'UTC'
+        WHERE id = $1`,
+      [envelopeId, externalId, JSON.stringify(metadata)],
+    );
+  } finally {
+    await client.end();
+  }
+}

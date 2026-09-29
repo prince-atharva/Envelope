@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- **Partner references and safe retries (Phase 7, docs/18 workstream 10, ADR 0019).** An envelope can carry the integrating partner's own `externalId` and up to 10 small string labels (`metadata`), set when it is created, while it is a draft, or through an upload-mode embedded session, and fixed once sent. `GET /envelopes?externalId=` finds one by exact match, and every webhook for the envelope echoes both (as `null` when unset). `POST /envelopes` and `POST /embed/sessions` accept an optional `Idempotency-Key`: a retry after a lost response returns the same envelope, or the same session with a fresh launch token, instead of a duplicate. The document page shows the reference, and the integration guide documents all of it.
+
 - **Richer webhook event payloads (Phase 7, docs/18 steps 8.1–8.3).** Events include the contract version and envelope title, viewing and consent include the current envelope status, and signing includes whether all signatures are collected and how many remain. Sender cancellations include their reason; recipient decline reasons stay private. `envelope.extended` reports deadline changes and reopening. Delivery records gain an indexed envelope identifier.
 
 - **Tenant-wide webhook delivery browsing (Phase 7, docs/18 step 8.4).** `GET /webhooks/deliveries` lists every delivery across a tenant's endpoints, newest first, filterable by endpoint, status, event type, event id and envelope id, and paged. `GET /webhooks/deliveries/:id` reads one; `POST /webhooks/deliveries/:id/retry` retries it. The existing per-endpoint routes are kept, marked deprecated in the served API documentation.

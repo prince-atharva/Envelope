@@ -29,6 +29,7 @@ import { envelopeEventsQuery } from '../features/envelope/events-query';
 import { canExtend } from '../features/envelope/extend';
 import { LegalHoldBanner } from '../features/envelope/LegalHoldBanner';
 import { LegalHoldDialog } from '../features/envelope/LegalHoldDialog';
+import { PartnerReference } from '../features/envelope/PartnerReference';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
 import { api } from '../lib/api';
@@ -241,6 +242,7 @@ export function EnvelopeDetailPage() {
                 Due {formatDate(envelope.expiresAt)}
               </span>
             )}
+            <PartnerReference externalId={envelope.externalId} metadata={envelope.metadata} />
           </div>
         </div>
 

@@ -570,3 +570,10 @@ Row-Level Security in PostgreSQL SHOULD be enabled as defence in depth, so a bug
 > itself is kept, unread, purely as a migration rollback path (ADR 0017). Every embedded-session
 > issuance, bearer re-check and upload binding validates the origin against the issuing key, never
 > the tenant. See [ADR 0017](adr/0017-bind-embedded-origins-to-api-keys.md).
+
+> **As built (Phase 7, docs/18 workstream 10, ADR 0019).** `Envelope` gains `externalId`
+> (`VARCHAR(200)`, nullable, not unique) and `metadata` (`JSONB`, nullable), with an index on
+> `(tenantId, externalId)` for the exact-match list filter. `EmbedSession` gains the same two
+> nullable columns, applied to the draft an upload-mode session creates. Migration
+> `20260929120000_partner_reference` is additive. Neither field is written to `AuditTrail`: a
+> partner's record id and labels can identify a patient, and the audit trail cannot be edited.
