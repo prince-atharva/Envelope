@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { ComplianceModule } from '../compliance/compliance.module';
 import { UploadsModule } from '../uploads/uploads.module';
 import { EnvelopesController } from './envelopes.controller';
@@ -9,6 +10,6 @@ import { TenantUploadRateLimitGuard, UploadSizeGuard } from './upload.guards';
   imports: [UploadsModule, ComplianceModule],
   controllers: [EnvelopesController],
   exports: [EnvelopesService, UploadSizeGuard, TenantUploadRateLimitGuard],
-  providers: [EnvelopesService, UploadSizeGuard, TenantUploadRateLimitGuard],
+  providers: [EnvelopesService, IdempotencyService, UploadSizeGuard, TenantUploadRateLimitGuard],
 })
 export class EnvelopesModule {}

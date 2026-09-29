@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   type CreateEnvelopeInput,
   createEnvelopeSchema,
@@ -33,6 +34,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiHeader,
   ApiOperation,
   ApiProduces,
   ApiQuery,
@@ -45,6 +47,8 @@ import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { ownerScopeOf } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { OPTIONAL_IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempotency-header';
 import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
@@ -69,7 +73,10 @@ function contentDisposition(filename: string): string {
 @ApiBearerAuth()
 @Controller('envelopes')
 export class EnvelopesController {
-  constructor(private readonly envelopes: EnvelopesService) {}
+  constructor(
+    private readonly envelopes: EnvelopesService,
+    private readonly idempotency: IdempotencyService,
+  ) {}
 
   @Post()
   @ApiKeyAllowed({ write: true })
@@ -111,16 +118,34 @@ export class EnvelopesController {
       },
     },
   })
-  create(
+  @ApiHeader(OPTIONAL_IDEMPOTENCY_KEY_HEADER)
+  async create(
     @CurrentUser() user: AuthenticatedUser,
     @Client() client: ClientInfo,
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body(new ZodValidationPipe(createEnvelopeSchema)) body: CreateEnvelopeInput,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ): Promise<EnvelopeDetail> {
     if (!file) {
       throw new AppException('FILE_REQUIRED', 'Send the PDF in the "file" form field.');
     }
-    return this.envelopes.create(user, file, body, client);
+    // Optional (docs/18 workstream 10, ADR 0019): a retry after a lost response
+    // gets the envelope the first request created, not a second draft. The
+    // file counts toward "the same request" by its hash, so a different PDF
+    // under a reused key is refused as a client bug.
+    const { response, replayed } = await this.idempotency.runReferenced(
+      `envelope-create:${user.tenantId}:${user.apiKeyId ?? user.id}`,
+      idempotencyKey,
+      { ...body, file: createHash('sha256').update(file.buffer).digest('hex') },
+      async () => {
+        const created = await this.envelopes.create(user, file, body, client);
+        return { reference: created.id, response: created };
+      },
+      (id) => this.envelopes.get(id, ownerScopeOf(user)),
+    );
+    if (replayed) res.setHeader('Idempotency-Replayed', 'true');
+    return response;
   }
 
   @Get('counts')

@@ -10,19 +10,25 @@ import {
   Body,
   Controller,
   Delete,
+  Headers,
   HttpCode,
   Param,
   Post,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiHeader } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { ApiKeyAllowed } from '../auth/api-key.decorator';
 import { Client, CurrentUser, Public } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
+import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { OPTIONAL_IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempotency-header';
 import { RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
@@ -48,15 +54,33 @@ export class EmbedController {
   constructor(
     private readonly sessions: EmbedSessionService,
     private readonly envelopes: EnvelopesService,
+    private readonly idempotency: IdempotencyService,
   ) {}
   @Post('sessions')
   @ApiKeyAllowed({ write: true })
   @RateLimit({ bucket: 'embed-issue', by: 'tenantKey', limit: 30 })
-  issue(
+  @ApiHeader(OPTIONAL_IDEMPOTENCY_KEY_HEADER)
+  async issue(
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(createEmbedSessionSchema)) input: CreateEmbedSessionInput,
+    @Res({ passthrough: true }) res: Response,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.sessions.issue(user, input);
+    // Optional (docs/18 workstream 10, ADR 0019). A replay cannot return the
+    // first launch token, which may be spent or expired and is never stored:
+    // it issues a fresh one for the same session, and the old one stops working.
+    const { response, replayed } = await this.idempotency.runReferenced(
+      `embed-session:${user.tenantId}:${user.apiKeyId ?? ''}`,
+      idempotencyKey,
+      input,
+      async () => {
+        const issued = await this.sessions.issue(user, input);
+        return { reference: issued.sessionId, response: issued };
+      },
+      (sessionId) => this.sessions.reissueLaunch(user, sessionId),
+    );
+    if (replayed) res.setHeader('Idempotency-Replayed', 'true');
+    return response;
   }
   @Post('sessions/exchange')
   @Public()

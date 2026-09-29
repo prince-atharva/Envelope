@@ -85,12 +85,57 @@ export class EmbedSessionService {
       { tenantId: user.tenantId, embedSessionId: row.id, envelopeId: row.envelopeId },
       'Embedded session issued',
     );
+    return this.issued(row, launchToken);
+  }
+
+  private issued(row: EmbedSession, launchToken: string): CreateEmbedSessionResponse {
     return {
       sessionId: row.id,
       launchToken,
       launchExpiresAt: row.launchExpiresAt.toISOString(),
       frameUrl: `${this.config.APP_URL.replace(/\/$/, '')}/api/v1/embed/frame/${row.id}`,
     };
+  }
+
+  /**
+   * A replayed `POST /embed/sessions` (docs/18 workstream 10, ADR 0019): a new
+   * launch token for the session the first request created, since that one was
+   * never stored and may be spent. Only for the issuing key, and only while the
+   * session has not been opened — once redeemed there is no launch to repeat.
+   * The old token stops working at once: its hash is replaced, not added to.
+   */
+  async reissueLaunch(
+    user: AuthenticatedUser,
+    sessionId: string,
+  ): Promise<CreateEmbedSessionResponse> {
+    if (!user.apiKeyId || user.embed) throw new AppException('EMBED_SCOPE_DENIED');
+    const launchToken = EMBED_LAUNCH_PREFIX + randomBytes(32).toString('hex');
+    const now = new Date();
+    const where = {
+      id: sessionId,
+      tenantId: user.tenantId,
+      apiKeyId: user.apiKeyId,
+    };
+    const updated = await this.prisma.embedSession.updateMany({
+      where: { ...where, redeemedAt: null, revokedAt: null, expiresAt: { gt: now } },
+      data: {
+        launchTokenHash: this.hash(launchToken),
+        launchExpiresAt: new Date(now.getTime() + EMBED_LAUNCH_TTL_MS),
+      },
+    });
+    if (!updated.count) {
+      const row = await this.prisma.embedSession.findFirst({ where });
+      if (!row) throw new AppException('NOT_FOUND');
+      if (row.revokedAt) throw new AppException('EMBED_SESSION_INVALID');
+      if (row.redeemedAt) throw new AppException('EMBED_LAUNCH_USED');
+      throw new AppException('EMBED_SESSION_EXPIRED');
+    }
+    const row = await this.prisma.embedSession.findFirstOrThrow({ where });
+    this.logger.info(
+      { tenantId: user.tenantId, embedSessionId: row.id },
+      'Embedded session launch token reissued',
+    );
+    return this.issued(row, launchToken);
   }
   private async assertActive(row: EmbedSession | null): Promise<EmbedSession> {
     if (!row || row.revokedAt) throw new AppException('EMBED_SESSION_INVALID');
