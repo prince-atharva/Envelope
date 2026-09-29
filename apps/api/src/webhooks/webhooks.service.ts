@@ -11,13 +11,17 @@ import type {
   WebhookEndpointSummary,
   WebhookEventType,
 } from '@envelope/shared';
-import { MAX_WEBHOOK_ENDPOINTS_PER_TENANT, WEBHOOK_TEST_EVENT_TYPE } from '@envelope/shared';
+import {
+  MAX_WEBHOOK_ENDPOINT_ROWS_PER_TENANT,
+  MAX_WEBHOOK_ENDPOINTS_PER_TENANT,
+  WEBHOOK_TEST_EVENT_TYPE,
+} from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
 import { AppConfig } from '../config/app-config';
-import type { WebhookDelivery, WebhookEndpoint } from '../generated/prisma/client';
+import type { Prisma, WebhookDelivery, WebhookEndpoint } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WebhookQueueService } from './webhook-queue.service';
 import { WebhookSecretCipher } from './webhook-secret-cipher';
@@ -120,23 +124,24 @@ export class WebhooksService {
     input: CreateWebhookEndpointInput,
     actor: AuthenticatedUser,
   ): Promise<CreateWebhookEndpointResponse> {
-    const count = await this.prisma.webhookEndpoint.count({ where: { tenantId: actor.tenantId } });
-    if (count >= MAX_WEBHOOK_ENDPOINTS_PER_TENANT) {
-      throw new AppException('WEBHOOK_ENDPOINT_LIMIT_REACHED');
-    }
     await assertWebhookUrlIsSafe(input.url, this.urlCheckOptions());
 
     const rawSecret = this.newRawSecret();
-    const endpoint = await this.prisma.webhookEndpoint.create({
-      data: {
-        tenantId: actor.tenantId,
-        url: input.url,
-        description: input.description ?? null,
-        secretCiphertext: this.cipher.encrypt(rawSecret),
-        secretDisplayHint: rawSecret.slice(0, DISPLAY_PREFIX_LENGTH),
-        subscribedEvents: input.subscribedEvents,
-        createdByUserId: actor.id,
-      },
+    const endpoint = await this.prisma.$transaction(async (tx) => {
+      await this.lockTenantEndpoints(tx, actor.tenantId);
+      await this.assertRoomForTotal(tx, actor.tenantId);
+      await this.assertRoomForActive(tx, actor.tenantId);
+      return tx.webhookEndpoint.create({
+        data: {
+          tenantId: actor.tenantId,
+          url: input.url,
+          description: input.description ?? null,
+          secretCiphertext: this.cipher.encrypt(rawSecret),
+          secretDisplayHint: rawSecret.slice(0, DISPLAY_PREFIX_LENGTH),
+          subscribedEvents: input.subscribedEvents,
+          createdByUserId: actor.id,
+        },
+      });
     });
 
     this.logger.info(
@@ -156,16 +161,27 @@ export class WebhooksService {
       await assertWebhookUrlIsSafe(input.url, this.urlCheckOptions());
     }
 
-    const updated = await this.prisma.webhookEndpoint.update({
-      where: { id },
-      data: {
-        ...(input.url !== undefined ? { url: input.url } : {}),
-        ...(input.description !== undefined ? { description: input.description } : {}),
-        ...(input.subscribedEvents !== undefined
-          ? { subscribedEvents: input.subscribedEvents }
-          : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.lockTenantEndpoints(tx, actor.tenantId);
+      const current = await tx.webhookEndpoint.findFirst({
+        where: { id, tenantId: actor.tenantId },
+      });
+      if (!current) throw new AppException('NOT_FOUND', 'Webhook endpoint not found.');
+      // Reactivating takes an active slot, so it faces the same cap as creating.
+      if (input.isActive === true && !current.isActive) {
+        await this.assertRoomForActive(tx, actor.tenantId);
+      }
+      return tx.webhookEndpoint.update({
+        where: { id },
+        data: {
+          ...(input.url !== undefined ? { url: input.url } : {}),
+          ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(input.subscribedEvents !== undefined
+            ? { subscribedEvents: input.subscribedEvents }
+            : {}),
+          ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+        },
+      });
     });
     this.logger.info(
       { webhookEndpointId: id, tenantId: actor.tenantId, updatedBy: actor.id },
@@ -241,6 +257,52 @@ export class WebhooksService {
       'Webhook endpoint deactivated',
     );
     return toEndpointSummary(updated);
+  }
+
+  /**
+   * Permanently removes an inactive endpoint and its delivery history
+   * (docs/18 workstream 9). Deliveries go first, in the same transaction: the
+   * foreign key is RESTRICT. Pending queue jobs for them find no row and end.
+   */
+  async deletePermanently(id: string, actor: AuthenticatedUser): Promise<void> {
+    const deliveriesDeleted = await this.prisma.$transaction(async (tx) => {
+      await this.lockTenantEndpoints(tx, actor.tenantId);
+      const endpoint = await tx.webhookEndpoint.findFirst({
+        where: { id, tenantId: actor.tenantId },
+      });
+      if (!endpoint) throw new AppException('NOT_FOUND', 'Webhook endpoint not found.');
+      if (endpoint.isActive) throw new AppException('WEBHOOK_ENDPOINT_ACTIVE');
+      const { count } = await tx.webhookDelivery.deleteMany({ where: { webhookEndpointId: id } });
+      await tx.webhookEndpoint.delete({ where: { id } });
+      return count;
+    });
+    this.logger.info(
+      { webhookEndpointId: id, tenantId: actor.tenantId, deletedBy: actor.id, deliveriesDeleted },
+      'Webhook endpoint permanently deleted',
+    );
+  }
+
+  /**
+   * One lock per tenant for everything that changes how many endpoints it
+   * has or how many are active, so two simultaneous creates or reactivations
+   * cannot both take the last slot.
+   */
+  private async lockTenantEndpoints(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`webhook-endpoints:${tenantId}`}, 3))`;
+  }
+
+  private async assertRoomForActive(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
+    const active = await tx.webhookEndpoint.count({ where: { tenantId, isActive: true } });
+    if (active >= MAX_WEBHOOK_ENDPOINTS_PER_TENANT) {
+      throw new AppException('WEBHOOK_ENDPOINT_LIMIT_REACHED');
+    }
+  }
+
+  private async assertRoomForTotal(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
+    const total = await tx.webhookEndpoint.count({ where: { tenantId } });
+    if (total >= MAX_WEBHOOK_ENDPOINT_ROWS_PER_TENANT) {
+      throw new AppException('WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED');
+    }
   }
 
   async listDeliveries(

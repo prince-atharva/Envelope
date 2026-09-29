@@ -88,7 +88,15 @@ export const ERROR_CATALOG = {
   API_KEY_READ_ONLY: { status: 403, title: 'This API key is read-only' },
   /** The URL fails the webhook endpoint's https/public-host checks (docs/10, docs/18). */
   WEBHOOK_URL_NOT_ALLOWED: { status: 422, title: 'This URL cannot be used as a webhook endpoint' },
+  /** Five active endpoints (docs/18 workstream 9: inactive ones no longer count). */
   WEBHOOK_ENDPOINT_LIMIT_REACHED: { status: 409, title: 'Webhook endpoint limit reached' },
+  /** Twenty endpoints in all, active or not: delete an inactive one first. */
+  WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED: {
+    status: 409,
+    title: 'Too many saved webhook endpoints',
+  },
+  /** Permanent delete attempted on an endpoint that is still active. */
+  WEBHOOK_ENDPOINT_ACTIVE: { status: 409, title: 'Deactivate this webhook endpoint first' },
   /** Redrive attempted on a delivery that is not FAILED or EXHAUSTED, or is past the 7-day window. */
   WEBHOOK_DELIVERY_NOT_REDRIVABLE: { status: 409, title: 'This delivery cannot be redriven' },
 

@@ -64,6 +64,11 @@ export const MAX_API_KEY_LABEL_LENGTH = 120;
 export const MAX_WEBHOOK_DESCRIPTION_LENGTH = 500;
 /** Keeps the delivery fan-out and the endpoints list small enough to show on one screen. */
 export const MAX_WEBHOOK_ENDPOINTS_PER_TENANT = 5;
+/**
+ * Bounds how many inactive endpoints a tenant can pile up now that only active
+ * ones count toward the cap above (docs/18 workstream 9): delete one to add another.
+ */
+export const MAX_WEBHOOK_ENDPOINT_ROWS_PER_TENANT = 20;
 /** Webhook secret rotation: how long the previous secret keeps verifying (docs/18 workstream 9). */
 export const DEFAULT_WEBHOOK_SECRET_OVERLAP_HOURS = 24;
 export const MAX_WEBHOOK_SECRET_OVERLAP_HOURS = 72;

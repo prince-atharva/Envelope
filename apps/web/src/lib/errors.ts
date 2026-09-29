@@ -33,7 +33,10 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   WEBHOOK_URL_NOT_ALLOWED:
     'Use a public HTTPS address. Private, local and redirect-only addresses are not allowed.',
   WEBHOOK_ENDPOINT_LIMIT_REACHED:
-    'This workspace already has the maximum of five webhook endpoints.',
+    'This workspace already has the maximum of five active webhook endpoints. Deactivate one to add or reactivate another.',
+  WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED:
+    'This workspace has saved 20 webhook endpoints. Delete an inactive one you no longer need first.',
+  WEBHOOK_ENDPOINT_ACTIVE: 'Deactivate this webhook endpoint before deleting it permanently.',
   WEBHOOK_DELIVERY_NOT_REDRIVABLE:
     'This delivery can no longer be retried. Failed deliveries are available for seven days.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',

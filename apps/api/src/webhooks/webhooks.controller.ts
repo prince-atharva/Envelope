@@ -113,6 +113,21 @@ export class WebhooksController {
     return this.webhooks.sendTest(id, user);
   }
 
+  @Delete(':id/permanent')
+  @Roles('ADMIN')
+  @HttpCode(204)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({
+    summary:
+      'Permanently delete an inactive endpoint and its delivery history. An active endpoint must be deactivated first',
+  })
+  async deletePermanently(
+    @Param('id', UuidParamPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.webhooks.deletePermanently(id, user);
+  }
+
   @Post(':id/redrive')
   @Roles('ADMIN')
   @HttpCode(200)

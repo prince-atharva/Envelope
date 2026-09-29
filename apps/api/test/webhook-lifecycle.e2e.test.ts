@@ -50,10 +50,6 @@ describe('webhook endpoint lifecycle (e2e)', () => {
     t = await createTestApp();
     await t.app.get<Queue>(getQueueToken(WEBHOOK_DELIVERY_QUEUE)).obliterate({ force: true });
     worker = await createTestWorker();
-    owner = await registerUser(t.http, {
-      fullName: 'Lifecycle Owner',
-      organization: 'Lifecycle Clinic',
-    });
 
     receiver = http.createServer((req, res) => {
       const chunks: Buffer[] = [];
@@ -75,9 +71,15 @@ describe('webhook endpoint lifecycle (e2e)', () => {
     await t.close();
   });
 
-  beforeEach(() => {
+  // A fresh workspace per test: request limits are per tenant, and each test
+  // then starts with no endpoints, deliveries or in-flight jobs of its own.
+  beforeEach(async () => {
     received = [];
     respondWith = () => 200;
+    owner = await registerUser(t.http, {
+      fullName: 'Lifecycle Owner',
+      organization: `Lifecycle Clinic ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    });
   });
 
   async function createEndpoint(): Promise<CreateWebhookEndpointResponse> {
@@ -330,6 +332,124 @@ describe('webhook endpoint lifecycle (e2e)', () => {
       } finally {
         logs.restore();
       }
+    });
+  });
+
+  describe('endpoint cap and permanent delete', () => {
+    function as(
+      user: SignedInUser,
+      method: 'post' | 'patch' | 'delete',
+      path: string,
+      body?: object,
+    ) {
+      const req = request(t.http)
+        [method](`/api/v1/webhooks${path}`)
+        .set('Authorization', bearer(user));
+      return body ? req.send(body) : req;
+    }
+
+    async function newTenant(name: string): Promise<SignedInUser> {
+      return registerUser(t.http, { fullName: name, organization: `${name} Clinic` });
+    }
+
+    function createFor(user: SignedInUser, path = 'a') {
+      return as(user, 'post', '', { url: `https://93.184.216.34/${path}` });
+    }
+
+    it('counts only active endpoints toward the cap of five', async () => {
+      const user = await newTenant('Active Cap');
+      const ids: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const res = await createFor(user, `cap-${i}`).expect(201);
+        ids.push((res.body as CreateWebhookEndpointResponse).endpoint.id);
+      }
+      const sixth = await createFor(user, 'cap-6').expect(409);
+      expect((sixth.body as { code: string }).code).toBe('WEBHOOK_ENDPOINT_LIMIT_REACHED');
+
+      // Deactivating frees a slot, which used to stay used forever.
+      await as(user, 'delete', `/${ids[0]}`).expect(200);
+      await createFor(user, 'cap-6').expect(201);
+
+      // Reactivating takes a slot back, so it faces the cap too.
+      const blocked = await as(user, 'patch', `/${ids[0]}`, { isActive: true }).expect(409);
+      expect((blocked.body as { code: string }).code).toBe('WEBHOOK_ENDPOINT_LIMIT_REACHED');
+      await as(user, 'delete', `/${ids[1]}`).expect(200);
+      const reactivated = await as(user, 'patch', `/${ids[0]}`, { isActive: true }).expect(200);
+      expect((reactivated.body as WebhookEndpointSummary).isActive).toBe(true);
+
+      // Editing an already-active endpoint is not a reactivation.
+      await as(user, 'patch', `/${ids[2]}`, { isActive: true, description: 'still fine' }).expect(
+        200,
+      );
+    });
+
+    it('lets only one of several simultaneous creates take the last slot', async () => {
+      const user = await newTenant('Race Cap');
+      for (let i = 0; i < 4; i++) await createFor(user, `race-${i}`).expect(201);
+
+      const results = await Promise.all(
+        [0, 1, 2, 3].map((i) => createFor(user, `race-x${i}`).then((r) => r.status)),
+      );
+      expect(results.filter((status) => status === 201)).toHaveLength(1);
+      expect(results.filter((status) => status === 409)).toHaveLength(3);
+    });
+
+    it('stops at twenty saved endpoints until one is deleted permanently', async () => {
+      const user = await newTenant('Total Cap');
+      const first = await createFor(user, 'total').expect(201);
+      const firstId = (first.body as CreateWebhookEndpointResponse).endpoint.id;
+      await as(user, 'delete', `/${firstId}`).expect(200);
+      await ownerQuery(
+        `INSERT INTO "WebhookEndpoint"
+           (id, "tenantId", url, "secretCiphertext", "secretDisplayHint", "subscribedEvents",
+            "isActive", "createdByUserId", "createdAt", "updatedAt")
+         SELECT gen_random_uuid(), "tenantId", url, "secretCiphertext", "secretDisplayHint",
+                "subscribedEvents", false, "createdByUserId", now(), now()
+           FROM "WebhookEndpoint" e, generate_series(1, 19)
+          WHERE e.id = $1`,
+        [firstId],
+      );
+
+      const full = await createFor(user, 'over').expect(409);
+      expect((full.body as { code: string }).code).toBe('WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED');
+
+      await as(user, 'delete', `/${firstId}/permanent`).expect(204);
+      await createFor(user, 'over').expect(201);
+    });
+
+    it('deletes only an inactive endpoint, together with its deliveries', async () => {
+      await deactivateAll();
+      const { endpoint } = await createEndpoint();
+      await request(t.http)
+        .post(`/api/v1/webhooks/${endpoint.id}/test`)
+        .set('Authorization', bearer(owner))
+        .expect(202);
+      await waitFor(async () =>
+        (await deliveriesFor(endpoint.id)).find((d) => d.status === 'SUCCEEDED'),
+      );
+
+      const refused = await as(owner, 'delete', `/${endpoint.id}/permanent`).expect(409);
+      expect((refused.body as { code: string }).code).toBe('WEBHOOK_ENDPOINT_ACTIVE');
+      expect((await listEndpoints()).some((e) => e.id === endpoint.id)).toBe(true);
+
+      await deactivate(endpoint.id);
+      await as(owner, 'delete', `/${endpoint.id}/permanent`).expect(204);
+      expect((await listEndpoints()).some((e) => e.id === endpoint.id)).toBe(false);
+      const left = await ownerQuery<{ n: string }>(
+        `SELECT count(*)::text AS n FROM "WebhookDelivery" WHERE "webhookEndpointId" = $1`,
+        [endpoint.id],
+      );
+      expect(left.rows[0]?.n).toBe('0');
+      await as(owner, 'delete', `/${endpoint.id}/permanent`).expect(404);
+    });
+
+    it("never deletes another tenant's endpoint", async () => {
+      await deactivateAll();
+      const { endpoint } = await createEndpoint();
+      await deactivate(endpoint.id);
+      const stranger = await newTenant('Delete Stranger');
+      await as(stranger, 'delete', `/${endpoint.id}/permanent`).expect(404);
+      expect((await listEndpoints()).some((e) => e.id === endpoint.id)).toBe(true);
     });
   });
 });
