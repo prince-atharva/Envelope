@@ -231,6 +231,21 @@ model WebhookEndpoint {
   subscribedEvents String[] @default([])
   isActive         Boolean  @default(true)
 
+  /// Secret rotation (docs/18 workstream 9): while previousSecretExpiresAt is
+  /// in the future, deliveries are signed with both secrets. Cleared, not
+  /// kept, once the window has passed.
+  previousSecretCiphertext String?
+  previousSecretExpiresAt  DateTime?
+  secretRotatedAt          DateTime?
+
+  /// Consecutive real deliveries that ran out of retries; reset by any
+  /// success. At WEBHOOK_AUTO_DISABLE_THRESHOLD the endpoint is deactivated
+  /// (docs/18 workstream 9), and disabledAt/disabledReason say so until it is
+  /// reactivated.
+  consecutiveFailures Int       @default(0)
+  disabledAt          DateTime?
+  disabledReason      String?
+
   createdByUserId String @db.Uuid
   createdByUser   User   @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
 

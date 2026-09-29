@@ -116,6 +116,13 @@ export const envSchema = z
      * of hours, the same reason EMAIL_RETRY_BASE_DELAY_MS exists.
      */
     WEBHOOK_RETRY_SCHEDULE_MS: z.string().default('10000,60000,300000,1800000,7200000,43200000'),
+    /**
+     * How many real deliveries in a row may run out of retries before an
+     * endpoint is deactivated and its admins emailed (docs/18 workstream 9).
+     * One global value, not per tenant. Overridable so the e2e suites can
+     * reach it with two or three failures instead of ten.
+     */
+    WEBHOOK_AUTO_DISABLE_THRESHOLD: z.coerce.number().int().min(1).max(1000).default(10),
 
     S3_ENDPOINT: z.url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),

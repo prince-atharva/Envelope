@@ -41,6 +41,16 @@ describe('parseEnv', () => {
     expect(parseEnv(valid).EMBED_SESSION_PURGE_CRON).toBe('45 3 * * *');
   });
 
+  it('defaults the webhook auto-disable threshold and rejects a non-positive one', () => {
+    expect(parseEnv(valid).WEBHOOK_AUTO_DISABLE_THRESHOLD).toBe(10);
+    expect(
+      parseEnv({ ...valid, WEBHOOK_AUTO_DISABLE_THRESHOLD: '3' }).WEBHOOK_AUTO_DISABLE_THRESHOLD,
+    ).toBe(3);
+    expect(problemsOf({ ...valid, WEBHOOK_AUTO_DISABLE_THRESHOLD: '0' })).toEqual([
+      expect.stringMatching(/^WEBHOOK_AUTO_DISABLE_THRESHOLD:/),
+    ]);
+  });
+
   it('accepts a complete environment and applies defaults', () => {
     const env = parseEnv(valid);
     expect(env.API_PORT).toBe(4000);

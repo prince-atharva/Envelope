@@ -53,6 +53,7 @@ export const STACK_ENV = {
   REDIS_URL: env.TEST_REDIS_URL ?? 'redis://localhost:6391/2',
   QUEUE_PREFIX: 'digitalsign-browser-e2e',
   WEBHOOK_ALLOW_INSECURE_LOCAL_URLS: 'true',
+  WEBHOOK_AUTO_DISABLE_THRESHOLD: '3',
 
   JWT_ACCESS_SECRET: 'browser-e2e-access-secret-0123456789abcdefghij',
   REFRESH_TOKEN_SECRET: 'browser-e2e-refresh-secret-0123456789abcdefghij',
