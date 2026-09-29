@@ -29,6 +29,8 @@ describe('webhook event contract v1', () => {
     const result = webhookEventDataSchemas['recipient.signed'].safeParse({
       envelopeId: '123e4567-e89b-42d3-a456-426614174000',
       envelopeTitle: 'Agreement',
+      externalId: null,
+      metadata: null,
       recipientId: '223e4567-e89b-42d3-a456-426614174000',
       recipientEmail: 'signer@example.com',
       envelopeStatus: 'COMPLETED',
@@ -38,6 +40,24 @@ describe('webhook event contract v1', () => {
       aFieldAddedLater: 'ignored, not rejected',
     });
     expect(result.success).toBe(true);
+  });
+
+  it('carries the partner reference, as null when there is none, on every envelope event', () => {
+    const base = {
+      envelopeId: '123e4567-e89b-42d3-a456-426614174000',
+      envelopeTitle: 'Agreement',
+      envelopeStatus: 'VOIDED',
+      voidedAt: new Date().toISOString(),
+      fromStatus: 'SENT',
+      reason: null,
+    };
+    const voided = webhookEventDataSchemas['envelope.voided'];
+    expect(voided.safeParse({ ...base, externalId: 'r-1', metadata: { a: 'b' } }).success).toBe(
+      true,
+    );
+    expect(voided.safeParse({ ...base, externalId: null, metadata: null }).success).toBe(true);
+    // Absent is a contract break: a receiver may rely on the key being there.
+    expect(voided.safeParse(base).success).toBe(false);
   });
 
   it('formats the delivery User-Agent from the running app version', () => {

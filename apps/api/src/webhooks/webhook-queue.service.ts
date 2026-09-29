@@ -47,15 +47,16 @@ export class WebhookQueueService {
       return;
     }
 
-    // A title only a partner's own record wouldn't otherwise carry, added
-    // here rather than at each of the 9 call sites (docs/18 workstream 8).
+    // The title and the partner's own reference, added here rather than at
+    // each of the 9 call sites (docs/18 workstreams 8 and 10, ADR 0019); read
+    // once per event, so no extra query per delivery.
     // Draft-only edits can't race this: every emitter fires only after its
     // own transaction (which may itself have changed the title) commits.
     const envelopeId = typeof data.envelopeId === 'string' ? data.envelopeId : undefined;
     const envelope = envelopeId
       ? await this.prisma.envelope.findUnique({
           where: { id: envelopeId, tenantId },
-          select: { title: true },
+          select: { title: true, externalId: true, metadata: true },
         })
       : null;
 
@@ -68,7 +69,14 @@ export class WebhookQueueService {
       type,
       apiVersion: WEBHOOK_API_VERSION,
       createdAt: new Date().toISOString(),
-      data: envelope ? { ...data, envelopeTitle: envelope.title } : data,
+      data: envelope
+        ? {
+            ...data,
+            envelopeTitle: envelope.title,
+            externalId: envelope.externalId,
+            metadata: envelope.metadata ?? null,
+          }
+        : data,
     };
 
     const created = await this.prisma.webhookDelivery.createManyAndReturn({

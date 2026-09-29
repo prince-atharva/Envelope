@@ -162,6 +162,85 @@ describe('webhook events wired into the envelope lifecycle (e2e)', () => {
     expect(completed.data.envelopeStatus).toBe('COMPLETED');
   });
 
+  it("echoes the envelope's partner reference in every event, and null when it has none", async () => {
+    const envelope = await prepareEnvelope(t.http, owner, [
+      { name: 'Rae Referenced', email: 'rae-events@example.test' },
+    ]);
+    const reference = { externalId: 'visit:7788', metadata: { department: 'billing' } };
+    await request(t.http)
+      .patch(`/api/v1/envelopes/${envelope.id}`)
+      .set('Authorization', bearer(owner))
+      .send(reference)
+      .expect(200);
+    await sendEnvelope(t.http, owner, envelope.id).expect(200);
+    const token = await linkFor(worker.mailbox, 'rae-events@example.test');
+    await request(t.http).get(`/api/v1/sign/${token}`).expect(200);
+    await signAs(t.http, token, envelope, envelope.recipients[0]?.id ?? '');
+
+    for (const type of [
+      'envelope.sent',
+      'envelope.viewed',
+      'recipient.consented',
+      'recipient.signed',
+      'envelope.completed',
+    ] as const) {
+      const event = await latest(type, envelope.id);
+      expect(event.data.externalId, type).toBe('visit:7788');
+      expect(event.data.metadata, type).toEqual({ department: 'billing' });
+    }
+
+    const plain = await prepareEnvelope(t.http, owner, [
+      { name: 'Pat Plain', email: 'pat-events@example.test' },
+    ]);
+    await sendEnvelope(t.http, owner, plain.id).expect(200);
+    const sentPlain = await latest('envelope.sent', plain.id);
+    expect(sentPlain.data.externalId).toBeNull();
+    expect(sentPlain.data.metadata).toBeNull();
+    await awaitInvitation('pat-events@example.test');
+  });
+
+  it('carries the reference on cancellation, decline and expiry events too', async () => {
+    const reference = { externalId: 'visit:9001', metadata: { department: 'radiology' } };
+    const referenced = async (email: string) => {
+      const envelope = await prepareEnvelope(t.http, owner, [{ name: 'Ref Person', email }]);
+      await request(t.http)
+        .patch(`/api/v1/envelopes/${envelope.id}`)
+        .set('Authorization', bearer(owner))
+        .send(reference)
+        .expect(200);
+      await sendEnvelope(t.http, owner, envelope.id).expect(200);
+      return { envelope, token: await awaitInvitation(email) };
+    };
+
+    const toVoid = await referenced('ref-void-events@example.test');
+    await request(t.http)
+      .post(`/api/v1/envelopes/${toVoid.envelope.id}/void`)
+      .set('Authorization', bearer(owner))
+      .send({ reason: 'Sent by mistake' })
+      .expect(200);
+    const toDecline = await referenced('ref-decline-events@example.test');
+    await request(t.http)
+      .post(`/api/v1/sign/${toDecline.token}/decline`)
+      .send({ reason: 'No' })
+      .expect(200);
+    const toExpire = await referenced('ref-expire-events@example.test');
+    await ownerQuery(
+      `UPDATE "Envelope" SET "expiresAt" = now() AT TIME ZONE 'UTC' - interval '1 minute' WHERE id = $1`,
+      [toExpire.envelope.id],
+    );
+    await worker.module.get(ExpirySweepService).run();
+
+    for (const [type, envelope] of [
+      ['envelope.voided', toVoid.envelope],
+      ['recipient.declined', toDecline.envelope],
+      ['envelope.expired', toExpire.envelope],
+    ] as const) {
+      const event = await latest(type, envelope.id);
+      expect(event.data.externalId, type).toBe('visit:9001');
+      expect(event.data.metadata, type).toEqual({ department: 'radiology' });
+    }
+  });
+
   it('fires recipient.declined when a signer declines', async () => {
     const envelope = await prepareEnvelope(t.http, owner, [
       { name: 'Dana Decliner', email: 'dana-events@example.test' },

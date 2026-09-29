@@ -4,6 +4,7 @@ import {
   MAX_WEBHOOK_DESCRIPTION_LENGTH,
   MAX_WEBHOOK_SECRET_OVERLAP_HOURS,
 } from './limits';
+import { envelopeMetadataSchema } from './partner-reference';
 
 /**
  * Outbound event notifications for a third-party integration (docs/08,
@@ -211,10 +212,21 @@ export interface WebhookEventPayload<TData = Record<string, unknown>> {
  * guide and the webhook e2e suite — not to validate an inbound webhook,
  * since Envelope only ever sends these, never receives them.
  */
+/**
+ * On every event about an envelope: the partner's own reference, or null when
+ * the envelope has none (docs/18 workstream 10, ADR 0019). Present-but-null,
+ * not absent, so a receiver never has to tell "no reference" from "old event".
+ */
+const partnerReference = {
+  externalId: z.string().nullable(),
+  metadata: envelopeMetadataSchema.nullable(),
+};
+
 export const webhookEventDataSchemas = {
   'envelope.sent': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     envelopeStatus: z.string(),
     sentAt: z.iso.datetime(),
     expiresAt: z.iso.datetime().nullable(),
@@ -225,6 +237,7 @@ export const webhookEventDataSchemas = {
   'envelope.viewed': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     recipientId: z.uuid(),
     recipientEmail: z.string(),
     envelopeStatus: z.string(),
@@ -233,6 +246,7 @@ export const webhookEventDataSchemas = {
   'recipient.consented': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     recipientId: z.uuid(),
     recipientEmail: z.string(),
     envelopeStatus: z.string(),
@@ -241,6 +255,7 @@ export const webhookEventDataSchemas = {
   'recipient.signed': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     recipientId: z.uuid(),
     recipientEmail: z.string(),
     envelopeStatus: z.string(),
@@ -251,6 +266,7 @@ export const webhookEventDataSchemas = {
   'recipient.declined': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     recipientId: z.uuid(),
     recipientEmail: z.string(),
     envelopeStatus: z.string(),
@@ -259,6 +275,7 @@ export const webhookEventDataSchemas = {
   'envelope.completed': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     envelopeStatus: z.string(),
     completedAt: z.iso.datetime(),
     finalVersionNumber: z.number().int(),
@@ -267,6 +284,7 @@ export const webhookEventDataSchemas = {
   'envelope.voided': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     envelopeStatus: z.string(),
     voidedAt: z.iso.datetime(),
     fromStatus: z.string(),
@@ -275,6 +293,7 @@ export const webhookEventDataSchemas = {
   'envelope.expired': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     envelopeStatus: z.string(),
     expiredAt: z.iso.datetime(),
     unsigned: z.number().int().min(0),
@@ -282,6 +301,7 @@ export const webhookEventDataSchemas = {
   'envelope.extended': z.object({
     envelopeId: z.uuid(),
     envelopeTitle: z.string(),
+    ...partnerReference,
     envelopeStatus: z.string(),
     expiresAt: z.iso.datetime(),
     previousExpiresAt: z.iso.datetime().nullable(),
