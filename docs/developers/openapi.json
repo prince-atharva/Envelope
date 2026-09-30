@@ -3381,6 +3381,197 @@
         "x-rate-limit": "30 per 60s per workspace"
       }
     },
+    "/api/v1/templates/{id}/envelopes": {
+      "post": {
+        "description": "Give each role of the template a name and an email, and get a draft (or a sent envelope) with the people, fields and signing order already in place. It is an ordinary envelope from then on.\n\n- recipients (required): one entry per role of the template, each `{ role, name, email }`, where `role` is the template role’s name (for example \"Patient\"). No role may be missing or repeated, and no email may be used twice.\n\n- send (optional): true sends it at once, false (the default) leaves a draft you can still edit.\n\n- message (optional): the note in the invitation; defaults to the template’s. title (optional): defaults to the template’s name.\n\n- externalId and metadata (optional): as on upload.\n\n- Idempotency-Key (optional): as on upload. Repeating the same key and body within 24 hours returns the envelope the first request created (Idempotency-Replayed: true).",
+        "operationId": "templateEnvelope",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A value unique to this attempt (a UUID is ideal). Repeating the request with the same key and the same body within 24 hours returns the resource the first request created (with Idempotency-Replayed: true) instead of creating another. Without a key, every request creates a new one.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipients": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "name",
+                        "email"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "externalId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[a-zA-Z0-9_.:@-]+$"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 500
+                    }
+                  },
+                  "send": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "recipients"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Envelope detail (excerpt). Policy is frozen when this call runs, not when the template was saved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: TEMPLATE_NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: TEMPLATE_ARCHIVED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: TEMPLATE_ROLE_MISMATCH, DOCUMENT_CATEGORY_BLOCKED, IDEMPOTENCY_KEY_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Create an envelope from a template",
+        "tags": [
+          "Templates"
+        ],
+        "x-idempotency": "optional",
+        "x-rate-limit": "100 per 60s per workspace"
+      }
+    },
     "/api/v1/envelopes/{id}/send": {
       "post": {
         "operationId": "send",

@@ -41,7 +41,7 @@ describe('operations catalog', () => {
   it('is reachable by an API key or an embedded session, never neither', () => {
     for (const operation of INTEGRATION_OPERATIONS)
       expect(operation.apiKey ?? operation.embed).not.toBeNull();
-    expect(API_KEY_OPERATIONS.length).toBe(23);
+    expect(API_KEY_OPERATIONS.length).toBe(24);
   });
 
   it('only calls a route editor-only when a key cannot', () => {
@@ -73,7 +73,7 @@ describe('operations catalog', () => {
       // The detail excerpt is deliberately partial; every other JSON example is complete.
       if (
         response?.kind === 'json' &&
-        !['upload', 'detail', 'embed-upload'].includes(operation.id)
+        !['upload', 'detail', 'embed-upload', 'template-envelope'].includes(operation.id)
       ) {
         const parsed = response.schema.safeParse(operation.response);
         expect(parsed.success, `${operation.id}: ${JSON.stringify(parsed.error?.issues)}`).toBe(

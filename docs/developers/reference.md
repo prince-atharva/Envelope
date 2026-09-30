@@ -48,6 +48,7 @@ The machine-readable form of this reference is [openapi.json](openapi.json).
 | Save an envelope as a template | `POST /templates` | Full key | — | 30/min per workspace |
 | List templates | `GET /templates` | Read-only key or full key | — | — |
 | Read a template | `GET /templates/:id` | Read-only key or full key | — | — |
+| Create an envelope from a template | `POST /templates/:id/envelopes` | Full key | Optional | 100/min per workspace |
 | Rename, archive or restore a template | `PATCH /templates/:id` | Full key | — | 30/min per workspace |
 | Issue an embedded editor session | `POST /embed/sessions` | Full key | Optional | 30/min per workspace and API key |
 | Revoke an embedded editor session | `DELETE /embed/sessions/:id` | Full key | — | 30/min per workspace and API key |
@@ -785,6 +786,56 @@ curl --request GET "$ENVELOPE_URL/api/v1/templates/$ENVELOPE_ID" \
 ```
 
 Errors: `TEMPLATE_NOT_FOUND`. TEMPLATE_NOT_FOUND when the id is not in your workspace.
+
+### Create an envelope from a template
+
+`POST /templates/:id/envelopes` · Full key · Idempotency-Key: Optional · Rate limit: 100/min per workspace
+
+Give each role of the template a name and an email, and get a draft (or a sent envelope) with the people, fields and signing order already in place. It is an ordinary envelope from then on.
+
+- recipients (required): one entry per role of the template, each `{ role, name, email }`, where `role` is the template role’s name (for example "Patient"). No role may be missing or repeated, and no email may be used twice.
+- send (optional): true sends it at once, false (the default) leaves a draft you can still edit.
+- message (optional): the note in the invitation; defaults to the template’s. title (optional): defaults to the template’s name.
+- externalId and metadata (optional): as on upload.
+- Idempotency-Key (optional): as on upload. Repeating the same key and body within 24 hours returns the envelope the first request created (Idempotency-Replayed: true).
+
+```bash
+curl --request POST "$ENVELOPE_URL/api/v1/templates/$ENVELOPE_ID/envelopes" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "recipients": [
+    {
+      "role": "Patient",
+      "name": "Alex Morgan",
+      "email": "alex@example.com"
+    }
+  ],
+  "send": false
+}'
+```
+
+201 · Envelope detail (excerpt). Policy is frozen when this call runs, not when the template was saved.
+
+```json
+{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "title": "Consulting agreement",
+  "status": "DRAFT",
+  "draftRevision": 0,
+  "pageCount": 1,
+  "recipients": [],
+  "fields": [],
+  "versions": [
+    {
+      "versionNumber": 0,
+      "isFinal": false
+    }
+  ]
+}
+```
+
+Errors: `TEMPLATE_NOT_FOUND`, `TEMPLATE_ARCHIVED`, `TEMPLATE_ROLE_MISMATCH`, `DOCUMENT_CATEGORY_BLOCKED`, `IDEMPOTENCY_KEY_MISMATCH`. TEMPLATE_ROLE_MISMATCH lists each problem in `errors`. DOCUMENT_CATEGORY_BLOCKED when the workspace’s policy no longer allows the template’s category.
 
 ### Rename, archive or restore a template
 

@@ -218,6 +218,12 @@ describe('OpenAPI document and response contract (e2e)', () => {
       expectContract('template-create', created);
       expectContract('template-list', await call('get', '/templates', readOnlyKey));
       expectContract(
+        'template-envelope',
+        await call('post', `/templates/${created.body.id}/envelopes`).send({
+          recipients: [{ role: 'Alex Morgan', name: 'Alex Morgan', email: uniqueEmail('alex') }],
+        }),
+      );
+      expectContract(
         'template-get',
         await call('get', `/templates/${created.body.id}`, readOnlyKey),
       );

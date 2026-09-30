@@ -309,6 +309,7 @@ export const OPERATION_RESPONSES: Record<string, OperationResponse> = {
   'template-create': { status: 201, kind: 'json', schema: templateDetailSchema },
   'template-list': { status: 200, kind: 'json', schema: templateListSchema },
   'template-get': { status: 200, kind: 'json', schema: templateDetailSchema },
+  'template-envelope': { status: 201, kind: 'json', schema: envelopeDetailSchema },
   'template-update': { status: 200, kind: 'json', schema: templateDetailSchema },
   'embed-session-issue': { status: 201, kind: 'json', schema: embedSessionIssueSchema },
   'embed-session-revoke': { status: 204, kind: 'none' },

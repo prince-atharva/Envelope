@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import {
+  type CreateFromTemplateInput,
   type CreateTemplateInput,
   checkReadyToSend,
+  checkTemplatePeople,
+  type DocumentCategory,
+  type EnvelopeDetail,
+  type EnvelopeMetadata,
   type ListTemplatesQuery,
   TEMPLATE_ROLE_NAME_MAX_LENGTH,
   type TemplateDetail,
@@ -10,14 +15,50 @@ import {
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import type { AuthenticatedUser } from '../auth/auth.types';
-import { assertCanManage } from '../auth/ownership';
+import { AuditService } from '../audit/audit.service';
+import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { assertCanManage, ownerScopeOf } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
+import { JurisdictionService } from '../compliance/jurisdiction.service';
 import { toFieldInfo, toRecipientInfo } from '../drafts/draft-mappers';
+import { layoutHash } from '../drafts/draft-validation';
+import { EnvelopesService } from '../envelopes/envelopes.service';
 import { Prisma } from '../generated/prisma/client';
+import { maskEmail } from '../logging/redact';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
-import { StorageService, templateDocumentKey } from '../storage/storage.service';
+import { SendingService } from '../sending/sending.service';
+import {
+  envelopeDocumentKey,
+  StorageService,
+  templateDocumentKey,
+} from '../storage/storage.service';
 import { toTemplateDetail, toTemplateSummary } from './template-mappers';
+
+/** The transaction type the tenant-scoped client hands to a callback. */
+export type TemplateTx = Parameters<
+  Parameters<TenantPrismaService['client']['$transaction']>[0]
+>[0];
+
+/** What a new envelope needs from a request or a bulk row. */
+export interface InstantiateInput {
+  recipients: CreateFromTemplateInput['recipients'];
+  message?: string;
+  title?: string;
+  externalId?: string;
+  metadata?: EnvelopeMetadata;
+}
+
+export interface Instantiated {
+  envelopeId: string;
+  /** What the template asks for when its envelopes are sent. */
+  reminderIntervalDays: number | null;
+}
+
+function countBy(values: readonly string[]): Prisma.InputJsonObject {
+  const counts: Record<string, number> = {};
+  for (const value of values) counts[value] = (counts[value] ?? 0) + 1;
+  return counts;
+}
 
 const SUMMARY_INCLUDE = {
   createdBy: { select: { fullName: true } },
@@ -50,6 +91,10 @@ export class TemplatesService {
   constructor(
     private readonly tenantPrisma: TenantPrismaService,
     private readonly storage: StorageService,
+    private readonly jurisdiction: JurisdictionService,
+    private readonly audit: AuditService,
+    private readonly sending: SendingService,
+    private readonly envelopes: EnvelopesService,
     @InjectPinoLogger(TemplatesService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -266,5 +311,229 @@ export class TemplatesService {
             : 'Template updated',
     );
     return this.get(id);
+  }
+
+  /**
+   * Creates one envelope from a template: the same steps, in the same order, as
+   * `EnvelopesService.create`, because it is envelope creation (ADR 0027).
+   * Policy is resolved and the category checked before anything is stored, a
+   * fresh snapshot is frozen, and the PDF is a new copy owned by the envelope.
+   *
+   * `inTransaction` runs inside the creating transaction. Bulk send uses it to
+   * record the row's envelope id atomically with the envelope (ADR 0028).
+   */
+  async instantiate(
+    user: AuthenticatedUser,
+    templateId: string,
+    input: InstantiateInput,
+    client: ClientInfo,
+    inTransaction?: (tx: TemplateTx, envelopeId: string) => Promise<void>,
+  ): Promise<Instantiated> {
+    const started = performance.now();
+    const template = await this.db.template.findFirst({
+      where: { id: templateId },
+      include: { roles: true, fields: true },
+    });
+    if (!template) throw new AppException('TEMPLATE_NOT_FOUND');
+    if (template.archivedAt) throw new AppException('TEMPLATE_ARCHIVED');
+
+    const problems = checkTemplatePeople(
+      template.roles.map((role) => role.name),
+      input.recipients,
+    );
+    if (problems.length > 0) {
+      throw new AppException('TEMPLATE_ROLE_MISMATCH', undefined, {
+        errors: problems.map((problem) => ({
+          path: 'recipients',
+          message:
+            problem.code === 'MISSING_ROLE'
+              ? `No one was given for the role "${problem.role}".`
+              : problem.code === 'UNKNOWN_ROLE'
+                ? `The template has no role "${problem.role}".`
+                : problem.code === 'DUPLICATE_ROLE'
+                  ? `More than one person was given for the role "${problem.role}".`
+                  : 'The same email address is used for more than one role.',
+        })),
+      });
+    }
+
+    // Resolved and checked before anything is stored, and never inherited
+    // from the template: a category blocked since it was saved is refused.
+    const policy = await this.jurisdiction.resolveForTenant(user.tenantId, undefined);
+    this.jurisdiction.assertCategoryAllowed(policy, template.documentCategory as DocumentCategory);
+
+    const envelopeId = randomUUID();
+    const key = envelopeDocumentKey(user.tenantId, envelopeId, 0, randomUUID());
+    await this.storage.copy(template.originalFileUrl, key);
+
+    const people = new Map(input.recipients.map((person) => [person.role, person]));
+    const recipients = template.roles.map((role) => {
+      const person = people.get(role.name) as (typeof input.recipients)[number];
+      return { id: randomUUID(), role, person };
+    });
+    const recipientIdFor = new Map(recipients.map((r) => [r.role.id, r.id]));
+    const fields = template.fields.map((field) => ({
+      id: randomUUID(),
+      recipientId: recipientIdFor.get(field.templateRoleId) as string,
+      type: field.type,
+      pageNumber: field.pageNumber,
+      required: field.required,
+      ratioX: field.ratioX,
+      ratioY: field.ratioY,
+      ratioWidth: field.ratioWidth,
+      ratioHeight: field.ratioHeight,
+    }));
+
+    try {
+      await this.db.$transaction(async (tx) => {
+        await tx.envelope.create({
+          data: {
+            id: envelopeId,
+            tenantId: user.tenantId,
+            ownerId: user.id,
+            title: input.title ?? template.name,
+            originalFileUrl: key,
+            originalFilename: template.originalFilename,
+            pageCount: template.pageCount,
+            originalHash: template.originalHash,
+            documentCategory: template.documentCategory,
+            message: input.message ?? template.defaultMessage,
+            sequentialSigning: template.sequentialSigning,
+            reminderIntervalDays: template.reminderIntervalDays,
+            externalId: input.externalId,
+            ...(input.metadata ? { metadata: input.metadata } : {}),
+            jurisdictionCode: policy.code,
+            policySnapshot: policy as unknown as Prisma.InputJsonObject,
+            policyVersion: policy.version,
+          },
+        });
+        await tx.documentVersion.create({
+          data: {
+            envelopeId,
+            versionNumber: 0,
+            fileUrl: key,
+            hash: template.originalHash,
+            pageCount: template.pageCount,
+            sizeBytes: template.originalSizeBytes,
+          },
+        });
+        await this.audit.record(tx, {
+          envelopeId,
+          action: 'ENVELOPE_CREATED',
+          actorUserId: user.id,
+          ipAddress: client.ip,
+          userAgent: client.userAgent,
+          metadata: {
+            versionNumber: 0,
+            sha256: template.originalHash,
+            pageCount: template.pageCount,
+            sizeBytes: template.originalSizeBytes,
+            templateId: template.id,
+            documentCategory: template.documentCategory,
+            jurisdictionCode: policy.code,
+            policyVersion: policy.version,
+          },
+        });
+        await tx.recipient.createMany({
+          data: recipients.map(({ id, role, person }) => ({
+            id,
+            envelopeId,
+            name: person.name,
+            email: person.email,
+            role: role.role,
+            routingOrder: role.routingOrder,
+            colorIndex: role.colorIndex,
+          })),
+        });
+        for (const { id, role } of recipients) {
+          await this.audit.record(tx, {
+            envelopeId,
+            action: 'RECIPIENT_ADDED',
+            actorUserId: user.id,
+            ipAddress: client.ip,
+            userAgent: client.userAgent,
+            // Name and email stay out of the immutable trail, as when a person is added by hand.
+            metadata: {
+              recipientId: id,
+              role: role.role,
+              routingOrder: role.routingOrder,
+              templateRoleId: role.id,
+            },
+          });
+        }
+        if (fields.length > 0) {
+          await tx.documentField.createMany({ data: fields.map((f) => ({ ...f, envelopeId })) });
+          await this.audit.record(tx, {
+            envelopeId,
+            action: 'FIELDS_SAVED',
+            actorUserId: user.id,
+            ipAddress: client.ip,
+            userAgent: client.userAgent,
+            metadata: {
+              layoutHash: layoutHash(fields),
+              fieldCount: fields.length,
+              byType: countBy(fields.map((f) => f.type)),
+              pages: [...new Set(fields.map((f) => f.pageNumber))].sort((a, b) => a - b),
+              templateId: template.id,
+            },
+          });
+        }
+        await inTransaction?.(tx, envelopeId);
+      });
+    } catch (error) {
+      this.logger.error(
+        { err: error, envelopeId, templateId, key },
+        'Envelope from template could not be saved; removing the stored file',
+      );
+      await this.storage.delete(key).catch(() => undefined);
+      throw error;
+    }
+
+    this.logger.info(
+      {
+        envelopeId,
+        templateId,
+        tenantId: user.tenantId,
+        userId: user.id,
+        recipientCount: recipients.length,
+        fieldCount: fields.length,
+        recipients: recipients.map((r) => maskEmail(r.person.email)),
+        durationMs: Math.round(performance.now() - started),
+      },
+      'Envelope created from template',
+    );
+    return { envelopeId, reminderIntervalDays: template.reminderIntervalDays };
+  }
+
+  /** POST /templates/:id/envelopes: create one envelope, and send it if asked. */
+  async createEnvelope(
+    user: AuthenticatedUser,
+    templateId: string,
+    input: CreateFromTemplateInput,
+    client: ClientInfo,
+  ): Promise<{ envelopeId: string; detail: () => Promise<EnvelopeDetail> }> {
+    const { envelopeId, reminderIntervalDays } = await this.instantiate(
+      user,
+      templateId,
+      input,
+      client,
+    );
+    if (input.send) {
+      await this.sending.send(
+        envelopeId,
+        reminderIntervalDays === null ? {} : { reminderIntervalDays },
+        user,
+        client,
+      );
+    }
+    return {
+      envelopeId,
+      detail: () => this.envelopes.get(envelopeId, ownerScopeOf(user)),
+    };
+  }
+
+  /** The detail of an envelope this caller may see; what a replayed create answers with. */
+  envelopeDetail(envelopeId: string, user: AuthenticatedUser): Promise<EnvelopeDetail> {
+    return this.envelopes.get(envelopeId, ownerScopeOf(user));
   }
 }

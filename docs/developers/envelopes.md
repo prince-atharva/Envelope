@@ -43,6 +43,7 @@ Full request and response examples for every operation are in the [API reference
 | Save an envelope as a template | `POST /templates` | Full key | — | 30/min per workspace |
 | List templates | `GET /templates` | Read-only key or full key | — | — |
 | Read a template | `GET /templates/:id` | Read-only key or full key | — | — |
+| Create an envelope from a template | `POST /templates/:id/envelopes` | Full key | Optional | 100/min per workspace |
 | Rename, archive or restore a template | `PATCH /templates/:id` | Full key | — | 30/min per workspace |
 | Issue an embedded editor session | `POST /embed/sessions` | Full key | Optional | 30/min per workspace and API key |
 | Revoke an embedded editor session | `DELETE /embed/sessions/:id` | Full key | — | 30/min per workspace and API key |

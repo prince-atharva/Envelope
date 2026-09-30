@@ -682,6 +682,43 @@ const TEMPLATE_OPERATIONS: readonly OperationContract[] = [
     errorNote: 'TEMPLATE_NOT_FOUND when the id is not in your workspace.',
   },
   {
+    id: 'template-envelope',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'write',
+    embed: null,
+    idempotency: 'optional',
+    rateLimit: 'createAndSend',
+    method: 'POST',
+    path: '/templates/:id/envelopes',
+    title: 'Create an envelope from a template',
+    description:
+      'Give each role of the template a name and an email, and get a draft (or a sent envelope) with the people, fields and signing order already in place. It is an ordinary envelope from then on.',
+    inputs: [
+      'recipients (required): one entry per role of the template, each `{ role, name, email }`, where `role` is the template role’s name (for example "Patient"). No role may be missing or repeated, and no email may be used twice.',
+      'send (optional): true sends it at once, false (the default) leaves a draft you can still edit.',
+      'message (optional): the note in the invitation; defaults to the template’s. title (optional): defaults to the template’s name.',
+      'externalId and metadata (optional): as on upload.',
+      'Idempotency-Key (optional): as on upload. Repeating the same key and body within 24 hours returns the envelope the first request created (Idempotency-Replayed: true).',
+    ],
+    body: {
+      recipients: [{ role: 'Patient', name: 'Alex Morgan', email: 'alex@example.com' }],
+      send: false,
+    },
+    response: detailExcerpt,
+    responseNote:
+      '201 · Envelope detail (excerpt). Policy is frozen when this call runs, not when the template was saved.',
+    errorCodes: [
+      'TEMPLATE_NOT_FOUND',
+      'TEMPLATE_ARCHIVED',
+      'TEMPLATE_ROLE_MISMATCH',
+      'DOCUMENT_CATEGORY_BLOCKED',
+      'IDEMPOTENCY_KEY_MISMATCH',
+    ],
+    errorNote:
+      'TEMPLATE_ROLE_MISMATCH lists each problem in `errors`. DOCUMENT_CATEGORY_BLOCKED when the workspace’s policy no longer allows the template’s category.',
+  },
+  {
     id: 'template-update',
     caller: 'server',
     group: 'templates',
