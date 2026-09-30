@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-30
+
+Phase 8 (Launch readiness), complete: the account and upload safety work that makes Envelope safe to put in front of a first customer. Four slices: password reset, a change-password screen, two-factor sign-in with a workspace rule Owners can turn on, and malware scanning of uploads. Existing users and workspaces are unaffected until they, or an Owner, opt in. See [docs/19](docs/19-phase-8-launch-readiness-plan.md) and ADRs [0022](docs/adr/0022-store-password-reset-tokens-as-hmacs-in-their-own-table.md), [0023](docs/adr/0023-disable-removed-users-instead-of-relying-on-a-locked-password.md), [0024](docs/adr/0024-add-a-totp-second-factor-with-recovery-codes.md), [0025](docs/adr/0025-enforce-workspace-two-factor-at-sign-in-and-refresh.md) and [0026](docs/adr/0026-scan-uploads-with-clamav-and-accept-them-when-it-is-down.md).
+
+**Upgrading.** Two database migrations ship, both additive (`prisma migrate deploy`; nothing is rewritten and no one is signed out). The API and worker will not start without the new `TOTP_SECRET_ENC_KEY` (base64, 32 bytes, different from `WEBHOOK_SECRET_ENC_KEY`; `openssl rand -base64 32`). In production the API now also refuses to start unless `MALWARE_SCANNER=clamav`, or `MALWARE_SCANNER_ALLOW_NONE=true` is set on purpose. `apps/web` gains the `qrcode` dependency. Users removed before this release have no disabled marker; an Owner removes them again to set it.
+
 ### Added
 
 - **Password reset (Phase 8 slice 1, docs/19, ADR 0022).** A sender who forgets their password can use "Forgot your password?" on the sign-in page, receive a one-time link that lasts an hour, choose a new password and sign in again. The request answers the same for every address, so it does not reveal which have an account; only an eligible account is emailed, a newer link cancels older ones, a completed reset signs the account out everywhere and sends a "your password was changed" email, and requests are rate limited per address and per account. New public routes `POST /auth/password/forgot`, `GET` and `POST /auth/password/reset/:token`; new pages `/forgot-password` and `/reset-password/:token`; new `PasswordResetToken` table, purged with expired sessions.
@@ -19,6 +25,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - Reset links in URL paths are masked in request logs, error `instance` fields and browser error reports, like signing links (Phase 8 slice 1, docs/19).
+
+### Fixed
+
+- The webhook Deliveries dialog could freeze on "Retrying" for a failed test event: it stopped refreshing before the worker marked the one attempt as Failed. It now keeps refreshing until the event settles (Phase 7 code, found while verifying Phase 8).
 
 ### Security
 

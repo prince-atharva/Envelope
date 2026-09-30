@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Slice 1 (password reset) built and verified 30 September 2026. Slices 2 to 4 approved 30 September 2026, in progress |
-| **Version** | 1.2.0 |
+| **Status** | Complete. Slices 1 to 4 built, verified and released as `v0.9.0` on 30 September 2026 |
+| **Version** | 2.0.0 |
 | **Last updated** | 30 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 8 deliver to make Envelope safe to put in front of real customers, how is each slice built, and how do we check it? |
@@ -21,11 +21,11 @@ readiness. It is built in slices, one at a time, in this one plan:
 ```
    SLICE 1 ── BUILT ────► Password reset: a sender who forgets their password can get back in,
                            and a removed user can never get back in.
-   SLICE 2 ── PLANNED ──► Change password: a signed-in person changes their own password in an
+   SLICE 2 ── BUILT ────► Change password: a signed-in person changes their own password in an
                            Account page, and every other place they were signed in is signed out.
-   SLICE 3 ── PLANNED ──► Two-factor sign-in: an authenticator-app code after the password, with
+   SLICE 3 ── BUILT ────► Two-factor sign-in: an authenticator-app code after the password, with
                            recovery codes; an Owner can require it for the whole workspace.
-   SLICE 4 ── PLANNED ──► Malware scanning: every uploaded PDF is checked by ClamAV; a file that
+   SLICE 4 ── BUILT ────► Malware scanning: every uploaded PDF is checked by ClamAV; a file that
                            fails is refused, and a scanner outage is alerted, not silent.
 ```
 
@@ -85,46 +85,46 @@ nothing marks that account as disabled, so a working reset would let a removed p
 
 Slice 2 (change password):
 
-- [ ] Changing the password needs the current one; a wrong current password changes nothing.
-- [ ] A successful change signs out every other session, keeps this one, and sends the
+- [x] Changing the password needs the current one; a wrong current password changes nothing.
+- [x] A successful change signs out every other session, keeps this one, and sends the
       "password changed" email.
-- [ ] The Account page is reachable by every signed-in role, and the change is rate limited per user.
+- [x] The Account page is reachable by every signed-in role, and the change is rate limited per user.
 
 Slice 3 (two-factor):
 
-- [ ] Enrolling needs a valid code from the authenticator app; ten recovery codes are shown once and
+- [x] Enrolling needs a valid code from the authenticator app; ten recovery codes are shown once and
       stored only as HMACs; the TOTP secret is stored encrypted and is never logged or returned again.
-- [ ] Sign-in with a factor enrolled gives no session until a valid code (or a recovery code) is sent;
+- [x] Sign-in with a factor enrolled gives no session until a valid code (or a recovery code) is sent;
       a code cannot be used twice; a recovery code works once.
-- [ ] A challenge token cannot be used as an access token, and an access token cannot answer a challenge.
-- [ ] Password reset does not bypass the factor.
-- [ ] Turning the factor off needs the password and a code. An Owner can require it for the workspace
+- [x] A challenge token cannot be used as an access token, and an access token cannot answer a challenge.
+- [x] Password reset does not bypass the factor.
+- [x] Turning the factor off needs the password and a code. An Owner can require it for the workspace
       (enforced at sign-in and at refresh), cannot do so before enrolling, and can reset another
       person's factor; a member cannot switch it off while it is required.
-- [ ] Attempts are rate limited per challenge and per account, and nothing secret reaches a log line,
+- [x] Attempts are rate limited per challenge and per account, and nothing secret reaches a log line,
       a Redis job or a response after enrolment.
 
 Slice 4 (malware scanning):
 
-- [ ] With `MALWARE_SCANNER=clamav`, an infected upload is refused with `MALWARE_DETECTED` and a clean
+- [x] With `MALWARE_SCANNER=clamav`, an infected upload is refused with `MALWARE_DETECTED` and a clean
       one is stored unchanged.
-- [ ] With the scanner unreachable or slow, the upload is accepted, a warning is logged for it and the
+- [x] With the scanner unreachable or slow, the upload is accepted, a warning is logged for it and the
       `malware-scanner-unavailable` alert is raised.
-- [ ] Production refuses to start with scanning off unless that is chosen explicitly.
+- [x] Production refuses to start with scanning off unless that is chosen explicitly.
 
 Existing users and data (all slices):
 
-- [ ] After the migrations, every existing user signs in, refreshes and works exactly as before: no
+- [x] After the migrations, every existing user signs in, refreshes and works exactly as before: no
       factor is required, no prompt appears, open sessions and refresh cookies stay valid.
-- [ ] Existing workspaces have two-factor off; turning it on later reaches existing users (signed in or
+- [x] Existing workspaces have two-factor off; turning it on later reaches existing users (signed in or
       not, and pending invitees) at their next sign-in or refresh, with a way to enrol.
-- [ ] Existing data is untouched: no rewrite of any row, stored webhook secrets still decrypt, jobs
+- [x] Existing data is untouched: no rewrite of any row, stored webhook secrets still decrypt, jobs
       already queued still render, stored documents are not rescanned.
 
 All slices:
 
-- [ ] Every new screen and email is covered by a test, and the browser tests run each flow.
-- [ ] docs/08 and docs/10 carry "As built" notes; ADRs 0024, 0025 and 0026 are accepted.
+- [x] Every new screen and email is covered by a test, and the browser tests run each flow.
+- [x] docs/08 and docs/10 carry "As built" notes; ADRs 0024, 0025 and 0026 are accepted.
 
 ## What We Need From You
 
@@ -191,17 +191,20 @@ All slices:
 | 4 | Complete a reset: preview and reset routes, session revocation, change notice, token purge | ✅ Built (`ed1b806`) |
 | 5 | Web: forgot and reset pages, sign-in link, client, browser test, UI gallery | ✅ Built (`5741318`) |
 | 6 | Documentation: docs/08 and docs/10 notes, changelog, this plan marked done | ✅ Built (`2296d86`) |
-| 7 | Change password: route, revoke other sessions, notice email, per-user limit | ✅ Built |
-| 8 | Web: Account page with the password form, header link | ✅ Built |
-| 9 | Documentation for slice 2 | ✅ Built |
-| 10 | Two-factor foundations: schema, env var, cipher, TOTP and recovery-code helpers | ✅ Built |
-| 11 | Enrol and manage a factor: setup, enable, disable, regenerate codes, notices | ✅ Built |
-| 12 | Sign in with a second factor: login challenge, challenge route, refresh check, limits | ✅ Built |
-| 13 | Workspace policy and Owner reset: require flag, enrolment-token routes, reset route | ✅ Built |
-| 14 | Web: enrolment, second sign-in step, workspace switch, per-user reset, QR code | ✅ Built |
-| 15 | Documentation for slice 3 | ✅ Built |
-| 16 | Malware scanning: config, `ClamdMalwareScanner`, alert on outage, compose service, tests | ✅ Built |
-| 17 | Documentation for slice 4, and the phase's changelog | ✅ Built |
+| 7 | Change password: route, revoke other sessions, notice email, per-user limit | ✅ Built (`fc66221`) |
+| 8 | Web: Account page with the password form, header link | ✅ Built (`d557ab9`) |
+| 9 | Documentation for slice 2 | ✅ Built (`6b57c35`) |
+| 10 | Two-factor foundations: schema, env var, cipher, TOTP and recovery-code helpers | ✅ Built (`3d8326f`) |
+| 11 | Enrol and manage a factor: setup, enable, disable, regenerate codes, notices | ✅ Built (`3a40ff6`) |
+| 12 | Sign in with a second factor: login challenge, challenge route, refresh check, limits | ✅ Built (`1878e47`) |
+| 13 | Workspace policy and Owner reset: require flag, enrolment-token routes, reset route | ✅ Built (`bfb26e6`) |
+| 14 | Web: enrolment, second sign-in step, workspace switch, per-user reset, QR code | ✅ Built (`16274ab`) |
+| 15 | Documentation for slice 3 | ✅ Built (`8b5ec4b`) |
+| 16 | Malware scanning: config, `ClamdMalwareScanner`, alert on outage, compose service, tests | ✅ Built (`1956429`) |
+| 17 | Documentation for slice 4, and the phase's changelog | ✅ Built (`75f758c`) |
+| — | Found while verifying: the webhook Deliveries dialog stopped refreshing too early (Phase 7 code) | ✅ Fixed (`c284b17`, committed first) |
+| — | Found while verifying: the password-reset test waited on a masked address that many addresses share | ✅ Fixed (`778c957`, committed first) |
+| — | Release `v0.9.0` | ✅ Released |
 
 ## Step 1: Contracts and Schema
 
@@ -650,3 +653,29 @@ Run once after every step is written (AGENTS section 5), then one commit per ste
   a real `clamd`, never the internet.
 - Isolation: memory mail transport for the API suite, file transport for the browser stack, test
   databases and Redis databases only. Nothing reads `.env`, touches the dev database or sends mail.
+
+## Verification Results (Phase 8, release v0.9.0)
+
+Run on the final tree, 30 September 2026 (Node 22.19.0 for the API e2e, 22.22.0 elsewhere):
+
+| Check | Result |
+|---|---|
+| Lint | Clean |
+| Typecheck | api, web, embed pass; shared fails only on the known `jurisdiction.test.ts` (unchanged) |
+| Unit tests | shared 157, embed 41, API 248, web 218, all passing when the packages run one after another |
+| API e2e | 53 files, 387 tests, all passing |
+| Browser, desktop-chrome | 44 of 44 |
+| Browser, mobile-iphone14 | 42 of 44; the 2 failures are `Unknown permission: clipboard-write` (WebKit), the same known issue as v0.8.0, in specs this phase did not touch. The new specs (account, two-factor, password reset) and signing pass |
+| Browser, mobile-pixel7 | 41 of 44; 2 are the embedded-editor failures already recorded for v0.8.0, and 1 is an intermittent field-builder zoom test (about half of runs, with or without this phase's header change, so not caused by it) |
+| UI gallery | 39 of 39, new screens inspected |
+| Each commit builds alone | Typecheck, lint and unit tests on all 13 trees |
+
+Found and explained, not hidden:
+
+- **Sealing unit test under parallel load.** `pdf-sealing.service.test.ts` ("runs onto more pages when the
+  history is long") takes about 2 s alone but 5.2 to 5.8 s when `pnpm test` runs all four packages at once, past
+  vitest's 5 s default. The sealing code is not in this phase's diff; the growing web suite is the likely extra
+  load. Every package passes when run one after another. Raising that test's timeout is a candidate follow-up.
+- **Webhook test-event race** (fixed, `c284b17`) and **password-reset test helper** (fixed, `778c957`), above.
+- **Two of my own browser specs** asserted the URL after sign-in, which depends on browser history state; they
+  now assert the signed-in header instead.

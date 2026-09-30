@@ -219,7 +219,7 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 > webhook foundation shipped in `v0.7.0`, Settings management and responsive polish are built, and
 > the in-page integration guide is built. A further Phase 7 embedded sender editor, thin SDK and
 > HealthProHub guide workstream is implemented in docs/18 (ADR 0016); verification is recorded in docs/18.
-> The consolidated Phase 7 release shipped as `v0.8.0`. Launch readiness follows as Phase 8.
+> The consolidated Phase 7 release shipped as `v0.8.0`. Phase 8 (launch readiness: password reset, change password, two-factor sign-in and upload malware scanning) shipped as `v0.9.0`; see [docs/19](19-phase-8-launch-readiness-plan.md). Production packaging, monitoring, a real mail provider and a backup runbook remain for a later phase.
 
 - [x] Parallel routing alongside sequential
 - [x] Reminder scheduler and expiry sweeper
