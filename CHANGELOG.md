@@ -6,6 +6,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-30
+
+Phase 7 (Integrations), complete: everything a tenant needs to connect its own application, with HealthProHub as
+the worked example. Server-to-server API keys and signed webhooks (the `v0.7.0` foundation) now come with Settings
+management, the embedded sender editor, per-key embedded origins, webhook reliability and lifecycle tooling, partner
+references and safe retries, API-key downloads and limits, a hosted dependency-free SDK with a runnable partner
+example, and one integration contract that drives the in-app guide, the served OpenAPI document and a standalone
+[developer guide](docs/developers/README.md). Recipient signing stays on Envelope's own hosted page. See
+[docs/18](docs/18-phase-7-integration-plan.md) and ADRs
+[0016](docs/adr/0016-scope-embedded-editor-sessions-to-one-envelope.md),
+[0017](docs/adr/0017-bind-embedded-origins-to-api-keys.md),
+[0018](docs/adr/0018-evolve-webhooks-additively.md),
+[0019](docs/adr/0019-partner-reference-and-optional-idempotency.md),
+[0020](docs/adr/0020-serve-the-embed-sdk-as-a-hosted-script.md) and
+[0021](docs/adr/0021-one-integration-contract-catalog.md). No database migration is needed beyond those already
+shipped in this phase; deployments must build `packages/embed` (the root `pnpm build` does) and keep
+`packages/embed/dist` under `APP_ROOT_DIR`.
+
 ### Added
 
 - **One integration contract, OpenAPI and a developer guide (Phase 7, docs/18 workstream 13, ADR 0021).** A single shared catalog (`packages/shared/src/integration-contract.ts`) lists every API-key operation, webhook event, header, limit and error code a partner can meet. The in-app guide, the served OpenAPI document and the new standalone [`docs/developers/`](docs/developers/README.md) guide (quick start, concepts, authentication, envelopes, webhooks, embedded editor, errors, limits, recipes and a generated reference) all read from it, and tests fail when a controller's API-key or embedded-session allow-list, an error code or a generated table disagrees. The OpenAPI document gains response schemas, `apiKey`, `session` and `embedSession` security schemes, error responses by status and the webhook payloads, and a reviewable copy is committed at `docs/developers/openapi.json`. The in-app guide opens on a setup checklist, its cURL examples carry ids through shell variables extracted with `jq` (the whole quick-start script is run against a real server by the API suite), it lists every error code with what to do, and the receiver example now runs as published.

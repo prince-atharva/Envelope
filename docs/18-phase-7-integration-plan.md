@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Built through workstream 11 (API-key lifecycle, downloads and limits). Foundation shipped as `v0.7.0`. Workstreams 12–13 remain planned; release remains workstream 14 |
-| **Version** | 1.4.0 |
+| **Status** | Complete. Built and released as `v0.8.0` (the foundation shipped earlier as `v0.7.0`) |
+| **Version** | 1.6.0 |
 | **Last updated** | 30 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 7 deliver across the integration API, management UI and user guide, and how is it built and checked? |
@@ -140,9 +140,9 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 9 | Webhook endpoint lifecycle tooling | ✅ Built | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | ✅ Built | Steps 10.1–10.5; ADR 0019 |
 | 11 | API-key lifecycle, downloads and limits | ✅ Built | `603218e`, `446415d`, `a91cea9`, `788c8c9`, `6c0b823` |
-| 12 | Hosted SDK and runnable partner example | Accepted; planned | Steps 12.1–12.3; ADR 0020 |
-| 13 | One integration contract, OpenAPI and developer guide | Accepted; planned | Steps 13.1–13.4; ADR 0021 |
-| 14 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
+| 12 | Hosted SDK and runnable partner example | ✅ Built | `062cdd0` self-contained SDK; `2ab5ff6` hosted script; `7159a84` example and browser suite; ADR 0020 |
+| 13 | One integration contract, OpenAPI and developer guide | ✅ Built | `c823256` catalog; `f97e28b` OpenAPI; `7fdb3d0` in-app guide; `9f89a10` developer guide; ADR 0021 |
+| 14 | Release | ✅ Released as `v0.8.0` | Annotated tag `v0.8.0`, authorized by the project owner on 30 September 2026 |
 
 ### Workstream 2: Settings Integration Management
 
@@ -1479,9 +1479,9 @@ see. This workstream makes the SDK load as a plain script tag from a URL this sy
 way widely used embedded widgets do, and publishes a runnable, dependency-free example application.
 
 Finish line:
-- [ ] `<script src=".../embed/sdk/v1/envelope.js">` works in a plain HTML page, with no build step
+- [x] `<script src=".../embed/sdk/v1/envelope.js">` works in a plain HTML page, with no build step
       and no access to this repository's other packages.
-- [ ] A complete, runnable example partner application exists and is exercised by the browser suite.
+- [x] A complete, runnable example partner application exists and is exercised by the browser suite.
 
 ### Technical Detail and Decisions
 
@@ -1498,9 +1498,20 @@ ADR 0020 governs this workstream.
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 12.1 | Self-contained SDK: hand-written protocol validator, Vite ESM+IIFE build, `.d.ts` output; `@envelope/shared` moves to devDependencies | Parity test against `embedEventSchema`; existing SDK unit tests | Planned |
-| 12.2 | API serves `GET /embed/sdk/v1/envelope.js` and `.mjs` with cross-origin headers, caching and an ETag; 503 if the build is missing in production | New `embed-sdk.e2e.test.ts` | Planned |
-| 12.3 | `examples/embedded-partner/`: zero-dependency Node example app; `embed-host.ts` wraps it so e2e exercises the real example | Full browser e2e using the example; gallery | Planned |
+| 12.1 | Self-contained SDK: hand-written protocol validator, Vite ESM+IIFE build, `.d.ts` output; `@envelope/shared` moves to devDependencies | Parity test against `embedEventSchema`; existing SDK unit tests | ✅ Done |
+| 12.2 | API serves `GET /embed/sdk/v1/envelope.js` and `.mjs` with cross-origin headers, caching and an ETag; 503 if the build is missing in production | New `embed-sdk.e2e.test.ts` | ✅ Done |
+| 12.3 | `examples/embedded-partner/`: zero-dependency Node example app; `embed-host.ts` wraps it so e2e exercises the real example | Full browser e2e using the example; gallery | ✅ Done |
+
+#### As Built
+
+- The hosted files are `dist/envelope.js` (IIFE, global `EnvelopeEmbed`) and `dist/envelope.mjs`, read from
+  `APP_ROOT_DIR/packages/embed/dist` and cached in memory by modification time. The route answers `503`
+  whenever the build is missing (not only in production), with the command that builds it. The API
+  e2e `global-setup` and the browser stack's `start-web.mjs` both build the SDK first.
+- `apps/web/vite.config.ts` no longer builds an `embed-sdk` entry; the browser suite loads the hosted
+  script exactly as a partner would. The direct-iframe example validates messages by hand instead of
+  importing the shared zod schema, which a partner cannot install.
+- The example exports `createPartnerApp()` for the test host and runs standalone with `node server.mjs`.
 
 ### Deliberate Simplifications
 
@@ -1522,13 +1533,13 @@ they cannot drift again without a failing test, and it publishes that developer 
 markdown document a tenant can hand to a partner who has no login.
 
 Finish line:
-- [ ] A single shared catalog lists every API-key-accessible operation, every webhook event and every
+- [x] A single shared catalog lists every API-key-accessible operation, every webhook event and every
       error code; a test fails if a controller's actual API-key allow-list disagrees with it.
-- [ ] The served OpenAPI document includes response schemas, an API-key security scheme and the embed
+- [x] The served OpenAPI document includes response schemas, an API-key security scheme and the embed
       routes, and a committed snapshot lets it be reviewed without a running server.
-- [ ] `docs/developers/` is a complete, standalone guide: quick start, concepts, auth, envelopes,
+- [x] `docs/developers/` is a complete, standalone guide: quick start, concepts, auth, envelopes,
       webhooks, embedded editor, errors, limits, recipes and a generated reference.
-- [ ] The in-app guide's cURL examples run without hand-editing hard-coded IDs.
+- [x] The in-app guide's cURL examples run without hand-editing hard-coded IDs.
 
 ### Technical Detail and Decisions
 
@@ -1546,10 +1557,29 @@ ADR 0021 governs this workstream.
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 13.1 | `integration-contract.ts` and `api-responses.ts`; reflection drift test | `integration-contract.test.ts` | Planned |
-| 13.2 | OpenAPI security schemes, response schemas, embed tags, committed snapshot | `openapi.e2e.test.ts` | Planned |
-| 13.3 | In-app guide reads from the catalog; `jq`-based examples; self-contained webhook receiver example; generic `EmbeddedEditorGuide`; setup-checklist card | Component and browser tests; gallery | Planned |
-| 13.4 | `docs/developers/*` guide with generated, drift-checked sections; As-built notes on docs/03/08/10; root README rewrite; docs index and CHANGELOG | `integration-docs.test.ts` runs in `pnpm test` | Planned |
+| 13.1 | `integration-contract.ts` and `api-responses.ts`; reflection drift test | `integration-contract.test.ts` | ✅ Done |
+| 13.2 | OpenAPI security schemes, response schemas, embed tags, committed snapshot | `openapi.e2e.test.ts` | ✅ Done |
+| 13.3 | In-app guide reads from the catalog; `jq`-based examples; self-contained webhook receiver example; generic `EmbeddedEditorGuide`; setup-checklist card | Component and browser tests; gallery | ✅ Done |
+| 13.4 | `docs/developers/*` guide with generated, drift-checked sections; As-built notes on docs/03/08/10; root README rewrite; docs index and CHANGELOG | `integration-docs.test.ts` runs in `pnpm test` | ✅ Done |
+
+#### As Built
+
+- The catalog also lists the two embedded-session operations (`POST /embed/sessions`,
+  `DELETE /embed/sessions/:id`) and marks two editor-only routes (`caller: 'editor'`), so the
+  reflection test covers every `@ApiKeyAllowed` and `@EmbedAllowed` route: 19 API-key operations.
+- Building the catalog surfaced drift beyond the audit: webhook examples lacked `envelopeTitle`,
+  `apiVersion`, `allSigned` and `remainingSigners`; the in-app chip said 8 events when 9 fire; the
+  remind operation omitted `429 REMINDER_TOO_SOON`. Each is now fixed and pinned by a test against
+  `webhookEventDataSchemas` and the real responses (`openapi.e2e.test.ts`).
+- `FiredWebhookEventType` is now a real type in `webhooks.ts` (`FIRED_WEBHOOK_EVENT_TYPES` was
+  `WebhookEventType[]`); no runtime change.
+- The docs-drift test (`integration-docs.test.ts`) and the receiver test live in `apps/api`, because
+  `@envelope/shared` deliberately has no Node types. Regenerate the guide with
+  `UPDATE_DEVELOPER_DOCS=1 pnpm --filter @envelope/api test` and the snapshot with `UPDATE_OPENAPI=1`.
+- The quick-start script is executed against a real listening server by `workflow-example.e2e.test.ts`
+  (needs `bash`, `curl`, `jq` and `uuidgen`; all present on the CI runner).
+- The in-app API reference keeps its 17 envelope operations; the two session operations appear in the
+  Embedded editor tab.
 
 ### Deliberate Simplifications
 
@@ -1559,7 +1589,30 @@ ADR 0021 governs this workstream.
 
 ---
 
-## Workstream 14: Release
+## Workstreams 12–13 Verification — 30 September 2026
 
-Planned, separate authorization required. No product version bump, changelog release section or
-tag until the user explicitly authorizes a release, following `.claude/skills/release/SKILL.md`.
+Run once on the final tree (`.claude/skills/phase-build`), then each step's own tree was checked alone
+(lint, typecheck, shared, embed, API and web unit tests):
+
+| Check | Result |
+|---|---|
+| `pnpm lint` | Clean |
+| Unit | 145 shared, 41 embed, 211 API, 192 web |
+| API e2e (Node 22.19.0) | 317 tests in 46 files, all passing. New: `embed-sdk`, `openapi`, `workflow-example`, `webhook-receiver-example` |
+| Browser e2e, `desktop-chrome` | 38 of 38 across two runs; the embedded-editor specs run against the hosted SDK and `examples/embedded-partner` |
+| Browser e2e, `mobile-iphone14` and `mobile-pixel7` | 72 passed, 4 failed. Two fail on WebKit's `clipboard-write` permission (Settings → Integrations specs, which CI does not run on that project) and two on the embedded editor not closing on Pixel 7 (also not a CI project). None involves code changed here; the Pixel 7 case was not run against the previous tree |
+| Typecheck | `packages/shared` still reports the pre-existing `jurisdiction.test.ts` strict-`undefined` errors; every other package is clean |
+
+One genuine race was found and fixed: the file mail transport writes each email in place, so the outbox
+helpers could read a half-written file ("Unexpected end of JSON input", once, in the embed spec under
+load). They now skip an unparseable file and read it on the next poll (`test(web)` commit). The embed spec
+passed in isolation afterwards. A `pdf-sealing` unit timeout seen once while every workspace's tests ran in
+parallel did not recur and passes alone.
+
+## Workstream 14: Release (Done)
+
+Authorized by the project owner on 30 September 2026 and cut with `.claude/skills/release/SKILL.md`: the
+`[Unreleased]` changelog became `[0.8.0]`, all five manifests (root, api, web, shared and embed) moved from
+`0.7.0` to `0.8.0`, `docs/developers/openapi.json` was regenerated for the new version, and the annotated tag
+`v0.8.0` was created. Nothing was pushed or published: the SDK is served by the API, and there is still no npm
+or CDN publication (ADR 0020).
