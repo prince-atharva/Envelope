@@ -5,6 +5,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AlertService } from '../alert/alert.service';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
 import { AppConfig } from '../config/app-config';
+import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { downloadUrl, mintDownloadToken, tokenRef } from '../signing/signing-token';
 import { StorageService } from '../storage/storage.service';
@@ -141,8 +142,10 @@ export class CompletionMailer {
     }
     const { messageId } = await this.transport.send(email, job.template);
 
-    await this.prisma.$transaction((tx) =>
-      this.audit.record(tx, {
+    await this.prisma.$transaction(async (tx) => {
+      // Before the audit lock: docs/18, workstream 11 (audit lock order).
+      await lockEnvelope(tx, envelope.id);
+      await this.audit.record(tx, {
         envelopeId: envelope.id,
         recipientId: recipient?.id,
         action: 'COMPLETION_SENT',
@@ -153,8 +156,8 @@ export class CompletionMailer {
           versionNumber: final.versionNumber,
           sizeBytes: final.sizeBytes,
         },
-      }),
-    );
+      });
+    });
 
     this.logger.info(
       {

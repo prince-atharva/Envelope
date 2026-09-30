@@ -43,12 +43,20 @@ describe('optional idempotency on create (e2e)', () => {
   });
 
   const keyAuth = () => `Bearer ${key}`;
+  // makePdf stamps the current second into the file; the request fingerprint
+  // includes the PDF's hash, so a retry must send the very same bytes.
+  const pdfs = new Map<number, Buffer>();
+  const pdfOf = async (pages: number) => {
+    const cached = pdfs.get(pages) ?? (await makePdf(pages));
+    pdfs.set(pages, cached);
+    return cached;
+  };
   const titled = async (title: string, idempotencyKey?: string, pages = 1) => {
     let req = request(t.http)
       .post('/api/v1/envelopes')
       .set('Authorization', keyAuth())
       .field('title', title)
-      .attach('file', await makePdf(pages), { filename: 'a.pdf', contentType: 'application/pdf' });
+      .attach('file', await pdfOf(pages), { filename: 'a.pdf', contentType: 'application/pdf' });
     if (idempotencyKey) req = req.set('Idempotency-Key', idempotencyKey);
     return req;
   };

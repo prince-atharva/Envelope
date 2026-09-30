@@ -45,7 +45,10 @@ export async function lockOpenEnvelope(
  * Locks an envelope whatever its state and returns its status, or null if it
  * does not exist. For state changes that must see the latest status and keep
  * everyone else out until they commit: cancel, the expiry sweep, extend, and
- * the moment a seal commits.
+ * the moment a seal commits. Also the first statement of any transaction that
+ * writes an audit event without changing the envelope (a mail worker recording
+ * that an email was sent, an audit export), so it never holds the audit lock
+ * while waiting for a row that a cancel already holds (docs/18, workstream 11).
  */
 export async function lockEnvelope(
   tx: LockingTransaction,

@@ -4,7 +4,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
 import { AppConfig } from '../config/app-config';
 import type { Envelope, Recipient } from '../generated/prisma/client';
-import { lockOpenEnvelope } from '../prisma/envelope-locks';
+import { lockEnvelope, lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { mintSigningToken, signingUrl, tokenRef } from '../signing/signing-token';
 import type { SigningLinkEmailJob } from './mail.types';
@@ -113,6 +113,8 @@ export class SigningLinkMailer {
     const { messageId } = await this.transport.send(email, job.template);
 
     await this.prisma.$transaction(async (tx) => {
+      // Before anything else: docs/18, workstream 11 (audit lock order).
+      await lockEnvelope(tx, envelope.id);
       await tx.recipient.update({ where: { id: recipient.id }, data: { notifiedAt: new Date() } });
       await this.audit.record(tx, {
         envelopeId: envelope.id,

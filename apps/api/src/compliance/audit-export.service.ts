@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { verifyChain } from '../audit/audit-chain';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
+import { lockEnvelope } from '../prisma/envelope-locks';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
 
 /**
@@ -54,16 +55,18 @@ export class AuditExportService {
       eventHash: row.eventHash,
     }));
 
-    await this.tenantPrisma.client.$transaction((tx) =>
-      this.audit.record(tx, {
+    await this.tenantPrisma.client.$transaction(async (tx) => {
+      // Before the audit lock: docs/18, workstream 11 (audit lock order).
+      await lockEnvelope(tx, envelopeId);
+      await this.audit.record(tx, {
         envelopeId,
         action: 'AUDIT_EXPORTED',
         actorUserId: user.id,
         ipAddress: client.ip,
         userAgent: client.userAgent,
         metadata: { eventCount: events.length, valid: verification.valid },
-      }),
-    );
+      });
+    });
 
     this.logger.info(
       { envelopeId, userId: user.id, eventCount: events.length, valid: verification.valid },

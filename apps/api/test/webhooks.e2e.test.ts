@@ -197,12 +197,18 @@ describe('webhooks (e2e)', () => {
     beforeAll(async () => {
       process.env.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS = 'true';
       localApp = await createTestApp();
+      // Two workers on the same Redis queues split the jobs between them: the
+      // outer worker rejects loopback receivers (its environment predates the
+      // flag) and holds the mailbox that `inviteMember` reads. Whichever
+      // worker took a job decided whether the tests below passed. The outer
+      // one stops here, and this worker, which serves both, takes its place.
+      await worker.close();
       localWorker = await createTestWorker();
+      worker = localWorker;
     });
 
     afterAll(async () => {
       delete process.env.WEBHOOK_ALLOW_INSECURE_LOCAL_URLS;
-      await localWorker.close();
       await localApp.close();
     });
 

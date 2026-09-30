@@ -21,7 +21,7 @@ import type { ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
 import { Prisma } from '../generated/prisma/client';
 import { MailQueueService } from '../mail/mail-queue.service';
-import { lockOpenEnvelope } from '../prisma/envelope-locks';
+import { lockEnvelope, lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import { SealQueueService } from '../sealing/seal-queue.service';
 import { StorageService, signatureImageKey } from '../storage/storage.service';
@@ -585,6 +585,8 @@ export class SigningService {
     const { recipient, envelope } = signer;
 
     const claimed = await this.prisma.$transaction(async (tx) => {
+      // Envelope row first, before the audit lock (docs/18, workstream 11).
+      await lockEnvelope(tx, envelope.id);
       const claim = await tx.recipient.updateMany({
         where: {
           id: recipient.id,
@@ -630,6 +632,8 @@ export class SigningService {
     const tenantId = envelope.tenantId;
     const now = new Date();
     const fired = await this.prisma.$transaction(async (tx) => {
+      // Envelope row first, before the audit lock (docs/18, workstream 11).
+      await lockEnvelope(tx, envelopeId);
       const first = await tx.recipient.updateMany({
         where: { id: recipientId, viewedAt: null },
         data: { viewedAt: now },

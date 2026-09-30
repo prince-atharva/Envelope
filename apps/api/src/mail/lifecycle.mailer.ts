@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
 import type { Envelope, Recipient } from '../generated/prisma/client';
+import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
 import type { VoidedNoticeJob } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
@@ -69,6 +70,8 @@ export class LifecycleMailer {
     );
 
     await this.prisma.$transaction(async (tx) => {
+      // Before the audit lock: docs/18, workstream 11 (audit lock order).
+      await lockEnvelope(tx, envelope.id);
       await this.audit.record(tx, {
         envelopeId: envelope.id,
         recipientId: recipient.id,
