@@ -3,6 +3,7 @@ import { AppShell } from './components/layout/AppShell';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
 import { AuthProvider } from './lib/auth';
+import { AccountPage } from './pages/AccountPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { EnvelopeDetailPage } from './pages/EnvelopeDetailPage';
 import { LoginPage } from './pages/LoginPage';
@@ -35,6 +36,7 @@ export default function SenderApp() {
         {/* Signed-in: dashboard and document pages */}
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/dashboard/new" element={<NewEnvelopePage />} />
             <Route path="/dashboard/envelopes/:id" element={<EnvelopeDetailPage />} />

@@ -1,4 +1,5 @@
 import type { UserProfile } from '@envelope/shared';
+import { Link } from 'react-router';
 import { Spinner } from '../ui/Spinner';
 
 interface UserBarProps {
@@ -59,6 +60,13 @@ export function UserBar({ user, onSignOut, signingOut }: UserBarProps) {
       </div>
 
       <div className="hidden lg:block h-5 w-px bg-slate-200/90 shrink-0" aria-hidden="true" />
+
+      <Link
+        to="/account"
+        className="rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-2xs transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900"
+      >
+        Account
+      </Link>
 
       <button
         type="button"

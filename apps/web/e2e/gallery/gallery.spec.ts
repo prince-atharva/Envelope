@@ -133,6 +133,26 @@ test('password reset screens', async ({ page }) => {
   });
 });
 
+test('account screen', async ({ page }) => {
+  await signUpAs(page, 'gallery-account', SENDER);
+  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
+  await shot(page, 'account', {
+    area: 'account',
+    caption: 'Account: change your own password.',
+    mask: [page.getByText(/^How you sign in as /)],
+  });
+
+  await page.getByLabel('Current password').fill(TEST_PASSWORD);
+  await page.getByLabel('New password').fill('short');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await shot(page, 'account-errors', {
+    area: 'account',
+    caption: 'A new password that breaks the policy is stopped before it is sent.',
+    mask: [page.getByText(/^How you sign in as /)],
+  });
+});
+
 test('dashboard, upload, prepare, review and send', async ({ page }) => {
   await signUpAs(page, 'gallery', SENDER);
 

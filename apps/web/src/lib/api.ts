@@ -4,6 +4,7 @@ import {
   type ApiKeySummary,
   type AuditExportDocument,
   type AuthResponse,
+  type ChangePasswordInput,
   type ChangeUserRoleInput,
   type CreateApiKeyInput,
   type CreateApiKeyResponse,
@@ -335,6 +336,10 @@ export const api = {
     setSession(session);
     return session;
   },
+
+  /** Ends every other session of the account; this one stays. */
+  changePassword: (input: ChangePasswordInput) =>
+    json<void>('/auth/password/change', jsonBody(input)),
 
   forgotPassword: (input: ForgotPasswordInput) =>
     json<ForgotPasswordResponse>('/auth/password/forgot', jsonBody(input)),
