@@ -4,6 +4,7 @@ import {
   apiKeyAccessDescription,
   apiKeyAccessLabel,
   canRedriveWebhookDelivery,
+  isSettlingDelivery,
   SECRET_OVERLAP_OPTIONS,
   WEBHOOK_DELIVERY_LABELS,
   WEBHOOK_EVENT_LABELS,
@@ -22,6 +23,16 @@ describe('integration presentation', () => {
     expect(canRedriveWebhookDelivery('SUCCEEDED')).toBe(false);
     expect(canRedriveWebhookDelivery('FAILED')).toBe(true);
     expect(canRedriveWebhookDelivery('EXHAUSTED')).toBe(true);
+  });
+
+  it('keeps refreshing a delivery that is about to change, and stops otherwise', () => {
+    // A test event that failed its one attempt is marked "Failed" a moment later.
+    expect(isSettlingDelivery({ status: 'PENDING', eventType: 'envelope.sent' })).toBe(true);
+    expect(isSettlingDelivery({ status: 'FAILED', eventType: 'webhook.test' })).toBe(true);
+    // A real delivery waiting for its next retry, and any finished one, are not polled for.
+    expect(isSettlingDelivery({ status: 'FAILED', eventType: 'envelope.sent' })).toBe(false);
+    expect(isSettlingDelivery({ status: 'EXHAUSTED', eventType: 'webhook.test' })).toBe(false);
+    expect(isSettlingDelivery({ status: 'SUCCEEDED', eventType: 'webhook.test' })).toBe(false);
   });
 
   it('never offers a retry for a test event, which is a single attempt', () => {

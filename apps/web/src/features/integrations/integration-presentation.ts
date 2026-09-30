@@ -32,6 +32,23 @@ export const WEBHOOK_DELIVERY_LABELS: Record<WebhookDeliveryStatus, string> = {
   EXHAUSTED: 'Failed',
 };
 
+/**
+ * A delivery whose status is about to change, so a list showing it should refresh.
+ * PENDING has not been tried. A test event that shows FAILED ("Retrying") has had
+ * its one attempt, and the worker marks it EXHAUSTED ("Failed") a moment later;
+ * a real delivery in FAILED really is waiting for its next retry, which is far
+ * off, so it is not polled for.
+ */
+export function isSettlingDelivery(delivery: {
+  status: WebhookDeliveryStatus;
+  eventType?: WebhookDeliveryEventType;
+}): boolean {
+  return (
+    delivery.status === 'PENDING' ||
+    (delivery.status === 'FAILED' && delivery.eventType === 'webhook.test')
+  );
+}
+
 /** A test delivery is one attempt by design and is never retried (docs/18 workstream 9). */
 export function canRedriveWebhookDelivery(
   status: WebhookDeliveryStatus,

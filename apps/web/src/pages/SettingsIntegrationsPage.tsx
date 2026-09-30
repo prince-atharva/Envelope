@@ -27,6 +27,7 @@ import {
   apiKeyAccessDescription,
   apiKeyAccessLabel,
   canRedriveWebhookDelivery,
+  isSettlingDelivery,
   WEBHOOK_DELIVERY_LABELS,
   WEBHOOK_EVENT_LABELS,
   webhookDeliveryEventLabel,
@@ -618,10 +619,12 @@ function DeliveryDialog({
     ...webhookDeliveriesQuery(endpoint?.id ?? '', status || undefined, eventType || undefined),
     enabled: Boolean(endpoint),
     // A test event's result arrives moments after it is sent (docs/18 workstream 9).
+    // A failed test event is one attempt by design: the worker records the attempt
+    // as FAILED and a moment later marks it EXHAUSTED ("Failed"). A refresh that
+    // lands between the two must not be the last one, so keep polling until it
+    // settles.
     refetchInterval: (query) =>
-      query.state.data?.pages.some((page) => page.items.some((item) => item.status === 'PENDING'))
-        ? 1500
-        : false,
+      query.state.data?.pages.some((page) => page.items.some(isSettlingDelivery)) ? 1500 : false,
   });
   const items = deliveries.data?.pages.flatMap((page) => page.items) ?? [];
   const retry = useMutation({
