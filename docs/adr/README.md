@@ -95,6 +95,9 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0021](0021-one-integration-contract-catalog.md) | One integration contract catalog | Accepted |
 | [0022](0022-store-password-reset-tokens-as-hmacs-in-their-own-table.md) | Store password-reset tokens as HMACs in their own table | Accepted |
 | [0023](0023-disable-removed-users-instead-of-relying-on-a-locked-password.md) | Disable removed users instead of relying on a locked password | Accepted |
+| [0024](0024-add-a-totp-second-factor-with-recovery-codes.md) | Add a TOTP second factor with recovery codes | Accepted |
+| [0025](0025-enforce-workspace-two-factor-at-sign-in-and-refresh.md) | Enforce workspace two-factor at sign-in and refresh, with an Owner reset | Accepted |
+| [0026](0026-scan-uploads-with-clamav-and-accept-them-when-it-is-down.md) | Scan uploads with ClamAV and accept them when it is down | Accepted |
 
 ### Planned
 

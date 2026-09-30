@@ -88,7 +88,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
 | 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
 | 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What is built and proposed across integration APIs, Settings, the embedded editor/SDK and HealthProHub guide? |
-| 19 | [phase-8-launch-readiness-plan](19-phase-8-launch-readiness-plan.md) | What does Phase 8 deliver to make Envelope launch-ready, starting with password reset, and how is each slice built and checked? |
+| 19 | [phase-8-launch-readiness-plan](19-phase-8-launch-readiness-plan.md) | What does Phase 8 deliver (password reset, change password, two-factor sign-in, malware scanning), how is each slice built and checked, and how are existing users kept working? |
 | — | [developers/](developers/README.md) | How do I connect my application to Envelope? *(partner-facing guide, shareable on its own)* |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
