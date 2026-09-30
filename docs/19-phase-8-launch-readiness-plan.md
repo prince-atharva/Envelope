@@ -191,9 +191,9 @@ All slices:
 | 4 | Complete a reset: preview and reset routes, session revocation, change notice, token purge | ✅ Built (`ed1b806`) |
 | 5 | Web: forgot and reset pages, sign-in link, client, browser test, UI gallery | ✅ Built (`5741318`) |
 | 6 | Documentation: docs/08 and docs/10 notes, changelog, this plan marked done | ✅ Built (`2296d86`) |
-| 7 | Change password: route, revoke other sessions, notice email, per-user limit | Planned |
-| 8 | Web: Account page with the password form, header link | Planned |
-| 9 | Documentation for slice 2 | Planned |
+| 7 | Change password: route, revoke other sessions, notice email, per-user limit | ✅ Built |
+| 8 | Web: Account page with the password form, header link | ✅ Built |
+| 9 | Documentation for slice 2 | ✅ Built |
 | 10 | Two-factor foundations: schema, env var, cipher, TOTP and recovery-code helpers | Planned |
 | 11 | Enrol and manage a factor: setup, enable, disable, regenerate codes, notices | Planned |
 | 12 | Sign in with a second factor: login challenge, challenge route, refresh check, limits | Planned |
@@ -493,6 +493,12 @@ All slices:
   if either lists services. The root `README.md` local-services table gains ClamAV. `CHANGELOG.md`
   `[Unreleased]`.  This plan: every step marked with its commit, the finish
   lines ticked, an "As Built (Slices 2 to 4)" section and the results of the verification run.
+
+## As Built (Slice 2)
+
+Built as planned. The Account link is a plain "Account" link beside Sign out, in `UserBar`, so it
+shows on desktop and phones alike. The generated developer docs (`openapi.json`, `errors.md`) were
+regenerated again for the new route and error code.
 
 ## Existing Users and Data
 

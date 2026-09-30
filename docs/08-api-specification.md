@@ -139,6 +139,12 @@ API keys are shown once at creation, stored hashed, and are revocable. They MUST
 > A link works once and expires after 60 minutes; a newer link voids older ones. A reset does not sign
 > the person in. `UsersService.remove` now also sets `User.disabledAt`, which sign-in and reset refuse.
 
+> **As built (Phase 8 slice 2, docs/19).** `POST /auth/password/change` `{ currentPassword,
+> newPassword }` answers `204` for a signed-in person of any role (JWT only; closed to API keys). A wrong
+> current password is `422 CURRENT_PASSWORD_INCORRECT` (not 401, which would make the web client try a
+> silent refresh). Success ends every other session of the account, keeps the calling one, and emails a
+> "password changed" notice. Limited to 5 an hour per person.
+
 ## Envelopes
 
 ### `POST /v1/envelopes`
@@ -798,6 +804,7 @@ RFC 7807:
 | `DOWNLOAD_RENEW_TOO_SOON` (docs/17) | 429 | A renewal was already sent recently for this link |
 | `INVITE_TOKEN_INVALID` / `INVITE_TOKEN_EXPIRED` (docs/17) | 401 | A tenant invitation link is unknown, already accepted, or past its date |
 | `PASSWORD_RESET_TOKEN_INVALID` / `PASSWORD_RESET_TOKEN_EXPIRED` (docs/19) | 401 | A password-reset link is unknown, already used, replaced by a newer one or its account was removed, or is past its hour |
+| `CURRENT_PASSWORD_INCORRECT` (docs/19) | 422 | The current password given to change one's own password was wrong |
 | `CONSENT_TEXT_CHANGED` | 409 | The notice changed after it was shown; show the new one |
 | `INVALID_SIGNATURE_IMAGE` | 422 | Not a transparent PNG, or too large |
 | `REQUIRED_FIELDS_INCOMPLETE` | 422 | Required fields unfilled |
@@ -826,6 +833,7 @@ RFC 7807:
 | Sign-in | 10/min per IP, and 5/min per account |
 | Ask for a password-reset link (docs/19) | 10/hour per IP, and 3/hour per account |
 | Preview or use a reset link (docs/19) | 30/min and 10/min per IP |
+| Change one's own password (docs/19) | 5/hour per person |
 | Everything else | 300/min per IP |
 | Reminders | 1 per recipient per 24h |
 

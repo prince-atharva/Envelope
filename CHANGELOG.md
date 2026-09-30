@@ -10,6 +10,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Password reset (Phase 8 slice 1, docs/19, ADR 0022).** A sender who forgets their password can use "Forgot your password?" on the sign-in page, receive a one-time link that lasts an hour, choose a new password and sign in again. The request answers the same for every address, so it does not reveal which have an account; only an eligible account is emailed, a newer link cancels older ones, a completed reset signs the account out everywhere and sends a "your password was changed" email, and requests are rate limited per address and per account. New public routes `POST /auth/password/forgot`, `GET` and `POST /auth/password/reset/:token`; new pages `/forgot-password` and `/reset-password/:token`; new `PasswordResetToken` table, purged with expired sessions.
 
+- **Change your password (Phase 8 slice 2, docs/19).** A new Account page (a link beside Sign out, for every role) changes your own password: the current one is asked for again, every other device is signed out, this one stays, and a "password changed" email is sent. New `POST /auth/password/change`, limited to 5 an hour per person.
+
 ### Changed
 
 - Reset links in URL paths are masked in request logs, error `instance` fields and browser error reports, like signing links (Phase 8 slice 1, docs/19).

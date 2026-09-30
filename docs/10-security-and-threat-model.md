@@ -346,6 +346,7 @@ Processing runs on workers with constrained memory and no outbound network acces
 | Login | 10/min per IP, 5 per account | Credential stuffing |
 | Password-reset request (docs/19) | 10/hour per IP, 3/hour per account | Mail flooding one mailbox; enumeration is closed by the uniform answer |
 | Reset link preview / use (docs/19) | 30/min, 10/min per IP | Guessing links |
+| Change own password (docs/19) | 5/hour per person | Guessing the current password from a stolen session |
 
 Signing limits key on the **token**, not the IP — corporate NAT means many legitimate signers share one address.
 
