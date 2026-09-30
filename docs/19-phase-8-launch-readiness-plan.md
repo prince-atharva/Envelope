@@ -99,12 +99,12 @@ nothing marks that account as disabled, so a working reset would let a removed p
 
 | # | Step | Status |
 |---|---|---|
-| 1 | Contracts and schema: shared schemas, error codes, limit constant, migration, token helpers | ✅ Built |
-| 2 | Disable removed users: `disabledAt`, session revoke on removal, sign-in refusal | ✅ Built |
-| 3 | Request a reset: forgot route, queue, mailer, email template, rate limits | ✅ Built |
-| 4 | Complete a reset: preview and reset routes, session revocation, change notice, token purge | ✅ Built |
-| 5 | Web: forgot and reset pages, sign-in link, client, browser test, UI gallery | ✅ Built |
-| 6 | Documentation: docs/08 and docs/10 notes, changelog, this plan marked done | ✅ Built |
+| 1 | Contracts and schema: shared schemas, error codes, limit constant, migration, token helpers | ✅ Built (`e567345`) |
+| 2 | Disable removed users: `disabledAt`, session revoke on removal, sign-in refusal | ✅ Built (`77e2a65`) |
+| 3 | Request a reset: forgot route, queue, mailer, email template, rate limits | ✅ Built (`6291efb`) |
+| 4 | Complete a reset: preview and reset routes, session revocation, change notice, token purge | ✅ Built (`ed1b806`) |
+| 5 | Web: forgot and reset pages, sign-in link, client, browser test, UI gallery | ✅ Built (`5741318`) |
+| 6 | Documentation: docs/08 and docs/10 notes, changelog, this plan marked done | ✅ Built (`2296d86`) |
 
 ## Step 1: Contracts and Schema
 
