@@ -10,6 +10,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { PasswordService } from '../auth/password.service';
 import type { RevokeReason } from '../auth/session.service';
+import { TwoFactorService } from '../auth/two-factor.service';
 import { AppException } from '../common/errors/app-exception';
 import { Prisma, type User } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
@@ -44,6 +45,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly mailQueue: MailQueueService,
+    private readonly twoFactor: TwoFactorService,
     @InjectPinoLogger(UsersService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -166,6 +168,38 @@ export class UsersService {
       { userId, tenantId: actor.tenantId, removedBy: actor.id, revokedSessions },
       'User removed',
     );
+  }
+
+  /**
+   * An Owner clears another person's second factor, for someone who lost both
+   * their device and their recovery codes (ADR 0025). Their sessions end and
+   * they are told by email; if the workspace requires a factor they enrol again
+   * at their next sign-in.
+   */
+  async resetTwoFactor(userId: string, actor: AuthenticatedUser): Promise<void> {
+    const target = await this.findInTenant(userId, actor.tenantId);
+    if (userId === actor.id) {
+      throw new AppException(
+        'BAD_REQUEST',
+        'Use your Account page to change your own two-factor settings.',
+      );
+    }
+    if (!target.totpEnabledAt) throw new AppException('TWO_FACTOR_NOT_ENABLED');
+
+    const now = new Date();
+    const revokedSessions = await this.prisma.$transaction(async (tx) => {
+      await this.twoFactor.clear(tx, userId);
+      const { count } = await tx.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, revokedReason: 'two-factor-reset' satisfies RevokeReason },
+      });
+      return count;
+    });
+    this.logger.info(
+      { userId, tenantId: actor.tenantId, resetBy: actor.id, revokedSessions },
+      'Two-factor reset by an owner',
+    );
+    await this.twoFactor.notify(userId, 'reset-by-owner');
   }
 
   private async findInTenant(userId: string, tenantId: string): Promise<User> {

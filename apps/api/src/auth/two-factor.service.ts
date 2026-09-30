@@ -1,6 +1,7 @@
 import type {
   ConfirmTwoFactorInput,
   RecoveryCodesResponse,
+  TwoFactorPolicy,
   TwoFactorSetup,
   TwoFactorStatus,
 } from '@envelope/shared';
@@ -15,7 +16,7 @@ import type { TwoFactorNoticeEvent } from '../mail/mail.types';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import type { ClientInfo } from './auth.types';
+import type { AuthenticatedUser, ClientInfo } from './auth.types';
 import { PasswordService } from './password.service';
 import { hashRecoveryCode, mintRecoveryCodes } from './recovery-codes';
 import type { RevokeReason } from './session.service';
@@ -149,6 +150,32 @@ export class TwoFactorService {
       'Two-factor recovery codes regenerated',
     );
     return { recoveryCodes };
+  }
+
+  /**
+   * An Owner requires (or stops requiring) a second factor of everyone in the
+   * workspace (ADR 0025). It cannot be required before the Owner has one, so the
+   * person who sets the rule can always satisfy it.
+   */
+  async setPolicy(actor: AuthenticatedUser, required: boolean): Promise<TwoFactorPolicy> {
+    if (required) {
+      const owner = await this.prisma.user.findUniqueOrThrow({ where: { id: actor.id } });
+      if (!owner.totpEnabledAt) {
+        throw new AppException(
+          'TWO_FACTOR_REQUIRED',
+          'Turn on two-factor authentication for your own account first.',
+        );
+      }
+    }
+    await this.prisma.tenant.update({
+      where: { id: actor.tenantId },
+      data: { requireTwoFactor: required },
+    });
+    this.logger.info(
+      { tenantId: actor.tenantId, changedBy: actor.id, required },
+      'Two-factor policy changed',
+    );
+    return { required };
   }
 
   // ─── Shared with sign-in and enrolment (AuthService) ───

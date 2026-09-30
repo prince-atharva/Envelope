@@ -56,6 +56,11 @@ export type TwoFactorEnrolFinishInput = z.infer<typeof twoFactorEnrolFinishSchem
 export const setTwoFactorPolicySchema = z.strictObject({ required: z.boolean() });
 export type SetTwoFactorPolicyInput = z.infer<typeof setTwoFactorPolicySchema>;
 
+/** PUT /tenant/two-factor. */
+export interface TwoFactorPolicy {
+  required: boolean;
+}
+
 /** GET /auth/2fa. */
 export interface TwoFactorStatus {
   enabled: boolean;

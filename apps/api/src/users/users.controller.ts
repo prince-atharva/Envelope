@@ -53,6 +53,17 @@ export class UsersController {
     return this.users.changeRole(id, body, user);
   }
 
+  @Delete(':id/two-factor')
+  @HttpCode(204)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({ summary: "Clear someone's two-factor authentication (they lost their device)" })
+  async resetTwoFactor(
+    @Param('id', UuidParamPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.users.resetTwoFactor(id, user);
+  }
+
   @Delete(':id')
   @HttpCode(204)
   @RateLimit(LIMITS.lifecycle)

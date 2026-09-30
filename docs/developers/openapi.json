@@ -94,6 +94,83 @@
         ]
       }
     },
+    "/api/v1/auth/2fa/enrol/start": {
+      "post": {
+        "operationId": "AuthController_startEnrolment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "challengeToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "challengeToken"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A required enrolment: a secret and URI, with the enrolment token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/enrol/finish": {
+      "post": {
+        "operationId": "AuthController_finishEnrolment",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "challengeToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "challengeToken",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in; refresh cookie set; recovery codes shown once"
+          }
+        },
+        "summary": "Confirm a required enrolment with a code; signs in, returns recovery codes",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/2fa/challenge": {
       "post": {
         "operationId": "AuthController_completeChallenge",
@@ -567,6 +644,45 @@
           }
         ],
         "summary": "Replace the recovery codes; needs the password and a current code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/tenant/two-factor": {
+      "put": {
+        "operationId": "TwoFactorPolicyController_set",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "required": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "required"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Require (or stop requiring) two-factor for everyone in the workspace",
         "tags": [
           "auth"
         ]
@@ -3987,6 +4103,35 @@
           }
         ],
         "summary": "Change someone's role",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/two-factor": {
+      "delete": {
+        "operationId": "UsersController_resetTwoFactor",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Clear someone's two-factor authentication (they lost their device)",
         "tags": [
           "users"
         ]

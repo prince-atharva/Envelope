@@ -7,9 +7,12 @@ import {
   type InvitationPreview,
   type LoginInput,
   type MfaChallengeResponse,
+  type MfaEnrolmentRequiredResponse,
   type PasswordResetPreview,
   type RegisterInput,
   type TwoFactorChallengeInput,
+  type TwoFactorEnrolFinishInput,
+  type TwoFactorSetup,
   type UserProfile,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
@@ -162,7 +165,10 @@ export class AuthService {
    * A session, or, when the account has a second factor, only a challenge to
    * answer with `completeChallenge`: no session, no cookie (ADR 0024).
    */
-  async login(input: LoginInput, client: ClientInfo): Promise<AuthResult | MfaChallengeResponse> {
+  async login(
+    input: LoginInput,
+    client: ClientInfo,
+  ): Promise<AuthResult | MfaChallengeResponse | MfaEnrolmentRequiredResponse> {
     const email = maskEmail(input.email);
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
@@ -215,6 +221,18 @@ export class AuthService {
       };
     }
 
+    if (user.tenant.requireTwoFactor) {
+      // The workspace requires a factor and this person has none (ADR 0025).
+      this.logger.info(
+        { userId: user.id, tenantId: user.tenantId, ip: client.ip },
+        'Login needs two-factor enrolment',
+      );
+      return {
+        mfaEnrolmentRequired: true,
+        challengeToken: await this.mfa.issue(user.id, 'mfa-enrol'),
+      };
+    }
+
     // Independent: the new session row only needs the user to already exist,
     // not this update to have landed (100M-row scale follow-up, docs/16 step 14).
     const [, issued] = await Promise.all([
@@ -258,12 +276,80 @@ export class AuthService {
     return this.buildResult(user, issued);
   }
 
+  /** Step one of a required enrolment: a pending secret for the person the token names. */
+  async startEnrolment(challengeToken: string, client: ClientInfo): Promise<TwoFactorSetup> {
+    const user = await this.userForEnrolment(challengeToken);
+    this.logger.info(
+      { userId: user.id, tenantId: user.tenantId, ip: client.ip },
+      'Two-factor setup started',
+    );
+    return this.twoFactor.startPending(user);
+  }
+
+  /**
+   * Step two: a valid code stores the factor, returns the recovery codes and
+   * signs the person in, so a required enrolment never leaves them half in.
+   */
+  async finishEnrolment(
+    input: TwoFactorEnrolFinishInput,
+    client: ClientInfo,
+  ): Promise<AuthResult & { recoveryCodes: string[] }> {
+    const user = await this.userForEnrolment(input.challengeToken);
+    const recoveryCodes = await this.twoFactor.finishEnrolment(user, input.code, client);
+    await this.twoFactor.notify(user.id, 'enabled');
+
+    const [, issued] = await Promise.all([
+      this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+      this.sessions.create(user.id, client),
+    ]);
+    this.logger.info(
+      {
+        userId: user.id,
+        tenantId: user.tenantId,
+        sessionId: issued.session.id,
+        secondFactor: 'enrolled',
+        ip: client.ip,
+      },
+      'Login succeeded',
+    );
+    return { ...(await this.buildResult(user, issued)), recoveryCodes };
+  }
+
+  /** The user a required-enrolment token was issued for, or start again. */
+  private async userForEnrolment(challengeToken: string) {
+    const userId = await this.mfa.verify(challengeToken, 'mfa-enrol');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { tenant: true },
+    });
+    if (!user || user.disabledAt || user.totpEnabledAt || !user.tenant.requireTwoFactor) {
+      throw new AppException('TWO_FACTOR_CHALLENGE_INVALID');
+    }
+    return user;
+  }
+
   async refresh(refreshToken: string, client: ClientInfo): Promise<AuthResult> {
     const issued = await this.sessions.rotate(refreshToken, client);
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: issued.session.userId },
       include: { tenant: true },
     });
+    if (user.tenant.requireTwoFactor && !user.totpEnabledAt) {
+      // The rule was turned on after this person signed in (ADR 0025): end the
+      // session, and the next sign-in leads to enrolment.
+      await this.prisma.session.updateMany({
+        where: { familyId: issued.session.familyId, revokedAt: null },
+        data: {
+          revokedAt: new Date(),
+          revokedReason: 'two-factor-required' satisfies RevokeReason,
+        },
+      });
+      this.logger.info(
+        { userId: user.id, tenantId: user.tenantId, ip: client.ip },
+        'Refresh refused: the workspace requires two-factor',
+      );
+      throw new AppException('SESSION_EXPIRED');
+    }
     return this.buildResult(user, issued);
   }
 
@@ -298,7 +384,11 @@ export class AuthService {
   }
 
   /** Sets the chosen password, clears the invite, and signs the person in. */
-  async acceptInvite(rawToken: string, password: string, client: ClientInfo): Promise<AuthResult> {
+  async acceptInvite(
+    rawToken: string,
+    password: string,
+    client: ClientInfo,
+  ): Promise<AuthResult | MfaEnrolmentRequiredResponse> {
     const tokenHash = hashInviteToken(this.config.SIGNING_TOKEN_SECRET, rawToken);
     const found = await this.prisma.user.findUnique({
       where: { inviteTokenHash: tokenHash },
@@ -308,16 +398,29 @@ export class AuthService {
     if (found.inviteTokenExpiresAt <= new Date()) throw new AppException('INVITE_TOKEN_EXPIRED');
 
     const passwordHash = await this.passwords.hash(password);
+    // A workspace that requires two-factor gets no session from an invitation
+    // alone: the person must enrol first, like any sign-in (ADR 0025).
+    const mustEnrol = found.tenant.requireTwoFactor;
     const user = await this.prisma.user.update({
       where: { id: found.id },
       data: {
         passwordHash,
         inviteTokenHash: null,
         inviteTokenExpiresAt: null,
-        lastLoginAt: new Date(),
+        ...(mustEnrol ? {} : { lastLoginAt: new Date() }),
       },
       include: { tenant: true },
     });
+    if (mustEnrol) {
+      this.logger.info(
+        { userId: user.id, tenantId: user.tenantId, ip: client.ip },
+        'Invitation accepted; two-factor enrolment required',
+      );
+      return {
+        mfaEnrolmentRequired: true,
+        challengeToken: await this.mfa.issue(user.id, 'mfa-enrol'),
+      };
+    }
     const issued = await this.sessions.create(user.id, client);
     this.logger.info(
       { userId: user.id, tenantId: user.tenantId, ip: client.ip },

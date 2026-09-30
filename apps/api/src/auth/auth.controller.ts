@@ -4,6 +4,7 @@ import {
   acceptInviteSchema,
   type ChangePasswordInput,
   changePasswordSchema,
+  type EnrolFinishResponse,
   type ForgotPasswordInput,
   type ForgotPasswordResponse,
   forgotPasswordSchema,
@@ -17,7 +18,12 @@ import {
   registerSchema,
   resetPasswordSchema,
   type TwoFactorChallengeInput,
+  type TwoFactorEnrolFinishInput,
+  type TwoFactorEnrolStartInput,
+  type TwoFactorSetup,
   twoFactorChallengeSchema,
+  twoFactorEnrolFinishSchema,
+  twoFactorEnrolStartSchema,
   type UserProfile,
 } from '@envelope/shared';
 import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
@@ -117,6 +123,40 @@ export class AuthController {
   }
 
   @Public()
+  @Post('2fa/enrol/start')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RateLimit(LIMITS.mfaChallenge)
+  @ApiOperation({ summary: 'A required enrolment: a secret and URI, with the enrolment token' })
+  @ApiBody({ schema: openApiSchema(twoFactorEnrolStartSchema) })
+  startEnrolment(
+    @Body(new ZodValidationPipe(twoFactorEnrolStartSchema)) body: TwoFactorEnrolStartInput,
+    @Client() client: ClientInfo,
+  ): Promise<TwoFactorSetup> {
+    return this.auth.startEnrolment(body.challengeToken, client);
+  }
+
+  @Public()
+  @Post('2fa/enrol/finish')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RateLimit(LIMITS.mfaChallenge)
+  @ApiOperation({
+    summary: 'Confirm a required enrolment with a code; signs in, returns recovery codes',
+  })
+  @ApiBody({ schema: openApiSchema(twoFactorEnrolFinishSchema) })
+  @ApiOkResponse({ description: 'Signed in; refresh cookie set; recovery codes shown once' })
+  async finishEnrolment(
+    @Body(new ZodValidationPipe(twoFactorEnrolFinishSchema)) body: TwoFactorEnrolFinishInput,
+    @Client() client: ClientInfo,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<EnrolFinishResponse> {
+    const result = await this.auth.finishEnrolment(body, client);
+    this.setRefreshCookie(res, result.refreshToken);
+    return { ...result.response, recoveryCodes: result.recoveryCodes };
+  }
+
+  @Public()
   @Post('2fa/challenge')
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -203,8 +243,10 @@ export class AuthController {
     @Body(new ZodValidationPipe(acceptInviteSchema)) body: AcceptInviteInput,
     @Client() client: ClientInfo,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse> {
+  ): Promise<LoginResponse> {
     const result = await this.auth.acceptInvite(token, body.password, client);
+    // A workspace that requires two-factor asks for enrolment first: no cookie yet.
+    if (!('refreshToken' in result)) return result;
     this.setRefreshCookie(res, result.refreshToken);
     return result.response;
   }

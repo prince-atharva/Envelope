@@ -15,6 +15,7 @@ import { SessionService } from './session.service';
 import { TotpSecretCipher } from './totp-secret.cipher';
 import { TwoFactorController } from './two-factor.controller';
 import { TwoFactorService } from './two-factor.service';
+import { TwoFactorPolicyController } from './two-factor-policy.controller';
 
 const TOKEN_ISSUER = 'digitalsign-api';
 const TOKEN_AUDIENCE = 'digitalsign';
@@ -41,7 +42,7 @@ const TOKEN_AUDIENCE = 'digitalsign';
       }),
     }),
   ],
-  controllers: [AuthController, TwoFactorController],
+  controllers: [AuthController, TwoFactorController, TwoFactorPolicyController],
   providers: [
     AuthService,
     PasswordService,
@@ -58,6 +59,6 @@ const TOKEN_AUDIENCE = 'digitalsign';
   // invited account's password until the invitation is accepted (docs/17
   // step 6), and ApiKeysModule needs it for the same reason on a tenant's
   // service-account user (ADR 0015).
-  exports: [AuthService, SessionService, PasswordService],
+  exports: [AuthService, SessionService, PasswordService, TwoFactorService],
 })
 export class AuthModule {}
