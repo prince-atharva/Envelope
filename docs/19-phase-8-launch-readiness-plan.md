@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Planned. Slice 1 (password reset) approved 30 September 2026; later slices are candidates only |
-| **Version** | 1.0.0 |
+| **Status** | Slice 1 (password reset) built and verified 30 September 2026; later slices are being planned |
+| **Version** | 1.1.0 |
 | **Last updated** | 30 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 8 deliver to make Envelope safe to put in front of real customers, how is each slice built, and how do we check it? |
@@ -19,7 +19,7 @@ the work that makes it safe to hand to a first customer. The roadmap (docs/11) c
 readiness. It is built in slices, one at a time, in this one plan:
 
 ```
-   SLICE 1 ── PLANNED ──► Password reset: a sender who forgets their password can get back in,
+   SLICE 1 ── BUILT ────► Password reset: a sender who forgets their password can get back in,
                            and a removed user can never get back in.
    LATER ─────────────────► Candidates, not committed. Each is added to this plan as a new slice,
                            with the user's approval, when its turn comes:
@@ -49,17 +49,17 @@ nothing marks that account as disabled, so a working reset would let a removed p
 
 ## The Slice 1 Finish Line
 
-- [ ] Asking for a reset returns the same `202` and message for a registered, unknown, removed,
+- [x] Asking for a reset returns the same `202` and message for a registered, unknown, removed,
       service and not-yet-accepted address.
-- [ ] Only an eligible account receives an email, and the link in it opens the reset page.
-- [ ] A reset link works once, stops working after an hour, and a newer link cancels the older ones.
-- [ ] A successful reset changes the password, signs out every session of that account, and sends a
+- [x] Only an eligible account receives an email, and the link in it opens the reset page.
+- [x] A reset link works once, stops working after an hour, and a newer link cancels the older ones.
+- [x] A successful reset changes the password, signs out every session of that account, and sends a
       "password changed" email. The old password no longer works and the new one does.
-- [ ] A removed user cannot sign in, cannot use an old reset link, and is signed out when removed.
-- [ ] Neither the raw reset token nor a password appears in any log line, Redis job or database row.
-- [ ] Reset requests are rate limited per address and per account.
-- [ ] Every new screen and email is covered by a test, and the browser test runs the whole flow.
-- [ ] docs/08 and docs/10 carry "As built" notes; ADRs 0022 and 0023 are accepted.
+- [x] A removed user cannot sign in, cannot use an old reset link, and is signed out when removed.
+- [x] Neither the raw reset token nor a password appears in any log line, Redis job or database row.
+- [x] Reset requests are rate limited per address and per account.
+- [x] Every new screen and email is covered by a test, and the browser test runs the whole flow.
+- [x] docs/08 and docs/10 carry "As built" notes; ADRs 0022 and 0023 are accepted.
 
 ## What We Need From You
 
@@ -99,12 +99,12 @@ nothing marks that account as disabled, so a working reset would let a removed p
 
 | # | Step | Status |
 |---|---|---|
-| 1 | Contracts and schema: shared schemas, error codes, limit constant, migration, token helpers | Planned |
-| 2 | Disable removed users: `disabledAt`, session revoke on removal, sign-in refusal | Planned |
-| 3 | Request a reset: forgot route, queue, mailer, email template, rate limits | Planned |
-| 4 | Complete a reset: preview and reset routes, session revocation, change notice, token purge | Planned |
-| 5 | Web: forgot and reset pages, sign-in link, client, browser test, UI gallery | Planned |
-| 6 | Documentation: docs/08 and docs/10 notes, changelog, this plan marked done | Planned |
+| 1 | Contracts and schema: shared schemas, error codes, limit constant, migration, token helpers | ✅ Built |
+| 2 | Disable removed users: `disabledAt`, session revoke on removal, sign-in refusal | ✅ Built |
+| 3 | Request a reset: forgot route, queue, mailer, email template, rate limits | ✅ Built |
+| 4 | Complete a reset: preview and reset routes, session revocation, change notice, token purge | ✅ Built |
+| 5 | Web: forgot and reset pages, sign-in link, client, browser test, UI gallery | ✅ Built |
+| 6 | Documentation: docs/08 and docs/10 notes, changelog, this plan marked done | ✅ Built |
 
 ## Step 1: Contracts and Schema
 
@@ -209,8 +209,43 @@ nothing marks that account as disabled, so a working reset would let a removed p
 - The reset email says nothing about the device or place the request came from.
 - Delivery is still Gmail SMTP; a link that never arrives cannot be detected until the mail-provider
   slice.
-- Not touched: `docs/developers/` and the integration catalog, because these routes are for people,
-  not API keys.
+- Not touched: the integration catalog, because these routes are for people, not API keys. The
+  generated `docs/developers/openapi.json` and `errors.md` did change, because they are produced from
+  the served routes and the shared error catalog (see "As Built").
+
+## As Built (Slice 1)
+
+Built as planned, with these differences and findings:
+
+- **Migration written from `migrate diff`.** `prisma migrate dev --create-only` refused to run because
+  the dev database recorded a stale checksum for `20260928083210_webhook_delivery_envelope` (the SQL
+  file was edited after it was applied) and offered a reset. The SQL was generated with
+  `migrate diff --from-migrations` against the shadow database instead. The dev database was then
+  repaired without data loss: a backup was taken, that one checksum was updated (the column, indexes
+  and backfill it creates were already present) and `migrate deploy` applied the new migration.
+- **Reset tokens added to the log redaction.** Request logs, the error body's `instance` and browser
+  error reports carried the URL path, so `/reset-password/:token` and `/password/reset/:token` are now
+  masked like `/sign/:token` (`redact.ts`, web `logger.ts`, both tested). The same gap exists for
+  invitation links (`/accept-invite/`, `/auth/invitations/`); it is recorded, not fixed here.
+- **One usable link at a time is enforced.** The worker locks the user row before voiding older links
+  and inserting the new one, so two concurrent jobs cannot each leave a usable link.
+- **Generated developer docs changed.** `docs/developers/openapi.json` gained the three routes and two
+  error codes, and `errors.md` the new code count, both regenerated by their drift tests.
+- **`PasswordChangedEmailJob` is `{ userId }`, as planned;** the notice carries no time, so a retried
+  job never shows a stale one.
+- **Forgot page** shows its own message for `RATE_LIMITED` ("wait an hour"), because the generic one
+  says a minute.
+- **Wording built for the reset email.** Subject "Reset your Envelope password"; body "We received a
+  request to reset the password for your Envelope powered by HealthProHub account…", a "Choose a new
+  password" button, "This link can be used once and expires in 60 minutes. Asking for another link
+  cancels this one." and "If you did not ask for this, you can ignore this email: your password will
+  not change." It was not separately confirmed before commit; changing it is a template-only edit.
+
+**Results.** Lint clean; unit tests 218 (api), 201 (web), 149 (shared) pass; typecheck passes for api,
+web and embed, and shared fails only on the known `jurisdiction.test.ts` (unchanged). API e2e passes on
+Node 22.19.0 (47 files, 339 tests; the new `password-reset` file has 16 tests; `roles`, `auth`, `session-cleanup` and
+`openapi` were extended). Browser e2e `desktop-chrome`: 41 passed. UI gallery: 33 passed (desktop,
+tablet, mobile), new screens inspected. Each step was checked to build alone (typecheck, lint, unit).
 
 ## Verification
 

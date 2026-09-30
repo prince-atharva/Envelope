@@ -127,6 +127,18 @@ API keys are shown once at creation, stored hashed, and are revocable. They MUST
 
 **Signer tokens are never sent in a header** — they arrive in the URL from an email link. Consequently they MUST NOT be logged, MUST be single-use, and MUST expire. See [10-security-and-threat-model.md](10-security-and-threat-model.md).
 
+> **As built (Phase 8 slice 1, docs/19, ADR 0022, ADR 0023).** Password reset adds three public
+> routes, closed to API keys and never answered differently for a known and an unknown address:
+>
+> | Route | Answer | Limits |
+> |---|---|---|
+> | `POST /auth/password/forgot` `{ email }` | `202` and `{ message }`, the same for every address | 10/hour per IP, 3/hour per account |
+> | `GET /auth/password/reset/:token` | `{ email (masked), expiresAt }` | 30/min per IP |
+> | `POST /auth/password/reset/:token` `{ password }` | `204`; the password changes and every session of the account ends | 10/min per IP |
+>
+> A link works once and expires after 60 minutes; a newer link voids older ones. A reset does not sign
+> the person in. `UsersService.remove` now also sets `User.disabledAt`, which sign-in and reset refuse.
+
 ## Envelopes
 
 ### `POST /v1/envelopes`
@@ -785,6 +797,7 @@ RFC 7807:
 | `ENVELOPE_PURGED` (docs/17) | 410 | The retention sweeper has removed this envelope's file |
 | `DOWNLOAD_RENEW_TOO_SOON` (docs/17) | 429 | A renewal was already sent recently for this link |
 | `INVITE_TOKEN_INVALID` / `INVITE_TOKEN_EXPIRED` (docs/17) | 401 | A tenant invitation link is unknown, already accepted, or past its date |
+| `PASSWORD_RESET_TOKEN_INVALID` / `PASSWORD_RESET_TOKEN_EXPIRED` (docs/19) | 401 | A password-reset link is unknown, already used, replaced by a newer one or its account was removed, or is past its hour |
 | `CONSENT_TEXT_CHANGED` | 409 | The notice changed after it was shown; show the new one |
 | `INVALID_SIGNATURE_IMAGE` | 422 | Not a transparent PNG, or too large |
 | `REQUIRED_FIELDS_INCOMPLETE` | 422 | Required fields unfilled |
@@ -811,6 +824,8 @@ RFC 7807:
 | Completion download | 30/min per IP |
 | Cancel, extend, remind, reminder settings | 30/min per tenant |
 | Sign-in | 10/min per IP, and 5/min per account |
+| Ask for a password-reset link (docs/19) | 10/hour per IP, and 3/hour per account |
+| Preview or use a reset link (docs/19) | 30/min and 10/min per IP |
 | Everything else | 300/min per IP |
 | Reminders | 1 per recipient per 24h |
 

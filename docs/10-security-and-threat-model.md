@@ -222,6 +222,17 @@ Token leakage through observability tooling is the most likely real-world failur
 > production hosting setup (Phase 5) must drop or mask that path in its access logs, and send
 > `Referrer-Policy: no-referrer` for `/sign/*` as a header as well.
 
+> **As built (Phase 8 slice 1, docs/19, ADR 0022).** A password-reset link is a fourth token kind,
+> made like an invitation token under its own HMAC label (`password-reset\0`), stored one row per
+> link in `PasswordResetToken`, and minted by the email worker so the raw value is never in Redis
+> or Postgres. The request route answers `202` with one body for every address, always queues a job,
+> and lets the worker decide whether anything is sent, so neither the answer nor its work shows
+> whether an account exists. A link is single use, lasts 60 minutes, is voided by a newer one, and a
+> completed reset ends every session of the account. The leak audit's redaction covers
+> `/reset-password/:token` and `/auth/password/reset/:token` in request logs, error `instance`
+> fields, browser reports and free text. **Still open, as for signing links:** the web host's own
+> access log must drop or mask `/reset-password/*` and `/accept-invite/*` in production.
+
 ## STRIDE Analysis
 
 | Threat | Vector | Mitigation | Residual |
@@ -321,6 +332,7 @@ Processing runs on workers with constrained memory and no outbound network acces
 | Secrets | Environment variables; platform secret manager; **never committed**; CI secret scanning |
 | Password storage | Argon2id for sender accounts |
 | Session | Short-lived JWT plus refresh rotation; revocable |
+| Removed users | `User.disabledAt` (ADR 0023): sign-in and password reset refuse the account and removal revokes its sessions at once |
 
 ## Rate Limiting
 
@@ -332,6 +344,8 @@ Processing runs on workers with constrained memory and no outbound network acces
 | OTP verification | 5 attempts, then lock | Bounds brute force on a 6-digit code |
 | Verify endpoint | 30/min per IP | Public and unauthenticated |
 | Login | 10/min per IP, 5 per account | Credential stuffing |
+| Password-reset request (docs/19) | 10/hour per IP, 3/hour per account | Mail flooding one mailbox; enumeration is closed by the uniform answer |
+| Reset link preview / use (docs/19) | 30/min, 10/min per IP | Guessing links |
 
 Signing limits key on the **token**, not the IP — corporate NAT means many legitimate signers share one address.
 

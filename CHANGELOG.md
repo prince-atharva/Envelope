@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Password reset (Phase 8 slice 1, docs/19, ADR 0022).** A sender who forgets their password can use "Forgot your password?" on the sign-in page, receive a one-time link that lasts an hour, choose a new password and sign in again. The request answers the same for every address, so it does not reveal which have an account; only an eligible account is emailed, a newer link cancels older ones, a completed reset signs the account out everywhere and sends a "your password was changed" email, and requests are rate limited per address and per account. New public routes `POST /auth/password/forgot`, `GET` and `POST /auth/password/reset/:token`; new pages `/forgot-password` and `/reset-password/:token`; new `PasswordResetToken` table, purged with expired sessions.
+
+### Changed
+
+- Reset links in URL paths are masked in request logs, error `instance` fields and browser error reports, like signing links (Phase 8 slice 1, docs/19).
+
+### Security
+
+- **Removing a user now really disables them (Phase 8 slice 1, ADR 0023).** A new `User.disabledAt` marker means a removed person cannot sign in or use a reset link, and their open sessions end at the moment they are removed (previously their access token kept working until it expired). People removed before this release have no marker; an Owner removes them again to set it.
+
 ## [0.8.0] - 2026-09-30
 
 Phase 7 (Integrations), complete: everything a tenant needs to connect its own application, with HealthProHub as
