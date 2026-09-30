@@ -76,22 +76,30 @@ const CHILD_FILTERED_OPERATIONS = new Set([
   'deleteMany',
 ]);
 
-function scopeChildArgs(args: Record<string, unknown>, operation: string, tenantId: string) {
+/** The relation a child model reaches its tenant through. */
+type ScopeParent = 'envelope' | 'template' | 'batch';
+
+function scopeChildArgs(
+  args: Record<string, unknown>,
+  operation: string,
+  tenantId: string,
+  parent: ScopeParent = 'envelope',
+) {
   if (CHILD_FILTERED_OPERATIONS.has(operation)) {
     return {
       ...args,
-      where: { ...((args.where as object | undefined) ?? {}), envelope: { tenantId } },
+      where: { ...((args.where as object | undefined) ?? {}), [parent]: { tenantId } },
     };
   }
   if (CREATE_OPERATIONS.has(operation)) {
-    // A child row's envelopeId is always checked against an envelope that was
+    // A child row's parent id is always checked against a parent that was
     // itself loaded or locked through this client, so the create is already
     // confined to the tenant.
     return args;
   }
   throw new Error(
-    `Operation "${operation}" is not supported on envelope-scoped models; ` +
-      'use the findMany/updateMany/deleteMany form with an envelopeId filter',
+    `Operation "${operation}" is not supported on ${parent}-scoped models; ` +
+      `use the findMany/updateMany/deleteMany form with a ${parent} id filter`,
   );
 }
 
@@ -134,6 +142,63 @@ export class TenantPrismaService {
             const tenantId = tenantOf(cls, operation);
             return query(
               scopeChildArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
+            );
+          },
+        },
+        // Templates and bulk batches (docs/20, ADR 0027, ADR 0028). The roots
+        // carry tenantId; their rows are filtered through the parent.
+        template: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
+            );
+          },
+        },
+        templateRole: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeChildArgs(
+                args as Record<string, unknown>,
+                operation,
+                tenantId,
+                'template',
+              ) as typeof args,
+            );
+          },
+        },
+        templateField: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeChildArgs(
+                args as Record<string, unknown>,
+                operation,
+                tenantId,
+                'template',
+              ) as typeof args,
+            );
+          },
+        },
+        bulkBatch: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
+            );
+          },
+        },
+        bulkBatchRow: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeChildArgs(
+                args as Record<string, unknown>,
+                operation,
+                tenantId,
+                'batch',
+              ) as typeof args,
             );
           },
         },

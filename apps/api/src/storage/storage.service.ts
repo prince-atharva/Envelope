@@ -22,6 +22,12 @@ export abstract class StorageService {
   abstract get(key: string): Promise<StoredObject>;
   abstract delete(key: string): Promise<void>;
   /**
+   * Copies an object within the working bucket, without passing its bytes
+   * through the API. Templates keep their own copy of a PDF and every
+   * envelope made from one gets another (ADR 0027).
+   */
+  abstract copy(fromKey: string, toKey: string): Promise<void>;
+  /**
    * Writes a sealed document to the locked bucket with a retention date. That
    * version of the object cannot be changed or deleted before the date.
    *
@@ -89,4 +95,16 @@ export function signatureImageKey(
   uniqueId: string,
 ): string {
   return `tenants/${tenantId}/envelopes/${envelopeId}/signatures/${recipientId}/${kind}-${uniqueId}.png`;
+}
+
+/**
+ * Where a template's own copy of the PDF is kept (ADR 0027). Outside every
+ * envelope's prefix, so purging or deleting an envelope never touches it.
+ */
+export function templateDocumentKey(
+  tenantId: string,
+  templateId: string,
+  uniqueId: string,
+): string {
+  return `tenants/${tenantId}/templates/${templateId}/original-${uniqueId}.pdf`;
 }

@@ -98,6 +98,17 @@ export const ERROR_CATALOG = {
   /** Its retention period has passed and its files were purged (docs/17 step 8). */
   ENVELOPE_PURGED: { status: 410, title: 'Envelope was purged' },
 
+  // Templates and bulk send (docs/20, ADR 0027, ADR 0028)
+  TEMPLATE_NOT_FOUND: { status: 404, title: 'Template not found' },
+  /** Archived templates cannot start new envelopes or batches. */
+  TEMPLATE_ARCHIVED: { status: 409, title: 'This template is archived' },
+  /** Another active template in the workspace already has the name. */
+  TEMPLATE_NAME_TAKEN: { status: 409, title: 'A template with that name already exists' },
+  /** The people given do not match the template's roles one for one. */
+  TEMPLATE_ROLE_MISMATCH: { status: 422, title: 'The people do not match the template’s roles' },
+  BULK_TOO_LARGE: { status: 422, title: 'Too many rows in one batch' },
+  BULK_BATCH_NOT_FOUND: { status: 404, title: 'Bulk batch not found' },
+
   // API keys and webhooks (docs/08, docs/18)
   /** The bearer token is not a JWT and not a known, active API key. */
   API_KEY_INVALID: { status: 401, title: 'Invalid or revoked API key' },

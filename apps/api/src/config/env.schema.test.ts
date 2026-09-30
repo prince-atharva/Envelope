@@ -66,6 +66,18 @@ describe('parseEnv', () => {
     ]);
   });
 
+  it('leaves the mail-events secret off by default and keeps it long and unique (ADR 0029)', () => {
+    expect(parseEnv(valid).MAIL_EVENTS_SECRET).toBeUndefined();
+    const own = 'm'.repeat(40);
+    expect(parseEnv({ ...valid, MAIL_EVENTS_SECRET: own }).MAIL_EVENTS_SECRET).toBe(own);
+    expect(problemsOf({ ...valid, MAIL_EVENTS_SECRET: 'short' })).toEqual([
+      expect.stringMatching(/^MAIL_EVENTS_SECRET:/),
+    ]);
+    expect(problemsOf({ ...valid, MAIL_EVENTS_SECRET: valid.JWT_ACCESS_SECRET })).toEqual([
+      'MAIL_EVENTS_SECRET: must be different from other authentication and webhook secrets',
+    ]);
+  });
+
   it('requires a separate embedded-session HMAC secret', () => {
     const { EMBED_SESSION_HASH_SECRET: _omit, ...without } = valid;
     expect(problemsOf(without)).toEqual([expect.stringMatching(/^EMBED_SESSION_HASH_SECRET:/)]);

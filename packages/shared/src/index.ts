@@ -18,6 +18,7 @@ export * from './jurisdiction';
 export * from './limits';
 export * from './partner-reference';
 export * from './signing';
+export * from './templates';
 export * from './two-factor';
 export * from './verify';
 export * from './webhooks';

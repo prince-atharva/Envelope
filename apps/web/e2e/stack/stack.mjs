@@ -62,6 +62,7 @@ export const STACK_ENV = {
   EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible runs.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+  MAIL_EVENTS_SECRET: 'mail-events-test-secret-0123456789abcdefghijklmn',
   TOTP_SECRET_ENC_KEY: 'CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg=',
   MALWARE_SCANNER: 'none',
 

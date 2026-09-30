@@ -174,6 +174,12 @@ export const envSchema = z
     /** Relative to APP_ROOT_DIR. Only used with MAIL_TRANSPORT=file. */
     MAIL_OUTBOX_DIR: z.string().min(1).default('.mail-outbox'),
     /**
+     * The shared secret a mail provider's bounce webhook presents to
+     * POST /mail-events/:adapter (docs/20, ADR 0029). Unset: the endpoint does
+     * not exist (404), so delivery tracking is off until it is chosen.
+     */
+    MAIL_EVENTS_SECRET: secret.optional(),
+    /**
      * The largest finished document attached to the completion email. Anything
      * larger is sent as a private download link instead (docs/15 step 6).
      */
@@ -321,6 +327,24 @@ export const envSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['EMBED_SESSION_HASH_SECRET'],
+        message: 'must be different from other authentication and webhook secrets',
+      });
+    }
+    if (
+      env.MAIL_EVENTS_SECRET !== undefined &&
+      [
+        env.JWT_ACCESS_SECRET,
+        env.REFRESH_TOKEN_SECRET,
+        env.SIGNING_TOKEN_SECRET,
+        env.API_KEY_HASH_SECRET,
+        env.EMBED_SESSION_HASH_SECRET,
+        env.WEBHOOK_SECRET_ENC_KEY,
+        env.TOTP_SECRET_ENC_KEY,
+      ].includes(env.MAIL_EVENTS_SECRET)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_EVENTS_SECRET'],
         message: 'must be different from other authentication and webhook secrets',
       });
     }

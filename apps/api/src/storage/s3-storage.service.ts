@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -156,6 +157,30 @@ export class S3StorageService extends StorageService implements OnModuleDestroy 
       this.logger.info({ bucket: this.bucket, key }, 'Deleted object');
     } catch (error) {
       this.logger.error({ err: error, bucket: this.bucket, key }, 'Storage delete failed');
+      throw error;
+    }
+  }
+
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    const started = performance.now();
+    try {
+      await this.client.send(
+        new CopyObjectCommand({
+          Bucket: this.bucket,
+          Key: toKey,
+          // Object keys here are application-generated (uuids and ids), never user text.
+          CopySource: `${this.bucket}/${fromKey}`,
+        }),
+      );
+      this.logger.info(
+        { bucket: this.bucket, fromKey, toKey, durationMs: elapsed(started) },
+        'Copied object',
+      );
+    } catch (error) {
+      this.logger.error(
+        { err: error, bucket: this.bucket, fromKey, toKey, durationMs: elapsed(started) },
+        'Storage copy failed',
+      );
       throw error;
     }
   }

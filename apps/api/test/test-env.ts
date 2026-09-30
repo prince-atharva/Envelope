@@ -29,6 +29,7 @@ export const TEST_ENV: Record<string, string> = {
   EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible tests.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+  MAIL_EVENTS_SECRET: 'mail-events-test-secret-0123456789abcdefghijklmn',
   TOTP_SECRET_ENC_KEY: 'CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg=',
   // Tests never reach a real scanner; the scan tests start their own on a local port.
   MALWARE_SCANNER: 'none',

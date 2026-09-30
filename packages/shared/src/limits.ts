@@ -90,3 +90,12 @@ export const TOTP_DIGITS = 6;
 export const RECOVERY_CODE_COUNT = 10;
 /** How long the password-then-code step of a sign-in may take. */
 export const MFA_CHALLENGE_TTL_SECONDS = 300;
+
+/** Templates and bulk send (docs/20, ADR 0027, ADR 0028). */
+export const MAX_TEMPLATE_NAME_LENGTH = 120;
+export const MAX_TEMPLATE_DESCRIPTION_LENGTH = 1000;
+export const MAX_BULK_ROWS = 500;
+/** A bulk CSV is text; this keeps the browser from reading a file that could never be valid. */
+export const MAX_BULK_CSV_BYTES = 1024 * 1024;
+/** Failed bulk rows keep their recipients this long, so the sender can see which to fix (ADR 0028). */
+export const BULK_ROW_DATA_RETENTION_DAYS = 30;

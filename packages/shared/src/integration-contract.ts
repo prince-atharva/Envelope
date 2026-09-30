@@ -1053,6 +1053,31 @@ export const INTEGRATION_ERROR_GUIDE: Partial<Record<ErrorCode, ErrorGuideEntry>
     meaning: 'A dependency is temporarily unavailable.',
     action: 'Retry after a short delay.',
   },
+  TEMPLATE_NOT_FOUND: {
+    meaning: 'The template id does not exist in your workspace.',
+    action: 'List templates and use an id from the result.',
+  },
+  TEMPLATE_ARCHIVED: {
+    meaning: 'The template was archived, so it cannot start new envelopes or batches.',
+    action: 'Use an active template, or ask an Admin to restore this one.',
+  },
+  TEMPLATE_NAME_TAKEN: {
+    meaning: 'An active template in your workspace already has this name.',
+    action: 'Choose another name, or archive the old template first.',
+  },
+  TEMPLATE_ROLE_MISMATCH: {
+    meaning:
+      'The people sent do not match the template’s roles: a role is missing, repeated or unknown, or an email is repeated.',
+    action: 'Send exactly one person for each role of the template, each with a different email.',
+  },
+  BULK_TOO_LARGE: {
+    meaning: 'A batch has more rows than the limit.',
+    action: 'Split it into batches of at most 500 rows.',
+  },
+  BULK_BATCH_NOT_FOUND: {
+    meaning: 'The batch id does not exist in your workspace.',
+    action: 'Use the `batchId` returned when the batch was accepted.',
+  },
   API_KEY_INVALID: {
     meaning: 'The bearer token is not a known, active API key.',
     action: 'Check the full key is set and has not been revoked.',

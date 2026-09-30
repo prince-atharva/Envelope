@@ -79,6 +79,23 @@ enum FieldType {
   CHECKBOX
 }
 
+enum BulkBatchStatus {
+  PROCESSING
+  COMPLETED
+}
+
+enum BulkRowStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum MailDeliveryStatus {
+  SENT
+  BOUNCED
+  COMPLAINED
+}
+
 /// A delivery attempt's outcome (docs/08, "Webhooks"; docs/18).
 enum WebhookDeliveryStatus {
   PENDING
@@ -114,6 +131,8 @@ model Tenant {
   envelopes          Envelope[]
   apiKeys            ApiKey[]
   webhookEndpoints   WebhookEndpoint[]
+  templates          Template[]
+  bulkBatches        BulkBatch[]
 }
 
 /// One row per (tenant, status), kept exact by a trigger on Envelope. Lets the
@@ -179,6 +198,8 @@ model User {
   apiKeysActing       ApiKey[]             @relation("ApiKeyActingUser")
   apiKeysCreated      ApiKey[]             @relation("ApiKeyCreatedBy")
   webhookEndpoints    WebhookEndpoint[]
+  templatesCreated    Template[]
+  bulkBatchesCreated  BulkBatch[]
 
   @@index([tenantId])
 }
@@ -464,12 +485,14 @@ model Envelope {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  recipients    Recipient[]
-  fields        DocumentField[]
-  versions      DocumentVersion[]
-  auditLogs     AuditTrail[]
-  embedSessions EmbedSession[]
-  downloads     CompletionDownload[]
+  recipients     Recipient[]
+  fields         DocumentField[]
+  versions       DocumentVersion[]
+  auditLogs      AuditTrail[]
+  embedSessions  EmbedSession[]
+  downloads      CompletionDownload[]
+  bulkRows       BulkBatchRow[]
+  mailDeliveries MailDelivery[]
 
   /// The All tab: newest first, with the id tiebreak the cursor compares on.
   @@index([tenantId, createdAt(sort: Desc), id(sort: Desc)])
@@ -551,10 +574,11 @@ model Recipient {
 
   createdAt DateTime @default(now())
 
-  fields      DocumentField[]
-  auditEvents AuditTrail[]
-  versions    DocumentVersion[]
-  downloads   CompletionDownload[]
+  fields         DocumentField[]
+  auditEvents    AuditTrail[]
+  versions       DocumentVersion[]
+  downloads      CompletionDownload[]
+  mailDeliveries MailDelivery[]
 
   /// Lets DocumentField carry a composite foreign key on (recipientId, envelopeId),
   /// which is what stops a field pointing at a recipient of another envelope
@@ -758,4 +782,168 @@ model EmbedSession {
   @@index([tenantId, envelopeId])
   @@index([apiKeyId])
   @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Templates, bulk send and delivery tracking (docs/20, ADR 0027-0029)
+// ─────────────────────────────────────────────────────────────
+
+/// A reusable document: its own copy of the PDF, who signs (role slots) and where
+/// (fields). Immutable apart from name, description, default message and
+/// archive. Policy is never stored here: every envelope made from it freezes a
+/// fresh snapshot (ADR 0027).
+///
+/// One rule Prisma cannot express lives in the migration only: a name is unique
+/// per tenant among templates that are not archived
+/// ("Template_tenantId_name_active_key", a partial unique index).
+model Template {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  name        String
+  description String? @db.Text
+
+  /// Object-storage key of the template's own copy of the PDF. Under
+  /// tenants/<tenant>/templates/, outside every envelope's prefix.
+  originalFileUrl   String
+  originalFilename  String
+  originalHash      String
+  originalSizeBytes Int
+  pageCount         Int
+  documentCategory  String @default("OTHER")
+
+  defaultMessage       String? @db.Text
+  sequentialSigning    Boolean @default(false)
+  reminderIntervalDays Int?
+
+  createdById String    @db.Uuid
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  archivedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles   TemplateRole[]
+  fields  TemplateField[]
+  batches BulkBatch[]
+
+  @@index([tenantId, archivedAt])
+}
+
+/// A placeholder recipient ("Patient"): everything about a person except who they are.
+model TemplateRole {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  templateId String   @db.Uuid
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  name         String
+  role         RecipientRole @default(SIGNER)
+  routingOrder Int           @default(1)
+  colorIndex   Int           @default(0)
+
+  fields TemplateField[]
+
+  /// Lets TemplateField carry a composite foreign key, like Recipient does for
+  /// DocumentField: the database guarantees a field's role belongs to the same template.
+  @@unique([id, templateId])
+  @@unique([templateId, name])
+}
+
+model TemplateField {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  templateId String   @db.Uuid
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  templateRoleId String       @db.Uuid
+  role           TemplateRole @relation(fields: [templateRoleId, templateId], references: [id, templateId], onDelete: Cascade)
+
+  type       FieldType @default(SIGNATURE)
+  pageNumber Int // 1-indexed
+  required   Boolean   @default(true)
+
+  // Normalised coordinates, range [0.0, 1.0], exactly as on DocumentField (docs/06).
+  ratioX      Float
+  ratioY      Float
+  ratioWidth  Float
+  ratioHeight Float
+
+  @@index([templateId, pageNumber])
+  @@index([templateRoleId])
+}
+
+/// One bulk send: many envelopes from one template (ADR 0028).
+model BulkBatch {
+  id       String @id @default(uuid(7)) @db.Uuid
+  tenantId String @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  templateId String   @db.Uuid
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  createdById String @db.Uuid
+  createdBy   User   @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  status       BulkBatchStatus @default(PROCESSING)
+  /// Send each envelope as it is created, or leave it a draft.
+  sendOnCreate Boolean
+  /// The note that goes out with every invitation in the batch.
+  message      String?         @db.Text
+
+  totalRows     Int
+  succeededRows Int       @default(0)
+  failedRows    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  rows BulkBatchRow[]
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+}
+
+model BulkBatchRow {
+  id      String    @id @default(uuid(7)) @db.Uuid
+  batchId String    @db.Uuid
+  batch   BulkBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  rowIndex Int
+  status   BulkRowStatus @default(PENDING)
+
+  /// Who the row sends to, until the row is used. Set to null once its
+  /// envelope exists (the envelope is the record from then on), and on failed
+  /// rows when the batch is old enough to purge (ADR 0028).
+  recipients Json?
+  externalId String? @db.VarChar(200)
+  metadata   Json?
+
+  envelopeId String?   @db.Uuid
+  envelope   Envelope? @relation(fields: [envelopeId], references: [id], onDelete: Restrict)
+  errorCode  String?
+
+  @@unique([batchId, rowIndex])
+  @@index([envelopeId])
+}
+
+/// One mail sent about an envelope, so a later bounce can be matched to it
+/// (ADR 0029). Operational and mutable: the audit trail gets its own rows.
+model MailDelivery {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  envelopeId String   @db.Uuid
+  envelope   Envelope @relation(fields: [envelopeId], references: [id], onDelete: Cascade)
+
+  recipientId String?    @db.Uuid
+  recipient   Recipient? @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+
+  /// The Message-ID header we sent.
+  messageId String @unique
+  /// Which email this was (an EmailTemplate name).
+  template  String
+
+  status    MailDeliveryStatus @default(SENT)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([envelopeId])
+  @@index([recipientId])
 }
