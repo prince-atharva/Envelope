@@ -1,0 +1,5689 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  },
+                  "organization": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 160
+                  }
+                },
+                "required": [
+                  "fullName",
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Signed in; refresh cookie set"
+          }
+        },
+        "summary": "Create a workspace and its owner account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in; refresh cookie set"
+          }
+        },
+        "summary": "Sign in with email and password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "New access token; refresh cookie rotated"
+          }
+        },
+        "summary": "Exchange the refresh cookie for a new access token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "End the current session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The signed-in user and their workspace",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/invitations/{token}": {
+      "get": {
+        "operationId": "AuthController_invitation",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "What a tenant invitation is, before a password is chosen",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/invitations/{token}/accept": {
+      "post": {
+        "operationId": "AuthController_acceptInvite",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Accept a tenant invitation: set a password and sign in",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/embed/sessions": {
+      "post": {
+        "operationId": "embedSessionIssue",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A value unique to this attempt (a UUID is ideal). Repeating the request with the same key and the same body within 24 hours returns the resource the first request created (with Idempotency-Replayed: true) instead of creating another. Without a key, every request creates a new one.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The launch token is valid for 60 seconds and redeemable once; keep it in memory. Send it to your browser with Cache-Control: no-store and never log it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbedSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: VALIDATION_FAILED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: EMBED_ORIGIN_NOT_ALLOWED, API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ENVELOPE_NOT_DRAFT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: IDEMPOTENCY_KEY_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Embedded editor"
+        ],
+        "summary": "Issue an embedded editor session",
+        "description": "Authorize one staff member to prepare one document (or upload one) inside the embedded editor. Call it from your backend after authorizing your own user and record.\n\n- mode (required): existing (reopen a draft you uploaded) or upload (staff upload inside the editor).\n\n- envelopeId: required for existing, forbidden for upload.\n\n- parentOrigin (required): the exact HTTPS origin of the page that will host the iframe. It must be registered on this API key first; loopback HTTP is accepted for local testing only.\n\n- externalActorId (required): your own opaque id for the staff member, 1–200 characters. Recorded in the audit trail.\n\n- actions (required): [edit] or [edit, send]. Editing is always required.\n\n- externalId and metadata (upload mode only, optional): recorded on the draft the upload creates and echoed in every webhook.\n\n- Idempotency-Key (optional): a retry after a lost response returns a fresh launchToken for the same session, and the earlier token stops working.",
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "x-idempotency": "optional",
+        "x-rate-limit": "30 per 60s per workspace and API key"
+      }
+    },
+    "/api/v1/embed/sessions/exchange": {
+      "post": {
+        "operationId": "EmbedController_exchange",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Embed"
+        ]
+      }
+    },
+    "/api/v1/embed/sessions/{id}": {
+      "delete": {
+        "operationId": "embedSessionRevoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No body."
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Embedded editor"
+        ],
+        "summary": "Revoke an embedded editor session",
+        "description": "End a session immediately, for example when your staff member signs out. Only the API key that issued the session can revoke it.\n\n- id: the sessionId returned when the session was issued. No request body.",
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "x-idempotency": "none",
+        "x-rate-limit": "30 per 60s per workspace and API key"
+      }
+    },
+    "/api/v1/embed/session/close": {
+      "post": {
+        "operationId": "embedClose",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No body."
+          },
+          "401": {
+            "description": "Error codes: EMBED_SESSION_INVALID, EMBED_SESSION_EXPIRED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Embedded editor"
+        ],
+        "summary": "Close the embedded editor (editor only)",
+        "description": "Called by the editor itself with its own session token. Not for partner code.\n\n- No request body.",
+        "security": [
+          {
+            "embedSession": []
+          }
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/embed/session/envelope": {
+      "post": {
+        "operationId": "embedUpload",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The draft this session created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: FILE_REQUIRED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: EMBED_SCOPE_DENIED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: EMBED_UPLOAD_BOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Embedded editor"
+        ],
+        "summary": "Upload inside the editor (editor only)",
+        "description": "Called by the editor when staff choose a PDF in an upload-mode session. One session creates at most one draft; a retry returns that draft.\n\n- Multipart file (required), with the same limits as the upload operation.",
+        "security": [
+          {
+            "embedSession": []
+          }
+        ],
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes": {
+      "post": {
+        "description": "Create a draft from one PDF. Save the returned id and draftRevision for the next steps.\n\n- Multipart file (required): PDF, up to 25 MiB and 500 pages; encrypted PDFs are rejected.\n\n- title (optional): 1–200 characters; defaults to the filename without its extension.\n\n- documentCategory (optional): defaults to OTHER. jurisdictionCode (optional): overrides the workspace default. Policy is fixed at creation.\n\n- externalId (optional): your own id for this document, 1–200 characters of letters, digits and _ . : @ -. Not unique. Echoed in every webhook and used to filter the list.\n\n- metadata (optional): a JSON object as text, up to 10 string values and 2 KB in total. Echoed in every webhook.\n\n- Idempotency-Key (optional): 8–128 letters, digits, dots, dashes or colons. Repeating the same key and body within 24 hours returns the envelope the first request created (Idempotency-Replayed: true) instead of a second draft. Without a key, every request creates a new draft.",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A value unique to this attempt (a UUID is ideal). Repeating the request with the same key and the same body within 24 hours returns the resource the first request created (with Idempotency-Replayed: true) instead of creating another. Without a key, every request creates a new one.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, at most 25 MB and 500 pages"
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "documentCategory": {
+                    "type": "string",
+                    "enum": [
+                      "COMMERCIAL_CONTRACT",
+                      "EMPLOYMENT_AGREEMENT",
+                      "NDA",
+                      "CONSENT_FORM",
+                      "FINANCIAL_AGREEMENT",
+                      "REAL_ESTATE_LEASE",
+                      "WILL_OR_TESTAMENTARY",
+                      "PROPERTY_TRANSFER",
+                      "FAMILY_LAW",
+                      "NEGOTIABLE_INSTRUMENT",
+                      "COURT_FILING",
+                      "UTILITY_EVICTION_INSURANCE_NOTICE",
+                      "OTHER"
+                    ]
+                  },
+                  "jurisdictionCode": {
+                    "type": "string",
+                    "description": "Overrides the tenant's default"
+                  },
+                  "externalId": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Your own id for this envelope, echoed in every webhook (letters, digits, _ . : @ -)"
+                  },
+                  "metadata": {
+                    "type": "string",
+                    "description": "JSON object of up to 10 string values (2 KB in total), echoed in every webhook"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Envelope detail (excerpt). This uploads and creates together; there is no separate upload endpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: FILE_REQUIRED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error codes: FILE_TOO_LARGE.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Error codes: UNSUPPORTED_FILE_TYPE.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: DOCUMENT_CATEGORY_BLOCKED, INVALID_PDF, ENCRYPTED_PDF, PAGE_LIMIT_EXCEEDED, MALWARE_DETECTED, IDEMPOTENCY_KEY_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Upload a PDF",
+        "tags": [
+          "Envelopes"
+        ],
+        "x-idempotency": "optional",
+        "x-rate-limit": "100 per 60s per workspace"
+      },
+      "get": {
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "externalId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Only envelopes created with this externalId"
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "SENT",
+                "DELIVERED",
+                "PARTIALLY_SIGNED",
+                "EXPIRED",
+                "COMPLETED",
+                "DECLINED",
+                "VOIDED"
+              ]
+            }
+          },
+          {
+            "name": "view",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "attention",
+                "waiting",
+                "completed",
+                "cancelled",
+                "drafts",
+                "all"
+              ],
+              "default": "all"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated envelope summaries. An empty workspace returns this example.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: VALIDATION_FAILED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "List documents",
+        "tags": [
+          "Envelopes"
+        ],
+        "description": "Browse documents across the workspace, including documents created by people.\n\n- view: all (default), attention, waiting, completed, cancelled or drafts.\n\n- status: optional envelope status. limit: 1–100 (default 20). cursor: nextCursor from the previous response.\n\n- Pass the returned cursor unchanged and URL-encode it. Continue until nextCursor is null.\n\n- externalId: only documents created with exactly this id. Recover a document whose creation response you lost.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/counts": {
+      "get": {
+        "operationId": "counts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Counts by view; views may overlap.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeCounts"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Count documents",
+        "tags": [
+          "Envelopes"
+        ],
+        "description": "Get a count for each dashboard view.\n\n- No request body or query parameters.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}": {
+      "get": {
+        "operationId": "detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Envelope detail (excerpt); 304 when unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeDetail"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the ETag you sent; no body."
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Read a document",
+        "tags": [
+          "Envelopes"
+        ],
+        "description": "Get status, recipients, fields, versions, policy, draftRevision and the first part of the audit trail.\n\n- id: the envelope UUID returned by upload.\n\n- Optional If-None-Match: a previously returned ETag. An unchanged document returns 304 with no body.\n\n- Use eventsCursor for remaining audit events. For the completed PDF, find versions[].isFinal and use its versionNumber.",
+        "x-idempotency": "none"
+      },
+      "patch": {
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "if-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The draftRevision the client last saw, in quotes. A stale value is refused with 412 rather than overwriting another tab's work.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "message": {
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "sequentialSigning": {
+                    "type": "boolean"
+                  },
+                  "externalId": {
+                    "nullable": true,
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[a-zA-Z0-9_.:@-]+$"
+                  },
+                  "metadata": {
+                    "nullable": true,
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 500
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New draft revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ENVELOPE_NOT_DRAFT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Error codes: DRAFT_REVISION_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a draft",
+        "tags": [
+          "Drafts"
+        ],
+        "description": "Change draft settings before sending. Save draftRevision from each successful edit.\n\n- At least one of: title (1–200 characters), message (up to 2,000 characters; null clears it), sequentialSigning (boolean).\n\n- With sequentialSigning true, equal routingOrder values sign together; lower groups go first.\n\n- externalId (string or null) and metadata (object or null) replace your reference while the document is a draft; they are fixed once it is sent.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/events": {
+      "get": {
+        "operationId": "events",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit records and continuation cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvelopeEvents"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Read audit events",
+        "tags": [
+          "Envelopes"
+        ],
+        "description": "Page through the audit trail, oldest first. These are audit records, not webhook deliveries.\n\n- id: envelope UUID. limit: 1–100 (default 20). cursor: eventsCursor or the previous nextCursor.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/file": {
+      "get": {
+        "operationId": "file",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary PDF, not JSON. Version 0 does not include signatures.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the ETag you sent; no body."
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error codes: ENVELOPE_PURGED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Download a PDF",
+        "tags": [
+          "Documents"
+        ],
+        "description": "Read the original, an intermediate signed version or the final sealed document.\n\n- version: non-negative integer; defaults to 0 (the original).\n\n- For the sealed PDF, use finalVersionNumber from envelope.completed, or the version marked isFinal in document detail.\n\n- Optional If-None-Match: the file ETag; unchanged files return 304 without bytes.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/documents/original": {
+      "get": {
+        "operationId": "documentOriginal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary PDF, not JSON.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the ETag you sent; no body."
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error codes: ENVELOPE_PURGED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Download the original PDF",
+        "tags": [
+          "Documents"
+        ],
+        "description": "The PDF exactly as it was uploaded, with no signatures. Same bytes as version 0.\n\n- Optional If-None-Match: the ETag from an earlier response; unchanged files return 304.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/documents/completed": {
+      "get": {
+        "operationId": "documentCompleted",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary PDF, not JSON. The SHA-256 of these bytes is the envelope’s finalHash.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the ETag you sent; no body."
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: CONFLICT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error codes: ENVELOPE_PURGED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Download the completed PDF",
+        "tags": [
+          "Documents"
+        ],
+        "description": "The sealed document with every signature and the certificate pages, without needing its version number.\n\n- Available once the envelope is completed (after envelope.completed). Before that the request returns 409.\n\n- Optional If-None-Match: the ETag from an earlier response; the sealed file never changes, so 304 is safe to rely on.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/documents/certificate": {
+      "get": {
+        "operationId": "documentCertificate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binary PDF, not JSON. Its pages are the certificate pages of the completed file.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Unchanged since the ETag you sent; no body."
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: CONFLICT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error codes: ENVELOPE_PURGED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Download the certificate pages",
+        "tags": [
+          "Documents"
+        ],
+        "description": "Only the certificate of completion, cut from the sealed PDF when you ask. Nothing extra is stored.\n\n- Available once the envelope is completed; before that the request returns 409.\n\n- Limited to 30 requests a minute per workspace. Keep the file rather than asking again; an unchanged one answers If-None-Match with 304.",
+        "x-idempotency": "none",
+        "x-rate-limit": "30 per 60s per workspace"
+      }
+    },
+    "/api/v1/envelopes/{id}/legal-hold": {
+      "post": {
+        "operationId": "LegalHoldController_place",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Place a legal hold, overriding every retention sweep until released",
+        "tags": [
+          "compliance"
+        ]
+      },
+      "delete": {
+        "operationId": "LegalHoldController_release",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Release a legal hold",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/api/v1/envelopes/{id}/audit": {
+      "get": {
+        "operationId": "AuditExportController_export",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Export the audit trail: JSON re-verifies offline, CSV is for reading",
+        "tags": [
+          "compliance"
+        ]
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "operationId": "ApiKeysController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the tenant's API keys",
+        "tags": [
+          "api-keys"
+        ]
+      },
+      "post": {
+        "operationId": "ApiKeysController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "readOnly": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "embedOrigins": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 2048,
+                      "format": "uri"
+                    }
+                  }
+                },
+                "required": [
+                  "label"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create an API key; the raw value is shown once, in this response",
+        "tags": [
+          "api-keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "operationId": "ApiKeysController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke an API key; takes effect immediately",
+        "tags": [
+          "api-keys"
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}/embed-origins": {
+      "put": {
+        "operationId": "ApiKeysController_setEmbedOrigins",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "origins": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 2048,
+                      "format": "uri"
+                    }
+                  }
+                },
+                "required": [
+                  "origins"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace one key's embedded-editor parent origins (docs/18 workstream 7)",
+        "tags": [
+          "api-keys"
+        ]
+      }
+    },
+    "/api/v1/envelopes/{id}/recipients": {
+      "post": {
+        "operationId": "recipientAdd",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "if-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The draftRevision the client last saw, in quotes. A stale value is refused with 412 rather than overwriting another tab's work.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  },
+                  "role": {
+                    "default": "SIGNER",
+                    "type": "string",
+                    "enum": [
+                      "SIGNER",
+                      "APPROVER",
+                      "VIEWER",
+                      "CC"
+                    ]
+                  },
+                  "routingOrder": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  }
+                },
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recipient and new revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: RECIPIENT_EMAIL_TAKEN, ENVELOPE_NOT_DRAFT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Error codes: DRAFT_REVISION_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Add a recipient",
+        "tags": [
+          "Drafts"
+        ],
+        "description": "Add someone to the draft; retain recipient.id to assign their fields.\n\n- name (required): 1–200 characters. email (required): valid email address.\n\n- role: SIGNER (default), APPROVER, VIEWER or CC. routingOrder: optional integer 1–50, defaults to the end.\n\n- Up to 50 recipients. SIGNER needs a required field; APPROVER may approve without fields.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/recipients/{recipientId}": {
+      "patch": {
+        "operationId": "recipientUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "if-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The draftRevision the client last saw, in quotes. A stale value is refused with 412 rather than overwriting another tab's work.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "SIGNER",
+                      "APPROVER",
+                      "VIEWER",
+                      "CC"
+                    ]
+                  },
+                  "routingOrder": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recipient and new revision; fieldsRemoved may also be returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: RECIPIENT_EMAIL_TAKEN, ENVELOPE_NOT_DRAFT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Error codes: DRAFT_REVISION_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Update a recipient",
+        "tags": [
+          "Drafts"
+        ],
+        "description": "Change a draft recipient. Switching to VIEWER or CC removes fields assigned to them.\n\n- id and recipientId: returned UUIDs. Supply at least one of name, email, role or routingOrder, with the same limits as adding a recipient.",
+        "x-idempotency": "none"
+      },
+      "delete": {
+        "operationId": "recipientDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "if-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The draftRevision the client last saw, in quotes. A stale value is refused with 412 rather than overwriting another tab's work.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New revision; the response is JSON, not an empty 204.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ENVELOPE_NOT_DRAFT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Error codes: DRAFT_REVISION_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Remove a recipient",
+        "tags": [
+          "Drafts"
+        ],
+        "description": "Remove a draft recipient and all of their fields.\n\n- id and recipientId: returned UUIDs. No request body.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/fields": {
+      "put": {
+        "operationId": "fields",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "if-match",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The draftRevision the client last saw, in quotes. A stale value is refused with 412 rather than overwriting another tab's work.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fields": {
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "recipientId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "SIGNATURE",
+                            "INITIALS",
+                            "DATE_SIGNED",
+                            "TEXT_INPUT",
+                            "CHECKBOX"
+                          ]
+                        },
+                        "pageNumber": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "ratioX": {
+                          "type": "number"
+                        },
+                        "ratioY": {
+                          "type": "number"
+                        },
+                        "ratioWidth": {
+                          "type": "number"
+                        },
+                        "ratioHeight": {
+                          "type": "number"
+                        },
+                        "required": {
+                          "default": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "recipientId",
+                        "type",
+                        "pageNumber",
+                        "ratioX",
+                        "ratioY",
+                        "ratioWidth",
+                        "ratioHeight"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "fields"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved fields and new revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: INVALID_COORDINATE_SPACE, RATIO_OUT_OF_RANGE, FIELD_EXCEEDS_PAGE, PAGE_OUT_OF_RANGE.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Error codes: DRAFT_REVISION_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Place signing fields",
+        "tags": [
+          "Drafts"
+        ],
+        "description": "Replace the entire layout. Include every field you want to keep.\n\n- fields: up to 1,000 entries. Each needs a new client-generated UUID id, recipientId, type and pageNumber (starting at 1). Keep the same field id on later saves.\n\n- type: SIGNATURE, INITIALS, DATE_SIGNED, TEXT_INPUT or CHECKBOX. required defaults to true.\n\n- ratioX, ratioY, ratioWidth, ratioHeight: page-relative fractions, not pixels. Origin is top-left. Width and height must be positive and the box must fit inside the page.\n\n- Only SIGNER and APPROVER recipients can own fields. Replace the example recipientId with the id returned when adding the recipient.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/envelopes/{id}/send": {
+      "post": {
+        "operationId": "send",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "A value unique to this attempt (a UUID is ideal). Repeating the request with the same key within 24 hours returns the first response with Idempotency-Replayed: true, and sends nothing.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expiresInDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 90
+                  },
+                  "message": {
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "reminderIntervalDays": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sent envelope and recipients invited now. No signing tokens are returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: IDEMPOTENCY_KEY_REQUIRED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ENVELOPE_NOT_DRAFT.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: NOT_READY_TO_SEND, IDEMPOTENCY_KEY_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "embedSession": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Send for signing",
+        "tags": [
+          "Sending"
+        ],
+        "description": "Validate the draft and queue invitations. Signing happens on Envelope through emailed links.\n\n- Optional JSON: expiresInDays (1–90), message (up to 2,000 characters or null), reminderIntervalDays (1–30 or null to disable). Omitted timing values use server defaults.\n\n- Idempotency-Key (required): 8–128 letters, digits, dots, dashes or colons; a UUID is ideal. Reuse the same key and body on a network retry within 24 hours. A replay includes Idempotency-Replayed: true.\n\n- Sending is asynchronous: a successful response does not mean mail has arrived or signing is complete. Wait for envelope.completed before downloading the sealed version.",
+        "x-idempotency": "required",
+        "x-rate-limit": "100 per 60s per workspace"
+      }
+    },
+    "/api/v1/envelopes/{id}/remind": {
+      "post": {
+        "operationId": "remind",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Recipients reminded now, and those skipped with the reason for each.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemindResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: CONFLICT, ENVELOPE_TERMINAL, ENVELOPE_EXPIRED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: REMINDER_TOO_SOON, RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Send a reminder",
+        "tags": [
+          "Sending"
+        ],
+        "description": "Email a fresh signing link to the people whose turn it is and who have not finished. The previous link stops working.\n\n- Optional JSON: recipientIds, a list of recipient UUIDs. Omitted, it reminds everyone whose turn it is.\n\n- One reminder per person per 24 hours: anyone reminded sooner comes back in skipped with a reason, and if nobody could be reminded the request answers 429 REMINDER_TOO_SOON with Retry-After. A full-access key only; shares the 30 a minute workspace limit with cancel.",
+        "x-idempotency": "none",
+        "x-rate-limit": "30 per 60s per workspace"
+      }
+    },
+    "/api/v1/envelopes/{id}/reminders": {
+      "patch": {
+        "operationId": "LifecycleController_updateReminders",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "intervalDays": {
+                    "nullable": true,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "intervalDays"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn automatic reminders on or off, or change how often",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/api/v1/envelopes/{id}/void": {
+      "post": {
+        "operationId": "void",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "discarded is true when a draft was thrown away and nobody was emailed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoidResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error codes: VALIDATION_FAILED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: ENVELOPE_TERMINAL, ENVELOPE_ON_LEGAL_HOLD.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Cancel or discard",
+        "tags": [
+          "Sending"
+        ],
+        "description": "Cancel a sent envelope so its links stop working and the people emailed are told why, or discard a draft.\n\n- JSON reason (1–1,000 characters): required for a sent envelope, optional for a draft. It is emailed to recipients and is not stored in the audit trail.\n\n- A full-access key only. Fires envelope.voided. Limited to 30 requests a minute per workspace, shared with reminders and deadline changes.",
+        "x-idempotency": "none",
+        "x-rate-limit": "30 per 60s per workspace"
+      }
+    },
+    "/api/v1/envelopes/{id}/extend": {
+      "post": {
+        "operationId": "LifecycleController_extend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "A value unique to this attempt (a UUID is ideal). Repeating the request with the same key within 24 hours returns the first response with Idempotency-Replayed: true, and sends nothing.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expiresInDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 90
+                  }
+                },
+                "required": [
+                  "expiresInDays"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Give more time: a new deadline, and fresh links for whoever is due (reopens an expired envelope)",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}": {
+      "get": {
+        "operationId": "SigningController_session",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Open a signing session (fields only after consent)",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}/document": {
+      "get": {
+        "operationId": "SigningController_document",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The document to sign (only after consent)",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}/consent": {
+      "post": {
+        "operationId": "SigningController_consent",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "agreed": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "consentTextHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "agreed",
+                  "consentTextHash"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Agree to sign electronically",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}/adopt": {
+      "post": {
+        "operationId": "SigningController_adopt",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "SIGNATURE",
+                      "INITIALS"
+                    ]
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "DRAWN",
+                      "TYPED"
+                    ]
+                  },
+                  "image": {
+                    "type": "string",
+                    "maxLength": 682690,
+                    "format": "starts_with",
+                    "pattern": "^data:image\\/png;base64,.*"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "method",
+                  "image"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Adopt a drawn or typed signature or initials",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}/submit": {
+      "post": {
+        "operationId": "SigningController_submit",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fields": {
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "value": {
+                          "type": "string",
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "fields"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "summary": "Finish signing. The link stops working.",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}/decline": {
+      "post": {
+        "operationId": "SigningController_decline",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Decline to sign, with a reason. Ends the envelope.",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/sign/{token}/request-more-time": {
+      "post": {
+        "operationId": "SigningController_requestMoreTime",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Ask the sender for more time. The one route an expired link can use.",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
+    "/api/v1/download/{token}": {
+      "get": {
+        "operationId": "CompletionDownloadController_download",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the completion email. It is a credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Download a finished document with a completion email link",
+        "tags": [
+          "completion"
+        ]
+      }
+    },
+    "/api/v1/download/{token}/renew": {
+      "post": {
+        "operationId": "CompletionDownloadController_renew",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the completion email. It is a credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Ask for a fresh link. The one route an expired download link can use.",
+        "tags": [
+          "completion"
+        ]
+      }
+    },
+    "/api/v1/verify": {
+      "post": {
+        "operationId": "VerifyController_verify",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Check whether a PDF is exactly a document signed here",
+        "tags": [
+          "verify"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "HealthController_readiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness: 200 when every dependency is up, otherwise 503",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "operationId": "HealthController_liveness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness: 200 whenever the process is running",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/client-logs": {
+      "post": {
+        "operationId": "ClientLogsController_report",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "error",
+                      "warn"
+                    ]
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "stack": {
+                    "type": "string",
+                    "maxLength": 6000
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "lastRequestId": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "userAgent": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "occurredAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  }
+                },
+                "required": [
+                  "level",
+                  "message",
+                  "url",
+                  "source"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Report a browser error",
+        "tags": [
+          "client-logs"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "UsersController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Everyone in the signed-in user's workspace",
+        "tags": [
+          "users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_invite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  },
+                  "role": {
+                    "default": "MEMBER",
+                    "type": "string",
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "MEMBER"
+                    ]
+                  }
+                },
+                "required": [
+                  "fullName",
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Invite someone to the workspace",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/role": {
+      "patch": {
+        "operationId": "UsersController_changeRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "OWNER",
+                      "ADMIN",
+                      "MEMBER"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change someone's role",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove someone from the workspace",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/webhooks": {
+      "get": {
+        "operationId": "WebhooksController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the tenant's webhook endpoints",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "post": {
+        "operationId": "WebhooksController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "subscribedEvents": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "envelope.sent",
+                        "envelope.delivered",
+                        "envelope.viewed",
+                        "recipient.consented",
+                        "recipient.signed",
+                        "recipient.declined",
+                        "envelope.completed",
+                        "envelope.voided",
+                        "envelope.expired",
+                        "envelope.extended"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "url"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a webhook endpoint; the signing secret is shown once",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}": {
+      "patch": {
+        "operationId": "WebhooksController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "subscribedEvents": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "envelope.sent",
+                        "envelope.delivered",
+                        "envelope.viewed",
+                        "recipient.consented",
+                        "recipient.signed",
+                        "recipient.declined",
+                        "envelope.completed",
+                        "envelope.voided",
+                        "envelope.expired",
+                        "envelope.extended"
+                      ]
+                    }
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change a webhook endpoint: URL, description, subscribed events",
+        "tags": [
+          "webhooks"
+        ]
+      },
+      "delete": {
+        "operationId": "WebhooksController_deactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Deactivate a webhook endpoint (the endpoint and its delivery history are kept)",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/rotate-secret": {
+      "post": {
+        "operationId": "WebhooksController_rotateSecret",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "default": {
+                  "overlapHours": 24
+                },
+                "type": "object",
+                "properties": {
+                  "overlapHours": {
+                    "default": 24,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 72
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rotate the signing secret. The new secret is shown once; the old one keeps verifying for overlapHours (default 24, 0-72)",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/test": {
+      "post": {
+        "operationId": "WebhooksController_sendTest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Send one webhook.test event to this endpoint. One attempt, no retries; it never counts toward auto-disable",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/permanent": {
+      "delete": {
+        "operationId": "WebhooksController_deletePermanently",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Permanently delete an inactive endpoint and its delivery history. An active endpoint must be deactivated first",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/redrive": {
+      "post": {
+        "deprecated": true,
+        "description": "Deprecated: use POST /webhooks/deliveries/:id/retry instead (docs/18 workstream 8 step 8.4). Kept for existing callers.",
+        "operationId": "WebhooksController_redrive",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Redrive a failed or exhausted delivery. NOTE: :id is a delivery id here, not an endpoint id (docs/08)",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/deliveries": {
+      "get": {
+        "operationId": "WebhooksController_listDeliveriesPage",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Recent delivery attempts across every endpoint, newest first, filterable and paged",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/deliveries/{id}": {
+      "get": {
+        "operationId": "WebhooksController_getDelivery",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "One delivery attempt, by delivery id",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/deliveries/{id}/retry": {
+      "post": {
+        "operationId": "WebhooksController_retryDelivery",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Retry a failed or exhausted delivery (an alias for POST /webhooks/:id/redrive, with a clearer id)",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/api/v1/webhooks/{id}/deliveries": {
+      "get": {
+        "deprecated": true,
+        "description": "Deprecated: use GET /webhooks/deliveries?endpointId=:id instead (docs/18 workstream 8 step 8.4), which adds filtering and paging. Kept for existing callers.",
+        "operationId": "WebhooksController_listDeliveries",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Recent delivery attempts for one endpoint, newest first",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Envelope powered by HealthProHub API",
+    "description": "Server-to-server API for creating, sending and tracking documents for signature.\n\n- **Base URL:** `/api/v1` on your Envelope host.\n- **Authentication:** `Authorization: Bearer <API key>` (scheme `apiKey`). A key can call only the operations listed here; every other route needs a signed-in session.\n- **Errors:** RFC 7807 `application/problem+json` with a stable `code`.\n- **Webhooks:** see the `x-webhooks` extension and the `Webhook*` schemas.\n- **Guide:** `docs/developers/` in the repository is the same contract as a readable guide.",
+    "version": "0.7.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Envelopes",
+      "description": "Create, list and read documents sent for signing."
+    },
+    {
+      "name": "Drafts",
+      "description": "Edit a draft before it is sent. Every edit needs `If-Match` with the latest draftRevision."
+    },
+    {
+      "name": "Documents",
+      "description": "Download the original, the sealed or the certificate PDF."
+    },
+    {
+      "name": "Sending",
+      "description": "Send, remind and cancel."
+    },
+    {
+      "name": "Embedded editor",
+      "description": "Issue and revoke embedded sender-editor sessions. The editor itself calls the rest."
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "A server API key, created in Settings → Integrations. Keep it on your server."
+      },
+      "session": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "A signed-in person’s session token (the web app)."
+      },
+      "embedSession": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "The token an embedded editor session receives after its launch handshake."
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "BAD_REQUEST",
+              "VALIDATION_FAILED",
+              "UNAUTHENTICATED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "CONFLICT",
+              "PAYLOAD_TOO_LARGE",
+              "UNSUPPORTED_MEDIA_TYPE",
+              "RATE_LIMITED",
+              "INTERNAL_ERROR",
+              "SERVICE_UNAVAILABLE",
+              "EMBED_ORIGIN_NOT_ALLOWED",
+              "EMBED_SESSION_INVALID",
+              "EMBED_SESSION_EXPIRED",
+              "EMBED_LAUNCH_USED",
+              "EMBED_SCOPE_DENIED",
+              "EMBED_UPLOAD_BOUND",
+              "INVALID_CREDENTIALS",
+              "SESSION_EXPIRED",
+              "EMAIL_ALREADY_REGISTERED",
+              "FORBIDDEN_ROLE",
+              "LAST_OWNER",
+              "INVITE_TOKEN_INVALID",
+              "INVITE_TOKEN_EXPIRED",
+              "FILE_REQUIRED",
+              "FILE_TOO_LARGE",
+              "UNSUPPORTED_FILE_TYPE",
+              "INVALID_PDF",
+              "ENCRYPTED_PDF",
+              "PAGE_LIMIT_EXCEEDED",
+              "MALWARE_DETECTED",
+              "INVALID_COORDINATE_SPACE",
+              "RATIO_OUT_OF_RANGE",
+              "FIELD_EXCEEDS_PAGE",
+              "PAGE_OUT_OF_RANGE",
+              "ENVELOPE_NOT_DRAFT",
+              "ENVELOPE_TERMINAL",
+              "ENVELOPE_EXPIRED",
+              "RECIPIENT_EMAIL_TAKEN",
+              "DRAFT_REVISION_MISMATCH",
+              "DOCUMENT_CATEGORY_BLOCKED",
+              "RECIPIENT_HAS_NO_FIELDS",
+              "NOT_READY_TO_SEND",
+              "REQUIRED_FIELDS_INCOMPLETE",
+              "TOKEN_INVALID",
+              "TOKEN_EXPIRED",
+              "TOKEN_ALREADY_USED",
+              "CONSENT_REQUIRED",
+              "CONSENT_TEXT_CHANGED",
+              "INVALID_SIGNATURE_IMAGE",
+              "REMINDER_TOO_SOON",
+              "DOWNLOAD_LINK_EXPIRED",
+              "DOWNLOAD_RENEW_TOO_SOON",
+              "ENVELOPE_ON_LEGAL_HOLD",
+              "ENVELOPE_PURGED",
+              "API_KEY_INVALID",
+              "API_KEY_NOT_ALLOWED",
+              "API_KEY_READ_ONLY",
+              "WEBHOOK_URL_NOT_ALLOWED",
+              "WEBHOOK_ENDPOINT_LIMIT_REACHED",
+              "WEBHOOK_ENDPOINT_TOTAL_LIMIT_REACHED",
+              "WEBHOOK_ENDPOINT_ACTIVE",
+              "WEBHOOK_DELIVERY_NOT_REDRIVABLE",
+              "IDEMPOTENCY_KEY_REQUIRED",
+              "IDEMPOTENCY_KEY_MISMATCH"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "requestId": {
+            "description": "Matches the X-Request-Id header.",
+            "type": "string"
+          },
+          "errors": {
+            "description": "Per-field problems, on VALIDATION_FAILED and NOT_READY_TO_SEND.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "additionalProperties": {},
+        "description": "RFC 7807 problem details (application/problem+json)."
+      },
+      "Recipient": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SIGNER",
+              "APPROVER",
+              "VIEWER",
+              "CC"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SENT",
+              "DELIVERED",
+              "VIEWED",
+              "SIGNED",
+              "DECLINED"
+            ]
+          },
+          "routingOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "colorIndex": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "status",
+          "routingOrder",
+          "colorIndex"
+        ],
+        "additionalProperties": {}
+      },
+      "RecipientDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SIGNER",
+              "APPROVER",
+              "VIEWER",
+              "CC"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SENT",
+              "DELIVERED",
+              "VIEWED",
+              "SIGNED",
+              "DECLINED"
+            ]
+          },
+          "routingOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "colorIndex": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "invitedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "notifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "lastRemindedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "viewedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "signedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "declinedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "declinedReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "copySentAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "moreTimeRequestedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "status",
+          "routingOrder",
+          "colorIndex",
+          "invitedAt",
+          "notifiedAt",
+          "lastRemindedAt",
+          "viewedAt",
+          "signedAt",
+          "declinedAt",
+          "declinedReason",
+          "copySentAt",
+          "moreTimeRequestedAt"
+        ],
+        "additionalProperties": {}
+      },
+      "Field": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "SIGNATURE",
+              "INITIALS",
+              "DATE_SIGNED",
+              "TEXT_INPUT",
+              "CHECKBOX"
+            ]
+          },
+          "pageNumber": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ratioX": {
+            "type": "number"
+          },
+          "ratioY": {
+            "type": "number"
+          },
+          "ratioWidth": {
+            "type": "number"
+          },
+          "ratioHeight": {
+            "type": "number"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "recipientId",
+          "type",
+          "pageNumber",
+          "ratioX",
+          "ratioY",
+          "ratioWidth",
+          "ratioHeight",
+          "required"
+        ],
+        "additionalProperties": {}
+      },
+      "EnvelopeSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SENT",
+              "DELIVERED",
+              "PARTIALLY_SIGNED",
+              "EXPIRED",
+              "COMPLETED",
+              "DECLINED",
+              "VOIDED"
+            ]
+          },
+          "originalFilename": {
+            "type": "string"
+          },
+          "pageCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "expiresAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "progress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "signed": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "waitingOn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "oldestUnviewedSince": {
+                "nullable": true,
+                "type": "string",
+                "description": "UTC ISO 8601 timestamp",
+                "example": "2026-09-27T10:00:00.000Z"
+              },
+              "lastActivityAt": {
+                "nullable": true,
+                "type": "string",
+                "description": "UTC ISO 8601 timestamp",
+                "example": "2026-09-27T10:00:00.000Z"
+              }
+            },
+            "required": [
+              "signed",
+              "total",
+              "waitingOn",
+              "oldestUnviewedSince",
+              "lastActivityAt"
+            ],
+            "additionalProperties": {}
+          },
+          "attention": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "since": {
+                "type": "string",
+                "description": "UTC ISO 8601 timestamp",
+                "example": "2026-09-27T10:00:00.000Z"
+              }
+            },
+            "required": [
+              "reason",
+              "since"
+            ],
+            "additionalProperties": {}
+          },
+          "legalHoldAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "externalId": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "originalFilename",
+          "pageCount",
+          "createdAt",
+          "updatedAt",
+          "expiresAt",
+          "progress",
+          "legalHoldAt",
+          "externalId"
+        ],
+        "additionalProperties": {}
+      },
+      "EnvelopeList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvelopeSummary"
+            }
+          },
+          "nextCursor": {
+            "nullable": true,
+            "description": "Pass as `cursor`; null on the last page.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": {}
+      },
+      "EnvelopeCounts": {
+        "type": "object",
+        "properties": {
+          "attention": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "waiting": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "completed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "cancelled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "drafts": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "all": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "attention",
+          "waiting",
+          "completed",
+          "cancelled",
+          "drafts",
+          "all"
+        ],
+        "additionalProperties": {}
+      },
+      "AuditEvent": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "action": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "actorUserId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "recipientId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "eventHash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequence",
+          "action",
+          "timestamp",
+          "actorUserId",
+          "recipientId",
+          "eventHash"
+        ],
+        "additionalProperties": {}
+      },
+      "EnvelopeDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SENT",
+              "DELIVERED",
+              "PARTIALLY_SIGNED",
+              "EXPIRED",
+              "COMPLETED",
+              "DECLINED",
+              "VOIDED"
+            ]
+          },
+          "originalFilename": {
+            "type": "string"
+          },
+          "pageCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "expiresAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "progress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "signed": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "waitingOn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "oldestUnviewedSince": {
+                "nullable": true,
+                "type": "string",
+                "description": "UTC ISO 8601 timestamp",
+                "example": "2026-09-27T10:00:00.000Z"
+              },
+              "lastActivityAt": {
+                "nullable": true,
+                "type": "string",
+                "description": "UTC ISO 8601 timestamp",
+                "example": "2026-09-27T10:00:00.000Z"
+              }
+            },
+            "required": [
+              "signed",
+              "total",
+              "waitingOn",
+              "oldestUnviewedSince",
+              "lastActivityAt"
+            ],
+            "additionalProperties": {}
+          },
+          "attention": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string"
+              },
+              "since": {
+                "type": "string",
+                "description": "UTC ISO 8601 timestamp",
+                "example": "2026-09-27T10:00:00.000Z"
+              }
+            },
+            "required": [
+              "reason",
+              "since"
+            ],
+            "additionalProperties": {}
+          },
+          "legalHoldAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "externalId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "metadata": {
+            "nullable": true,
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "originalHash": {
+            "type": "string"
+          },
+          "finalHash": {
+            "nullable": true,
+            "type": "string"
+          },
+          "completedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "senderCopySentAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "owner": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "fullName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "fullName"
+            ],
+            "additionalProperties": {}
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "versionNumber": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "pageCount": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "sizeBytes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "isFinal": {
+                  "type": "boolean"
+                },
+                "createdByRecipientId": {
+                  "nullable": true,
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "description": "UTC ISO 8601 timestamp",
+                  "example": "2026-09-27T10:00:00.000Z"
+                }
+              },
+              "required": [
+                "versionNumber",
+                "sha256",
+                "pageCount",
+                "sizeBytes",
+                "isFinal",
+                "createdByRecipientId",
+                "createdAt"
+              ],
+              "additionalProperties": {}
+            }
+          },
+          "auditTrail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEvent"
+            }
+          },
+          "auditEventCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "eventsCursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "message": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sequentialSigning": {
+            "type": "boolean"
+          },
+          "draftRevision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Send back as If-Match on the next draft edit."
+          },
+          "sentAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "reminderIntervalDays": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "expiredAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "voidedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "voidReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "voidedBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "fullName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "fullName"
+            ],
+            "additionalProperties": {}
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecipientDetail"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Field"
+            }
+          },
+          "documentCategory": {
+            "type": "string",
+            "enum": [
+              "COMMERCIAL_CONTRACT",
+              "EMPLOYMENT_AGREEMENT",
+              "NDA",
+              "CONSENT_FORM",
+              "FINANCIAL_AGREEMENT",
+              "REAL_ESTATE_LEASE",
+              "WILL_OR_TESTAMENTARY",
+              "PROPERTY_TRANSFER",
+              "FAMILY_LAW",
+              "NEGOTIABLE_INSTRUMENT",
+              "COURT_FILING",
+              "UTILITY_EVICTION_INSURANCE_NOTICE",
+              "OTHER"
+            ]
+          },
+          "jurisdictionCode": {
+            "type": "string"
+          },
+          "policyVersion": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "legalHoldReason": {
+            "nullable": true,
+            "type": "string"
+          },
+          "legalHoldBy": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "fullName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "fullName"
+            ],
+            "additionalProperties": {}
+          },
+          "retentionDueAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "purgedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "originalFilename",
+          "pageCount",
+          "createdAt",
+          "updatedAt",
+          "expiresAt",
+          "progress",
+          "legalHoldAt",
+          "externalId",
+          "metadata",
+          "originalHash",
+          "finalHash",
+          "completedAt",
+          "senderCopySentAt",
+          "owner",
+          "versions",
+          "auditTrail",
+          "auditEventCount",
+          "eventsCursor",
+          "message",
+          "sequentialSigning",
+          "draftRevision",
+          "sentAt",
+          "reminderIntervalDays",
+          "expiredAt",
+          "voidedAt",
+          "voidReason",
+          "voidedBy",
+          "recipients",
+          "fields",
+          "documentCategory",
+          "jurisdictionCode",
+          "policyVersion",
+          "legalHoldReason",
+          "legalHoldBy",
+          "retentionDueAt",
+          "purgedAt"
+        ],
+        "additionalProperties": {}
+      },
+      "EnvelopeEvents": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEvent"
+            }
+          },
+          "nextCursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "additionalProperties": {}
+      },
+      "DraftRevision": {
+        "type": "object",
+        "properties": {
+          "draftRevision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "draftRevision"
+        ],
+        "additionalProperties": {}
+      },
+      "RecipientResult": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "$ref": "#/components/schemas/Recipient"
+          },
+          "draftRevision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fieldsRemoved": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "recipient",
+          "draftRevision"
+        ],
+        "additionalProperties": {}
+      },
+      "FieldsResult": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Field"
+            }
+          },
+          "draftRevision": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "fields",
+          "draftRevision"
+        ],
+        "additionalProperties": {}
+      },
+      "SendResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SENT"
+            ]
+          },
+          "sentAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "invited": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "status"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "sentAt",
+          "expiresAt",
+          "invited"
+        ],
+        "additionalProperties": {}
+      },
+      "VoidResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "VOIDED"
+            ]
+          },
+          "voidedAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "discarded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "voidedAt",
+          "discarded"
+        ],
+        "additionalProperties": {}
+      },
+      "RemindResult": {
+        "type": "object",
+        "properties": {
+          "reminded": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "recipientId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "FINISHED",
+                    "NOT_THEIR_TURN",
+                    "TOO_SOON"
+                  ]
+                }
+              },
+              "required": [
+                "recipientId",
+                "reason"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "reminded",
+          "skipped"
+        ],
+        "additionalProperties": {}
+      },
+      "EmbedSession": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "launchToken": {
+            "type": "string",
+            "pattern": "^eel_[a-f0-9]{64}$"
+          },
+          "launchExpiresAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "frameUrl": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "sessionId",
+          "launchToken",
+          "launchExpiresAt",
+          "frameUrl"
+        ],
+        "additionalProperties": {}
+      },
+      "WebhookEvent": {
+        "type": "object",
+        "description": "The JSON body of every webhook delivery. `data` always carries `externalId` and `metadata` (null when unset) alongside the fields listed for the event.",
+        "required": [
+          "id",
+          "type",
+          "createdAt",
+          "data"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The event id, stable across retries. Deduplicate on it."
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "envelope.sent",
+              "envelope.viewed",
+              "recipient.consented",
+              "recipient.signed",
+              "recipient.declined",
+              "envelope.completed",
+              "envelope.voided",
+              "envelope.expired",
+              "envelope.extended"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the event happened (UTC ISO 8601)."
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "WebhookEventEnvelopeSent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "The envelope was sent and invitations were queued; this does not confirm inbox delivery.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "envelope.sent",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeStatus": "SENT",
+            "sentAt": "2026-09-27T10:00:00.000Z",
+            "expiresAt": "2026-10-11T10:00:00.000Z",
+            "recipientCount": 1,
+            "invitedCount": 1,
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventEnvelopeViewed": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "A recipient opened their link for the first time.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "envelope.viewed",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "recipientId": "22222222-2222-4222-8222-222222222222",
+            "viewedAt": "2026-09-27T10:00:00.000Z",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventRecipientConsented": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "A recipient accepted electronic signing consent.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "recipient.consented",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "recipientId": "22222222-2222-4222-8222-222222222222",
+            "recipientEmail": "alex@example.com",
+            "consentGivenAt": "2026-09-27T10:00:00.000Z",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventRecipientSigned": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "A recipient finished; the sealing worker may still be running.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "recipient.signed",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "recipientId": "22222222-2222-4222-8222-222222222222",
+            "recipientEmail": "alex@example.com",
+            "signedAt": "2026-09-27T10:00:00.000Z",
+            "envelopeStatus": "PARTIALLY_SIGNED",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventRecipientDeclined": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "A recipient declined and the envelope closed.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "recipient.declined",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "recipientId": "22222222-2222-4222-8222-222222222222",
+            "recipientEmail": "alex@example.com",
+            "declinedAt": "2026-09-27T10:00:00.000Z",
+            "envelopeStatus": "DECLINED",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventEnvelopeCompleted": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "The final PDF is sealed. Use finalVersionNumber to download it.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "envelope.completed",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeStatus": "COMPLETED",
+            "completedAt": "2026-09-27T10:00:00.000Z",
+            "finalVersionNumber": 2,
+            "finalHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventEnvelopeVoided": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "The sender cancelled the envelope or discarded its draft.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "envelope.voided",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeStatus": "VOIDED",
+            "voidedAt": "2026-09-27T10:00:00.000Z",
+            "fromStatus": "SENT",
+            "reason": "Sent to the wrong patient",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventEnvelopeExpired": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "The deadline passed with unfinished recipients. Signing is paused.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "envelope.expired",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeStatus": "EXPIRED",
+            "expiredAt": "2026-09-27T10:00:00.000Z",
+            "unsigned": 1,
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventEnvelopeExtended": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "The sender gave an expired envelope a new deadline, reopening it.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "envelope.extended",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeStatus": "SENT",
+            "expiresAt": "2026-11-11T10:00:00.000Z",
+            "previousExpiresAt": "2026-10-11T10:00:00.000Z",
+            "reopened": true,
+            "reinvitedCount": 1,
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-webhooks": {
+    "description": "Signed POST requests sent to your registered endpoint. Verify `X-Signature` over \"<X-Signature-Timestamp>.<raw body>\" with HMAC-SHA256.",
+    "headers": [
+      {
+        "name": "X-Signature",
+        "description": "sha256=<hex HMAC-SHA256 of \"<timestamp>.<raw body>\">. During a secret rotation it lists one signature per accepted secret, comma-separated."
+      },
+      {
+        "name": "X-Signature-Timestamp",
+        "description": "Unix seconds when this attempt was signed. Reject anything older than five minutes."
+      },
+      {
+        "name": "X-Envelope-Event-Id",
+        "description": "The event id, the same on every retry and redrive. Deduplicate on this."
+      },
+      {
+        "name": "X-Envelope-Event-Type",
+        "description": "The event type, so you can route before parsing the body."
+      },
+      {
+        "name": "X-Envelope-Delivery-Id",
+        "description": "Identifies this delivery record; it is what the Deliveries screen shows."
+      },
+      {
+        "name": "X-Envelope-Delivery-Attempt",
+        "description": "The attempt number, starting at 1 and continuing across manual redrives."
+      }
+    ],
+    "events": {
+      "envelope.sent": {
+        "$ref": "#/components/schemas/WebhookEventEnvelopeSent"
+      },
+      "envelope.viewed": {
+        "$ref": "#/components/schemas/WebhookEventEnvelopeViewed"
+      },
+      "recipient.consented": {
+        "$ref": "#/components/schemas/WebhookEventRecipientConsented"
+      },
+      "recipient.signed": {
+        "$ref": "#/components/schemas/WebhookEventRecipientSigned"
+      },
+      "recipient.declined": {
+        "$ref": "#/components/schemas/WebhookEventRecipientDeclined"
+      },
+      "envelope.completed": {
+        "$ref": "#/components/schemas/WebhookEventEnvelopeCompleted"
+      },
+      "envelope.voided": {
+        "$ref": "#/components/schemas/WebhookEventEnvelopeVoided"
+      },
+      "envelope.expired": {
+        "$ref": "#/components/schemas/WebhookEventEnvelopeExpired"
+      },
+      "envelope.extended": {
+        "$ref": "#/components/schemas/WebhookEventEnvelopeExtended"
+      }
+    }
+  }
+}

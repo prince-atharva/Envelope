@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Controller, Get, Param, Res } from '@nestjs/common';
+import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Public } from '../auth/auth.decorators';
 import { AppException } from '../common/errors/app-exception';
@@ -16,6 +17,7 @@ export class EmbedFrameController {
   ) {}
   @Get(':id')
   @Public()
+  @ApiExcludeEndpoint()
   async frame(@Param('id', UuidParamPipe) id: string, @Res() response: Response): Promise<void> {
     const session = await this.sessions.frame(id);
     const root = this.config.NODE_ENV === 'test' ? 'apps/web/.e2e/web-dist' : 'apps/web/dist';

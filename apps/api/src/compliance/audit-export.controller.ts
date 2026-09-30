@@ -20,7 +20,7 @@ import { AuditExportService, toCsv } from './audit-export.service';
  * for a human reader, without the hashes. ADMIN or OWNER only.
  */
 @ApiTags('compliance')
-@ApiBearerAuth()
+@ApiBearerAuth('session')
 @Controller('envelopes')
 export class AuditExportController {
   constructor(private readonly exports: AuditExportService) {}
