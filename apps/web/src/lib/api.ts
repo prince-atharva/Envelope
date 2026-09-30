@@ -6,11 +6,14 @@ import {
   type AuthResponse,
   type ChangePasswordInput,
   type ChangeUserRoleInput,
+  type ConfirmTwoFactorInput,
   type CreateApiKeyInput,
   type CreateApiKeyResponse,
   type CreateWebhookEndpointInput,
   type CreateWebhookEndpointResponse,
   type DraftRevisionResponse,
+  type EnableTwoFactorInput,
+  type EnrolFinishResponse,
   type EnvelopeCounts,
   type EnvelopeDetail,
   type EnvelopeEventsResponse,
@@ -29,10 +32,12 @@ import {
   type LegalHoldInput,
   type LegalHoldResponse,
   type LoginInput,
+  type LoginResponse,
   type PasswordResetPreview,
   type ProblemDetails,
   type ProblemFieldError,
   type RecipientResponse,
+  type RecoveryCodesResponse,
   type RegisterInput,
   type ReminderSettingsInput,
   type ReminderSettingsResponse,
@@ -44,7 +49,14 @@ import {
   type SaveFieldsResponse,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
+  type SetTwoFactorPolicyInput,
   type TenantUser,
+  type TwoFactorChallengeInput,
+  type TwoFactorEnrolFinishInput,
+  type TwoFactorEnrolStartInput,
+  type TwoFactorPolicy,
+  type TwoFactorSetup,
+  type TwoFactorStatus,
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
   type UpdateWebhookEndpointInput,
@@ -319,22 +331,61 @@ export const api = {
     return session;
   },
 
-  async login(input: LoginInput): Promise<AuthResponse> {
-    const session = await json<AuthResponse>('/auth/login', jsonBody(input));
+  /**
+   * A session, or a challenge to answer (a code, or a required enrolment). Only a
+   * session is adopted; the others hold no credential of their own (ADR 0024).
+   */
+  async login(input: LoginInput): Promise<LoginResponse> {
+    const result = await json<LoginResponse>('/auth/login', jsonBody(input));
+    if ('accessToken' in result) setSession(result);
+    return result;
+  },
+
+  async completeTwoFactor(input: TwoFactorChallengeInput): Promise<AuthResponse> {
+    const session = await json<AuthResponse>('/auth/2fa/challenge', jsonBody(input));
     setSession(session);
     return session;
   },
 
+  twoFactorEnrolStart: (input: TwoFactorEnrolStartInput) =>
+    json<TwoFactorSetup>('/auth/2fa/enrol/start', jsonBody(input)),
+
+  /** Not adopted yet: the recovery codes must be shown first, see `adoptSession`. */
+  twoFactorEnrolFinish: (input: TwoFactorEnrolFinishInput) =>
+    json<EnrolFinishResponse>('/auth/2fa/enrol/finish', jsonBody(input)),
+
+  /** Starts using a session that was returned but held back, such as after a required enrolment. */
+  adoptSession: (session: AuthResponse): void => setSession(session),
+
+  twoFactorStatus: () => json<TwoFactorStatus>('/auth/2fa'),
+
+  twoFactorSetup: () => json<TwoFactorSetup>('/auth/2fa/setup', { method: 'POST' }),
+
+  twoFactorEnable: (input: EnableTwoFactorInput) =>
+    json<RecoveryCodesResponse>('/auth/2fa/enable', jsonBody(input)),
+
+  twoFactorDisable: (input: ConfirmTwoFactorInput) =>
+    json<void>('/auth/2fa/disable', jsonBody(input)),
+
+  twoFactorRecoveryCodes: (input: ConfirmTwoFactorInput) =>
+    json<RecoveryCodesResponse>('/auth/2fa/recovery-codes', jsonBody(input)),
+
+  setTwoFactorPolicy: (input: SetTwoFactorPolicyInput) =>
+    json<TwoFactorPolicy>('/tenant/two-factor', jsonBody(input, 'PUT')),
+
+  resetUserTwoFactor: (userId: string) =>
+    json<void>(`/users/${encodeURIComponent(userId)}/two-factor`, { method: 'DELETE' }),
+
   invitationPreview: (token: string) =>
     json<InvitationPreview>(`/auth/invitations/${encodeURIComponent(token)}`),
 
-  async acceptInvite(token: string, input: AcceptInviteInput): Promise<AuthResponse> {
-    const session = await json<AuthResponse>(
+  async acceptInvite(token: string, input: AcceptInviteInput): Promise<LoginResponse> {
+    const result = await json<LoginResponse>(
       `/auth/invitations/${encodeURIComponent(token)}/accept`,
       jsonBody(input),
     );
-    setSession(session);
-    return session;
+    if ('accessToken' in result) setSession(result);
+    return result;
   },
 
   /** Ends every other session of the account; this one stays. */

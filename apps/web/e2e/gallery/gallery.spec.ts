@@ -21,6 +21,7 @@ import {
   waitForFieldsSaved,
 } from '../helpers';
 import { STACK_ENV } from '../stack/stack.mjs';
+import { totpNow } from '../totp';
 import { GALLERY_DIR, overlayReady, pdfReady, shot, writeContactSheet } from './shot';
 
 /** Fingerprints differ on every run, so every shot masks them. */
@@ -150,6 +151,62 @@ test('account screen', async ({ page }) => {
     area: 'account',
     caption: 'A new password that breaks the policy is stopped before it is sent.',
     mask: [page.getByText(/^How you sign in as /)],
+  });
+});
+
+test('two-factor screens', async ({ page }) => {
+  const email = await signUpAs(page, 'gallery-2fa', SENDER);
+  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
+  await shot(page, 'account-two-factor-off', {
+    area: 'account',
+    caption: 'Account with two-factor off.',
+    mask: [page.getByText(/^How you sign in as /)],
+  });
+
+  await page.getByRole('button', { name: 'Set up two-factor authentication' }).click();
+  await expect(page.getByAltText('QR code for your authenticator app')).toBeVisible();
+  const secretText = await page.getByText(/^[A-Z2-7]{4}( [A-Z2-7]{4}){7}$/).innerText();
+  const secret = secretText.replace(/\s/g, '');
+  await shot(page, 'two-factor-setup', {
+    area: 'account',
+    caption: 'Setting up: scan the code, or type the key.',
+    mask: [
+      page.getByAltText('QR code for your authenticator app'),
+      page.getByText(/^[A-Z2-7]{4}( [A-Z2-7]{4}){7}$/),
+      page.getByText(/^How you sign in as /),
+    ],
+  });
+  await page.getByLabel('Code from your app').fill(totpNow(secret));
+  await page.getByRole('button', { name: 'Turn on', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Recovery codes' })).toBeVisible();
+  await shot(page, 'two-factor-recovery-codes', {
+    area: 'account',
+    caption: 'Ten single-use recovery codes, shown once.',
+    mask: [
+      page.getByRole('list', { name: 'Recovery codes' }),
+      page.getByText(/^How you sign in as /),
+    ],
+  });
+  await page.getByLabel('I have saved these codes').check();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByText('Two-factor authentication is on.')).toBeVisible();
+  await shot(page, 'account-two-factor-on', {
+    area: 'account',
+    caption: 'Account with two-factor on.',
+    mask: [page.getByText(/^How you sign in as /)],
+  });
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password').fill(TEST_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Two-step verification' })).toBeVisible();
+  await shot(page, 'sign-in-code', { area: 'auth', caption: 'Sign in: the code step.' });
+  await page.getByRole('button', { name: 'Use a recovery code instead' }).click();
+  await shot(page, 'sign-in-recovery-code', {
+    area: 'auth',
+    caption: 'Sign in with a recovery code instead.',
   });
 });
 

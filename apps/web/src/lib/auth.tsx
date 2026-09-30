@@ -1,4 +1,4 @@
-import type { LoginInput, RegisterInput, UserProfile } from '@envelope/shared';
+import type { LoginInput, LoginResponse, RegisterInput, UserProfile } from '@envelope/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   createContext,
@@ -16,7 +16,8 @@ type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 interface AuthContextValue {
   status: AuthStatus;
   user: UserProfile | null;
-  login(input: LoginInput): Promise<void>;
+  /** A session is adopted here; a code or enrolment step is returned for the page to handle. */
+  login(input: LoginInput): Promise<LoginResponse>;
   register(input: RegisterInput): Promise<void>;
   logout(): Promise<void>;
 }
@@ -44,9 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, [queryClient]);
 
-  const login = useCallback(async (input: LoginInput) => {
-    await api.login(input);
-  }, []);
+  const login = useCallback((input: LoginInput) => api.login(input), []);
   const register = useCallback(async (input: RegisterInput) => {
     await api.register(input);
   }, []);

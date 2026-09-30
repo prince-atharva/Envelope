@@ -1,4 +1,5 @@
 import { PasswordSection } from '../features/account/PasswordSection';
+import { TwoFactorSection } from '../features/account/TwoFactorSection';
 import { useAuth } from '../lib/auth';
 import { useDocumentTitle } from '../lib/use-document-title';
 
@@ -16,6 +17,7 @@ export function AccountPage() {
         </p>
       </div>
       <PasswordSection />
+      <TwoFactorSection />
     </div>
   );
 }

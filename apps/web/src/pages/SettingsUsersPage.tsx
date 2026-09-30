@@ -2,6 +2,7 @@ import type { ChangeUserRoleInput, InviteUserInput, TenantUser, UserRole } from 
 import { USER_ROLES } from '@envelope/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { Link } from 'react-router';
 import { SettingsNav } from '../components/layout/SettingsNav';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
@@ -141,10 +142,36 @@ export function SettingsUsersPage() {
       api.changeUserRole(userId, input),
     onSuccess: refresh,
   });
+  const twoFactorPolicy = useQuery({ queryKey: queryKeys.twoFactor, queryFn: api.twoFactorStatus });
+  const policyMutation = useMutation({
+    mutationFn: (required: boolean) => api.setTwoFactorPolicy({ required }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.twoFactor }),
+  });
+  const resetTwoFactorMutation = useMutation({
+    mutationFn: (userId: string) => api.resetUserTwoFactor(userId),
+    onSuccess: refresh,
+  });
   const removeMutation = useMutation({
     mutationFn: (userId: string) => api.removeUser(userId),
     onSuccess: refresh,
   });
+
+  function resetTwoFactor(target: TenantUser) {
+    setPending({
+      title: `Reset two-factor for ${target.fullName}?`,
+      body: (
+        <p>
+          {target.fullName} will be signed out everywhere and told by email. They can sign in with
+          their password again
+          {twoFactorPolicy.data?.required ? ' and will set up two-factor again first' : ''}. Use
+          this when they have lost both their phone and their recovery codes.
+        </p>
+      ),
+      confirmLabel: 'Reset two-factor',
+      destructive: true,
+      onConfirm: () => resetTwoFactorMutation.mutate(target.id),
+    });
+  }
 
   function removeUser(target: TenantUser) {
     setPending({
@@ -234,6 +261,50 @@ export function SettingsUsersPage() {
         </div>
       </div>
 
+      {/* Workspace rule (docs/19, ADR 0025) */}
+      <section
+        aria-labelledby="two-factor-policy-heading"
+        className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-xs sm:px-6"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="two-factor-policy-heading" className="text-sm font-semibold text-slate-900">
+              Two-factor authentication
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Require everyone to sign in with a code from an authenticator app. People without it
+              set it up at their next sign-in.
+            </p>
+          </div>
+          <label className="flex shrink-0 items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={twoFactorPolicy.data?.required ?? false}
+              disabled={!twoFactorPolicy.data || policyMutation.isPending}
+              onChange={(event) => policyMutation.mutate(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Require two-factor for everyone
+          </label>
+        </div>
+        {policyMutation.error && (
+          <div className="mt-3">
+            <Alert>
+              {describeError(policyMutation.error).message}
+              {twoFactorPolicy.data?.enabled === false && (
+                <>
+                  {' '}
+                  <Link to="/account" className="font-medium underline">
+                    Open your account
+                  </Link>
+                  .
+                </>
+              )}
+            </Alert>
+          </div>
+        )}
+      </section>
+
       {/* User list — same card shape as dashboard document list */}
       <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
         {(users ?? []).map((person) => {
@@ -254,6 +325,11 @@ export function SettingsUsersPage() {
                     {isSelf && (
                       <span className="inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-inset ring-brand-600/20">
                         you
+                      </span>
+                    )}
+                    {person.twoFactorEnabled && (
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+                        Two-factor on
                       </span>
                     )}
                   </div>
@@ -284,6 +360,17 @@ export function SettingsUsersPage() {
 
               {/* Right: Role + Remove — same right-side pattern as dashboard row */}
               <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 pt-3 sm:justify-end sm:border-0 sm:pt-0">
+                {person.twoFactorEnabled && !isSelf && (
+                  <button
+                    type="button"
+                    disabled={resetTwoFactorMutation.isPending}
+                    onClick={() => resetTwoFactor(person)}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                    aria-label={`Reset two-factor for ${person.fullName}`}
+                  >
+                    Reset two-factor
+                  </button>
+                )}
                 <label className="sr-only" htmlFor={`role-${person.id}`}>
                   Role for {person.fullName}
                 </label>

@@ -1,4 +1,4 @@
-import { PASSWORD_MIN_LENGTH } from '@envelope/shared';
+import { isMfaEnrolmentRequired, PASSWORD_MIN_LENGTH } from '@envelope/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -10,6 +10,7 @@ import { TopProgressBar } from '../../components/ui/Skeletons';
 import { api } from '../../lib/api';
 import { describeError } from '../../lib/errors';
 import { useDocumentTitle } from '../../lib/use-document-title';
+import { RequiredEnrolment } from '../two-factor/RequiredEnrolment';
 
 /**
  * `/accept-invite/:token` (docs/17 step 6): a public page, reached from a
@@ -21,6 +22,8 @@ export default function AcceptInvitePage() {
   const { token = '' } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
+  // A workspace that requires two-factor asks for enrolment before any session (ADR 0025).
+  const [enrolToken, setEnrolToken] = useState<string | null>(null);
 
   const preview = useQuery({
     queryKey: ['invitation', token],
@@ -30,8 +33,25 @@ export default function AcceptInvitePage() {
 
   const accept = useMutation({
     mutationFn: () => api.acceptInvite(token, { password }),
-    onSuccess: () => navigate('/dashboard', { replace: true }),
+    onSuccess: (result) => {
+      if (isMfaEnrolmentRequired(result)) {
+        setEnrolToken(result.challengeToken);
+        return;
+      }
+      return navigate('/dashboard', { replace: true });
+    },
   });
+
+  if (enrolToken) {
+    return (
+      <PublicFrame>
+        <RequiredEnrolment
+          challengeToken={enrolToken}
+          onSignedIn={() => void navigate('/dashboard', { replace: true })}
+        />
+      </PublicFrame>
+    );
+  }
 
   if (preview.isLoading) {
     return <TopProgressBar />;

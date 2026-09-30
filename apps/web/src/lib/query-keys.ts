@@ -11,6 +11,7 @@ export const queryKeys = {
   envelopeEvents: (id: string) => ['envelope', id, 'events'] as const,
   document: (id: string, version = 0) => ['document', id, version] as const,
   users: ['users'] as const,
+  twoFactor: ['two-factor'] as const,
   apiKeys: ['integrations', 'api-keys'] as const,
   webhookEndpoints: ['integrations', 'webhooks'] as const,
   /** Filters are part of the key so changing one starts a fresh page chain (docs/18 workstream 8 step 8.5). */

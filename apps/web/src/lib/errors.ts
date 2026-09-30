@@ -43,6 +43,11 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
     'This reset link is not valid. It may already have been used, or a newer link may have replaced it.',
   PASSWORD_RESET_TOKEN_EXPIRED: 'This reset link has expired. Reset links work for one hour.',
   CURRENT_PASSWORD_INCORRECT: 'That is not your current password.',
+  TWO_FACTOR_CODE_INVALID:
+    'That code is not valid. Use the newest code in your app, or a recovery code you have not used.',
+  TWO_FACTOR_CHALLENGE_INVALID: 'Your sign-in timed out. Please sign in again.',
+  TWO_FACTOR_ALREADY_ENABLED: 'Two-factor authentication is already on.',
+  TWO_FACTOR_NOT_ENABLED: 'Two-factor authentication is not on.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 
@@ -61,6 +66,7 @@ const USE_SERVER_DETAIL = new Set<ErrorCode>([
   'DOWNLOAD_RENEW_TOO_SOON',
   'INVITE_TOKEN_INVALID',
   'INVITE_TOKEN_EXPIRED',
+  'TWO_FACTOR_REQUIRED',
 ]);
 
 /** A message a person can act on, plus a reference id for unexpected failures. */

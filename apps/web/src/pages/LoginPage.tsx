@@ -1,10 +1,12 @@
-import { loginSchema } from '@envelope/shared';
+import { isMfaChallenge, isMfaEnrolmentRequired, loginSchema } from '@envelope/shared';
 import { type FormEvent, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { TextField } from '../components/ui/Field';
 import type { LoginNotice } from '../features/auth/ResetPasswordPage';
+import { CodeStep } from '../features/two-factor/CodeStep';
+import { RequiredEnrolment } from '../features/two-factor/RequiredEnrolment';
 import { useAuth } from '../lib/auth';
 import { describeError } from '../lib/errors';
 import { useDocumentTitle } from '../lib/use-document-title';
@@ -17,6 +19,11 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{ message: string; reference?: string } | null>(null);
+  // After a right password, a workspace or account can ask for a second step before any session.
+  const [step, setStep] = useState<{
+    kind: 'code' | 'enrol';
+    challengeToken: string;
+  } | null>(null);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -28,12 +35,27 @@ export function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      // On success the session changes and GuestOnly redirects to the dashboard.
-      await login(parsed.data);
+      // A session changes the auth state and GuestOnly redirects to the dashboard;
+      // otherwise a second step is asked for first (ADR 0024, ADR 0025).
+      const result = await login(parsed.data);
+      if (isMfaChallenge(result)) {
+        setStep({ kind: 'code', challengeToken: result.challengeToken });
+        setSubmitting(false);
+      } else if (isMfaEnrolmentRequired(result)) {
+        setStep({ kind: 'enrol', challengeToken: result.challengeToken });
+        setSubmitting(false);
+      }
     } catch (caught) {
       setError(describeError(caught));
       setSubmitting(false);
     }
+  }
+
+  if (step?.kind === 'code') {
+    return <CodeStep challengeToken={step.challengeToken} onBack={() => setStep(null)} />;
+  }
+  if (step?.kind === 'enrol') {
+    return <RequiredEnrolment challengeToken={step.challengeToken} onBack={() => setStep(null)} />;
   }
 
   return (
