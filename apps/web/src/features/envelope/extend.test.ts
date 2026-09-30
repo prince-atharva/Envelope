@@ -21,6 +21,7 @@ function person(name: string, overrides: Partial<RecipientDetail> = {}): Recipie
     declinedReason: null,
     copySentAt: null,
     moreTimeRequestedAt: null,
+    emailProblem: null,
     ...overrides,
   };
 }

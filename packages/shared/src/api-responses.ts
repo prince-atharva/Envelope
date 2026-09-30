@@ -58,6 +58,9 @@ export const recipientDetailSchema = recipientInfoSchema
     declinedReason: z.string().nullable(),
     copySentAt: nullableTime,
     moreTimeRequestedAt: nullableTime,
+    emailProblem: z.enum(['BOUNCED', 'COMPLAINED']).nullable().meta({
+      description: 'Set when a mail provider reported an email to this person as undeliverable.',
+    }),
   })
   .meta({ id: 'RecipientDetail' });
 

@@ -3,10 +3,20 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
-import type { DeclinedNoticeJob, ExpiredNoticeJob, MoreTimeRequestedJob } from './mail.types';
+import type {
+  DeclinedNoticeJob,
+  DeliveryFailedNoticeJob,
+  ExpiredNoticeJob,
+  MoreTimeRequestedJob,
+} from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import type { SigningLinkResult } from './signing-link.mailer';
-import { renderDeclinedEmail, renderExpiredEmail, renderMoreTimeEmail } from './templates';
+import {
+  renderDeclinedEmail,
+  renderDeliveryFailedEmail,
+  renderExpiredEmail,
+  renderMoreTimeEmail,
+} from './templates';
 
 /** Emails to the sender about their envelope: someone declined, or it expired. */
 @Injectable()
@@ -110,6 +120,47 @@ export class SenderNoticeMailer {
         recipientEmail: recipient.email,
         envelopeTitle: envelope.title,
         envelopeUrl: envelopeUrl.toString(),
+      }),
+      job.template,
+    );
+  }
+
+  /**
+   * A mail to one of their recipients bounced, or was reported as spam (docs/20,
+   * ADR 0029). Skipped once the envelope is closed, when the news is stale.
+   */
+  async sendDeliveryFailed(job: DeliveryFailedNoticeJob): Promise<SigningLinkResult> {
+    const ids = { envelopeId: job.envelopeId, recipientId: job.recipientId };
+    const delivery = await this.prisma.mailDelivery.findFirst({
+      where: { id: job.deliveryId, envelopeId: job.envelopeId },
+      select: { status: true },
+    });
+    const recipient = await this.prisma.recipient.findFirst({
+      where: { id: job.recipientId, envelopeId: job.envelopeId },
+      include: {
+        envelope: { include: { owner: { select: { email: true, fullName: true } } } },
+      },
+    });
+    if (!delivery || delivery.status === 'SENT' || !recipient) {
+      this.logger.warn(ids, 'Delivery notice not sent: no failed delivery found');
+      return { skipped: 'no failed delivery' };
+    }
+    const { envelope } = recipient;
+    if (isTerminalEnvelope(envelope.status)) {
+      this.logger.info(ids, 'Delivery notice not sent: envelope closed');
+      return { skipped: 'envelope closed' };
+    }
+
+    const envelopeUrl = new URL(`/dashboard/envelopes/${envelope.id}`, this.config.APP_URL);
+    return this.transport.send(
+      renderDeliveryFailedEmail({
+        to: envelope.owner.email,
+        senderName: envelope.owner.fullName,
+        recipientName: recipient.name,
+        recipientEmail: recipient.email,
+        envelopeTitle: envelope.title,
+        envelopeUrl: envelopeUrl.toString(),
+        problem: delivery.status === 'COMPLAINED' ? 'COMPLAINED' : 'BOUNCED',
       }),
       job.template,
     );

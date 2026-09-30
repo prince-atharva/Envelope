@@ -163,6 +163,13 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
                   <p className="truncate text-xs text-slate-600" title={recipient.email}>
                     {recipient.email}
                   </p>
+                  {recipient.emailProblem && (
+                    <p className="mt-1 text-xs font-semibold text-amber-800">
+                      {recipient.emailProblem === 'BOUNCED'
+                        ? 'Email undeliverable: check this address'
+                        : 'They reported your email as spam'}
+                    </p>
+                  )}
                 </div>
                 <span
                   className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${TONE[progress.tone]}`}

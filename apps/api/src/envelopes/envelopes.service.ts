@@ -551,7 +551,7 @@ export class EnvelopesService {
     // of which the response below reads. Run alongside the COMPLETION_SENT
     // lookup instead of after it — the two don't depend on each other
     // (100M-row scale follow-up, docs/16 step 14).
-    const [envelope, copies, eventCount] = await Promise.all([
+    const [envelope, copies, eventCount, problems] = await Promise.all([
       this.db.envelope.findUnique({
         where: { id },
         select: {
@@ -644,6 +644,12 @@ export class EnvelopesService {
       // (audit.service.ts), so its max is the count: an index-only read of
       // the last row, not a count(*) scan of every one.
       this.db.auditTrail.aggregate({ where: { envelopeId: id }, _max: { sequence: true } }),
+      // Emails a mail provider reported as undeliverable (docs/20, ADR 0029).
+      this.db.mailDelivery.findMany({
+        where: { envelopeId: id, status: { not: 'SENT' } },
+        orderBy: { createdAt: 'desc' },
+        select: { recipientId: true, status: true },
+      }),
     ]);
     if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
     // A MEMBER viewing an envelope they don't own reads exactly like "not
@@ -653,6 +659,10 @@ export class EnvelopesService {
       throw new AppException('NOT_FOUND', 'Envelope not found.');
     }
 
+    const emailProblemOf = (recipientId: string): 'BOUNCED' | 'COMPLAINED' | null => {
+      const found = problems.find((problem) => problem.recipientId === recipientId)?.status;
+      return found === 'BOUNCED' || found === 'COMPLAINED' ? found : null;
+    };
     const copySentAt = (recipientId: string | null) =>
       copies.find((copy) => copy.recipientId === recipientId)?.timestamp.toISOString() ?? null;
 
@@ -699,6 +709,7 @@ export class EnvelopesService {
         declinedReason: recipient.declinedReason,
         copySentAt: copySentAt(recipient.id),
         moreTimeRequestedAt: recipient.moreTimeRequestedAt?.toISOString() ?? null,
+        emailProblem: emailProblemOf(recipient.id),
       })),
       // Ordered by page, then down the page: the same order the builder walks
       // fields in, so "next field" means the same thing on both sides.

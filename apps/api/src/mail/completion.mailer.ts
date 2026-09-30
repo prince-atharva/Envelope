@@ -140,7 +140,11 @@ export class CompletionMailer {
         { filename: delivery.filename, contentType: 'application/pdf', content: attachment },
       ];
     }
-    const { messageId } = await this.transport.send(email, job.template);
+    const { messageId } = await this.transport.send(
+      email,
+      job.template,
+      recipient ? { envelopeId: envelope.id, recipientId: recipient.id } : undefined,
+    );
 
     await this.prisma.$transaction(async (tx) => {
       // Before the audit lock: docs/18, workstream 11 (audit lock order).

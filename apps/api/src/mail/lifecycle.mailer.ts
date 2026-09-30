@@ -67,6 +67,7 @@ export class LifecycleMailer {
         reason: envelope.voidReason,
       }),
       job.template,
+      { envelopeId: envelope.id, recipientId: recipient.id },
     );
 
     await this.prisma.$transaction(async (tx) => {

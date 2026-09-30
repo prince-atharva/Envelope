@@ -60,7 +60,11 @@ export class DownloadRenewMailer {
       downloadUrl: downloadUrl(this.config.APP_URL, rawToken),
       expiresAt,
     });
-    const { messageId } = await this.transport.send(email, job.template);
+    const { messageId } = await this.transport.send(
+      email,
+      job.template,
+      link.recipientId ? { envelopeId: link.envelopeId, recipientId: link.recipientId } : undefined,
+    );
 
     this.logger.info(
       { envelopeId: job.envelopeId, tokenRef: tokenRef(tokenHash), messageId },

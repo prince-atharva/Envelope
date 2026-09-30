@@ -110,7 +110,10 @@ export class SigningLinkMailer {
       expiresAt: envelope.expiresAt,
       signingUrl: signingUrl(this.config.APP_URL, rawToken),
     });
-    const { messageId } = await this.transport.send(email, job.template);
+    const { messageId } = await this.transport.send(email, job.template, {
+      envelopeId: envelope.id,
+      recipientId: recipient.id,
+    });
 
     await this.prisma.$transaction(async (tx) => {
       // Before anything else: docs/18, workstream 11 (audit lock order).

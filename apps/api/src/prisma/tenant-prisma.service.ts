@@ -145,6 +145,16 @@ export class TenantPrismaService {
             );
           },
         },
+        // Mail sent about an envelope (docs/20, ADR 0029): read through the tenant's own
+        // envelope. The bounce endpoint and the mail worker have no tenant and use PrismaService.
+        mailDelivery: {
+          $allOperations({ operation, args, query }) {
+            const tenantId = tenantOf(cls, operation);
+            return query(
+              scopeChildArgs(args as Record<string, unknown>, operation, tenantId) as typeof args,
+            );
+          },
+        },
         // Templates and bulk batches (docs/20, ADR 0027, ADR 0028). The roots
         // carry tenantId; their rows are filtered through the parent.
         template: {

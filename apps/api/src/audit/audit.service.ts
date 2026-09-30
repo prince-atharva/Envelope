@@ -71,7 +71,11 @@ export type AuditAction =
   | 'LEGAL_HOLD_RELEASED'
   | 'ENVELOPE_PURGED'
   | 'AUDIT_EXPORTED'
-  | 'DOWNLOAD_LINK_RENEWED';
+  | 'DOWNLOAD_LINK_RENEWED'
+  // Delivery tracking (docs/20, ADR 0029): a mail provider reported that an email to a
+  // recipient did not arrive, or that they marked it as spam.
+  | 'EMAIL_BOUNCED'
+  | 'EMAIL_COMPLAINED';
 
 /** Recorded on events the system itself causes, with no client behind them. */
 export const SYSTEM_ACTOR = { ipAddress: 'system', userAgent: 'envelope-worker' } as const;

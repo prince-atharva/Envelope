@@ -19,6 +19,7 @@ const SENSITIVE_KEYS = [
   'externalId',
   'metadata',
   'EMBED_SESSION_HASH_SECRET',
+  'MAIL_EVENTS_SECRET',
   'password',
   'passwordHash',
   'currentPassword',

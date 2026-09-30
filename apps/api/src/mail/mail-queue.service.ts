@@ -11,6 +11,7 @@ import type {
   AlertEmailJob,
   CompletedEmailJob,
   DeclinedNoticeJob,
+  DeliveryFailedNoticeJob,
   DownloadRenewedJob,
   EmailJobData,
   ExpiredNoticeJob,
@@ -245,6 +246,32 @@ export class MailQueueService implements OnModuleInit {
     };
     const job = await this.queue.add(data.template, data, {
       jobId: `more-time-${recipientId}-${requestedAt.getTime()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /**
+   * Tells the sender a mail to a recipient bounced or was reported as spam
+   * (docs/20, ADR 0029). One job per delivery: a repeated event queues it once.
+   */
+  async enqueueDeliveryFailedNotice(
+    envelopeId: string,
+    recipientId: string,
+    deliveryId: string,
+  ): Promise<string | undefined> {
+    const data: DeliveryFailedNoticeJob = {
+      template: 'delivery-failed',
+      envelopeId,
+      recipientId,
+      deliveryId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `delivery-failed-${deliveryId}`,
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, recipientId },

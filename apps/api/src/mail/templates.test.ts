@@ -4,6 +4,7 @@ import {
   renderAlertEmail,
   renderCompletedEmail,
   renderDeclinedEmail,
+  renderDeliveryFailedEmail,
   renderExpiredEmail,
   renderMoreTimeEmail,
   renderPasswordChangedEmail,
@@ -165,6 +166,38 @@ describe('more-time notice', () => {
       'Priya Sharma (priya@example.com) opened "Lease" after its deadline',
     );
     expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
+  });
+});
+
+describe('delivery-failed notice', () => {
+  const base = {
+    to: 'raj@example.com',
+    senderName: 'Raj Kumar',
+    recipientName: 'Priya\nSharma',
+    recipientEmail: 'priya@example.com',
+    envelopeTitle: 'Lease',
+    envelopeUrl: 'https://sign.example.com/dashboard/envelopes/e-1',
+  };
+
+  it('says which address could not be reached and what to do about it', () => {
+    const email = renderDeliveryFailedEmail({ ...base, problem: 'BOUNCED' });
+    expect(email.subject).toBe('Your email to Priya Sharma about Lease did not arrive');
+    expect(email.text).toContain(
+      'Priya Sharma (priya@example.com) about "Lease" could not be delivered',
+    );
+    expect(email.text).toContain('cancel the document and send it again');
+    expect(email.html).toContain('href="https://sign.example.com/dashboard/envelopes/e-1"');
+  });
+
+  it('reads differently when the recipient reported it as spam, and escapes names', () => {
+    const email = renderDeliveryFailedEmail({
+      ...base,
+      recipientName: 'Dev <Rao>',
+      problem: 'COMPLAINED',
+    });
+    expect(email.subject).toBe('Dev <Rao> reported your email about Lease as spam');
+    expect(email.html).toContain('Dev &lt;Rao&gt;');
+    expect(email.text).toContain('Contact them another way');
   });
 });
 

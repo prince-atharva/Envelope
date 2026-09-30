@@ -5862,6 +5862,15 @@
             "type": "string",
             "description": "UTC ISO 8601 timestamp",
             "example": "2026-09-27T10:00:00.000Z"
+          },
+          "emailProblem": {
+            "nullable": true,
+            "description": "Set when a mail provider reported an email to this person as undeliverable.",
+            "type": "string",
+            "enum": [
+              "BOUNCED",
+              "COMPLAINED"
+            ]
           }
         },
         "required": [
@@ -5880,7 +5889,8 @@
           "declinedAt",
           "declinedReason",
           "copySentAt",
-          "moreTimeRequestedAt"
+          "moreTimeRequestedAt",
+          "emailProblem"
         ],
         "additionalProperties": {}
       },

@@ -54,6 +54,8 @@ export class EmailProcessor extends WorkerHost {
         return this.senderNotices.sendExpired(data);
       case 'more-time-requested':
         return this.senderNotices.sendMoreTimeRequested(data);
+      case 'delivery-failed':
+        return this.senderNotices.sendDeliveryFailed(data);
       case 'alert':
         // Queued by the API, which checked the gate and that ALERT_EMAIL is set.
         return this.config.ALERT_EMAIL

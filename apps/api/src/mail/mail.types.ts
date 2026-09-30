@@ -75,6 +75,18 @@ export interface MoreTimeRequestedJob {
 }
 
 /**
+ * Tells the sender a mail to one of their recipients did not arrive (docs/20,
+ * ADR 0029). Ids only: the worker reads the recipient and the delivery itself.
+ */
+export interface DeliveryFailedNoticeJob {
+  template: 'delivery-failed';
+  envelopeId: string;
+  recipientId: string;
+  deliveryId: string;
+  requestId?: string;
+}
+
+/**
  * Invites someone to a tenant (docs/17 step 6). Id only: the worker mints the
  * invite token when it sends (ADR 0009), the same as a signing link.
  */
@@ -168,6 +180,7 @@ export type EmailJobData =
   | VoidedNoticeJob
   | ExpiredNoticeJob
   | MoreTimeRequestedJob
+  | DeliveryFailedNoticeJob
   | UserInvitedJob
   | PasswordResetEmailJob
   | PasswordChangedEmailJob

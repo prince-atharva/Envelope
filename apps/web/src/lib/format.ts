@@ -40,6 +40,8 @@ const AUDIT_ACTIONS: Record<string, string> = {
   FIELDS_SAVED: 'Fields saved',
   ENVELOPE_SENT: 'Sent for signing',
   EMAIL_SENT: 'Email sent',
+  EMAIL_BOUNCED: 'Email could not be delivered',
+  EMAIL_COMPLAINED: 'Recipient reported the email as spam',
   REMINDER_REQUESTED: 'Reminder requested',
   ENVELOPE_VIEWED: 'Opened by a signer',
   CONSENT_GIVEN: 'Agreed to sign electronically',

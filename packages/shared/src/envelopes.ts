@@ -179,6 +179,11 @@ export interface RecipientDetail extends RecipientInfo {
   copySentAt: string | null;
   /** When they last asked for more time from an expired link (docs/16 step 8). */
   moreTimeRequestedAt: string | null;
+  /**
+   * A mail provider reported that an email to this person did not arrive, or that they marked
+   * it as spam (docs/20, ADR 0029). Null when nothing is known to be wrong.
+   */
+  emailProblem: 'BOUNCED' | 'COMPLAINED' | null;
 }
 
 export interface EnvelopeDetail extends EnvelopeSummary {

@@ -21,6 +21,7 @@ import { LifecycleModule } from './lifecycle/lifecycle.module';
 import { DbQueryCountInterceptor } from './logging/db-query-count.interceptor';
 import { LoggingModule } from './logging/logging.module';
 import { RoutePatternInterceptor } from './logging/route-pattern.interceptor';
+import { MailEventsModule } from './mail-events/mail-events.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
@@ -64,6 +65,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     DraftsModule,
     TemplatesModule,
     BulkModule,
+    MailEventsModule,
     SendingModule,
     LifecycleModule,
     SigningModule,

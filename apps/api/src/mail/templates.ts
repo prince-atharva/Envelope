@@ -257,6 +257,59 @@ export function renderMoreTimeEmail(notice: MoreTimeNotice): RenderedEmail {
   return { to: notice.to, subject, html, text };
 }
 
+export interface DeliveryFailedNotice {
+  to: string;
+  senderName: string;
+  recipientName: string;
+  recipientEmail: string;
+  envelopeTitle: string;
+  envelopeUrl: string;
+  /** Bounced: the address could not be reached. Complained: they reported it as spam. */
+  problem: 'BOUNCED' | 'COMPLAINED';
+}
+
+/** To the sender: an email to one of their recipients did not arrive (docs/20, ADR 0029). */
+export function renderDeliveryFailedEmail(notice: DeliveryFailedNotice): RenderedEmail {
+  const who = oneLine(notice.recipientName);
+  const title = oneLine(notice.envelopeTitle);
+  const address = oneLine(notice.recipientEmail);
+  const subject =
+    notice.problem === 'BOUNCED'
+      ? `Your email to ${who} about ${title} did not arrive`
+      : `${who} reported your email about ${title} as spam`;
+  const intro =
+    notice.problem === 'BOUNCED'
+      ? `The email we sent to ${who} (${address}) about "${title}" could not be delivered, so they may not have their link to sign.`
+      : `${who} (${address}) reported the email we sent about "${title}" as spam. They may not see further emails from us.`;
+  const next =
+    notice.problem === 'BOUNCED'
+      ? 'Check that the address is right. If it is wrong, cancel the document and send it again to the correct address. If it is right, ask them to look in their spam folder or to check with their email provider.'
+      : 'Contact them another way to make sure they know the document is waiting.';
+  const footer = `You received this email because you sent this document using ${BRAND.fullName}.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.senderName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(next)}</p>
+     ${button(notice.envelopeUrl, 'Open the document')}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.senderName)},`,
+    '',
+    intro,
+    '',
+    next,
+    '',
+    `Open the document: ${notice.envelopeUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
 export interface AlertEmail {
   to: string;
   key: string;
