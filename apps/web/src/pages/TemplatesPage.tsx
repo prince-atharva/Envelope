@@ -1,9 +1,9 @@
 import { hasAtLeast, type TemplateSummary } from '@envelope/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useLocation } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { Alert } from '../components/ui/Alert';
-import { Button } from '../components/ui/Button';
+import { Button, buttonClass } from '../components/ui/Button';
 import { type Confirmation, ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { DocumentListSkeleton } from '../components/ui/Skeletons';
 import { EditTemplateDialog } from '../features/templates/EditTemplateDialog';
@@ -84,17 +84,22 @@ export function TemplatesPage() {
             Documents you send again and again, set up once.
           </p>
         </div>
-        {isAdmin && (
-          <label className="flex shrink-0 items-center gap-2 text-sm font-medium text-slate-700">
-            <input
-              type="checkbox"
-              checked={showArchived}
-              onChange={(event) => setShowArchived(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300"
-            />
-            Show archived templates
-          </label>
-        )}
+        <div className="flex shrink-0 flex-wrap items-center gap-4">
+          <Link to="/bulk-batches" className="text-sm font-medium text-brand-700 underline">
+            Bulk sends
+          </Link>
+          {isAdmin && (
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Show archived templates
+            </label>
+          )}
+        </div>
       </div>
 
       {saved && <Alert tone="success">Saved “{saved}” as a template.</Alert>}
@@ -147,6 +152,14 @@ export function TemplatesPage() {
                   <Button size="sm" onClick={() => setUsing(template)}>
                     Use template
                   </Button>
+                )}
+                {!template.archivedAt && (
+                  <Link
+                    to={`/templates/${template.id}/bulk`}
+                    className={buttonClass('secondary', '', 'sm')}
+                  >
+                    Send to many
+                  </Link>
                 )}
                 {isAdmin && (
                   <Button variant="secondary" size="sm" onClick={() => setEditing(template)}>

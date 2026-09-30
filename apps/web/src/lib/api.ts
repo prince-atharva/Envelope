@@ -4,11 +4,15 @@ import {
   type ApiKeySummary,
   type AuditExportDocument,
   type AuthResponse,
+  type BulkBatchAccepted,
+  type BulkBatchDetail,
+  type BulkBatchListResponse,
   type ChangePasswordInput,
   type ChangeUserRoleInput,
   type ConfirmTwoFactorInput,
   type CreateApiKeyInput,
   type CreateApiKeyResponse,
+  type CreateBulkBatchInput,
   type CreateFromTemplateInput,
   type CreateTemplateInput,
   type CreateWebhookEndpointInput,
@@ -513,6 +517,22 @@ export const api = {
       headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
     });
   },
+
+  /**
+   * Starts a bulk send. One key per attempt, so a retry after a dropped
+   * connection answers with the same batch rather than starting a second.
+   */
+  startBulkBatch: (templateId: string, input: CreateBulkBatchInput, idempotencyKey: string) => {
+    const init = jsonBody(input);
+    return json<BulkBatchAccepted>(`/templates/${encodeURIComponent(templateId)}/bulk`, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
+    });
+  },
+
+  listBulkBatches: () => json<BulkBatchListResponse>('/bulk-batches'),
+
+  getBulkBatch: (id: string) => json<BulkBatchDetail>(`/bulk-batches/${encodeURIComponent(id)}`),
 
   // ─── Sending ───
 

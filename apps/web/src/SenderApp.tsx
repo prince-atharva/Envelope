@@ -2,6 +2,9 @@ import { Navigate, Route, Routes } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
 import { AuthLayout } from './components/layout/AuthLayout';
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
+import { BulkBatchesPage } from './features/bulk/BulkBatchesPage';
+import { BulkBatchPage } from './features/bulk/BulkBatchPage';
+import { BulkSendPage } from './features/bulk/BulkSendPage';
 import { AuthProvider } from './lib/auth';
 import { AccountPage } from './pages/AccountPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -40,6 +43,9 @@ export default function SenderApp() {
             <Route path="/account" element={<AccountPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/templates/:id/bulk" element={<BulkSendPage />} />
+            <Route path="/bulk-batches" element={<BulkBatchesPage />} />
+            <Route path="/bulk-batches/:id" element={<BulkBatchPage />} />
             <Route path="/dashboard/new" element={<NewEnvelopePage />} />
             <Route path="/dashboard/envelopes/:id" element={<EnvelopeDetailPage />} />
             <Route path="/dashboard/envelopes/:id/prepare" element={<PreparePage />} />

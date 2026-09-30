@@ -14,6 +14,8 @@ export const queryKeys = {
   templates: ['templates'] as const,
   templateList: (archived: boolean) => ['templates', 'list', archived] as const,
   template: (id: string) => ['templates', 'detail', id] as const,
+  bulkBatches: ['bulk-batches'] as const,
+  bulkBatch: (id: string) => ['bulk-batches', id] as const,
   users: ['users'] as const,
   twoFactor: ['two-factor'] as const,
   apiKeys: ['integrations', 'api-keys'] as const,

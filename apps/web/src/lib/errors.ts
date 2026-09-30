@@ -1,4 +1,4 @@
-import { type ErrorCode, MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
+import { type ErrorCode, isErrorCode, MAX_PDF_PAGES, MAX_UPLOAD_BYTES } from '@envelope/shared';
 import { ApiError } from './api';
 import { formatBytes } from './format';
 
@@ -97,6 +97,17 @@ export function describeError(error: unknown): { message: string; reference?: st
     };
   }
   return { message: 'Something unexpected happened. Please try again.' };
+}
+
+/** What went wrong with one row of a bulk batch, from the error code the server recorded for it. */
+export function messageForRowCode(code: string | null): string {
+  if (code === null) return '';
+  if (code === 'DOCUMENT_CATEGORY_BLOCKED') {
+    return 'Your workspace’s policy no longer allows this kind of document.';
+  }
+  if (code === 'TEMPLATE_ARCHIVED') return 'The template was archived before this row was reached.';
+  if (isErrorCode(code) && MESSAGES[code]) return MESSAGES[code];
+  return 'Something went wrong making this one. Send it again in a new batch.';
 }
 
 /** Field-level messages from a VALIDATION_FAILED response, keyed by field name. */
