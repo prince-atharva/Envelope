@@ -45,6 +45,8 @@ describe('resolvePolicySnapshot', () => {
   it('carries every field of the underlying policy, unmodified', () => {
     const snapshot = resolvePolicySnapshot('UK', 'US');
     const policy = JURISDICTION_POLICIES.UK;
+    // The table is indexed by string, so TypeScript cannot know UK exists.
+    if (!policy) throw new Error('The UK policy is missing');
     expect(snapshot.permittedTiers).toEqual(policy.permittedTiers);
     expect(snapshot.consentDisclosureText).toBe(policy.consentDisclosureText);
     expect(snapshot.retentionYears).toBe(policy.retentionYears);
@@ -78,10 +80,11 @@ describe('isCategoryBlocked', () => {
 
 describe('reference policies', () => {
   it('US requires consent; the others do not (docs/07)', () => {
-    expect(JURISDICTION_POLICIES.US.consentRequired).toBe(true);
-    expect(JURISDICTION_POLICIES.EU.consentRequired).toBe(false);
-    expect(JURISDICTION_POLICIES.IN.consentRequired).toBe(false);
-    expect(JURISDICTION_POLICIES.UK.consentRequired).toBe(false);
+    // `?.` because the table is indexed by string: a missing policy gives undefined and fails.
+    expect(JURISDICTION_POLICIES.US?.consentRequired).toBe(true);
+    expect(JURISDICTION_POLICIES.EU?.consentRequired).toBe(false);
+    expect(JURISDICTION_POLICIES.IN?.consentRequired).toBe(false);
+    expect(JURISDICTION_POLICIES.UK?.consentRequired).toBe(false);
   });
 
   it('every policy names a real document category (never an empty list mistaken for "nothing blocked")', () => {
