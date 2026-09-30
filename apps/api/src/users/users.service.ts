@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { PasswordService } from '../auth/password.service';
+import type { RevokeReason } from '../auth/session.service';
 import { AppException } from '../common/errors/app-exception';
 import { Prisma, type User } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
@@ -138,18 +139,32 @@ export class UsersService {
     // Envelope.ownerId references this row with onDelete: Restrict, so a
     // user who has ever sent anything cannot be deleted outright — exactly
     // the protection that column already gives every envelope's evidence.
-    // Downgrading to MEMBER and clearing credentials revokes access without
-    // orphaning anything they sent.
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        role: 'MEMBER',
-        passwordHash: await this.passwords.hash(randomBytes(32).toString('hex')),
-        inviteTokenHash: null,
-        inviteTokenExpiresAt: null,
-      },
+    // Marking the account disabled (ADR 0023) and revoking its sessions
+    // removes access at once without orphaning anything they sent; the
+    // downgrade and scrambled password stay as a second lock.
+    const scrambledPasswordHash = await this.passwords.hash(randomBytes(32).toString('hex'));
+    const now = new Date();
+    const revokedSessions = await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          role: 'MEMBER',
+          passwordHash: scrambledPasswordHash,
+          inviteTokenHash: null,
+          inviteTokenExpiresAt: null,
+          disabledAt: now,
+        },
+      });
+      const { count } = await tx.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, revokedReason: 'user-removed' satisfies RevokeReason },
+      });
+      return count;
     });
-    this.logger.info({ userId, tenantId: actor.tenantId, removedBy: actor.id }, 'User removed');
+    this.logger.info(
+      { userId, tenantId: actor.tenantId, removedBy: actor.id, revokedSessions },
+      'User removed',
+    );
   }
 
   private async findInTenant(userId: string, tenantId: string): Promise<User> {

@@ -154,6 +154,27 @@ describe('auth (e2e)', () => {
       });
     });
 
+    it('refuses a disabled account with the same error as a wrong password, and logs why (ADR 0023)', async () => {
+      const user = await registerUser(t.http);
+      await ownerQuery(`UPDATE "User" SET "disabledAt" = now() WHERE email = $1`, [user.email]);
+      logs.clear();
+
+      const res = await request(t.http)
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', nextClientIp())
+        .send({ email: user.email, password: user.password })
+        .expect(401);
+      expect((res.body as ProblemDetails).code).toBe('INVALID_CREDENTIALS');
+      expect(logs.find('Login failed', 'warn')[0]?.fields).toMatchObject({ reason: 'disabled' });
+      expect(logs.find('Login succeeded')).toHaveLength(0);
+      const sessions = await ownerQuery(
+        `SELECT 1 FROM "Session" s JOIN "User" u ON u.id = s."userId" WHERE u.email = $1`,
+        [user.email],
+      );
+      // Only the session made by registering; the refused sign-in created none.
+      expect(sessions.rowCount).toBe(1);
+    });
+
     it('rate-limits repeated attempts against one account, from anywhere', async () => {
       const email = uniqueEmail('targeted');
       const statuses: number[] = [];

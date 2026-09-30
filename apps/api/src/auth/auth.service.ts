@@ -168,6 +168,16 @@ export class AuthService {
       throw new AppException('INVALID_CREDENTIALS');
     }
 
+    // After the password check, so a removed account answers exactly like a
+    // wrong password and is no new signal to an attacker (ADR 0023).
+    if (user.disabledAt) {
+      this.logger.warn(
+        { reason: 'disabled', userId: user.id, tenantId: user.tenantId, ip: client.ip },
+        'Login failed',
+      );
+      throw new AppException('INVALID_CREDENTIALS');
+    }
+
     const data: Prisma.UserUpdateInput = { lastLoginAt: new Date() };
     if (this.passwords.needsRehash(user.passwordHash)) {
       data.passwordHash = await this.passwords.hash(input.password);

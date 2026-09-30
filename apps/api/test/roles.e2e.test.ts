@@ -2,14 +2,21 @@ import type { AuthResponse, EnvelopeListResponse, TenantUser } from '@envelope/s
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  captureLogs,
   createTestApp,
   createTestWorker,
   type TestApp,
   type TestWorker,
   waitFor,
 } from './helpers/app';
-import { registerUser, type SignedInUser, uniqueEmail } from './helpers/auth';
-import { truncateAll } from './helpers/db';
+import {
+  nextClientIp,
+  refreshCookieFrom,
+  registerUser,
+  type SignedInUser,
+  uniqueEmail,
+} from './helpers/auth';
+import { ownerQuery, truncateAll } from './helpers/db';
 import { bearer, prepareEnvelope } from './helpers/signing';
 
 const INVITE_LINK = /\/accept-invite\/([0-9a-f]{64})/;
@@ -23,6 +30,7 @@ describe('roles and users (e2e)', () => {
   let t: TestApp;
   let worker: TestWorker;
   let owner: SignedInUser;
+  const logs = captureLogs();
 
   beforeAll(async () => {
     await truncateAll();
@@ -34,6 +42,7 @@ describe('roles and users (e2e)', () => {
   afterAll(async () => {
     await worker.close();
     await t.close();
+    logs.restore();
   });
 
   async function invite(role: 'ADMIN' | 'MEMBER', fullName: string): Promise<SignedInUser> {
@@ -57,6 +66,7 @@ describe('roles and users (e2e)', () => {
 
     const accepted = await request(t.http)
       .post(`/api/v1/auth/invitations/${token}/accept`)
+      .set('X-Forwarded-For', nextClientIp())
       .send({ password: 'a fresh chosen password' })
       .expect(200);
     const body = accepted.body as AuthResponse;
@@ -66,7 +76,7 @@ describe('roles and users (e2e)', () => {
       email,
       password: 'a fresh chosen password',
       accessToken: body.accessToken,
-      cookie: '',
+      cookie: refreshCookieFrom(accepted),
       body,
     };
   }
@@ -242,5 +252,121 @@ describe('roles and users (e2e)', () => {
       .expect(200);
     const ids = (asOwner.body as EnvelopeListResponse).items.map((e) => e.id);
     expect(ids.length).toBeGreaterThan(1);
+  });
+
+  describe('removing a user (docs/19, ADR 0023)', () => {
+    async function remove(user: SignedInUser): Promise<void> {
+      await request(t.http)
+        .delete(`/api/v1/users/${user.body.user.id}`)
+        .set('Authorization', bearer(owner))
+        .expect(204);
+    }
+
+    it('marks the account disabled, downgrades it and revokes every session at once', async () => {
+      const removed = await invite('ADMIN', 'Removed Admin');
+      // A second sign-in: two live sessions for one person.
+      await request(t.http)
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', nextClientIp())
+        .send({ email: removed.email, password: removed.password })
+        .expect(200);
+      logs.clear();
+
+      await remove(removed);
+
+      const [row] = (
+        await ownerQuery<{ role: string; disabledAt: Date | null; active: string }>(
+          `SELECT u."role"::text AS role, u."disabledAt",
+                  (SELECT count(*) FROM "Session" s
+                    WHERE s."userId" = u.id AND s."revokedAt" IS NULL)::text AS active
+             FROM "User" u WHERE u.id = $1`,
+          [removed.body.user.id],
+        )
+      ).rows;
+      expect(row?.role).toBe('MEMBER');
+      expect(row?.disabledAt).toBeInstanceOf(Date);
+      expect(row?.active).toBe('0');
+
+      const revoked = await ownerQuery<{ revokedReason: string }>(
+        `SELECT "revokedReason" FROM "Session" WHERE "userId" = $1`,
+        [removed.body.user.id],
+      );
+      expect(revoked.rows.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(revoked.rows.map((r) => r.revokedReason))).toEqual(new Set(['user-removed']));
+
+      const log = logs.find('User removed', 'info')[0];
+      expect(log?.fields).toMatchObject({
+        userId: removed.body.user.id,
+        removedBy: owner.body.user.id,
+      });
+      expect(Number(log?.fields.revokedSessions)).toBeGreaterThanOrEqual(2);
+    });
+
+    it("stops the removed user's open access token and refresh cookie working", async () => {
+      const removed = await invite('MEMBER', 'Removed Member');
+      await request(t.http)
+        .get('/api/v1/auth/me')
+        .set('Authorization', bearer(removed))
+        .expect(200);
+
+      await remove(removed);
+
+      const me = await request(t.http)
+        .get('/api/v1/auth/me')
+        .set('Authorization', bearer(removed))
+        .expect(401);
+      expect(me.body.code).toBe('SESSION_EXPIRED');
+
+      const refresh = await request(t.http)
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', removed.cookie)
+        .expect(401);
+      expect(refresh.body.code).toBe('SESSION_EXPIRED');
+    });
+
+    it('refuses the removed user at sign-in exactly as it refuses a wrong password', async () => {
+      const removed = await invite('MEMBER', 'Removed Login');
+      await remove(removed);
+
+      const withOldPassword = await request(t.http)
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', nextClientIp())
+        .send({ email: removed.email, password: removed.password })
+        .expect(401);
+      const withWrongPassword = await request(t.http)
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', nextClientIp())
+        .send({ email: removed.email, password: 'definitely not the password' })
+        .expect(401);
+      expect(withOldPassword.body.code).toBe('INVALID_CREDENTIALS');
+      expect(withOldPassword.body.detail).toBe(withWrongPassword.body.detail);
+    });
+
+    it("leaves another workspace's users and this workspace's other users untouched", async () => {
+      const bystander = await invite('MEMBER', 'Bystander');
+      const stranger = await registerUser(t.http, { organization: 'Other Clinic' });
+      const removed = await invite('MEMBER', 'Removed Neighbour');
+
+      await remove(removed);
+
+      await request(t.http)
+        .get('/api/v1/auth/me')
+        .set('Authorization', bearer(bystander))
+        .expect(200);
+      await request(t.http)
+        .get('/api/v1/auth/me')
+        .set('Authorization', bearer(stranger))
+        .expect(200);
+      await request(t.http)
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', bystander.cookie)
+        .expect(200);
+
+      const other = await request(t.http)
+        .delete(`/api/v1/users/${removed.body.user.id}`)
+        .set('Authorization', bearer(stranger))
+        .expect(404);
+      expect(other.body.code).toBe('NOT_FOUND');
+    });
   });
 });
