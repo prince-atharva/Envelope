@@ -12,6 +12,7 @@ import {
 import { Body, Controller, Headers, HttpCode, Param, Patch, Post, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { ApiKeyAllowed } from '../auth/api-key.decorator';
 import { Client, CurrentUser } from '../auth/auth.decorators';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
@@ -49,6 +50,7 @@ export class LifecycleController {
 
   @Post(':id/void')
   @HttpCode(200)
+  @ApiKeyAllowed({ write: true })
   @RateLimit(LIMITS.lifecycle)
   @ApiOperation({
     summary: 'Cancel a sent envelope (a reason is required), or discard a draft',

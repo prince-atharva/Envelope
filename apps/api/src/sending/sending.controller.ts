@@ -58,6 +58,7 @@ export class SendingController {
 
   @Post(':id/remind')
   @HttpCode(200)
+  @ApiKeyAllowed({ write: true })
   @RateLimit(LIMITS.lifecycle)
   @ApiOperation({
     summary: 'Remind people whose turn it is (one reminder per person per 24 hours)',
