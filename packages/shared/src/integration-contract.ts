@@ -148,7 +148,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
       'IDEMPOTENCY_KEY_MISMATCH',
     ],
     errorNote:
-      'FILE_REQUIRED, FILE_TOO_LARGE, UNSUPPORTED_FILE_TYPE, DOCUMENT_CATEGORY_BLOCKED. Uploads are scanned and validated before use.',
+      'Uploads are scanned and validated before use. Reusing an Idempotency-Key with a different body answers IDEMPOTENCY_KEY_MISMATCH.',
   },
   {
     id: 'list',
@@ -172,7 +172,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: { items: [], nextCursor: null },
     responseNote: '200 · Paginated envelope summaries. An empty workspace returns this example.',
     errorCodes: ['VALIDATION_FAILED'],
-    errorNote: 'VALIDATION_FAILED for invalid query parameters.',
+    errorNote: 'Invalid query parameters are refused.',
   },
   {
     id: 'counts',
@@ -190,7 +190,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: { all: 0, attention: 0, waiting: 0, completed: 0, cancelled: 0, drafts: 0 },
     responseNote: '200 · Counts by view; views may overlap.',
     errorCodes: [],
-    errorNote: 'Authentication and access errors apply to every endpoint.',
+    errorNote: 'Authentication and access errors apply to every operation.',
   },
   {
     id: 'detail',
@@ -213,7 +213,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: detailExcerpt,
     responseNote: '200 · Envelope detail (excerpt); 304 when unchanged.',
     errorCodes: ['NOT_FOUND'],
-    errorNote: 'NOT_FOUND if the document is unavailable in this workspace.',
+    errorNote: 'A document that is not in this workspace is NOT_FOUND, never forbidden.',
   },
   {
     id: 'events',
@@ -247,7 +247,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     },
     responseNote: '200 · Audit records and continuation cursor.',
     errorCodes: ['NOT_FOUND'],
-    errorNote: 'NOT_FOUND; invalid query parameters return validation errors.',
+    errorNote: 'Invalid query parameters are refused.',
   },
   {
     id: 'file',
@@ -270,7 +270,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: 'HTTP 200\nContent-Type: application/pdf\n\n<PDF bytes saved to document.pdf>',
     responseNote: '200 · Binary PDF, not JSON. Version 0 does not include signatures.',
     errorCodes: ['NOT_FOUND', 'ENVELOPE_PURGED'],
-    errorNote: 'NOT_FOUND or ENVELOPE_PURGED when the requested file is unavailable.',
+    errorNote: 'ENVELOPE_PURGED once retention has removed the file.',
   },
   {
     id: 'document-original',
@@ -290,7 +290,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: 'HTTP 200\nContent-Type: application/pdf\n\n<PDF bytes saved to original.pdf>',
     responseNote: '200 · Binary PDF, not JSON.',
     errorCodes: ['NOT_FOUND', 'ENVELOPE_PURGED'],
-    errorNote: 'NOT_FOUND or ENVELOPE_PURGED when the file is unavailable.',
+    errorNote: 'ENVELOPE_PURGED once retention has removed the file.',
   },
   {
     id: 'document-completed',
@@ -313,7 +313,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     responseNote:
       '200 · Binary PDF, not JSON. The SHA-256 of these bytes is the envelope’s finalHash.',
     errorCodes: ['CONFLICT', 'NOT_FOUND', 'ENVELOPE_PURGED'],
-    errorNote: 'CONFLICT (not completed yet), NOT_FOUND or ENVELOPE_PURGED.',
+    errorNote: 'CONFLICT until the envelope is completed.',
   },
   {
     id: 'document-certificate',
@@ -336,7 +336,8 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     responseNote:
       '200 · Binary PDF, not JSON. Its pages are the certificate pages of the completed file.',
     errorCodes: ['CONFLICT', 'RATE_LIMITED', 'NOT_FOUND', 'ENVELOPE_PURGED'],
-    errorNote: 'CONFLICT (not completed yet), RATE_LIMITED, NOT_FOUND or ENVELOPE_PURGED.',
+    errorNote:
+      'CONFLICT until the envelope is completed. After 30 requests a minute the request is RATE_LIMITED.',
   },
   {
     id: 'update',
@@ -361,8 +362,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: { draftRevision: 1 },
     responseNote: '200 · New draft revision.',
     errorCodes: ['ENVELOPE_NOT_DRAFT', 'DRAFT_REVISION_MISMATCH'],
-    errorNote:
-      'ENVELOPE_NOT_DRAFT; DRAFT_REVISION_MISMATCH (412) if another edit changed the draft.',
+    errorNote: 'A stale If-Match answers 412 DRAFT_REVISION_MISMATCH.',
   },
   {
     id: 'recipient-add',
@@ -386,7 +386,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: { recipient, draftRevision: 1 },
     responseNote: '201 · Recipient and new revision.',
     errorCodes: ['RECIPIENT_EMAIL_TAKEN', 'ENVELOPE_NOT_DRAFT', 'DRAFT_REVISION_MISMATCH'],
-    errorNote: 'RECIPIENT_EMAIL_TAKEN, ENVELOPE_NOT_DRAFT; stale revisions return 412.',
+    errorNote: 'A stale If-Match answers 412 DRAFT_REVISION_MISMATCH.',
   },
   {
     id: 'recipient-update',
@@ -414,7 +414,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
       'ENVELOPE_NOT_DRAFT',
       'DRAFT_REVISION_MISMATCH',
     ],
-    errorNote: 'NOT_FOUND, RECIPIENT_EMAIL_TAKEN, ENVELOPE_NOT_DRAFT; stale revisions return 412.',
+    errorNote: 'A stale If-Match answers 412 DRAFT_REVISION_MISMATCH.',
   },
   {
     id: 'recipient-delete',
@@ -433,7 +433,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: { draftRevision: 2 },
     responseNote: '200 · New revision; the response is JSON, not an empty 204.',
     errorCodes: ['NOT_FOUND', 'ENVELOPE_NOT_DRAFT', 'DRAFT_REVISION_MISMATCH'],
-    errorNote: 'NOT_FOUND, ENVELOPE_NOT_DRAFT; stale revisions return 412.',
+    errorNote: 'A stale If-Match answers 412 DRAFT_REVISION_MISMATCH.',
   },
   {
     id: 'fields',
@@ -465,7 +465,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
       'DRAFT_REVISION_MISMATCH',
     ],
     errorNote:
-      'INVALID_COORDINATE_SPACE, RATIO_OUT_OF_RANGE, FIELD_EXCEEDS_PAGE, PAGE_OUT_OF_RANGE; stale revisions return 412.',
+      'Pixel coordinates are refused with INVALID_COORDINATE_SPACE. A stale If-Match answers 412 DRAFT_REVISION_MISMATCH.',
   },
   {
     id: 'send',
@@ -502,7 +502,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
       'NOT_FOUND',
     ],
     errorNote:
-      'NOT_READY_TO_SEND includes readiness issues; ENVELOPE_NOT_DRAFT; conflicting idempotency reuse is rejected.',
+      'NOT_READY_TO_SEND lists every readiness problem in `errors`. Retry after a network failure with the same Idempotency-Key and body.',
   },
   {
     id: 'void',
@@ -525,8 +525,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
     response: { id: EXAMPLE_ENVELOPE_ID, status: 'VOIDED', voidedAt: time, discarded: false },
     responseNote: '200 · discarded is true when a draft was thrown away and nobody was emailed.',
     errorCodes: ['ENVELOPE_TERMINAL', 'ENVELOPE_ON_LEGAL_HOLD', 'VALIDATION_FAILED', 'NOT_FOUND'],
-    errorNote:
-      'ENVELOPE_TERMINAL (already closed), ENVELOPE_ON_LEGAL_HOLD, VALIDATION_FAILED (no reason), NOT_FOUND.',
+    errorNote: 'ENVELOPE_TERMINAL when the envelope is already completed, declined or cancelled.',
   },
   {
     id: 'remind',
@@ -560,7 +559,7 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
       'NOT_FOUND',
     ],
     errorNote:
-      'CONFLICT (not sent yet), ENVELOPE_TERMINAL, ENVELOPE_EXPIRED, REMINDER_TOO_SOON (429, when everyone due was reminded in the last 24 hours), RATE_LIMITED, NOT_FOUND.',
+      'REMINDER_TOO_SOON (429, with Retry-After) when everyone due was already reminded in the last 24 hours.',
   },
 ];
 
@@ -612,7 +611,7 @@ const EMBEDDED_OPERATIONS: readonly OperationContract[] = [
       'IDEMPOTENCY_KEY_MISMATCH',
     ],
     errorNote:
-      'EMBED_ORIGIN_NOT_ALLOWED when parentOrigin is not registered on the key; ENVELOPE_NOT_DRAFT when reopening a document that was already sent.',
+      'EMBED_ORIGIN_NOT_ALLOWED when parentOrigin is not registered on this key; ENVELOPE_NOT_DRAFT when reopening a document that was already sent.',
   },
   {
     id: 'embed-session-revoke',
@@ -668,7 +667,7 @@ const EMBEDDED_OPERATIONS: readonly OperationContract[] = [
     response: detailExcerpt,
     responseNote: '201 · The draft this session created.',
     errorCodes: ['EMBED_UPLOAD_BOUND', 'EMBED_SCOPE_DENIED', 'FILE_REQUIRED'],
-    errorNote: 'EMBED_UPLOAD_BOUND when the session already produced a draft for a different file.',
+    errorNote: 'EMBED_UPLOAD_BOUND when this session already produced a draft.',
   },
 ];
 
@@ -731,13 +730,19 @@ export interface WebhookEventReference {
   data: object;
 }
 
-const person = { envelopeId: EXAMPLE_ENVELOPE_ID, recipientId: EXAMPLE_RECIPIENT_ID };
+const person = {
+  envelopeId: EXAMPLE_ENVELOPE_ID,
+  envelopeTitle: 'Consulting agreement',
+  recipientId: EXAMPLE_RECIPIENT_ID,
+  recipientEmail: 'alex@example.com',
+};
 export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEventReference> = {
   'envelope.sent': {
     description:
       'The envelope was sent and invitations were queued; this does not confirm inbox delivery.',
     data: {
       envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeTitle: 'Consulting agreement',
       envelopeStatus: 'SENT',
       sentAt: time,
       expiresAt: '2026-10-11T10:00:00.000Z',
@@ -747,26 +752,26 @@ export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEvent
   },
   'envelope.viewed': {
     description: 'A recipient opened their link for the first time.',
-    data: { ...person, viewedAt: time },
+    data: { ...person, envelopeStatus: 'SENT', viewedAt: time },
   },
   'recipient.consented': {
     description: 'A recipient accepted electronic signing consent.',
-    data: { ...person, recipientEmail: 'alex@example.com', consentGivenAt: time },
+    data: { ...person, envelopeStatus: 'SENT', consentGivenAt: time },
   },
   'recipient.signed': {
     description: 'A recipient finished; the sealing worker may still be running.',
     data: {
       ...person,
-      recipientEmail: 'alex@example.com',
-      signedAt: time,
       envelopeStatus: 'PARTIALLY_SIGNED',
+      signedAt: time,
+      allSigned: false,
+      remainingSigners: 1,
     },
   },
   'recipient.declined': {
     description: 'A recipient declined and the envelope closed.',
     data: {
       ...person,
-      recipientEmail: 'alex@example.com',
       declinedAt: time,
       envelopeStatus: 'DECLINED',
     },
@@ -775,6 +780,7 @@ export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEvent
     description: 'The final PDF is sealed. Use finalVersionNumber to download it.',
     data: {
       envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeTitle: 'Consulting agreement',
       envelopeStatus: 'COMPLETED',
       completedAt: time,
       finalVersionNumber: 2,
@@ -785,6 +791,7 @@ export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEvent
     description: 'The sender cancelled the envelope or discarded its draft.',
     data: {
       envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeTitle: 'Consulting agreement',
       envelopeStatus: 'VOIDED',
       voidedAt: time,
       fromStatus: 'SENT',
@@ -795,6 +802,7 @@ export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEvent
     description: 'The deadline passed with unfinished recipients. Signing is paused.',
     data: {
       envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeTitle: 'Consulting agreement',
       envelopeStatus: 'EXPIRED',
       expiredAt: time,
       unsigned: 1,
@@ -804,6 +812,7 @@ export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEvent
     description: 'The sender gave an expired envelope a new deadline, reopening it.',
     data: {
       envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeTitle: 'Consulting agreement',
       envelopeStatus: 'SENT',
       expiresAt: '2026-11-11T10:00:00.000Z',
       previousExpiresAt: '2026-10-11T10:00:00.000Z',
@@ -823,6 +832,7 @@ export function webhookEventPayload(type: FiredWebhookEventType): object {
   return {
     id: 'evt_55555555-5555-4555-8555-555555555555',
     type,
+    apiVersion: WEBHOOK_API_VERSION,
     createdAt: time,
     data: { ...WEBHOOK_EVENT_REFERENCE[type].data, ...WEBHOOK_REFERENCE_EXAMPLE },
   };

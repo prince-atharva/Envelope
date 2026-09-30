@@ -84,6 +84,17 @@ The fix is that each send carries a unique reference number. If we see the same 
 | Rate limits | Per tenant; `X-RateLimit-*` headers on every response |
 | Versioning | URL path. Breaking changes increment the version. |
 
+> **As built (Phase 7, docs/18 workstream 13, ADR 0021).** Where this design differs from the
+> implementation, the implementation and [`docs/developers/`](developers/README.md) are current; the
+> tables in that guide are generated from one catalog
+> (`packages/shared/src/integration-contract.ts`) that tests compare with the controllers. The
+> differences a reader of this section will hit: the base URL is `https://{host}/api/v1`, not
+> `https://api.{host}/v1`; envelope creation is one multipart call, not a JSON call followed by an
+> upload route; `Idempotency-Key` is required only on send, and optional on upload and on issuing an
+> embedded session; rate limits are per workspace, per key and per address (see "Rate Limits"); the
+> error catalog also holds every `API_KEY_*`, `WEBHOOK_*`, `EMBED_*` and `IDEMPOTENCY_*` code; and a
+> key reaches only the routes the guide's reference lists.
+
 ## Authentication
 
 > **As built (Phase 7, docs/18).** The [maintained plan](18-phase-7-integration-plan.md#workstream-6-embedded-sender-editor-and-healthprohub-sdk-proposed)
@@ -166,6 +177,10 @@ Create a draft.
 > second draft; the same key with a different body or file is `422 IDEMPOTENCY_KEY_MISMATCH`, and
 > without a key every request still creates a new draft. The values are never written to the audit
 > trail or the logs, only the names of the fields that changed.
+
+> **As built (Phase 7, docs/18 workstream 13).** There is no `POST /v1/envelopes/:id/documents`
+> route: the PDF is sent with the create call. Reading files is `GET /v1/envelopes/:id/documents/original`,
+> `/completed` and `/certificate`, and `GET /v1/envelopes/:id/file?version=n` (docs/18 workstream 11).
 
 ### `POST /v1/envelopes/:id/documents`
 
@@ -822,6 +837,13 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 
 - OpenAPI 3.1 specification — Sprint 2 deliverable, generated from route handlers
 - SDKs (TypeScript, Python) — post-launch
+
+> **As built (Phase 7, docs/18 workstreams 12–13).** An OpenAPI **3.0** document is served at
+> `/api/docs/openapi.json` (development and any deployment with `API_DOCS_ENABLED=true`) with
+> response schemas, `apiKey`, `session` and `embedSession` security schemes and the webhook payloads;
+> a reviewable copy is committed as [`developers/openapi.json`](developers/openapi.json). The
+> embedded-editor SDK is a hosted, dependency-free script at `/api/v1/embed/sdk/v1/envelope.js`
+> (ADR 0020); no Python or other language SDK exists.
 - Bulk send endpoint — Sprint 3–4
 - Template endpoints — Sprint 3–4
 

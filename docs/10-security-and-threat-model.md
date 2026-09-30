@@ -300,6 +300,14 @@ Processing runs on workers with constrained memory and no outbound network acces
 > The original contracts below remain current; additional routes, models and the
 > narrowly scoped embedded-HTML framing exception are specified in the plan.
 
+> **As built (Phase 7, docs/18 workstream 12, ADR 0020).** The one asset a partner's browser loads
+> cross-origin, the embed SDK, is served as a static script with `Cross-Origin-Resource-Policy:
+> cross-origin`, `Access-Control-Allow-Origin: *`, `X-Content-Type-Options: nosniff` and an ETag. It
+> contains no secret, no per-tenant data and no credential, and only the two build files are
+> reachable by name. The OpenAPI document stays behind `API_DOCS_ENABLED`, which is off in production.
+> The SDK validates every protocol message by hand with no runtime dependency, checked against the shared
+> schema by a parity test.
+
 | Control | Implementation |
 |---|---|
 | TLS | 1.3 minimum; HSTS with preload |

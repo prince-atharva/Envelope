@@ -15,7 +15,11 @@ import {
   WEBHOOK_EVENT_REFERENCE,
   webhookEventPayload,
 } from './integration-contract';
-import { FIRED_WEBHOOK_EVENT_TYPES, WEBHOOK_DELIVERY_HEADERS } from './webhooks';
+import {
+  FIRED_WEBHOOK_EVENT_TYPES,
+  WEBHOOK_DELIVERY_HEADERS,
+  webhookEventDataSchemas,
+} from './webhooks';
 
 const codes = Object.keys(ERROR_CATALOG) as ErrorCode[];
 
@@ -121,6 +125,23 @@ describe('webhook reference', () => {
     );
     expect([...DOCUMENTED_WEBHOOK_EVENTS].sort()).toEqual([...FIRED_WEBHOOK_EVENT_TYPES].sort());
     expect(WEBHOOK_EVENT_REFERENCE).not.toHaveProperty('envelope.delivered');
+  });
+
+  it('matches the per-event data schema for every event, with every field the API sends', () => {
+    for (const type of DOCUMENTED_WEBHOOK_EVENTS) {
+      const { data } = webhookEventPayload(type) as { data: Record<string, unknown> };
+      const parsed = webhookEventDataSchemas[type].safeParse(data);
+      expect(parsed.success, `${type}: ${JSON.stringify(parsed.error?.issues)}`).toBe(true);
+      // The schema strips unknown keys, so equal key sets mean the example claims nothing extra.
+      expect(Object.keys(data).sort(), type).toEqual(
+        Object.keys((parsed.success ? parsed.data : {}) as object).sort(),
+      );
+    }
+  });
+
+  it('carries the contract version on every payload', () => {
+    for (const type of DOCUMENTED_WEBHOOK_EVENTS)
+      expect(webhookEventPayload(type)).toMatchObject({ apiVersion: 'v1' });
   });
 
   it('puts the partner reference on every event payload', () => {

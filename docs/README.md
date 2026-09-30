@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–6 complete; Phase 7 integration built through per-key embedded origins (workstream 7) and webhook contracts, reliability and delivery browsing (workstream 8). Remaining integration hardening is planned |
-| **Version** | 1.2.0 |
-| **Last updated** | 28 September 2026 |
+| **Status** | Phases 1–7 complete. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide |
+| **Version** | 1.3.0 |
+| **Last updated** | 30 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
 
@@ -15,14 +15,11 @@
 > categories, roles, legal hold, retention and audit export.
 >
 > **Phase 7** is the integration phase. [Its maintained plan](18-phase-7-integration-plan.md)
-> records the API-key and webhook foundation, Settings management, responsive polish, and the
-> in-page integration guide together, plus the implemented embedded sender editor, SDK,
-> HealthProHub guide and per-key embedded origins (workstream 7, ADR 0017). Workstream 8 (webhook
-> event contracts, delivery reliability and the tenant-wide, filterable deliveries dialog, ADR 0018)
-> is built and verified. Workstreams 9–13 (endpoint tooling, partner references, API-key/download
-> completeness, a hosted SDK, and one integration contract catalog with a developer guide — ADRs
-> 0018–0021) remain accepted and planned. Earlier `6b` labels remain in the historical commit
-> record.
+> records the API-key and webhook foundation, Settings management, the embedded sender editor,
+> webhook reliability and lifecycle tooling, partner references, API-key downloads and limits, the
+> hosted SDK and one integration contract with an OpenAPI document. **[developers/](developers/README.md)**
+> is the partner-facing guide that came out of it. Earlier `6b` labels remain in the historical
+> commit record.
 
 ---
 
@@ -91,6 +88,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
 | 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
 | 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What is built and proposed across integration APIs, Settings, the embedded editor/SDK and HealthProHub guide? |
+| — | [developers/](developers/README.md) | How do I connect my application to Envelope? *(partner-facing guide, shareable on its own)* |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
 Documents 00 to 11 are the specification and describe the product as designed. Documents numbered 12

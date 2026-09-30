@@ -62,6 +62,7 @@ export function EndpointCard({ endpoint, base }: EndpointCardProps) {
         />
         <p className="text-sm leading-6 text-slate-600">
           <strong className="text-slate-800">When it fails: </strong>
+          {endpoint.errorCodes.length > 0 ? `${endpoint.errorCodes.join(', ')}. ` : ''}
           {endpoint.errorNote}
         </p>
       </div>

@@ -152,6 +152,13 @@ Steps 16 and 17 are where the interesting work happens, and they are covered in 
 > The original contracts below remain current; additional routes, models and the
 > narrowly scoped embedded-HTML framing exception are specified in the plan.
 
+> **As built (Phase 7, docs/18 workstreams 12–13).** The API also serves the embedded-editor SDK as
+> a self-contained, versioned script (`GET /api/v1/embed/sdk/v1/envelope.js` and `.mjs`, ADR 0020),
+> built from `packages/embed` and read from `APP_ROOT_DIR/packages/embed/dist`. One shared catalog,
+> `packages/shared/src/integration-contract.ts` (ADR 0021), describes the integration surface; the
+> in-app guide, the served OpenAPI document and the partner-facing [developer guide](developers/README.md)
+> all read from it, and tests compare it with the controllers.
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │                          CLIENT / PRESENTATION LAYER                          │

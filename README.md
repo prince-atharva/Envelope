@@ -1,11 +1,28 @@
 # Envelope powered by HealthProHub
 
 An electronic signature platform. Upload a PDF, mark where people sign, and send them a link.
-Signers sign in their browser on any device without creating an account.
+Signers sign in their browser on any device without creating an account. Every signature is burned
+into the PDF, sealed with a certificate and backed by a tamper-evident audit trail.
 
-> **Status:** Phase 1 (Foundation) is complete — `v0.1.0`. Phase 2 (Field Builder) is in progress.
-> The full specification is in [`docs/`](docs/README.md); each phase also has its own plan, starting
-> with [Phase 1](docs/12-phase-1-foundation-plan.md).
+> **Status:** Phases 1–6 are complete and Phase 7 (integrations) is released; the latest version is in
+> [`CHANGELOG.md`](CHANGELOG.md). The specification is in [`docs/`](docs/README.md), and each phase
+> has its own plan, from [Phase 1](docs/12-phase-1-foundation-plan.md) to
+> [Phase 7](docs/18-phase-7-integration-plan.md).
+
+## Building on Envelope
+
+Any application can send documents for signature, hear about the result and embed the sender editor:
+
+| I want to… | Start here |
+|---|---|
+| Send and track documents from my server | [`docs/developers/quick-start.md`](docs/developers/quick-start.md) |
+| Receive signed notifications | [`docs/developers/webhooks.md`](docs/developers/webhooks.md) |
+| Put the editor in my own page | [`docs/developers/embedded-editor.md`](docs/developers/embedded-editor.md) and the runnable [`examples/embedded-partner`](examples/embedded-partner/README.md) |
+| Generate a client | [`docs/developers/openapi.json`](docs/developers/openapi.json), or `/api/docs` in development |
+
+The [developer guide](docs/developers/README.md) is a standalone folder a partner can be handed. It
+and the served OpenAPI document are generated from one catalog
+([ADR 0021](docs/adr/0021-one-integration-contract-catalog.md)) that tests compare with the code.
 
 ## Repository layout
 
@@ -14,9 +31,11 @@ apps/
   api/        NestJS API and background worker   (@envelope/api)
   web/        React + Vite sender app            (@envelope/web)
 packages/
-  shared/     schemas, error codes, limits, brand constants, coordinates
+  shared/     schemas, error codes, limits, the integration contract   (@envelope/shared)
+  embed/      the embedded-editor SDK, served by the API as a script   (@envelope/embed)
+examples/     runnable, dependency-free partner example
 docker/       Postgres init script (restricted role, test database)
-docs/         product specification, architecture, roadmap, phase plans
+docs/         specification, architecture, roadmap, phase plans, developers/ guide
 logs/         JSON log files, rotated daily (never committed)
 ```
 
@@ -28,6 +47,7 @@ The API and the web app are separate on purpose. See
 - Node 22 (see `.nvmrc`) and pnpm 10
 - Docker and Docker Compose
 - A Gmail account with an **App Password** for outgoing email
+- `jq`, `curl` and `uuidgen` if you want to run the quick-start script
 
 ## Setup
 
@@ -46,7 +66,7 @@ Generate the two secrets with `openssl rand -base64 48`. `JWT_ACCESS_SECRET` and
 |---|---|
 | http://localhost:5173 | Web app |
 | http://localhost:4000/api/v1/health | API health (database, Redis, storage) |
-| http://localhost:4000/api/docs | Swagger UI (development only) |
+| http://localhost:4000/api/docs | Swagger UI and `openapi.json` (development, or `API_DOCS_ENABLED=true`) |
 | http://localhost:9103 | MinIO console (user `digitalsign`) |
 
 ## Commands
@@ -59,7 +79,7 @@ Generate the two secrets with `openssl rand -base64 48`. `JWT_ACCESS_SECRET` and
 | `pnpm test` | Unit tests (Vitest) |
 | `pnpm --filter @envelope/api test:e2e` | API end-to-end tests against the test database |
 | `pnpm --filter @envelope/web test:e2e` | Playwright browser tests, on their own isolated stack |
-| `pnpm build` | Build every package |
+| `pnpm build` | Build every package, including the embed SDK the API serves |
 | `pnpm db:migrate` / `db:deploy` / `db:studio` | Prisma |
 
 Before every commit: `pnpm lint && pnpm typecheck && pnpm test`, plus the API e2e tests when the
@@ -99,16 +119,22 @@ packages are `@envelope/*`. Infrastructure identifiers deliberately keep the old
 `urn:digitalsign:error:` problem type. Renaming them would mean recreating volumes, writing a
 migration and breaking existing error references, for no functional gain.
 
-## Known simplifications (deliberate)
+## Deliberate simplifications
 
-| Simplification | Planned fix |
-|---|---|
-| PDF checks run inside the upload request, not on an isolated worker | Moves to the worker with the sealing engine (Phase 4) |
-| Malware scanning is a pass-through, and says so in the logs | ClamAV in hardening (Phase 5) |
-| Rate limits are counted in memory (one API instance) | Redis-backed storage before running several instances |
-| No Row-Level Security in Postgres yet; a Prisma extension enforces tenant isolation | RLS as a second layer in hardening |
-| The audit table is not partitioned | Monthly partitions when volume requires it |
-| Only the welcome email template exists | Invitation, reminder and completion emails in Phase 3 |
+Each phase plan lists what it chose not to build, and why, under "Deliberate Simplifications":
+see [docs/17](docs/17-phase-6-compliance-plan.md) and [docs/18](docs/18-phase-7-integration-plan.md)
+for the current ones. Nothing in this README is a substitute for those lists.
+
+## Changing the integration surface
+
+Which routes accept an API key, what each webhook carries and what each error means live in
+`packages/shared/src/integration-contract.ts`. After changing it, regenerate the reviewable copies
+and commit them with the change:
+
+```bash
+UPDATE_DEVELOPER_DOCS=1 pnpm --filter @envelope/api test     # docs/developers tables
+UPDATE_OPENAPI=1 pnpm --filter @envelope/api test:e2e           # docs/developers/openapi.json
+```
 
 ## Security
 

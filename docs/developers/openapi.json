@@ -5422,9 +5422,11 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "envelope.sent",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "envelopeStatus": "SENT",
             "sentAt": "2026-09-27T10:00:00.000Z",
             "expiresAt": "2026-10-11T10:00:00.000Z",
@@ -5447,10 +5449,14 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "envelope.viewed",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "recipientId": "22222222-2222-4222-8222-222222222222",
+            "recipientEmail": "alex@example.com",
+            "envelopeStatus": "SENT",
             "viewedAt": "2026-09-27T10:00:00.000Z",
             "externalId": "visit:1001",
             "metadata": {
@@ -5469,11 +5475,14 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "recipient.consented",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "recipientId": "22222222-2222-4222-8222-222222222222",
             "recipientEmail": "alex@example.com",
+            "envelopeStatus": "SENT",
             "consentGivenAt": "2026-09-27T10:00:00.000Z",
             "externalId": "visit:1001",
             "metadata": {
@@ -5492,13 +5501,17 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "recipient.signed",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "recipientId": "22222222-2222-4222-8222-222222222222",
             "recipientEmail": "alex@example.com",
-            "signedAt": "2026-09-27T10:00:00.000Z",
             "envelopeStatus": "PARTIALLY_SIGNED",
+            "signedAt": "2026-09-27T10:00:00.000Z",
+            "allSigned": false,
+            "remainingSigners": 1,
             "externalId": "visit:1001",
             "metadata": {
               "department": "billing"
@@ -5516,9 +5529,11 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "recipient.declined",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "recipientId": "22222222-2222-4222-8222-222222222222",
             "recipientEmail": "alex@example.com",
             "declinedAt": "2026-09-27T10:00:00.000Z",
@@ -5540,9 +5555,11 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "envelope.completed",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "envelopeStatus": "COMPLETED",
             "completedAt": "2026-09-27T10:00:00.000Z",
             "finalVersionNumber": 2,
@@ -5564,9 +5581,11 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "envelope.voided",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "envelopeStatus": "VOIDED",
             "voidedAt": "2026-09-27T10:00:00.000Z",
             "fromStatus": "SENT",
@@ -5588,9 +5607,11 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "envelope.expired",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "envelopeStatus": "EXPIRED",
             "expiredAt": "2026-09-27T10:00:00.000Z",
             "unsigned": 1,
@@ -5611,9 +5632,11 @@
         "example": {
           "id": "evt_55555555-5555-4555-8555-555555555555",
           "type": "envelope.extended",
+          "apiVersion": "v1",
           "createdAt": "2026-09-27T10:00:00.000Z",
           "data": {
             "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
             "envelopeStatus": "SENT",
             "expiresAt": "2026-11-11T10:00:00.000Z",
             "previousExpiresAt": "2026-10-11T10:00:00.000Z",
