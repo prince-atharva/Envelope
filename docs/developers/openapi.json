@@ -362,6 +362,176 @@
         ]
       }
     },
+    "/api/v1/auth/2fa": {
+      "get": {
+        "operationId": "TwoFactorController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Whether two-factor is on, and whether the workspace requires it",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/setup": {
+      "post": {
+        "operationId": "TwoFactorController_setup",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Start enrolment: a secret and an otpauth URI for an authenticator app",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/enable": {
+      "post": {
+        "operationId": "TwoFactorController_enable",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{6}$"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirm the app with a code; returns ten recovery codes, once",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/disable": {
+      "post": {
+        "operationId": "TwoFactorController_disable",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn two-factor off; needs the password and a current code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/recovery-codes": {
+      "post": {
+        "operationId": "TwoFactorController_regenerateRecoveryCodes",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "code": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace the recovery codes; needs the password and a current code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/embed/sessions": {
       "post": {
         "operationId": "embedSessionIssue",

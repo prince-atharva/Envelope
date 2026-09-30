@@ -10,10 +10,18 @@ import {
   passwordResetUrl,
   tokenRef,
 } from '../signing/signing-token';
-import type { PasswordChangedEmailJob, PasswordResetEmailJob } from './mail.types';
+import type {
+  PasswordChangedEmailJob,
+  PasswordResetEmailJob,
+  TwoFactorNoticeJob,
+} from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import type { SigningLinkResult } from './signing-link.mailer';
-import { renderPasswordChangedEmail, renderPasswordResetEmail } from './templates';
+import {
+  renderPasswordChangedEmail,
+  renderPasswordResetEmail,
+  renderTwoFactorNoticeEmail,
+} from './templates';
 
 /**
  * Sends a password-reset link, and the notice that follows a reset (docs/19,
@@ -96,6 +104,31 @@ export class PasswordResetMailer {
       job.template,
     );
     this.logger.info({ userId: user.id, messageId }, 'Password changed notice emailed');
+    return { messageId };
+  }
+
+  /** Two-factor changed, or a recovery code was used: tells the account's owner (docs/19). */
+  async sendTwoFactorNotice(job: TwoFactorNoticeJob): Promise<SigningLinkResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: job.userId } });
+    if (!user) {
+      this.logger.info({ userId: job.userId }, 'Two-factor notice not sent: user not found');
+      return { skipped: 'user not found' };
+    }
+    const recoveryCodesLeft =
+      job.event === 'recovery-used'
+        ? await this.prisma.recoveryCode.count({ where: { userId: user.id, usedAt: null } })
+        : undefined;
+    const { messageId } = await this.transport.send(
+      renderTwoFactorNoticeEmail({
+        to: user.email,
+        fullName: user.fullName,
+        event: job.event,
+        recoveryCodesLeft,
+        resetRequestUrl: forgotPasswordUrl(this.config.APP_URL),
+      }),
+      job.template,
+    );
+    this.logger.info({ userId: user.id, event: job.event, messageId }, 'Two-factor notice emailed');
     return { messageId };
   }
 }

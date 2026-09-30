@@ -22,6 +22,8 @@ export type RevokeReason =
   | 'reuse-detected'
   | 'password-reset'
   | 'password-change'
+  | 'two-factor-disabled'
+  | 'two-factor-reset'
   | 'user-removed';
 
 export interface IssuedSession {

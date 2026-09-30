@@ -11,6 +11,9 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { PasswordService } from './password.service';
 import { RolesGuard } from './roles.guard';
 import { SessionService } from './session.service';
+import { TotpSecretCipher } from './totp-secret.cipher';
+import { TwoFactorController } from './two-factor.controller';
+import { TwoFactorService } from './two-factor.service';
 
 const TOKEN_ISSUER = 'digitalsign-api';
 const TOKEN_AUDIENCE = 'digitalsign';
@@ -37,11 +40,13 @@ const TOKEN_AUDIENCE = 'digitalsign';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, TwoFactorController],
   providers: [
     AuthService,
     PasswordService,
     SessionService,
+    TotpSecretCipher,
+    TwoFactorService,
     ApiKeyGuard,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // After JwtAuthGuard: it reads req.user, which only JwtAuthGuard sets.

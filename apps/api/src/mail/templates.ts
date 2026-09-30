@@ -1,5 +1,5 @@
 import { BRAND, PASSWORD_RESET_TOKEN_EXPIRY_MINUTES } from '@envelope/shared';
-import type { RenderedEmail, WelcomeEmailJob } from './mail.types';
+import type { RenderedEmail, TwoFactorNoticeEvent, WelcomeEmailJob } from './mail.types';
 
 /** Brand colour placeholder until HealthProHub supplies its palette (docs/11, week 2). */
 const BRAND_COLOR = '#0f766e';
@@ -711,6 +711,73 @@ export function renderPasswordChangedEmail(notice: PasswordChangedNotice): Rende
     '',
     reassurance,
     `${warning} ${notice.resetRequestUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
+export interface TwoFactorNotice {
+  to: string;
+  fullName: string;
+  event: TwoFactorNoticeEvent;
+  /** Only for `recovery-used`: how many single-use codes are still unused. */
+  recoveryCodesLeft?: number;
+  /** The forgot-password page, for someone who did not do it themselves. */
+  resetRequestUrl: string;
+}
+
+/** Two-factor was turned on or off, a recovery code was used, or an Owner reset it (docs/19). */
+export function renderTwoFactorNoticeEmail(notice: TwoFactorNotice): RenderedEmail {
+  const account = `your ${BRAND.fullName} account`;
+  const copy: Record<TwoFactorNoticeEvent, { subject: string; intro: string }> = {
+    enabled: {
+      subject: 'Two-factor authentication was turned on',
+      intro: `Two-factor authentication was turned on for ${account}. From now on, signing in asks for a code from your authenticator app.`,
+    },
+    disabled: {
+      subject: 'Two-factor authentication was turned off',
+      intro: `Two-factor authentication was turned off for ${account}, and every other device that was signed in has been signed out.`,
+    },
+    'recovery-used': {
+      subject: 'A recovery code was used to sign in',
+      intro: `A recovery code was used to sign in to ${account}.${
+        notice.recoveryCodesLeft === undefined
+          ? ''
+          : ` You have ${notice.recoveryCodesLeft} unused recovery ${
+              notice.recoveryCodesLeft === 1 ? 'code' : 'codes'
+            } left.`
+      }`,
+    },
+    'reset-by-owner': {
+      subject: 'Your two-factor authentication was reset',
+      intro: `An owner of your workspace reset two-factor authentication on ${account}, and you were signed out. If your workspace requires it, you will set it up again the next time you sign in.`,
+    },
+  };
+  const { subject, intro } = copy[notice.event];
+  const warning =
+    notice.event === 'reset-by-owner'
+      ? 'If you did not expect this, ask the owner of your workspace.'
+      : 'If this was not you, reset your password now so that only you can sign in:';
+  const footer = `You received this email because of a change to the security of a ${BRAND.fullName} account with this address.`;
+
+  const action =
+    notice.event === 'reset-by-owner' ? '' : button(notice.resetRequestUrl, 'Reset my password');
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.fullName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0;">${escapeHtml(warning)}</p>
+     ${action}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.fullName)},`,
+    '',
+    intro,
+    '',
+    notice.event === 'reset-by-owner' ? warning : `${warning} ${notice.resetRequestUrl}`,
     '',
     footer,
   ].join('\n');

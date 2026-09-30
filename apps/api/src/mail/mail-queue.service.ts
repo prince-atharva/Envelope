@@ -18,6 +18,8 @@ import type {
   PasswordChangedEmailJob,
   PasswordResetEmailJob,
   SigningLinkEmailJob,
+  TwoFactorNoticeEvent,
+  TwoFactorNoticeJob,
   UserInvitedJob,
   VoidedNoticeJob,
   WebhookDisabledJob,
@@ -303,6 +305,27 @@ export class MailQueueService implements OnModuleInit {
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, userId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** Tells a person their second factor changed, or that a recovery code was used (docs/19). */
+  async enqueueTwoFactorNotice(
+    userId: string,
+    event: TwoFactorNoticeEvent,
+  ): Promise<string | undefined> {
+    const data: TwoFactorNoticeJob = {
+      template: 'two-factor-notice',
+      userId,
+      event,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `two-factor-${event}-${userId}-${Date.now()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, userId, event },
       'Email job enqueued',
     );
     return job.id;

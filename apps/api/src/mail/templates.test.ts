@@ -9,6 +9,7 @@ import {
   renderPasswordChangedEmail,
   renderPasswordResetEmail,
   renderSigningLinkEmail,
+  renderTwoFactorNoticeEmail,
   renderVoidedEmail,
   renderWebhookDisabledEmail,
   renderWelcomeEmail,
@@ -362,5 +363,45 @@ describe('password-changed email', () => {
     });
     expect(email.text).toContain('from its Account page');
     expect(email.text).toContain('every other device that was signed in has been signed out');
+  });
+});
+
+describe('two-factor notice emails', () => {
+  const base = {
+    to: 'asha@example.com',
+    fullName: 'Asha <Rao>',
+    resetRequestUrl: 'https://app.example.com/forgot-password',
+  };
+
+  it.each([
+    ['enabled', 'Two-factor authentication was turned on', 'a code from your authenticator app'],
+    ['disabled', 'Two-factor authentication was turned off', 'every other device'],
+    ['recovery-used', 'A recovery code was used to sign in', 'A recovery code was used'],
+  ] as const)(
+    'says what happened for %s, with a way back for someone who did not do it',
+    (event, subject, phrase) => {
+      const email = renderTwoFactorNoticeEmail({ ...base, event });
+      expect(email.subject).toBe(subject);
+      expect(email.text).toContain(phrase);
+      expect(email.text).toContain('https://app.example.com/forgot-password');
+      expect(email.html).toContain('Asha &lt;Rao&gt;');
+      expect(email.html.match(/<a /g)).toHaveLength(1);
+    },
+  );
+
+  it('says how many recovery codes are left, in the singular too', () => {
+    expect(
+      renderTwoFactorNoticeEmail({ ...base, event: 'recovery-used', recoveryCodesLeft: 7 }).text,
+    ).toContain('You have 7 unused recovery codes left.');
+    expect(
+      renderTwoFactorNoticeEmail({ ...base, event: 'recovery-used', recoveryCodesLeft: 1 }).text,
+    ).toContain('You have 1 unused recovery code left.');
+  });
+
+  it('tells someone an owner reset their factor, and does not send them to reset a password', () => {
+    const email = renderTwoFactorNoticeEmail({ ...base, event: 'reset-by-owner' });
+    expect(email.subject).toBe('Your two-factor authentication was reset');
+    expect(email.text).toContain('ask the owner of your workspace');
+    expect(email.html).not.toContain('<a ');
   });
 });

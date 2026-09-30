@@ -107,6 +107,17 @@ export interface PasswordChangedEmailJob {
   requestId?: string;
 }
 
+/** What happened to a person's second factor (docs/19, ADR 0024, ADR 0025). */
+export type TwoFactorNoticeEvent = 'enabled' | 'disabled' | 'recovery-used' | 'reset-by-owner';
+
+/** Tells a person their second factor changed or a recovery code was used. Id only. */
+export interface TwoFactorNoticeJob {
+  template: 'two-factor-notice';
+  userId: string;
+  event: TwoFactorNoticeEvent;
+  requestId?: string;
+}
+
 /**
  * A fresh link for an expired large-file download link (docs/17 step 10).
  * Ids only: the worker mints the token when it sends (ADR 0009).
@@ -160,6 +171,7 @@ export type EmailJobData =
   | UserInvitedJob
   | PasswordResetEmailJob
   | PasswordChangedEmailJob
+  | TwoFactorNoticeJob
   | DownloadRenewedJob
   | WebhookDisabledJob
   | AlertEmailJob;

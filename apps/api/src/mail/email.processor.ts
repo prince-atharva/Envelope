@@ -77,6 +77,8 @@ export class EmailProcessor extends WorkerHost {
         return this.passwordResets.sendResetLink(data);
       case 'password-changed':
         return this.passwordResets.sendChanged(data);
+      case 'two-factor-notice':
+        return this.passwordResets.sendTwoFactorNotice(data);
       case 'download-renewed':
         return this.downloadRenewals.send(data);
       case 'webhook-disabled':

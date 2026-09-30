@@ -49,6 +49,13 @@ export const LIMITS = {
     windowMs: 3_600_000,
     by: 'user',
   },
+  /** Six-digit codes have a million values; this keeps a stolen session from guessing one (ADR 0024). */
+  twoFactorPerUser: {
+    bucket: 'two-factor-user',
+    limit: 10,
+    windowMs: 900_000,
+    by: 'user',
+  },
   /** Bounds how many reset emails one mailbox can be sent, from however many addresses (ADR 0022). */
   passwordResetPerAccount: {
     bucket: 'password-reset-account',
