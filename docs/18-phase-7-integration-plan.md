@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Built through workstream 11 (API-key lifecycle, downloads and limits). Foundation shipped as `v0.7.0`. Workstreams 12–13 remain planned; release remains workstream 14 |
 | **Version** | 1.4.0 |
-| **Last updated** | 29 September 2026 |
+| **Last updated** | 30 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 7 deliver across the integration API, management UI and user guide, and how is it built and checked? |
 
@@ -139,7 +139,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 8 | Webhook reliability and event contract v1 | ✅ Built | Steps 8.1–8.5; ADR 0018 |
 | 9 | Webhook endpoint lifecycle tooling | ✅ Built | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | ✅ Built | Steps 10.1–10.5; ADR 0019 |
-| 11 | API-key lifecycle, downloads and limits | ✅ Built | Steps 11.1–11.5 |
+| 11 | API-key lifecycle, downloads and limits | ✅ Built | `603218e`, `446415d`, `a91cea9`, `788c8c9`, `6c0b823` |
 | 12 | Hosted SDK and runnable partner example | Accepted; planned | Steps 12.1–12.3; ADR 0020 |
 | 13 | One integration contract, OpenAPI and developer guide | Accepted; planned | Steps 13.1–13.4; ADR 0021 |
 | 14 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
@@ -1449,6 +1449,14 @@ an as-built pointer. The first full API run had one failure, `idempotent-create.
 workstream 10 test): a retry got 422 because `makePdf` stamps the current second into the file, so
 two calls straddling a second boundary send different bytes and the request fingerprint, which
 includes the PDF's hash, differs. It passed alone three times; the test now builds each PDF once.
+
+| Step | Commit |
+|---|---|
+| 11.1 | 603218e |
+| 11.2 | 446415d |
+| 11.3 | a91cea9 |
+| 11.4 | 788c8c9 |
+| 11.5 | 6c0b823 |
 
 ### Deliberate Simplifications
 
