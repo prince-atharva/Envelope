@@ -1,5 +1,9 @@
+import type { TemplateDetail } from '@envelope/shared';
+import { getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { BULK_QUEUE } from '../src/queue/queue.module';
 import { createTestApp, type TestApp } from './helpers/app';
 import { registerUser, type SignedInUser, uniqueEmail } from './helpers/auth';
 import { truncateAll } from './helpers/db';
@@ -22,6 +26,8 @@ describe('cross-tenant isolation (e2e)', () => {
   let recipientId: string;
   let fieldId: string;
   let sentId: string;
+  let templateId: string;
+  let batchId: string;
 
   beforeAll(async () => {
     await truncateAll();
@@ -41,9 +47,32 @@ describe('cross-tenant isolation (e2e)', () => {
     ]);
     sentId = sent.id;
     await sendEnvelope(t.http, ownerA, sentId).expect(200);
+
+    // A template and a bulk batch of tenant A's, for the Phase 9 routes below.
+    const source = await prepareEnvelope(t.http, ownerA, [
+      { name: 'Patient', email: uniqueEmail('cross-a-template') },
+    ]);
+    const template = await request(t.http)
+      .post('/api/v1/templates')
+      .set('Authorization', bearer(ownerA))
+      .send({ envelopeId: source.id, name: 'Tenant A form' })
+      .expect(201);
+    templateId = (template.body as TemplateDetail).id;
+    const batch = await request(t.http)
+      .post(`/api/v1/templates/${templateId}/bulk`)
+      .set('Authorization', bearer(ownerA))
+      .send({
+        rows: [{ recipients: [{ role: 'Patient', name: 'P', email: uniqueEmail('cross-row') }] }],
+      })
+      .expect(202);
+    batchId = batch.body.batchId;
   });
 
-  afterAll(() => t.close());
+  afterAll(async () => {
+    // No worker runs here; do not leave A's batch job for the next file's worker.
+    await t.app.get<Queue>(getQueueToken(BULK_QUEUE)).obliterate({ force: true });
+    await t.close();
+  });
 
   function attempt(name: string, build: () => request.Test): void {
     it(name, async () => {
@@ -134,6 +163,65 @@ describe('cross-tenant isolation (e2e)', () => {
     attempt('DELETE /envelopes/:id/legal-hold', () =>
       request(t.http).delete(`/api/v1/envelopes/${sentId}/legal-hold`),
     );
+  });
+
+  describe('templates and bulk send (docs/20)', () => {
+    function attemptCode(name: string, code: string, build: () => request.Test): void {
+      it(name, async () => {
+        const res = await build().set('Authorization', bearer(ownerB));
+        expect(res.status, `${name} → status`).toBe(404);
+        expect(res.body.code, `${name} → code`).toBe(code);
+      });
+    }
+    attemptCode('GET /templates/:id', 'TEMPLATE_NOT_FOUND', () =>
+      request(t.http).get(`/api/v1/templates/${templateId}`),
+    );
+    attemptCode('PATCH /templates/:id', 'TEMPLATE_NOT_FOUND', () =>
+      request(t.http).patch(`/api/v1/templates/${templateId}`).send({ name: 'Hijacked' }),
+    );
+    attemptCode('POST /templates/:id/envelopes', 'TEMPLATE_NOT_FOUND', () =>
+      request(t.http)
+        .post(`/api/v1/templates/${templateId}/envelopes`)
+        .send({ recipients: [{ role: 'Patient', name: 'X', email: uniqueEmail('cross-use') }] }),
+    );
+    attemptCode('POST /templates/:id/bulk', 'TEMPLATE_NOT_FOUND', () =>
+      request(t.http)
+        .post(`/api/v1/templates/${templateId}/bulk`)
+        .send({
+          rows: [{ recipients: [{ role: 'Patient', name: 'X', email: uniqueEmail('x') }] }],
+        }),
+    );
+    attemptCode('POST /templates (saving another tenant’s envelope)', 'NOT_FOUND', () =>
+      request(t.http).post('/api/v1/templates').send({ envelopeId: draftId, name: 'Stolen' }),
+    );
+    attemptCode('GET /bulk-batches/:id', 'BULK_BATCH_NOT_FOUND', () =>
+      request(t.http).get(`/api/v1/bulk-batches/${batchId}`),
+    );
+
+    it('lists none of tenant A’s templates or batches', async () => {
+      const templates = await request(t.http)
+        .get('/api/v1/templates')
+        .set('Authorization', bearer(ownerB));
+      expect(templates.body.templates).toEqual([]);
+      const archived = await request(t.http)
+        .get('/api/v1/templates?archived=true')
+        .set('Authorization', bearer(ownerB));
+      expect(archived.body.templates).toEqual([]);
+      const batches = await request(t.http)
+        .get('/api/v1/bulk-batches')
+        .set('Authorization', bearer(ownerB));
+      expect(batches.body.batches).toEqual([]);
+    });
+
+    it('tells the two cases apart no better than for envelopes', async () => {
+      const madeUp = '00000000-0000-4000-8000-000000000000';
+      const [foreign, missing] = await Promise.all([
+        request(t.http).get(`/api/v1/templates/${templateId}`).set('Authorization', bearer(ownerB)),
+        request(t.http).get(`/api/v1/templates/${madeUp}`).set('Authorization', bearer(ownerB)),
+      ]);
+      expect(foreign.status).toBe(missing.status);
+      expect(foreign.body.code).toBe(missing.body.code);
+    });
   });
 
   it('a genuinely nonexistent id gets the identical answer, so the two cases cannot be told apart', async () => {

@@ -369,4 +369,37 @@ describe('roles and users (e2e)', () => {
       expect(other.body.code).toBe('NOT_FOUND');
     });
   });
+
+  it('templates: an admin saves and archives them, a member may only read and use them', async () => {
+    const admin = await invite('ADMIN', 'Template Admin');
+    const member = await invite('MEMBER', 'Template Member');
+    const source = await prepareEnvelope(t.http, admin, [
+      { name: 'Patient', email: uniqueEmail('role-template') },
+    ]);
+
+    // Anyone can read the list; only an admin can save or change one.
+    const refused = await request(t.http)
+      .post('/api/v1/templates')
+      .set('Authorization', bearer(member))
+      .send({ envelopeId: source.id, name: 'Member template' })
+      .expect(403);
+    expect(refused.body.code).toBe('FORBIDDEN_ROLE');
+    const created = await request(t.http)
+      .post('/api/v1/templates')
+      .set('Authorization', bearer(admin))
+      .send({ envelopeId: source.id, name: 'Admin template' })
+      .expect(201);
+    const id = created.body.id as string;
+    await request(t.http).get('/api/v1/templates').set('Authorization', bearer(member)).expect(200);
+    await request(t.http)
+      .patch(`/api/v1/templates/${id}`)
+      .set('Authorization', bearer(member))
+      .send({ archived: true })
+      .expect(403);
+    await request(t.http)
+      .patch(`/api/v1/templates/${id}`)
+      .set('Authorization', bearer(admin))
+      .send({ archived: true })
+      .expect(200);
+  });
 });
