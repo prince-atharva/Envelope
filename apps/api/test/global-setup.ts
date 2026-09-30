@@ -16,4 +16,11 @@ export default function setup(): void {
     env: { ...process.env, ...TEST_ENV },
     stdio: 'pipe',
   });
+
+  // The API serves the embed SDK from its build output (embed-sdk.e2e.test.ts). Rebuilt each run so
+  // the test never asserts against a stale file.
+  execFileSync('pnpm', ['--filter', '@envelope/embed', 'build'], {
+    cwd: path.resolve(apiDir, '../..'),
+    stdio: 'pipe',
+  });
 }

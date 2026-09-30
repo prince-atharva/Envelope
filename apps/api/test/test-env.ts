@@ -2,10 +2,14 @@
  * Environment for the e2e suites. Defaults match docker-compose.yml; CI overrides
  * them with TEST_* variables. The developer's .env is never loaded here.
  */
+import path from 'node:path';
+
 const env = process.env;
 
 export const TEST_ENV: Record<string, string> = {
   NODE_ENV: 'test',
+  // Where the embed SDK build is served from (embed-sdk.e2e.test.ts).
+  APP_ROOT_DIR: path.resolve(__dirname, '../../..'),
   APP_URL: 'http://localhost:5173',
   API_DOCS_ENABLED: 'false',
 
