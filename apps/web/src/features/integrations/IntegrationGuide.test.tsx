@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExampleBlock, IntegrationGuide } from './IntegrationGuide';
+import { ENDPOINTS } from './integration-reference';
 
 vi.mock('../../lib/logger', () => ({ reportError: vi.fn() }));
 
@@ -17,12 +18,12 @@ describe('integration guide', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'API reference' }));
     const search = screen.getByRole('searchbox', { name: 'Search API operations' });
     fireEvent.change(search, { target: { value: 'DELETE' } });
-    expect(screen.getByText('1 of 12 operations')).toBeTruthy();
+    expect(screen.getByText(`1 of ${ENDPOINTS.length} operations`)).toBeTruthy();
     expect(screen.getByText('Remove a recipient')).toBeTruthy();
     fireEvent.change(search, { target: { value: 'nonexistent' } });
     expect(screen.getByText(/No matching operations/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
-    expect(screen.getByText('12 of 12 operations')).toBeTruthy();
+    expect(screen.getByText(`${ENDPOINTS.length} of ${ENDPOINTS.length} operations`)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Manage connections' }));
     expect(manage).toHaveBeenCalledOnce();
   });

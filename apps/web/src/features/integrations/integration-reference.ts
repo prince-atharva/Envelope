@@ -165,6 +165,51 @@ export const ENDPOINTS: readonly EndpointReference[] = [
     errors: 'NOT_FOUND or ENVELOPE_PURGED when the requested file is unavailable.',
   },
   {
+    id: 'document-original',
+    method: 'GET',
+    path: '/envelopes/:id/documents/original',
+    title: 'Download the original PDF',
+    description: 'The PDF exactly as it was uploaded, with no signatures. Same bytes as version 0.',
+    inputs: [
+      'Optional If-None-Match: the ETag from an earlier response; unchanged files return 304.',
+    ],
+    response: 'HTTP 200\nContent-Type: application/pdf\n\n<PDF bytes saved to original.pdf>',
+    responseNote: '200 · Binary PDF, not JSON.',
+    errors: 'NOT_FOUND or ENVELOPE_PURGED when the file is unavailable.',
+  },
+  {
+    id: 'document-completed',
+    method: 'GET',
+    path: '/envelopes/:id/documents/completed',
+    title: 'Download the completed PDF',
+    description:
+      'The sealed document with every signature and the certificate pages, without needing its version number.',
+    inputs: [
+      'Available once the envelope is completed (after envelope.completed). Before that the request returns 409.',
+      'Optional If-None-Match: the ETag from an earlier response; the sealed file never changes, so 304 is safe to rely on.',
+    ],
+    response: 'HTTP 200\nContent-Type: application/pdf\n\n<PDF bytes saved to completed.pdf>',
+    responseNote:
+      '200 · Binary PDF, not JSON. The SHA-256 of these bytes is the envelope’s finalHash.',
+    errors: 'CONFLICT (not completed yet), NOT_FOUND or ENVELOPE_PURGED.',
+  },
+  {
+    id: 'document-certificate',
+    method: 'GET',
+    path: '/envelopes/:id/documents/certificate',
+    title: 'Download the certificate pages',
+    description:
+      'Only the certificate of completion, cut from the sealed PDF when you ask. Nothing extra is stored.',
+    inputs: [
+      'Available once the envelope is completed; before that the request returns 409.',
+      'Limited to 30 requests a minute per workspace. Keep the file rather than asking again; an unchanged one answers If-None-Match with 304.',
+    ],
+    response: 'HTTP 200\nContent-Type: application/pdf\n\n<PDF bytes saved to certificate.pdf>',
+    responseNote:
+      '200 · Binary PDF, not JSON. Its pages are the certificate pages of the completed file.',
+    errors: 'CONFLICT (not completed yet), RATE_LIMITED, NOT_FOUND or ENVELOPE_PURGED.',
+  },
+  {
     id: 'update',
     method: 'PATCH',
     path: '/envelopes/:id',
@@ -269,6 +314,43 @@ export const ENDPOINTS: readonly EndpointReference[] = [
     responseNote: '200 · Sent envelope and recipients invited now. No signing tokens are returned.',
     errors:
       'NOT_READY_TO_SEND includes readiness issues; ENVELOPE_NOT_DRAFT; conflicting idempotency reuse is rejected.',
+  },
+  {
+    id: 'void',
+    method: 'POST',
+    path: '/envelopes/:id/void',
+    title: 'Cancel or discard',
+    description:
+      'Cancel a sent envelope so its links stop working and the people emailed are told why, or discard a draft.',
+    inputs: [
+      'JSON reason (1–1,000 characters): required for a sent envelope, optional for a draft. It is emailed to recipients and is not stored in the audit trail.',
+      'A full-access key only. Fires envelope.voided. Limited to 30 requests a minute per workspace, shared with reminders and deadline changes.',
+    ],
+    body: { reason: 'Sent to the wrong patient' },
+    response: { id: EXAMPLE_ENVELOPE_ID, status: 'VOIDED', voidedAt: time, discarded: false },
+    responseNote: '200 · discarded is true when a draft was thrown away and nobody was emailed.',
+    errors:
+      'ENVELOPE_TERMINAL (already closed), ENVELOPE_ON_LEGAL_HOLD, VALIDATION_FAILED (no reason), NOT_FOUND.',
+  },
+  {
+    id: 'remind',
+    method: 'POST',
+    path: '/envelopes/:id/remind',
+    title: 'Send a reminder',
+    description:
+      'Email a fresh signing link to the people whose turn it is and who have not finished. The previous link stops working.',
+    inputs: [
+      'Optional JSON: recipientIds, a list of recipient UUIDs. Omitted, it reminds everyone whose turn it is.',
+      'One reminder per person per 24 hours; the rest come back in skipped with a reason. A full-access key only; shares the 30 a minute workspace limit with cancel.',
+    ],
+    body: {},
+    response: {
+      reminded: [EXAMPLE_RECIPIENT_ID],
+      skipped: [],
+    },
+    responseNote: '200 · Recipients reminded now, and those skipped with the reason for each.',
+    errors:
+      'CONFLICT (not sent yet), ENVELOPE_TERMINAL, ENVELOPE_EXPIRED, RATE_LIMITED, NOT_FOUND.',
   },
 ];
 

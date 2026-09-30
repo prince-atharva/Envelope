@@ -126,11 +126,16 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
           </Button>
         </div>
         <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-brand-800">
-          {['12 API operations', '8 webhook events', 'Server-to-server'].map((label) => (
-            <span key={label} className="rounded-full border border-brand-100 bg-white px-3 py-1.5">
-              {label}
-            </span>
-          ))}
+          {[`${ENDPOINTS.length} API operations`, '8 webhook events', 'Server-to-server'].map(
+            (label) => (
+              <span
+                key={label}
+                className="rounded-full border border-brand-100 bg-white px-3 py-1.5"
+              >
+                {label}
+              </span>
+            ),
+          )}
         </div>
       </Card>
       <Tabs
@@ -208,9 +213,10 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 Recipients sign on Envelope using their emailed links. Subscribe to
-                envelope.completed, verify the event and use data.finalVersionNumber with GET
-                /envelopes/:id/file?version=…. You can also read document detail and choose the
-                version marked isFinal. Version 0 is always the original.
+                envelope.completed, verify the event and download GET
+                /envelopes/:id/documents/completed, plus /documents/certificate for the certificate
+                pages alone. /documents/original is the upload as sent. To fetch a specific version
+                instead, use /envelopes/:id/file?version=… with data.finalVersionNumber.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button className="min-h-11" onClick={() => setSection('webhooks')}>
@@ -235,9 +241,9 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               </p>
             </div>
             <Alert tone="info">
-              API-key and webhook management, users, compliance, cancellation, reminders and
-              deadline extensions require a signed-in session. Signer routes use emailed signing
-              tokens. A full-access key does not grant these capabilities.
+              API-key and webhook management, users, compliance, deadline extensions and reminder
+              settings require a signed-in session. Signer routes use emailed signing tokens. A
+              full-access key does not grant these capabilities.
             </Alert>
             <label className="block">
               <span className="text-sm font-medium text-slate-700">Search API operations</span>

@@ -6,10 +6,12 @@ import {
   envelopeMetadataSchema,
   externalIdSchema,
   FIRED_WEBHOOK_EVENT_TYPES,
+  remindSchema,
   saveFieldsSchema,
   sendEnvelopeSchema,
   updateEnvelopeSchema,
   updateRecipientSchema,
+  voidEnvelopeSchema,
 } from '@envelope/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -29,6 +31,8 @@ describe('published integration examples', () => {
       'recipient-update': updateRecipientSchema,
       fields: saveFieldsSchema,
       send: sendEnvelopeSchema,
+      void: voidEnvelopeSchema,
+      remind: remindSchema,
     };
     for (const [id, schema] of Object.entries(schemas)) {
       expect(schema.safeParse(ENDPOINTS.find((entry) => entry.id === id)?.body).success, id).toBe(
@@ -39,6 +43,20 @@ describe('published integration examples', () => {
       createEnvelopeSchema.safeParse({ title: 'Consulting agreement', documentCategory: 'OTHER' })
         .success,
     ).toBe(true);
+  });
+  it('lists each operation once, including cancel, remind and the named documents', () => {
+    const ids = ENDPOINTS.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const routes = ENDPOINTS.map((entry) => `${entry.method} ${entry.path}`);
+    for (const route of [
+      'POST /envelopes/:id/void',
+      'POST /envelopes/:id/remind',
+      'GET /envelopes/:id/documents/original',
+      'GET /envelopes/:id/documents/completed',
+      'GET /envelopes/:id/documents/certificate',
+    ]) {
+      expect(routes, route).toContain(route);
+    }
   });
   it('covers every emitted event without claiming delivery confirmation', () => {
     expect(Object.keys(WEBHOOK_EXAMPLES).sort()).toEqual([...FIRED_WEBHOOK_EVENT_TYPES].sort());

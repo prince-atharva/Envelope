@@ -109,6 +109,11 @@ API keys are shown once at creation, stored hashed, and are revocable. They MUST
 > through the tenant's one hidden service-account `User` (ADR 0015), so every envelope it creates is
 > owned by the tenant as a whole, not by whichever admin issued the key.
 
+> **As built (Phase 7, docs/18 workstream 11).** A full-access key can also `POST
+> /envelopes/:id/void` and `POST /envelopes/:id/remind` (a read-only key gets `API_KEY_READ_ONLY`).
+> Both act as the service-account user, so the audit trail's actor for a cancel is that user. Extend
+> and the automatic-reminder settings stay session-only, as do legal hold and audit export.
+
 **Signer tokens are never sent in a header** — they arrive in the URL from an email link. Consequently they MUST NOT be logged, MUST be single-use, and MUST expire. See [10-security-and-threat-model.md](10-security-and-threat-model.md).
 
 ## Envelopes
@@ -327,6 +332,17 @@ Preconditions: at least one recipient who signs or approves; every `SIGNER` has 
 | `GET` | `/v1/envelopes/:id/documents/completed` | The sealed document. `409` if not `COMPLETED`. |
 | `GET` | `/v1/envelopes/:id/documents/versions/:n` | A specific version from the chain |
 | `GET` | `/v1/envelopes/:id/audit` | Full audit trail |
+
+
+> **As built (Phase 7, docs/18 workstream 11).** `documents/original` and `documents/completed`
+> are built, and `documents/certificate` is added: only the certificate pages, cut from the sealed
+> file on request (nothing extra is stored) and limited to 30 a minute per workspace. `completed`
+> and `certificate` answer `409 CONFLICT` until the envelope is `COMPLETED`. All three take an API
+> key, including a read-only one, and answer a matching `If-None-Match` with `304`; the ETag is the
+> file's SHA-256, plus `-certificate` for the certificate pages. A specific version is read with
+> `GET /envelopes/:id/file?version=n`; a `documents/versions/:n` route was not built. The `304` on
+> `/file` and on the envelope detail no longer ends the response twice, which used to log an error
+> for each one.
 
 #### `POST /v1/envelopes/:id/void` (Phase 5)
 
@@ -795,6 +811,12 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 > If Redis is unavailable, each server counts in its own memory and one alert is raised. Every
 > limited response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`
 > (seconds), and a refusal is `429 RATE_LIMITED` with `Retry-After` in seconds.
+
+
+> **As built (Phase 7, docs/18 step 11.4).** A request can be counted by several limits (the
+> address, a key, the workspace). The `X-RateLimit-*` headers describe the one with the fewest
+> requests left, whatever order they ran in; on a tie the first stays. The three headers are
+> listed in CORS `Access-Control-Expose-Headers`, so a browser caller can read them.
 
 ## Deferred
 

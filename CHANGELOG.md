@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- **API-key lifecycle, downloads and limits (Phase 7, docs/18 workstream 11).** A full API key can now cancel an envelope (`POST /envelopes/:id/void`) and send a reminder (`POST /envelopes/:id/remind`); extending and reminder settings stay session-only. `GET /envelopes/:id/documents/original`, `/completed` and `/certificate` return the upload, the sealed PDF, or only its certificate pages, without needing the final version number, and work with a read-only key. Rate-limit headers now describe the tightest limit that counted the request and are readable from a browser. The integration guide lists all 17 operations.
+
 - **Partner references and safe retries (Phase 7, docs/18 workstream 10, ADR 0019).** An envelope can carry the integrating partner's own `externalId` and up to 10 small string labels (`metadata`), set when it is created, while it is a draft, or through an upload-mode embedded session, and fixed once sent. `GET /envelopes?externalId=` finds one by exact match, and every webhook for the envelope echoes both (as `null` when unset). `POST /envelopes` and `POST /embed/sessions` accept an optional `Idempotency-Key`: a retry after a lost response returns the same envelope, or the same session with a fresh launch token, instead of a duplicate. The document page shows the reference, and the integration guide documents all of it.
 
 - **Richer webhook event payloads (Phase 7, docs/18 steps 8.1–8.3).** Events include the contract version and envelope title, viewing and consent include the current envelope status, and signing includes whether all signatures are collected and how many remain. Sender cancellations include their reason; recipient decline reasons stay private. `envelope.extended` reports deadline changes and reopening. Delivery records gain an indexed envelope identifier.
@@ -38,6 +40,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- A pre-existing database deadlock between a cancel and the mail worker's `EMAIL_SENT` audit write (and the same shape in completion emails, cancellation notices, audit export, a signer's first view and a "more time" request) is gone: each now locks the envelope row before the audit trail's advisory lock, as cancel does (Phase 7, docs/18 step 11.1).
+- A `304 Not Modified` from `GET /envelopes/:id` and `GET /envelopes/:id/file` logged an error on every request, because the response was ended twice; it no longer does (Phase 7, docs/18 step 11.3).
 - The `recipient.signed` webhook always reported the envelope as `PARTIALLY_SIGNED`, even on the last signature — it now reads the envelope's real status within the same transaction and adds `allSigned`/`remainingSigners`, so a partner can tell the last signature landed without a follow-up API call (Phase 7, docs/18 step 8.3).
 - The documented 12-hour webhook retry never ran: the queue was configured for one fewer attempt than the retry schedule has entries. All 6 documented delays now run, over 7 total attempts (Phase 7, docs/18 step 8.2).
 - `envelope.completed`'s `completedAt` could differ from the value actually stored on the envelope, since it read the clock a second time after the sealing transaction committed. It now reports the transaction's own committed value (Phase 7, docs/18 step 8.3).

@@ -123,10 +123,10 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
           event IDs and reconciles status through GET /api/v1/envelopes/:id.
         </p>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          On envelope.completed, inspect document versions and download the final version explicitly
-          with /file?version=N. The default file is the original. Recover a lost browser callback
-          with an API read; do not blindly upload or send again. The API and Webhook guide tabs
-          cover those existing contracts.
+          On envelope.completed, download the sealed PDF with /documents/completed (the certificate
+          pages alone are at /documents/certificate); /documents/original is the upload as sent.
+          Recover a lost browser callback with an API read; do not blindly upload or send again. The
+          API and Webhook guide tabs cover those existing contracts.
         </p>
       </Card>
       <Card>

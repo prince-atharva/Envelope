@@ -400,7 +400,7 @@ test('integration guide documents all key operations and webhook setup on every 
     .poll(() => page.evaluate(() => navigator.clipboard.readText()))
     .toContain('Bearer $ENVELOPE_API_KEY');
   await page.getByRole('tab', { name: 'API reference', exact: true }).click();
-  await expect(page.locator('summary')).toHaveCount(12);
+  await expect(page.locator('summary')).toHaveCount(17);
   await page.getByRole('searchbox', { name: 'Search API operations' }).fill('DELETE');
   await expect(page.locator('summary')).toHaveCount(1);
   await page.locator('summary').click();

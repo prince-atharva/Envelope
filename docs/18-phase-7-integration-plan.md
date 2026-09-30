@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Built through workstream 10 (partner references and safe retries). Foundation shipped as `v0.7.0`. Workstreams 11–13 remain planned; release remains workstream 14 |
-| **Version** | 1.3.0 |
+| **Status** | Built through workstream 11 (API-key lifecycle, downloads and limits). Foundation shipped as `v0.7.0`. Workstreams 12–13 remain planned; release remains workstream 14 |
+| **Version** | 1.4.0 |
 | **Last updated** | 29 September 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 7 deliver across the integration API, management UI and user guide, and how is it built and checked? |
@@ -139,7 +139,7 @@ commits below group the work by Phase 7 workstream after the authorized soft res
 | 8 | Webhook reliability and event contract v1 | ✅ Built | Steps 8.1–8.5; ADR 0018 |
 | 9 | Webhook endpoint lifecycle tooling | ✅ Built | Steps 9.1–9.6; ADR 0018 |
 | 10 | Partner references and safe retries | ✅ Built | Steps 10.1–10.5; ADR 0019 |
-| 11 | API-key lifecycle, downloads and limits | Accepted; planned | Steps 11.1–11.5 |
+| 11 | API-key lifecycle, downloads and limits | ✅ Built | Steps 11.1–11.5 |
 | 12 | Hosted SDK and runnable partner example | Accepted; planned | Steps 12.1–12.3; ADR 0020 |
 | 13 | One integration contract, OpenAPI and developer guide | Accepted; planned | Steps 13.1–13.4; ADR 0021 |
 | 14 | Release | Planned, separate authorization required | No product version bump or tag until an authorized Phase 7 release |
@@ -447,6 +447,11 @@ webhooks (SES, Postmark), that provider's inbound webhook becomes a real hook po
   `POST /v1/webhooks/:id/rotate-secret` is a natural follow-up, not built here.
 
 ## A Pre-Existing Race This Phase's Tests Surfaced
+
+> **As built (workstream 11, step 11.1).** The application race described here is fixed: every
+> audit-writing mail-worker transaction now locks the envelope row first, as cancel does, and
+> `audit-concurrency.e2e.test.ts` proves it. The text below is the original record; the rule to
+> wait on `linkFor` before a second action on the same envelope still applies to tests.
 
 Writing `webhook-events.e2e.test.ts` — several distinct envelope actions back to back, with no
 artificial pacing between them — occasionally hit a genuine Postgres deadlock, unrelated to
@@ -1349,11 +1354,11 @@ version number. This workstream also fixes a pre-existing database deadlock that
 on one envelope can trigger, which matters more once partners are calling the API back-to-back.
 
 Finish line:
-- [ ] A full API key can void an envelope and send a reminder; extend remains session-only.
-- [ ] `GET /envelopes/:id/documents/{original,completed,certificate}` exist and are read-only-key accessible.
-- [ ] The pre-existing audit-write deadlock (docs/18, "A Pre-Existing Race") no longer occurs under
+- [x] A full API key can void an envelope and send a reminder; extend remains session-only.
+- [x] `GET /envelopes/:id/documents/{original,completed,certificate}` exist and are read-only-key accessible.
+- [x] The pre-existing audit-write deadlock (docs/18, "A Pre-Existing Race") no longer occurs under
       two rapid actions on the same envelope.
-- [ ] Rate-limit headers reflect the most restrictive limit that actually applied to the request.
+- [x] Rate-limit headers reflect the most restrictive limit that actually applied to the request.
 
 ### Technical Detail and Decisions
 
@@ -1368,20 +1373,90 @@ Finish line:
 
 | Step | Deliverable | Checks | Status |
 |---|---|---|---|
-| 11.1 | `fix(api)`: lock the envelope first in mail-worker audit transactions | New `audit-concurrency.e2e.test.ts` reproduces the deadlock first, then proves the fix | Planned |
-| 11.2 | `@ApiKeyAllowed` on void and remind | API e2e: read-only 403, service-account actor, `envelope.voided` fires | Planned |
-| 11.3 | `GET /envelopes/:id/documents/{original,completed,certificate}`; fix the `/file` 304 `ERR_HTTP_HEADERS_SENT` branch | New `documents.e2e.test.ts`; unit test for certificate extraction | Planned |
-| 11.4 | Per-key rate tracking; most-restrictive `X-RateLimit-*`; CORS exposes them | `rate-limits.e2e.test.ts` | Planned |
-| 11.5 | Guide entries; docs/08 As-built notes | Component/browser tests | Planned |
+| 11.1 | `fix(api)`: lock the envelope first in mail-worker audit transactions | New `audit-concurrency.e2e.test.ts` reproduces the deadlock first, then proves the fix | ✅ Built |
+| 11.2 | `@ApiKeyAllowed` on void and remind | API e2e: read-only 403, service-account actor, `envelope.voided` fires | ✅ Built |
+| 11.3 | `GET /envelopes/:id/documents/{original,completed,certificate}`; fix the `/file` 304 `ERR_HTTP_HEADERS_SENT` branch | New `documents.e2e.test.ts`; unit test for certificate extraction | ✅ Built |
+| 11.4 | Most-restrictive `X-RateLimit-*` across every limit that counted the request; CORS exposes them. No new per-key limiter (see the record below) | `rate-limit.test.ts`; `rate-limits.e2e.test.ts` | ✅ Built |
+| 11.5 | Guide entries; docs/08 As-built notes | Component/browser tests | ✅ Built |
 
 Step 11.1 touches the mail and lifecycle modules, outside the integration surface proper, because
 the deadlock it fixes becomes more likely once partners call the API without the pacing a human
 using the web app naturally has.
 
+#### Implementation record (steps 11.1–11.5, 29 September 2026)
+
+Built as planned, with these specifics worth knowing:
+
+- **The deadlock, exactly.** The old text of "A Pre-Existing Race" describes the symptom; the cycle is:
+  a mail-worker transaction takes the audit trail's per-envelope advisory lock, then its `AuditTrail`
+  insert needs a key-share lock on the `Envelope` row (the foreign key). A cancel holds that row
+  `FOR UPDATE` and then asks for the advisory lock. Each waits on the other. `audit-concurrency.e2e.test.ts`
+  reproduces it deterministically (a plain connection plays the cancel, at the moment the mail
+  transport has returned): before the fix the mail job lost and was retried, so the transport was
+  called three times instead of once. The fix takes `lockEnvelope` (the same `FOR UPDATE` cancel uses)
+  as the first statement of every audit-writing transaction that did not already lock the envelope:
+  the `EMAIL_SENT` write in the signing-link mailer, the cancellation notice, the completion email,
+  audit export, and, as a precaution, the signer's first view and "request more time". Sending a
+  reminder, drafts, legal hold, sign, decline, cancel, extend, expiry, retention and the seal already
+  locked or updated the envelope first. The first-view case could not be reproduced: that
+  transaction waits earlier, on a `Recipient` row, so its test is a regression guard rather than a
+  reproduction.
+- **Void and remind for keys.** Only `@ApiKeyAllowed({ write: true })` on the two handlers. The
+  acting user is the service account, so the audit actor for a key's cancel is that user. Extend and
+  the automatic-reminder settings still answer `API_KEY_NOT_ALLOWED`; both are asserted.
+- **Named documents.** `resolveNamed` in `EnvelopesService` maps `original` to version 0, `completed`
+  to the final version and `certificate` to the pages the seal added to the version before it
+  (final page count minus the previous version's), so no schema change and no stored second file.
+  The certificate is cut out with `pdf-lib` (`sealing/certificate-extract.ts`) from a file already
+  capped at the upload limit, behind a new 30 a minute per workspace limit (`LIMITS.certificate`).
+  Before completion, `completed` and `certificate` answer `409 CONFLICT`. Scope and purge checks
+  come before any ETag answer, through one helper shared with `/file`. ETags are the file's
+  SHA-256 (plus `-certificate`). Download names are "Name (signed).pdf" and "Name (certificate).pdf".
+- **The 304 bug was on two routes.** `res.status(304).end()` with `passthrough` makes Nest send a
+  second time, which logged `Unhandled error while processing request` every time. The envelope
+  detail route had it as well as `/file`; both now set the status and return. The existing 304 tests
+  gained a "no error logged" assertion, and were confirmed to fail before the fix.
+- **Headers.** `setRateLimitHeaders` keeps the response's existing `X-RateLimit-*` set when it has
+  fewer requests left than the limiter now counting, so the address limit (300), a key's bucket and
+  the workspace bucket can run in any order. CORS now exposes the three headers. **Step 11.4 did not
+  add per-key rate tracking**, despite the plan text: the guard already counts a per-key bucket
+  where a route asks for it (`by: 'tenantKey'`, used by the embed routes), and a per-key counter with
+  the same limit as the workspace counter can never refuse a request the workspace counter would
+  not. A distinct, lower per-key limit is a product decision the plan does not make.
+- **Guide.** The in-app reference now lists 17 operations (the count is computed, not typed), the
+  completion step points to `/documents/completed`, and the note that cancellation and reminders need
+  a session is corrected. `docs/08` has As-built notes for all of it. Workstream 13 replaces this
+  hand-kept list with the catalog.
+- **A pre-existing test race, found and fixed while verifying.** `webhooks.e2e.test.ts`'s tenant-wide
+  delivery block ran a dedicated worker alongside the file's outer worker on the same Redis queues,
+  so each job went to either. The outer worker rejects loopback receivers and holds the mailbox
+  `inviteMember` reads, which is why two tests of that block timed out from time to time, and why
+  the workstream 8 and 9 records call it an unexplained load timeout. Two of its tests failed in
+  the first full run of this workstream and one failed alone; the file passed on clean HEAD and
+  failed on this tree, which pointed to the queue split, not load. The outer worker now closes
+  before the dedicated one starts and the file uses that one. Five consecutive runs passed.
+
+**Verification (30 September 2026).** `pnpm lint` passed; the api, web and embed packages typecheck
+clean on their own (root `pnpm typecheck` still shows only the known `jurisdiction.test.ts` failures,
+not touched); `pnpm test` 504 passed (shared 127, embed 4, API 185, web 188); API e2e (Node 22.19.0)
+42 files, 303 tests passed; desktop-chrome browser e2e 38 passed. The convention review found one
+blocking issue (the browser spec still expected 12 reference entries; it is now 17) and four smaller
+ones, all fixed: the reminder-header test now waits for the invitation worker, a member's access to
+the named documents is covered (in `roles.e2e.test.ts`, folded into the existing scope test because
+a second pair of invites exceeds the invitation limit for that file's workspace), the certificate
+extraction test now checks which pages come out and in what order, and "A Pre-Existing Race" carries
+an as-built pointer. The first full API run had one failure, `idempotent-create.e2e.test.ts` (a
+workstream 10 test): a retry got 422 because `makePdf` stamps the current second into the file, so
+two calls straddling a second boundary send different bytes and the request fingerprint, which
+includes the PDF's hash, differs. It passed alone three times; the test now builds each PDF once.
+
 ### Deliberate Simplifications
 
 - No API-key rename or expiry; rotating a key means creating a new one and revoking the old.
 - Audit export and legal hold remain session-only, ADMIN-only routes.
+- The certificate is cut out on request, not stored; a partner that needs it often should keep the
+  file rather than ask again.
+- No `documents/versions/:n` route; a version is read with `/file?version=n`.
 
 ---
 
