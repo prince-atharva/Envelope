@@ -22,6 +22,9 @@ const valid = {
   SMTP_FROM: 'Digital Sign <someone@gmail.com>',
 };
 
+/** Production must choose a scanner (ADR 0026); tests about other production rules choose one. */
+const SCANNING = { MALWARE_SCANNER: 'clamav' };
+
 function problemsOf(env: Record<string, string>): string[] {
   try {
     parseEnv(env);
@@ -33,6 +36,25 @@ function problemsOf(env: Record<string, string>): string[] {
 }
 
 describe('parseEnv', () => {
+  it('scans nothing by default, and production must choose to run without a scanner (ADR 0026)', () => {
+    expect(parseEnv(valid).MALWARE_SCANNER).toBe('none');
+    const production = { ...valid, NODE_ENV: 'production', SEALED_RETENTION_MODE: 'COMPLIANCE' };
+    expect(problemsOf(production)).toEqual([
+      expect.stringMatching(/^MALWARE_SCANNER: set MALWARE_SCANNER=clamav/),
+    ]);
+    expect(problemsOf({ ...production, MALWARE_SCANNER: 'clamav' })).toEqual([]);
+    expect(problemsOf({ ...production, MALWARE_SCANNER_ALLOW_NONE: 'true' })).toEqual([]);
+    const clam = parseEnv({ ...valid, MALWARE_SCANNER: 'clamav' });
+    expect([clam.CLAMAV_HOST, clam.CLAMAV_PORT, clam.CLAMAV_TIMEOUT_MS]).toEqual([
+      '127.0.0.1',
+      3310,
+      15_000,
+    ]);
+    expect(problemsOf({ ...valid, MALWARE_SCANNER: 'nope' })).toEqual([
+      expect.stringMatching(/^MALWARE_SCANNER:/),
+    ]);
+  });
+
   it('requires a two-factor encryption key that is 32 bytes and not the webhook key (ADR 0024)', () => {
     const { TOTP_SECRET_ENC_KEY: _omit, ...without } = valid;
     expect(problemsOf(without)).toEqual([expect.stringMatching(/^TOTP_SECRET_ENC_KEY:/)]);
@@ -87,7 +109,9 @@ describe('parseEnv', () => {
     expect(env.S3_SEALED_BUCKET).toBe('bucket-sealed');
     expect(env.SEALED_RETENTION_DAYS).toBe(2557);
     expect(env.SEALED_RETENTION_MODE).toBe('GOVERNANCE');
-    expect(parseEnv({ ...valid, NODE_ENV: 'production' }).SEALED_RETENTION_MODE).toBe('COMPLIANCE');
+    expect(parseEnv({ ...valid, ...SCANNING, NODE_ENV: 'production' }).SEALED_RETENTION_MODE).toBe(
+      'COMPLIANCE',
+    );
     expect(problemsOf({ ...valid, S3_SEALED_BUCKET: 'bucket' })).toEqual([
       'S3_SEALED_BUCKET: must be a separate bucket from S3_BUCKET, created with Object Lock on',
     ]);
@@ -95,7 +119,12 @@ describe('parseEnv', () => {
 
   it('refuses a sealed document that an administrator could delete in production', () => {
     expect(
-      problemsOf({ ...valid, NODE_ENV: 'production', SEALED_RETENTION_MODE: 'GOVERNANCE' }),
+      problemsOf({
+        ...valid,
+        ...SCANNING,
+        NODE_ENV: 'production',
+        SEALED_RETENTION_MODE: 'GOVERNANCE',
+      }),
     ).toEqual(['SEALED_RETENTION_MODE: must be COMPLIANCE in production']);
   });
 
@@ -108,9 +137,9 @@ describe('parseEnv', () => {
   it('refuses the memory and file mail transports in production', () => {
     const { SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, ...rest } = valid;
     for (const transport of ['memory', 'file']) {
-      expect(problemsOf({ ...rest, NODE_ENV: 'production', MAIL_TRANSPORT: transport })).toEqual([
-        `MAIL_TRANSPORT: ${transport} transport is for development and tests only`,
-      ]);
+      expect(
+        problemsOf({ ...rest, ...SCANNING, NODE_ENV: 'production', MAIL_TRANSPORT: transport }),
+      ).toEqual([`MAIL_TRANSPORT: ${transport} transport is for development and tests only`]);
     }
     expect(parseEnv({ ...rest, MAIL_TRANSPORT: 'file' }).MAIL_TRANSPORT).toBe('file');
   });

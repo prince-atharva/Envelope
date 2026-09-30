@@ -120,6 +120,16 @@ describe('PdfValidatorService', () => {
     expect(error.detail).toContain('501');
   });
 
+  it('accepts a file the scanner could not scan, and records that no scan happened (ADR 0026)', async () => {
+    const { service, logger } = validator({ clean: true, unavailable: true, reason: 'timeout' });
+    const result = await service.validate(cleanPdf);
+    expect(result.scanEngine).toBe('test-engine-unavailable');
+    expect(logger.warn).toHaveBeenCalledWith(
+      { engine: 'test-engine', reason: 'timeout' },
+      'Upload accepted without a malware scan',
+    );
+  });
+
   it('rejects files the malware scanner flags, and logs the signature', async () => {
     const { service, logger } = validator({ clean: false, signature: 'Eicar-Test-Signature' });
     const error = await rejection(service.validate(cleanPdf));

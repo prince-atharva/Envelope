@@ -87,6 +87,28 @@ services:
       timeout: 5s
       retries: 10
 
+  clamav:
+    # ClamAV daemon for upload malware scanning (docs/19, ADR 0026). Only used when
+    # MALWARE_SCANNER=clamav; tests never touch it. It is a compose profile, so a plain
+    # `docker compose up -d` does NOT start it (it is a large image); start it with
+    # `docker compose up -d clamav`. On first start it downloads its signature
+    # database, which needs internet and takes a few minutes: the healthcheck stays
+    # "starting" until it is ready.
+    profiles: ['scanning']
+    image: clamav/clamav:1.4
+    container_name: digitalsign_clamav
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3310:3310'
+    volumes:
+      - digitalsign_clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
   # One-off job: creates the document buckets, then exits. Safe to re-run.
   # The *-sealed buckets hold finished documents under Object Lock (ADR 0007),
   # which can only be switched on when a bucket is created.
@@ -111,3 +133,4 @@ volumes:
   digitalsign_postgres_data:
   digitalsign_redis_data:
   digitalsign_minio_data:
+  digitalsign_clamav_data:

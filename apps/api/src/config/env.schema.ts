@@ -131,6 +131,19 @@ export const envSchema = z
      */
     WEBHOOK_AUTO_DISABLE_THRESHOLD: z.coerce.number().int().min(1).max(1000).default(10),
 
+    /**
+     * Upload malware scanning (docs/19, ADR 0026). `none` accepts every upload
+     * unscanned and says so in the log; `clamav` scans through a clamd daemon.
+     * A scanner that cannot answer lets the upload through and raises an alert.
+     */
+    MALWARE_SCANNER: z.enum(['none', 'clamav']).default('none'),
+    /** Production refuses to run with scanning off unless this says it is a decision. */
+    MALWARE_SCANNER_ALLOW_NONE: flag.default(false),
+    CLAMAV_HOST: z.string().min(1).default('127.0.0.1'),
+    CLAMAV_PORT: z.coerce.number().int().min(1).max(65535).default(3310),
+    /** Idle time after which a scan is given up on and the upload accepted with an alert. */
+    CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(15_000),
+
     S3_ENDPOINT: z.url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),
     S3_ACCESS_KEY_ID: z.string().min(1),
@@ -331,6 +344,18 @@ export const envSchema = z
         code: 'custom',
         path: ['WEBHOOK_ALLOW_INSECURE_LOCAL_URLS'],
         message: 'must be false in production',
+      });
+    }
+    if (
+      env.NODE_ENV === 'production' &&
+      env.MALWARE_SCANNER === 'none' &&
+      !env.MALWARE_SCANNER_ALLOW_NONE
+    ) {
+      // Leaving scanning off has to be a decision, not a default (ADR 0026).
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MALWARE_SCANNER'],
+        message: 'set MALWARE_SCANNER=clamav, or MALWARE_SCANNER_ALLOW_NONE=true to run unscanned',
       });
     }
     if (env.S3_SEALED_BUCKET !== undefined && env.S3_SEALED_BUCKET === env.S3_BUCKET) {

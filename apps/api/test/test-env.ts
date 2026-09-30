@@ -30,6 +30,8 @@ export const TEST_ENV: Record<string, string> = {
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible tests.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
   TOTP_SECRET_ENC_KEY: 'CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg=',
+  // Tests never reach a real scanner; the scan tests start their own on a local port.
+  MALWARE_SCANNER: 'none',
   // Milliseconds, not hours: lets retry/exhaustion tests finish quickly.
   WEBHOOK_RETRY_SCHEDULE_MS: '50,100,150,200,250,300',
   WEBHOOK_AUTO_DISABLE_THRESHOLD: '2',

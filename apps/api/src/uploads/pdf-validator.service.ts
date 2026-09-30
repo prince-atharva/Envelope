@@ -147,6 +147,14 @@ export class PdfValidatorService {
       );
       throw new Rejection('malware-scan', 'MALWARE_DETECTED', 'The file failed the security scan.');
     }
+    if (scan.unavailable) {
+      // Accepted without a scan (ADR 0026): say so here, and in the envelope's audit
+      // event through `scanEngine`, so these uploads can be found afterwards.
+      this.logger.warn(
+        { engine: this.scanner.engine, reason: scan.reason },
+        'Upload accepted without a malware scan',
+      );
+    }
     this.logger.debug({ step: 'malware-scan', engine: this.scanner.engine }, 'Upload check passed');
 
     // 6. Active content. Clean files are stored byte-for-byte as uploaded.
@@ -175,7 +183,7 @@ export class PdfValidatorService {
       sanitized: removed.length > 0,
       removed,
       original: { sha256: originalSha256, sizeBytes: upload.length },
-      scanEngine: this.scanner.engine,
+      scanEngine: scan.unavailable ? `${this.scanner.engine}-unavailable` : this.scanner.engine,
     };
   }
 }
