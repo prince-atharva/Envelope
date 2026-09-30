@@ -59,6 +59,9 @@ export const MAX_LEGAL_HOLD_REASON_LENGTH = 1000;
 /** How long a tenant invitation link works (docs/17 step 6). */
 export const INVITE_TOKEN_EXPIRY_DAYS = 7;
 
+/** How long a password-reset link works (docs/19, ADR 0022). */
+export const PASSWORD_RESET_TOKEN_EXPIRY_MINUTES = 60;
+
 /** API keys and webhooks (docs/08, docs/18). */
 export const MAX_API_KEY_LABEL_LENGTH = 120;
 export const MAX_WEBHOOK_DESCRIPTION_LENGTH = 500;

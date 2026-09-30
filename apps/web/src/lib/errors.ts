@@ -57,6 +57,8 @@ const USE_SERVER_DETAIL = new Set<ErrorCode>([
   'DOWNLOAD_RENEW_TOO_SOON',
   'INVITE_TOKEN_INVALID',
   'INVITE_TOKEN_EXPIRED',
+  'PASSWORD_RESET_TOKEN_INVALID',
+  'PASSWORD_RESET_TOKEN_EXPIRED',
 ]);
 
 /** A message a person can act on, plus a reference id for unexpected failures. */

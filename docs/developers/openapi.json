@@ -4195,6 +4195,8 @@
               "LAST_OWNER",
               "INVITE_TOKEN_INVALID",
               "INVITE_TOKEN_EXPIRED",
+              "PASSWORD_RESET_TOKEN_INVALID",
+              "PASSWORD_RESET_TOKEN_EXPIRED",
               "FILE_REQUIRED",
               "FILE_TOO_LARGE",
               "UNSUPPORTED_FILE_TYPE",

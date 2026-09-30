@@ -147,19 +147,25 @@ model User {
   inviteTokenHash      String?   @unique
   inviteTokenExpiresAt DateTime?
 
+  /// Set when an OWNER removes this person (docs/19, ADR 0023). The row stays
+  /// because Envelope.ownerId restricts deletion. Sign-in and password reset
+  /// refuse a disabled account.
+  disabledAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  envelopes          Envelope[]          @relation("EnvelopeOwner")
-  voidedEnvelopes    Envelope[]          @relation("EnvelopeVoidedBy")
-  legalHoldEnvelopes Envelope[]          @relation("EnvelopeLegalHoldBy")
-  embedOrigins       EmbedOrigin[]
-  apiKeyEmbedOrigins ApiKeyEmbedOrigin[]
-  embedSessions      EmbedSession[]
-  sessions           Session[]
-  apiKeysActing      ApiKey[]            @relation("ApiKeyActingUser")
-  apiKeysCreated     ApiKey[]            @relation("ApiKeyCreatedBy")
-  webhookEndpoints   WebhookEndpoint[]
+  envelopes           Envelope[]           @relation("EnvelopeOwner")
+  voidedEnvelopes     Envelope[]           @relation("EnvelopeVoidedBy")
+  legalHoldEnvelopes  Envelope[]           @relation("EnvelopeLegalHoldBy")
+  embedOrigins        EmbedOrigin[]
+  apiKeyEmbedOrigins  ApiKeyEmbedOrigin[]
+  embedSessions       EmbedSession[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  apiKeysActing       ApiKey[]             @relation("ApiKeyActingUser")
+  apiKeysCreated      ApiKey[]             @relation("ApiKeyCreatedBy")
+  webhookEndpoints    WebhookEndpoint[]
 
   @@index([tenantId])
 }
@@ -320,6 +326,22 @@ model Session {
 
   @@index([userId])
   @@index([familyId])
+}
+
+/// One issued password-reset link (docs/19, ADR 0022). Only the HMAC of the
+/// token is stored; the raw value exists in the worker's memory for one send and
+/// in the person's inbox. A newer request voids the older links by setting usedAt.
+model PasswordResetToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ─────────────────────────────────────────────────────────────

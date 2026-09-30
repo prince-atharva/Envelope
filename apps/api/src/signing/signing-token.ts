@@ -84,3 +84,24 @@ export function mintInviteToken(secret: string): MintedToken {
 export function inviteUrl(appUrl: string, rawToken: string): string {
   return `${appUrl.replace(/\/+$/, '')}/accept-invite/${rawToken}`;
 }
+
+/**
+ * Password-reset tokens (docs/19, ADR 0022), made the same way and under their
+ * own label, so a reset token can never pass for a signing, download or invite
+ * token or the reverse, although all four use SIGNING_TOKEN_SECRET.
+ */
+const PASSWORD_RESET_LABEL = 'password-reset\0';
+
+export function hashPasswordResetToken(secret: string, rawToken: string): string {
+  return createHmac('sha256', secret).update(PASSWORD_RESET_LABEL).update(rawToken).digest('hex');
+}
+
+export function mintPasswordResetToken(secret: string): MintedToken {
+  const rawToken = randomBytes(32).toString('hex');
+  return { rawToken, tokenHash: hashPasswordResetToken(secret, rawToken) };
+}
+
+/** The link in a password-reset email. */
+export function passwordResetUrl(appUrl: string, rawToken: string): string {
+  return `${appUrl.replace(/\/+$/, '')}/reset-password/${rawToken}`;
+}

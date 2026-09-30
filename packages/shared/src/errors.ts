@@ -35,6 +35,9 @@ export const ERROR_CATALOG = {
   /** An invitation link is unknown, malformed, or already accepted (docs/17 step 6). */
   INVITE_TOKEN_INVALID: { status: 401, title: 'Invalid or already-used invitation link' },
   INVITE_TOKEN_EXPIRED: { status: 401, title: 'Invitation link expired' },
+  /** A password-reset link is unknown, malformed, already used or voided by a newer one (docs/19). */
+  PASSWORD_RESET_TOKEN_INVALID: { status: 401, title: 'Invalid or already-used reset link' },
+  PASSWORD_RESET_TOKEN_EXPIRED: { status: 401, title: 'Reset link expired' },
 
   // Upload hardening (docs/10)
   FILE_REQUIRED: { status: 400, title: 'A PDF file is required' },

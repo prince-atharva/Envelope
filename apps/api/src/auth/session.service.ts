@@ -16,7 +16,12 @@ export const REFRESH_REUSE_GRACE_MS = 30_000;
 
 const MAX_USER_AGENT_LENGTH = 500;
 
-export type RevokeReason = 'rotated' | 'logout' | 'reuse-detected';
+export type RevokeReason =
+  | 'rotated'
+  | 'logout'
+  | 'reuse-detected'
+  | 'password-reset'
+  | 'user-removed';
 
 export interface IssuedSession {
   /** The raw token. It goes into the cookie and is never stored or logged. */

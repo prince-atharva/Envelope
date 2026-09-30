@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { hasAtLeast, loginSchema, ROLE_RANK, registerSchema, USER_ROLES } from './auth';
+import {
+  forgotPasswordSchema,
+  hasAtLeast,
+  loginSchema,
+  ROLE_RANK,
+  registerSchema,
+  resetPasswordSchema,
+  USER_ROLES,
+} from './auth';
 
 describe('registerSchema', () => {
   const valid = {
@@ -58,5 +66,36 @@ describe('hasAtLeast (docs/17 step 5)', () => {
   it('ranks OWNER above ADMIN above MEMBER', () => {
     expect(ROLE_RANK.OWNER).toBeGreaterThan(ROLE_RANK.ADMIN);
     expect(ROLE_RANK.ADMIN).toBeGreaterThan(ROLE_RANK.MEMBER);
+  });
+});
+
+describe('forgotPasswordSchema', () => {
+  it('normalises the email', () => {
+    expect(forgotPasswordSchema.parse({ email: '  Raj@Example.COM ' })).toEqual({
+      email: 'raj@example.com',
+    });
+  });
+
+  it('rejects a malformed address and unknown fields', () => {
+    expect(forgotPasswordSchema.safeParse({ email: 'not-an-email' }).success).toBe(false);
+    expect(forgotPasswordSchema.safeParse({ email: 'a@b.co', role: 'OWNER' }).success).toBe(false);
+  });
+});
+
+describe('resetPasswordSchema', () => {
+  it('applies the registration password policy', () => {
+    expect(resetPasswordSchema.safeParse({ password: 'twelve chars' }).success).toBe(true);
+    const short = resetPasswordSchema.safeParse({ password: 'elevenchars' });
+    expect(short.success).toBe(false);
+    expect(short.error?.issues[0]).toMatchObject({
+      path: ['password'],
+      message: 'Use at least 12 characters',
+    });
+  });
+
+  it('rejects unknown fields', () => {
+    expect(
+      resetPasswordSchema.safeParse({ password: 'twelve chars', email: 'a@b.co' }).success,
+    ).toBe(false);
   });
 });

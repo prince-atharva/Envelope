@@ -29,6 +29,31 @@ export const loginSchema = z.strictObject({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
+/** POST /auth/password/forgot (docs/19, ADR 0022). */
+export const forgotPasswordSchema = z.strictObject({ email: emailSchema });
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+/** POST /auth/password/reset/:token. The same policy as registration. */
+export const resetPasswordSchema = z.strictObject({ password: passwordSchema });
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/**
+ * The 202 body of the forgot route. It is identical for every address, known or
+ * not (ADR 0022), so it must not say whether an email was sent.
+ */
+export interface ForgotPasswordResponse {
+  message: string;
+}
+export const FORGOT_PASSWORD_MESSAGE =
+  'If an account exists for that address, we have emailed a link to reset the password.';
+
+/** GET /auth/password/reset/:token: what the reset screen shows before a password is chosen. */
+export interface PasswordResetPreview {
+  /** Masked, like a log line: enough to recognise the account, not to harvest it. */
+  email: string;
+  expiresAt: string;
+}
+
 export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 export const USER_ROLES: readonly UserRole[] = ['OWNER', 'ADMIN', 'MEMBER'];
 

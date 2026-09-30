@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   downloadUrl,
   hashDownloadToken,
+  hashInviteToken,
+  hashPasswordResetToken,
   hashSigningToken,
   mintDownloadToken,
+  mintPasswordResetToken,
   mintSigningToken,
+  passwordResetUrl,
   signingUrl,
   tokenRef,
 } from './signing-token';
@@ -58,6 +62,32 @@ describe('completion download tokens', () => {
     // new link" screen instead of raw JSON from the API.
     expect(downloadUrl('https://app.example.com/', 'f'.repeat(64))).toBe(
       `https://app.example.com/download/${'f'.repeat(64)}`,
+    );
+  });
+});
+
+describe('password-reset tokens', () => {
+  it('are minted like signing tokens, stored only as their HMAC', () => {
+    const { rawToken, tokenHash } = mintPasswordResetToken(SECRET);
+    expect(rawToken).toMatch(SIGNING_TOKEN_PATTERN);
+    expect(tokenHash).toBe(hashPasswordResetToken(SECRET, rawToken));
+    expect(tokenHash).not.toContain(rawToken);
+  });
+
+  it('hash differently from signing, download and invite tokens of the same value', () => {
+    const raw = 'c'.repeat(64);
+    const hashes = [
+      hashSigningToken(SECRET, raw),
+      hashDownloadToken(SECRET, raw),
+      hashInviteToken(SECRET, raw),
+      hashPasswordResetToken(SECRET, raw),
+    ];
+    expect(new Set(hashes).size).toBe(hashes.length);
+  });
+
+  it('link to the web app reset page', () => {
+    expect(passwordResetUrl('https://app.example.com/', 'f'.repeat(64))).toBe(
+      `https://app.example.com/reset-password/${'f'.repeat(64)}`,
     );
   });
 });
