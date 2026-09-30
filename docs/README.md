@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–8 complete. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning |
-| **Version** | 1.5.0 |
+| **Status** | Phases 1–8 complete. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking) is planned in [docs/20](20-phase-9-templates-bulk-send-plan.md) |
+| **Version** | 1.6.0 |
 | **Last updated** | 30 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
@@ -89,6 +89,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
 | 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What is built and proposed across integration APIs, Settings, the embedded editor/SDK and HealthProHub guide? |
 | 19 | [phase-8-launch-readiness-plan](19-phase-8-launch-readiness-plan.md) | What does Phase 8 deliver (password reset, change password, two-factor sign-in, malware scanning), how is each slice built and checked, and how are existing users kept working? |
+| 20 | [phase-9-templates-bulk-send-plan](20-phase-9-templates-bulk-send-plan.md) | What does Phase 9 deliver (templates, bulk send from CSV or API, provider-neutral mail delivery tracking), how is each step built and checked? |
 | — | [developers/](developers/README.md) | How do I connect my application to Envelope? *(partner-facing guide, shareable on its own)* |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
