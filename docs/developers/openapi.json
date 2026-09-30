@@ -3848,6 +3848,328 @@
         "x-rate-limit": "30 per 60s per workspace"
       }
     },
+    "/api/v1/templates/{id}/bulk": {
+      "post": {
+        "description": "Create one envelope per row from a template. The call answers at once with a batch id; envelopes are created, and sent if you ask, in the background, one row at a time. A row that fails never stops the others.\n\n- rows (required): 1 to 500 entries, each `{ recipients, externalId?, metadata? }`. `recipients` has one `{ role, name, email }` for every role of the template, as when creating one envelope.\n\n- send (optional): true sends each envelope as it is created, false (the default) leaves them drafts.\n\n- message (optional): the note in every invitation; defaults to the template’s.\n\n- A row whose people do not match the template’s roles is accepted and then reported as failed with TEMPLATE_ROLE_MISMATCH; check a batch with the list and read operations.\n\n- Idempotency-Key (optional): repeating the same key and body within 24 hours returns the same batch id (Idempotency-Replayed: true) instead of a second batch.",
+        "operationId": "bulkCreate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A value unique to this attempt (a UUID is ideal). Repeating the request with the same key and the same body within 24 hours returns the resource the first request created (with Idempotency-Replayed: true) instead of creating another. Without a key, every request creates a new one.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rows": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "recipients": {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "role": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "email": {
+                                "type": "string",
+                                "maxLength": 254
+                              }
+                            },
+                            "required": [
+                              "role",
+                              "name",
+                              "email"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "externalId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "pattern": "^[a-zA-Z0-9_.:@-]+$"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "maxLength": 500
+                          }
+                        }
+                      },
+                      "required": [
+                        "recipients"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "send": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "rows"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The batch is accepted and running; poll it for progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkBatchAccepted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: TEMPLATE_NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: TEMPLATE_ARCHIVED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: BULK_TOO_LARGE, IDEMPOTENCY_KEY_MISMATCH.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Start a bulk send",
+        "tags": [
+          "Templates"
+        ],
+        "x-idempotency": "optional",
+        "x-rate-limit": "10 per 3600s per workspace"
+      }
+    },
+    "/api/v1/bulk-batches": {
+      "get": {
+        "operationId": "bulkList",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Up to 100 batch summaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkBatchList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "List bulk batches",
+        "tags": [
+          "Templates"
+        ],
+        "description": "The most recent batches, newest first.\n\n- No parameters.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/bulk-batches/{id}": {
+      "get": {
+        "operationId": "bulkGet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "`status` is PROCESSING until every row has a result, then COMPLETED.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkBatchDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: BULK_BATCH_NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Read a bulk batch",
+        "tags": [
+          "Templates"
+        ],
+        "description": "Progress and the outcome of every row: the envelope it created, or the error code it failed with. Rows never carry an email address.\n\n- id (path): the batchId from starting the batch.",
+        "x-idempotency": "none"
+      }
+    },
     "/api/v1/envelopes/{id}/reminders": {
       "patch": {
         "operationId": "LifecycleController_updateReminders",
@@ -6742,6 +7064,202 @@
         },
         "required": [
           "templates"
+        ],
+        "additionalProperties": {}
+      },
+      "BulkBatchSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROCESSING",
+              "COMPLETED"
+            ]
+          },
+          "send": {
+            "type": "boolean"
+          },
+          "totalRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "succeededRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "finishedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "templateId",
+          "templateName",
+          "status",
+          "send",
+          "totalRows",
+          "succeededRows",
+          "failedRows",
+          "createdAt",
+          "finishedAt"
+        ],
+        "additionalProperties": {}
+      },
+      "BulkBatchDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROCESSING",
+              "COMPLETED"
+            ]
+          },
+          "send": {
+            "type": "boolean"
+          },
+          "totalRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "succeededRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "failedRows": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "finishedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rowIndex": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "PENDING",
+                    "SUCCEEDED",
+                    "FAILED"
+                  ]
+                },
+                "envelopeId": {
+                  "nullable": true,
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "errorCode": {
+                  "nullable": true,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rowIndex",
+                "status",
+                "envelopeId",
+                "errorCode"
+              ],
+              "additionalProperties": {}
+            }
+          }
+        },
+        "required": [
+          "id",
+          "templateId",
+          "templateName",
+          "status",
+          "send",
+          "totalRows",
+          "succeededRows",
+          "failedRows",
+          "createdAt",
+          "finishedAt",
+          "rows"
+        ],
+        "additionalProperties": {}
+      },
+      "BulkBatchList": {
+        "type": "object",
+        "properties": {
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkBatchSummary"
+            }
+          }
+        },
+        "required": [
+          "batches"
+        ],
+        "additionalProperties": {}
+      },
+      "BulkBatchAccepted": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "batchId"
         ],
         "additionalProperties": {}
       },

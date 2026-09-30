@@ -104,7 +104,9 @@ describe('integration contract matches the controllers', () => {
       ['createAndSend', LIMITS.createAndSend],
       ['lifecycle', LIMITS.lifecycle],
       ['certificate', LIMITS.certificate],
+      ['bulkBatch', LIMITS.bulkBatch],
     ];
     for (const [name, enforced] of pairs) expect(RATE_LIMITS[name].limit).toBe(enforced.limit);
+    expect(RATE_LIMITS.bulkBatch.windowSeconds * 1000).toBe(LIMITS.bulkBatch.windowMs);
   });
 });

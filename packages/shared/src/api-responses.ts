@@ -282,6 +282,42 @@ export const templateListSchema = z
   .looseObject({ templates: z.array(templateSummarySchema) })
   .meta({ id: 'TemplateList' });
 
+export const bulkBatchSummarySchema = z
+  .looseObject({
+    id,
+    templateId: id,
+    templateName: z.string(),
+    status: z.enum(['PROCESSING', 'COMPLETED']),
+    send: z.boolean(),
+    totalRows: z.number().int(),
+    succeededRows: z.number().int(),
+    failedRows: z.number().int(),
+    createdAt: isoTime,
+    finishedAt: nullableTime,
+  })
+  .meta({ id: 'BulkBatchSummary' });
+
+export const bulkBatchDetailSchema = bulkBatchSummarySchema
+  .extend({
+    rows: z.array(
+      z.looseObject({
+        rowIndex: z.number().int(),
+        status: z.enum(['PENDING', 'SUCCEEDED', 'FAILED']),
+        envelopeId: id.nullable(),
+        errorCode: z.string().nullable(),
+      }),
+    ),
+  })
+  .meta({ id: 'BulkBatchDetail' });
+
+export const bulkBatchListSchema = z
+  .looseObject({ batches: z.array(bulkBatchSummarySchema) })
+  .meta({ id: 'BulkBatchList' });
+
+export const bulkBatchAcceptedSchema = z
+  .looseObject({ batchId: id })
+  .meta({ id: 'BulkBatchAccepted' });
+
 export type OperationResponse =
   | { status: number; kind: 'json'; schema: z.ZodType }
   | { status: number; kind: 'pdf' }
@@ -310,6 +346,9 @@ export const OPERATION_RESPONSES: Record<string, OperationResponse> = {
   'template-list': { status: 200, kind: 'json', schema: templateListSchema },
   'template-get': { status: 200, kind: 'json', schema: templateDetailSchema },
   'template-envelope': { status: 201, kind: 'json', schema: envelopeDetailSchema },
+  'bulk-create': { status: 202, kind: 'json', schema: bulkBatchAcceptedSchema },
+  'bulk-list': { status: 200, kind: 'json', schema: bulkBatchListSchema },
+  'bulk-get': { status: 200, kind: 'json', schema: bulkBatchDetailSchema },
   'template-update': { status: 200, kind: 'json', schema: templateDetailSchema },
   'embed-session-issue': { status: 201, kind: 'json', schema: embedSessionIssueSchema },
   'embed-session-revoke': { status: 204, kind: 'none' },

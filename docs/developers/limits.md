@@ -44,6 +44,7 @@ Limits are counted per minute and shared across all Envelope servers.
 | `createAndSend` | 100 per 60 seconds | workspace | Creating an envelope and sending one, counted together. |
 | `lifecycle` | 30 per 60 seconds | workspace | Cancelling and reminding, and saving or changing templates, counted together. |
 | `certificate` | 30 per 60 seconds | workspace | Downloading certificate pages, which are cut from the sealed PDF on request. |
+| `bulkBatch` | 10 per 3600 seconds | workspace | Starting bulk batches. Each batch may hold up to 500 rows. |
 | `embedManage` | 30 per 60 seconds | workspace and API key | Issuing and revoking embedded editor sessions, each counted separately. |
 <!-- /generated:rate-limits-table -->
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClsModule } from 'nestjs-cls';
 import { AlertModule } from './alert/alert.module';
 import { AuditModule } from './audit/audit.module';
+import { BulkWorkerModule } from './bulk/bulk.module';
 import { ConfigModule } from './config/config.module';
 import { LoggingModule } from './logging/logging.module';
 import { MailWorkerModule } from './mail/mail.module';
@@ -35,6 +36,7 @@ import { WebhookDeliveryWorkerModule } from './webhooks/webhooks.module';
     SealingWorkerModule,
     MaintenanceWorkerModule,
     WebhookDeliveryWorkerModule,
+    BulkWorkerModule,
   ],
 })
 export class WorkerModule {}

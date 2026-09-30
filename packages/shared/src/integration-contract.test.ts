@@ -41,7 +41,7 @@ describe('operations catalog', () => {
   it('is reachable by an API key or an embedded session, never neither', () => {
     for (const operation of INTEGRATION_OPERATIONS)
       expect(operation.apiKey ?? operation.embed).not.toBeNull();
-    expect(API_KEY_OPERATIONS.length).toBe(24);
+    expect(API_KEY_OPERATIONS.length).toBe(27);
   });
 
   it('only calls a route editor-only when a key cannot', () => {

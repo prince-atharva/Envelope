@@ -5,7 +5,6 @@ import {
   checkReadyToSend,
   checkTemplatePeople,
   type DocumentCategory,
-  type EnvelopeDetail,
   type EnvelopeMetadata,
   type ListTemplatesQuery,
   TEMPLATE_ROLE_NAME_MAX_LENGTH,
@@ -17,16 +16,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
-import { assertCanManage, ownerScopeOf } from '../auth/ownership';
+import { assertCanManage } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
 import { JurisdictionService } from '../compliance/jurisdiction.service';
 import { toFieldInfo, toRecipientInfo } from '../drafts/draft-mappers';
 import { layoutHash } from '../drafts/draft-validation';
-import { EnvelopesService } from '../envelopes/envelopes.service';
 import { Prisma } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
-import { SendingService } from '../sending/sending.service';
 import {
   envelopeDocumentKey,
   StorageService,
@@ -93,8 +90,6 @@ export class TemplatesService {
     private readonly storage: StorageService,
     private readonly jurisdiction: JurisdictionService,
     private readonly audit: AuditService,
-    private readonly sending: SendingService,
-    private readonly envelopes: EnvelopesService,
     @InjectPinoLogger(TemplatesService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -503,37 +498,5 @@ export class TemplatesService {
       'Envelope created from template',
     );
     return { envelopeId, reminderIntervalDays: template.reminderIntervalDays };
-  }
-
-  /** POST /templates/:id/envelopes: create one envelope, and send it if asked. */
-  async createEnvelope(
-    user: AuthenticatedUser,
-    templateId: string,
-    input: CreateFromTemplateInput,
-    client: ClientInfo,
-  ): Promise<{ envelopeId: string; detail: () => Promise<EnvelopeDetail> }> {
-    const { envelopeId, reminderIntervalDays } = await this.instantiate(
-      user,
-      templateId,
-      input,
-      client,
-    );
-    if (input.send) {
-      await this.sending.send(
-        envelopeId,
-        reminderIntervalDays === null ? {} : { reminderIntervalDays },
-        user,
-        client,
-      );
-    }
-    return {
-      envelopeId,
-      detail: () => this.envelopes.get(envelopeId, ownerScopeOf(user)),
-    };
-  }
-
-  /** The detail of an envelope this caller may see; what a replayed create answers with. */
-  envelopeDetail(envelopeId: string, user: AuthenticatedUser): Promise<EnvelopeDetail> {
-    return this.envelopes.get(envelopeId, ownerScopeOf(user));
   }
 }

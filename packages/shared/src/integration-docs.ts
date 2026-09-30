@@ -53,7 +53,8 @@ function idempotencyLabel(operation: OperationContract): string {
 function rateLabel(operation: OperationContract): string {
   if (!operation.rateLimit) return '—';
   const limit = RATE_LIMITS[operation.rateLimit];
-  return `${limit.limit}/min per ${limit.scope}`;
+  const unit = limit.windowSeconds === 3600 ? 'hour' : 'min';
+  return `${limit.limit}/${unit} per ${limit.scope}`;
 }
 
 function operationsTable(): string {

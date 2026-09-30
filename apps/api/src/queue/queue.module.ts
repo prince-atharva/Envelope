@@ -10,12 +10,15 @@ export const SEAL_QUEUE = 'seal';
 export const MAINTENANCE_QUEUE = 'maintenance';
 /** Outbound event notifications to a tenant's registered endpoints (docs/08, docs/18). */
 export const WEBHOOK_DELIVERY_QUEUE = 'webhook-delivery';
+/** Bulk send: one job per batch, creating and sending its envelopes one row at a time (docs/20, ADR 0028). */
+export const BULK_QUEUE = 'bulk';
 
 /** Days a finished job's data is kept in Redis (for inspection), then removed. */
 const KEEP_COMPLETED_SECONDS = 24 * 3600;
 const KEEP_FAILED_SECONDS = 14 * 24 * 3600;
 export const EMAIL_MAX_ATTEMPTS = 5;
 export const SEAL_MAX_ATTEMPTS = 5;
+export const BULK_MAX_ATTEMPTS = 5;
 /** 5s, 10s, 20s, 40s: long enough for storage or the database to come back. */
 const SEAL_RETRY_BASE_DELAY_MS = 5000;
 
@@ -58,6 +61,16 @@ export const WEBHOOK_BACKOFF_TYPE = 'webhook-delivery-schedule';
       name: SEAL_QUEUE,
       defaultJobOptions: {
         attempts: SEAL_MAX_ATTEMPTS,
+        backoff: { type: 'exponential', delay: SEAL_RETRY_BASE_DELAY_MS },
+        removeOnComplete: { age: KEEP_COMPLETED_SECONDS },
+        removeOnFail: { age: KEEP_FAILED_SECONDS },
+      },
+    }),
+    BullModule.registerQueue({
+      name: BULK_QUEUE,
+      defaultJobOptions: {
+        // A retry skips finished rows (ADR 0028), so it only ever completes the work left.
+        attempts: BULK_MAX_ATTEMPTS,
         backoff: { type: 'exponential', delay: SEAL_RETRY_BASE_DELAY_MS },
         removeOnComplete: { age: KEEP_COMPLETED_SECONDS },
         removeOnFail: { age: KEEP_FAILED_SECONDS },

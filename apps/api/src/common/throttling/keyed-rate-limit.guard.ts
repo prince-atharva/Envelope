@@ -41,6 +41,8 @@ export const LIMITS = {
   lifecycle: { bucket: 'tenant-lifecycle', limit: 30, by: 'tenant' },
   /** Cutting the certificate out of a sealed PDF is CPU work (docs/18, workstream 11). */
   certificate: { bucket: 'tenant-certificate', limit: 30, by: 'tenant' },
+  /** Starting a bulk send. Each batch is up to 500 envelopes, so this is per hour (docs/20, ADR 0028). */
+  bulkBatch: { bucket: 'tenant-bulk-batch', limit: 10, windowMs: 3_600_000, by: 'tenant' },
   loginPerAccount: { bucket: 'login-account', limit: 5, by: 'account' },
   /** Changing one's own password needs the current one; this bounds guessing it with a stolen session. */
   passwordChangePerUser: {

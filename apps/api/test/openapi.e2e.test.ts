@@ -227,6 +227,19 @@ describe('OpenAPI document and response contract (e2e)', () => {
         'template-get',
         await call('get', `/templates/${created.body.id}`, readOnlyKey),
       );
+      const batch = await call('post', `/templates/${created.body.id}/bulk`).send({
+        rows: [
+          {
+            recipients: [{ role: 'Alex Morgan', name: 'Sam Lee', email: uniqueEmail('sam') }],
+          },
+        ],
+      });
+      expectContract('bulk-create', batch);
+      expectContract('bulk-list', await call('get', '/bulk-batches', readOnlyKey));
+      expectContract(
+        'bulk-get',
+        await call('get', `/bulk-batches/${batch.body.batchId}`, readOnlyKey),
+      );
       expectContract(
         'template-update',
         await call('patch', `/templates/${created.body.id}`).send({ archived: true }),

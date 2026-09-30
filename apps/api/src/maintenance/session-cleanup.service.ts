@@ -1,3 +1,4 @@
+import { BULK_ROW_DATA_RETENTION_DAYS } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config';
@@ -15,7 +16,10 @@ const MAX_BATCHES_PER_RUN = 200;
  * every login, refresh and rotation adds one and none is ever removed — so
  * without this the table only grows. Password-reset tokens (docs/19, ADR
  * 0022) are purged the same way: they expire in an hour, so a used or unused
- * one is equally dead past the same cutoff.
+ * one is equally dead past the same cutoff. The same run clears the recipients
+ * a finished bulk batch kept on its failed rows, once the batch is
+ * BULK_ROW_DATA_RETENTION_DAYS old (docs/20, ADR 0028): that column holds email
+ * addresses, and nothing needs it once the sender has had time to fix the rows.
  *
  * Batched, each batch its own statement: a single unbounded DELETE would
  * hold its row locks over however many million rows have piled up since the
@@ -58,8 +62,25 @@ export class SessionCleanupService {
        )
       RETURNING id`,
     );
-    const changed = sessions.changed + resetTokens.changed;
-    const failed = sessions.failed + resetTokens.failed;
+    const bulkCutoff = new Date(
+      now.getTime() - BULK_ROW_DATA_RETENTION_DAYS * 24 * 3600 * 1000,
+    ).toISOString();
+    const bulkRows = await this.sweep(
+      'BulkBatchRow',
+      () => this.prisma.$queryRaw<{ id: string }[]>`
+      UPDATE "BulkBatchRow" SET recipients = NULL
+       WHERE id IN (
+         SELECT r.id FROM "BulkBatchRow" r
+           JOIN "BulkBatch" b ON b.id = r."batchId"
+          WHERE r.recipients IS NOT NULL
+            AND b.status = 'COMPLETED'
+            AND b."createdAt" < (${bulkCutoff}::timestamptz AT TIME ZONE 'UTC')
+          LIMIT ${CLEANUP_BATCH}
+       )
+      RETURNING id`,
+    );
+    const changed = sessions.changed + resetTokens.changed + bulkRows.changed;
+    const failed = sessions.failed + resetTokens.failed + bulkRows.failed;
     return { scanned: changed, changed, failed };
   }
 

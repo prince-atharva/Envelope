@@ -43,7 +43,12 @@ export type OperationGroup =
 export type ApiKeyAccess = 'read' | 'write';
 export type EmbedPermission = 'read' | 'edit' | 'send' | 'upload' | 'close';
 export type IdempotencyMode = 'none' | 'optional' | 'required';
-export type RateLimitName = 'createAndSend' | 'lifecycle' | 'certificate' | 'embedManage';
+export type RateLimitName =
+  | 'createAndSend'
+  | 'lifecycle'
+  | 'certificate'
+  | 'embedManage'
+  | 'bulkBatch';
 
 export interface OperationContract {
   id: string;
@@ -610,6 +615,27 @@ export const templateDetailExample = {
   ],
 };
 
+export const EXAMPLE_BATCH_ID = '77777777-7777-4777-8777-777777777777';
+export const bulkBatchSummaryExample = {
+  id: EXAMPLE_BATCH_ID,
+  templateId: EXAMPLE_TEMPLATE_ID,
+  templateName: 'Intake consent',
+  status: 'COMPLETED',
+  send: true,
+  totalRows: 2,
+  succeededRows: 1,
+  failedRows: 1,
+  createdAt: time,
+  finishedAt: time,
+};
+export const bulkRowsExample = {
+  rows: [
+    { recipients: [{ role: 'Patient', name: 'Alex Morgan', email: 'alex@example.com' }] },
+    { recipients: [{ role: 'Patient', name: 'Sam Lee', email: 'sam@example.com' }] },
+  ],
+  send: true,
+};
+
 const TEMPLATE_OPERATIONS: readonly OperationContract[] = [
   {
     id: 'template-create',
@@ -717,6 +743,81 @@ const TEMPLATE_OPERATIONS: readonly OperationContract[] = [
     ],
     errorNote:
       'TEMPLATE_ROLE_MISMATCH lists each problem in `errors`. DOCUMENT_CATEGORY_BLOCKED when the workspace’s policy no longer allows the template’s category.',
+  },
+  {
+    id: 'bulk-create',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'write',
+    embed: null,
+    idempotency: 'optional',
+    rateLimit: 'bulkBatch',
+    method: 'POST',
+    path: '/templates/:id/bulk',
+    title: 'Start a bulk send',
+    description:
+      'Create one envelope per row from a template. The call answers at once with a batch id; envelopes are created, and sent if you ask, in the background, one row at a time. A row that fails never stops the others.',
+    inputs: [
+      'rows (required): 1 to 500 entries, each `{ recipients, externalId?, metadata? }`. `recipients` has one `{ role, name, email }` for every role of the template, as when creating one envelope.',
+      'send (optional): true sends each envelope as it is created, false (the default) leaves them drafts.',
+      'message (optional): the note in every invitation; defaults to the template’s.',
+      'A row whose people do not match the template’s roles is accepted and then reported as failed with TEMPLATE_ROLE_MISMATCH; check a batch with the list and read operations.',
+      'Idempotency-Key (optional): repeating the same key and body within 24 hours returns the same batch id (Idempotency-Replayed: true) instead of a second batch.',
+    ],
+    body: bulkRowsExample,
+    response: { batchId: EXAMPLE_BATCH_ID },
+    responseNote: '202 · The batch is accepted and running; poll it for progress.',
+    errorCodes: [
+      'TEMPLATE_NOT_FOUND',
+      'TEMPLATE_ARCHIVED',
+      'BULK_TOO_LARGE',
+      'IDEMPOTENCY_KEY_MISMATCH',
+    ],
+    errorNote:
+      'BULK_TOO_LARGE above 500 rows. A malformed row (a bad email, a missing name) refuses the whole request with VALIDATION_FAILED and nothing is stored.',
+  },
+  {
+    id: 'bulk-list',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'read',
+    embed: null,
+    idempotency: 'none',
+    rateLimit: null,
+    method: 'GET',
+    path: '/bulk-batches',
+    title: 'List bulk batches',
+    description: 'The most recent batches, newest first.',
+    inputs: ['No parameters.'],
+    response: { batches: [bulkBatchSummaryExample] },
+    responseNote: '200 · Up to 100 batch summaries.',
+    errorCodes: [],
+    errorNote: 'No operation-specific errors.',
+  },
+  {
+    id: 'bulk-get',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'read',
+    embed: null,
+    idempotency: 'none',
+    rateLimit: null,
+    method: 'GET',
+    path: '/bulk-batches/:id',
+    title: 'Read a bulk batch',
+    description:
+      'Progress and the outcome of every row: the envelope it created, or the error code it failed with. Rows never carry an email address.',
+    inputs: ['id (path): the batchId from starting the batch.'],
+    response: {
+      ...bulkBatchSummaryExample,
+      rows: [
+        { rowIndex: 0, status: 'SUCCEEDED', envelopeId: EXAMPLE_ENVELOPE_ID, errorCode: null },
+        { rowIndex: 1, status: 'FAILED', envelopeId: null, errorCode: 'TEMPLATE_ROLE_MISMATCH' },
+      ],
+    },
+    responseNote: '200 · `status` is PROCESSING until every row has a result, then COMPLETED.',
+    errorCodes: ['BULK_BATCH_NOT_FOUND'],
+    errorNote: 'BULK_BATCH_NOT_FOUND when the id is not one of your batches.',
   },
   {
     id: 'template-update',
@@ -899,6 +1000,12 @@ export const RATE_LIMITS: Record<RateLimitName, RateLimitContract> = {
     windowSeconds: 60,
     scope: 'workspace',
     covers: 'Downloading certificate pages, which are cut from the sealed PDF on request.',
+  },
+  bulkBatch: {
+    limit: 10,
+    windowSeconds: 3600,
+    scope: 'workspace',
+    covers: 'Starting bulk batches. Each batch may hold up to 500 rows.',
   },
   embedManage: {
     limit: 30,

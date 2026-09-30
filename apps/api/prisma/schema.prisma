@@ -890,6 +890,10 @@ model BulkBatch {
   /// The note that goes out with every invitation in the batch.
   message      String?         @db.Text
 
+  /// Who asked, for the audit events the worker writes on their behalf.
+  clientIp        String
+  clientUserAgent String @db.Text
+
   totalRows     Int
   succeededRows Int       @default(0)
   failedRows    Int       @default(0)

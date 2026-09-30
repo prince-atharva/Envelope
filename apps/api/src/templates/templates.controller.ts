@@ -41,6 +41,7 @@ import { OPTIONAL_IDEMPOTENCY_KEY_HEADER } from '../common/idempotency/idempoten
 import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { openApiSchema, ZodValidationPipe } from '../common/validation/zod-validation.pipe';
+import { TemplateEnvelopesService } from './template-envelopes.service';
 import { TemplatesService } from './templates.service';
 
 /** Reusable documents (docs/20, ADR 0027). Admins manage them; every role reads them. */
@@ -50,6 +51,7 @@ import { TemplatesService } from './templates.service';
 export class TemplatesController {
   constructor(
     private readonly templates: TemplatesService,
+    private readonly templateEnvelopes: TemplateEnvelopesService,
     private readonly idempotency: IdempotencyService,
   ) {}
 
@@ -125,10 +127,10 @@ export class TemplatesController {
       idempotencyKey,
       { templateId: id, ...body },
       async () => {
-        const created = await this.templates.createEnvelope(user, id, body, client);
-        return { reference: created.envelopeId, response: await created.detail() };
+        const created = await this.templateEnvelopes.create(user, id, body, client);
+        return { reference: created.envelopeId, response: created.detail };
       },
-      (envelopeId) => this.templates.envelopeDetail(envelopeId, user),
+      (envelopeId) => this.templateEnvelopes.detail(envelopeId, user),
     );
     if (replayed) res.setHeader('Idempotency-Replayed', 'true');
     return response;

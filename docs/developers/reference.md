@@ -49,6 +49,9 @@ The machine-readable form of this reference is [openapi.json](openapi.json).
 | List templates | `GET /templates` | Read-only key or full key | — | — |
 | Read a template | `GET /templates/:id` | Read-only key or full key | — | — |
 | Create an envelope from a template | `POST /templates/:id/envelopes` | Full key | Optional | 100/min per workspace |
+| Start a bulk send | `POST /templates/:id/bulk` | Full key | Optional | 10/hour per workspace |
+| List bulk batches | `GET /bulk-batches` | Read-only key or full key | — | — |
+| Read a bulk batch | `GET /bulk-batches/:id` | Read-only key or full key | — | — |
 | Rename, archive or restore a template | `PATCH /templates/:id` | Full key | — | 30/min per workspace |
 | Issue an embedded editor session | `POST /embed/sessions` | Full key | Optional | 30/min per workspace and API key |
 | Revoke an embedded editor session | `DELETE /embed/sessions/:id` | Full key | — | 30/min per workspace and API key |
@@ -836,6 +839,139 @@ curl --request POST "$ENVELOPE_URL/api/v1/templates/$ENVELOPE_ID/envelopes" \
 ```
 
 Errors: `TEMPLATE_NOT_FOUND`, `TEMPLATE_ARCHIVED`, `TEMPLATE_ROLE_MISMATCH`, `DOCUMENT_CATEGORY_BLOCKED`, `IDEMPOTENCY_KEY_MISMATCH`. TEMPLATE_ROLE_MISMATCH lists each problem in `errors`. DOCUMENT_CATEGORY_BLOCKED when the workspace’s policy no longer allows the template’s category.
+
+### Start a bulk send
+
+`POST /templates/:id/bulk` · Full key · Idempotency-Key: Optional · Rate limit: 10/hour per workspace
+
+Create one envelope per row from a template. The call answers at once with a batch id; envelopes are created, and sent if you ask, in the background, one row at a time. A row that fails never stops the others.
+
+- rows (required): 1 to 500 entries, each `{ recipients, externalId?, metadata? }`. `recipients` has one `{ role, name, email }` for every role of the template, as when creating one envelope.
+- send (optional): true sends each envelope as it is created, false (the default) leaves them drafts.
+- message (optional): the note in every invitation; defaults to the template’s.
+- A row whose people do not match the template’s roles is accepted and then reported as failed with TEMPLATE_ROLE_MISMATCH; check a batch with the list and read operations.
+- Idempotency-Key (optional): repeating the same key and body within 24 hours returns the same batch id (Idempotency-Replayed: true) instead of a second batch.
+
+```bash
+curl --request POST "$ENVELOPE_URL/api/v1/templates/$ENVELOPE_ID/bulk" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "rows": [
+    {
+      "recipients": [
+        {
+          "role": "Patient",
+          "name": "Alex Morgan",
+          "email": "alex@example.com"
+        }
+      ]
+    },
+    {
+      "recipients": [
+        {
+          "role": "Patient",
+          "name": "Sam Lee",
+          "email": "sam@example.com"
+        }
+      ]
+    }
+  ],
+  "send": true
+}'
+```
+
+202 · The batch is accepted and running; poll it for progress.
+
+```json
+{
+  "batchId": "77777777-7777-4777-8777-777777777777"
+}
+```
+
+Errors: `TEMPLATE_NOT_FOUND`, `TEMPLATE_ARCHIVED`, `BULK_TOO_LARGE`, `IDEMPOTENCY_KEY_MISMATCH`. BULK_TOO_LARGE above 500 rows. A malformed row (a bad email, a missing name) refuses the whole request with VALIDATION_FAILED and nothing is stored.
+
+### List bulk batches
+
+`GET /bulk-batches` · Read-only key or full key · Idempotency-Key: — · Rate limit: —
+
+The most recent batches, newest first.
+
+- No parameters.
+
+```bash
+curl --request GET "$ENVELOPE_URL/api/v1/bulk-batches" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY"
+```
+
+200 · Up to 100 batch summaries.
+
+```json
+{
+  "batches": [
+    {
+      "id": "77777777-7777-4777-8777-777777777777",
+      "templateId": "44444444-4444-4444-8444-444444444444",
+      "templateName": "Intake consent",
+      "status": "COMPLETED",
+      "send": true,
+      "totalRows": 2,
+      "succeededRows": 1,
+      "failedRows": 1,
+      "createdAt": "2026-09-27T10:00:00.000Z",
+      "finishedAt": "2026-09-27T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+Errors: —. No operation-specific errors.
+
+### Read a bulk batch
+
+`GET /bulk-batches/:id` · Read-only key or full key · Idempotency-Key: — · Rate limit: —
+
+Progress and the outcome of every row: the envelope it created, or the error code it failed with. Rows never carry an email address.
+
+- id (path): the batchId from starting the batch.
+
+```bash
+curl --request GET "$ENVELOPE_URL/api/v1/bulk-batches/$ENVELOPE_ID" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY"
+```
+
+200 · `status` is PROCESSING until every row has a result, then COMPLETED.
+
+```json
+{
+  "id": "77777777-7777-4777-8777-777777777777",
+  "templateId": "44444444-4444-4444-8444-444444444444",
+  "templateName": "Intake consent",
+  "status": "COMPLETED",
+  "send": true,
+  "totalRows": 2,
+  "succeededRows": 1,
+  "failedRows": 1,
+  "createdAt": "2026-09-27T10:00:00.000Z",
+  "finishedAt": "2026-09-27T10:00:00.000Z",
+  "rows": [
+    {
+      "rowIndex": 0,
+      "status": "SUCCEEDED",
+      "envelopeId": "11111111-1111-4111-8111-111111111111",
+      "errorCode": null
+    },
+    {
+      "rowIndex": 1,
+      "status": "FAILED",
+      "envelopeId": null,
+      "errorCode": "TEMPLATE_ROLE_MISMATCH"
+    }
+  ]
+}
+```
+
+Errors: `BULK_BATCH_NOT_FOUND`. BULK_BATCH_NOT_FOUND when the id is not one of your batches.
 
 ### Rename, archive or restore a template
 
