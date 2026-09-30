@@ -2,6 +2,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   addRecipientSchema,
+  createEmbedSessionSchema,
   createEnvelopeSchema,
   envelopeMetadataSchema,
   externalIdSchema,
@@ -16,6 +17,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   apiBaseUrl,
+  EMBEDDED_ENDPOINTS,
   ENDPOINTS,
   requestExample,
   WEBHOOK_EXAMPLES,
@@ -39,6 +41,11 @@ describe('published integration examples', () => {
         true,
       );
     }
+    expect(
+      createEmbedSessionSchema.safeParse(
+        EMBEDDED_ENDPOINTS.find((entry) => entry.id === 'embed-session-issue')?.body,
+      ).success,
+    ).toBe(true);
     expect(
       createEnvelopeSchema.safeParse({ title: 'Consulting agreement', documentCategory: 'OTHER' })
         .success,
@@ -67,6 +74,17 @@ describe('published integration examples', () => {
         data: { envelopeId: expect.any(String) },
       });
     }
+  });
+  it('never puts a literal id in a URL: ids travel in shell variables', () => {
+    for (const endpoint of [...ENDPOINTS, ...EMBEDDED_ENDPOINTS]) {
+      const command = requestExample(endpoint, 'https://envelope.example/api/v1');
+      expect(command, endpoint.id).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-/);
+    }
+    const fields = ENDPOINTS.find((entry) => entry.id === 'fields');
+    if (!fields) throw new Error('Missing fields example');
+    const command = requestExample(fields, 'https://envelope.example/api/v1');
+    expect(command).toContain('/envelopes/$ENVELOPE_ID/fields');
+    expect(command).toContain(`"recipientId": "'"$RECIPIENT_ID"'"`);
   });
   it('uses an absolute current-origin base and safely quotes shell inputs', () => {
     expect(apiBaseUrl('https://envelope.example/settings/integrations')).toBe(

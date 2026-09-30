@@ -1,89 +1,23 @@
 import {
-  DOCUMENT_CATEGORIES,
+  errorGuideRows,
   FIRED_WEBHOOK_EVENT_TYPES,
-  type WebhookEventType,
+  type FiredWebhookEventType,
+  WORKFLOW_EXAMPLE,
 } from '@envelope/shared';
 import { useId, useState } from 'react';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { TabPanel, Tabs } from '../../components/ui/Tabs';
-import { HealthProHubGuide } from './HealthProHubGuide';
+import { EmbeddedEditorGuide } from './EmbeddedEditorGuide';
+import { EndpointCard } from './EndpointCard';
 import { ExampleBlock } from './IntegrationExampleBlock';
 
 export { ExampleBlock } from './IntegrationExampleBlock';
 
 import { WEBHOOK_EVENT_LABELS } from './integration-presentation';
-import {
-  apiBaseUrl,
-  ENDPOINTS,
-  type EndpointReference,
-  requestExample,
-  WEBHOOK_EXAMPLES,
-  webhookExample,
-} from './integration-reference';
+import { apiBaseUrl, ENDPOINTS, WEBHOOK_EXAMPLES, webhookExample } from './integration-reference';
 import { WEBHOOK_RECEIVER } from './webhook-receiver-example';
-
-function EndpointCard({ endpoint, base }: { endpoint: EndpointReference; base: string }) {
-  return (
-    <details className="group min-w-0 rounded-xl border border-slate-200 bg-white open:shadow-sm">
-      <summary className="flex min-h-16 cursor-pointer list-none flex-wrap items-center gap-3 rounded-xl p-4 focus-visible:outline-brand-700">
-        <span
-          className={`rounded-md px-2 py-1 font-mono text-xs font-bold ${endpoint.method === 'GET' ? 'bg-emerald-50 text-emerald-800' : endpoint.method === 'DELETE' ? 'bg-red-50 text-red-800' : 'bg-brand-50 text-brand-800'}`}
-        >
-          {endpoint.method}
-        </span>
-        <span className="min-w-0 flex-1 basis-48">
-          <span className="block break-all font-mono text-xs font-medium text-slate-800">
-            {endpoint.path}
-          </span>
-          <span className="mt-1 block text-sm text-slate-500">{endpoint.title}</span>
-        </span>
-        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">
-          {endpoint.method === 'GET' ? 'Read or full access' : 'Full access'}
-        </span>
-        <span aria-hidden="true" className="text-slate-400 group-open:rotate-180">
-          ⌄
-        </span>
-      </summary>
-      <div className="space-y-4 border-t border-slate-100 p-4 sm:p-5">
-        <p className="text-sm leading-6 text-slate-600">{endpoint.description}</p>
-        <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-slate-600">
-          {endpoint.inputs.map((input) => (
-            <li key={input}>{input}</li>
-          ))}
-        </ul>
-        {endpoint.id === 'upload' && (
-          <p className="text-xs leading-6 text-slate-500">
-            Document categories: {DOCUMENT_CATEGORIES.join(', ')}. The chosen jurisdiction may block
-            some categories.
-          </p>
-        )}
-        {endpoint.revision && (
-          <Alert tone="info">
-            Send the latest draftRevision in If-Match, quoted. After each successful edit, replace
-            DRAFT_REVISION with the returned value. On 412, fetch the draft again and reconcile
-            before retrying.
-          </Alert>
-        )}
-        <ExampleBlock title={`${endpoint.title} request`} text={requestExample(endpoint, base)} />
-        <p className="text-xs font-medium text-slate-500">{endpoint.responseNote}</p>
-        <ExampleBlock
-          title={`${endpoint.title} response`}
-          text={
-            typeof endpoint.response === 'string'
-              ? endpoint.response
-              : JSON.stringify(endpoint.response, null, 2)
-          }
-        />
-        <p className="text-sm leading-6 text-slate-600">
-          <strong className="text-slate-800">When it fails: </strong>
-          {endpoint.errors}
-        </p>
-      </div>
-    </details>
-  );
-}
 
 const sections = [
   { id: 'start', label: 'Quick start' },
@@ -98,7 +32,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
   const prefix = useId();
   const [section, setSection] = useState<Section>('start');
   const [search, setSearch] = useState('');
-  const [event, setEvent] = useState<WebhookEventType>('envelope.completed');
+  const [event, setEvent] = useState<FiredWebhookEventType>('envelope.completed');
   const base = apiBaseUrl(window.location.origin);
   const filtered = ENDPOINTS.filter((entry) =>
     `${entry.method} ${entry.path} ${entry.title} ${entry.description}`
@@ -126,16 +60,15 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
           </Button>
         </div>
         <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium text-brand-800">
-          {[`${ENDPOINTS.length} API operations`, '8 webhook events', 'Server-to-server'].map(
-            (label) => (
-              <span
-                key={label}
-                className="rounded-full border border-brand-100 bg-white px-3 py-1.5"
-              >
-                {label}
-              </span>
-            ),
-          )}
+          {[
+            `${ENDPOINTS.length} API operations`,
+            `${FIRED_WEBHOOK_EVENT_TYPES.length} webhook events`,
+            'Server-to-server',
+          ].map((label) => (
+            <span key={label} className="rounded-full border border-brand-100 bg-white px-3 py-1.5">
+              {label}
+            </span>
+          ))}
         </div>
       </Card>
       <Tabs
@@ -148,11 +81,33 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
         className="[&_button]:min-h-11"
       />
       <TabPanel idPrefix={prefix} id="healthprohub" hidden={section !== 'healthprohub'}>
-        {section === 'healthprohub' && <HealthProHubGuide onManage={onManage} />}
+        {section === 'healthprohub' && <EmbeddedEditorGuide onManage={onManage} />}
       </TabPanel>
       <TabPanel idPrefix={prefix} id="start" hidden={section !== 'start'} className="space-y-5">
         {section === 'start' && (
           <>
+            <Card>
+              <h3 className="text-lg font-semibold text-slate-900">Setup checklist</h3>
+              <ol className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                {[
+                  'Create a full-access API key in Manage connections and store it as ENVELOPE_API_KEY on your server.',
+                  'Run the complete script below with a PDF named agreement.pdf; it uploads, prepares and sends one document.',
+                  'Register an HTTPS webhook endpoint and store its signing secret as ENVELOPE_WEBHOOK_SECRET.',
+                  'Verify the first delivery with Send test event, then wait for envelope.completed.',
+                  'Embedding the editor? Register your page’s exact origin on the API key first.',
+                ].map((item, index) => (
+                  <li key={item} className="flex gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800"
+                    >
+                      {index + 1}
+                    </span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </Card>
             <Card>
               <h3 className="text-lg font-semibold text-slate-900">1. Create a server API key</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -179,9 +134,9 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
             <Card>
               <h3 className="text-lg font-semibold text-slate-900">2. Upload → prepare → send</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Expand each step for its request and response. Examples use illustrative UUIDs:
-                replace the envelope id in every URL and the recipientId in the field body with
-                values returned by your requests.
+                Expand each step for its request and response. Every example reads ids from shell
+                variables: the script below extracts them from each response with jq, so nothing
+                needs editing by hand except your key and host.
               </p>
               <ol className="my-4 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-600">
                 <li>Upload agreement.pdf. Save id and draftRevision.</li>
@@ -190,7 +145,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                   response.
                 </li>
                 <li>
-                  Place a required signature field using that recipient id. Generate a fresh field
+                  Place a required signature field using that recipient id. Each field gets a fresh
                   UUID; update DRAFT_REVISION again.
                 </li>
                 <li>
@@ -198,7 +153,8 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                   body on retries. Send the document.
                 </li>
               </ol>
-              <div className="space-y-3">
+              <ExampleBlock title="Complete script (bash, curl and jq)" text={WORKFLOW_EXAMPLE} />
+              <div className="mt-4 space-y-3">
                 {['upload', 'recipient-add', 'fields', 'send'].map((id) => {
                   const endpoint = ENDPOINTS.find((entry) => entry.id === id);
                   return endpoint ? (
@@ -318,7 +274,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                 <span className="text-sm font-medium text-slate-700">Webhook event</span>
                 <select
                   value={event}
-                  onChange={(e) => setEvent(e.target.value as WebhookEventType)}
+                  onChange={(e) => setEvent(e.target.value as FiredWebhookEventType)}
                   className="mt-2 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm"
                 >
                   {FIRED_WEBHOOK_EVENT_TYPES.map((type) => (
@@ -356,11 +312,11 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               </p>
               <ExampleBlock title="Node.js receiver example" text={WEBHOOK_RECEIVER} />
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Before running this example, implement event-inbox.mjs: saveEventOnce must
-                atomically store the event with a unique event.id and treat duplicates as success. A
-                worker processes the durable inbox with idempotent business actions. An in-memory
-                set is not enough across restarts or multiple servers. Publish the local receiver
-                through an HTTPS reverse proxy.
+                Run this example as it is: it keeps a file-backed inbox and stores each event.id
+                once, so a retry or a redrive is acknowledged without being stored twice. In
+                production, replace saveEventOnce with a database insert that has a unique event id,
+                and process the inbox in a worker with idempotent business actions. A local receiver
+                needs an HTTPS reverse proxy to be reachable by Envelope.
               </p>
             </Card>
             <Card>
@@ -455,6 +411,34 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                 <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
               </Card>
             ))}
+            <Card>
+              <h4 className="font-semibold text-slate-900">Error codes</h4>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Switch on code, never on the message text.
+              </p>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[32rem] text-left text-sm">
+                  <thead>
+                    <tr className="text-slate-500">
+                      <th className="p-2">HTTP</th>
+                      <th className="p-2">Code</th>
+                      <th className="p-2">What to do</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {errorGuideRows().map((row) => (
+                      <tr key={row.code} className="border-t border-slate-100 align-top">
+                        <td className="p-2 font-mono text-xs">{row.status}</td>
+                        <td className="p-2 font-mono text-xs break-all">{row.code}</td>
+                        <td className="p-2 text-slate-600">
+                          {row.meaning} {row.action}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </>
         )}
       </TabPanel>

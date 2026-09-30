@@ -1,5 +1,6 @@
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { EndpointCard } from './EndpointCard';
 import {
   EMBED_BACKEND_EXAMPLE,
   EMBED_EXISTING_EXAMPLE,
@@ -8,8 +9,9 @@ import {
   EMBED_UPLOAD_EXAMPLE,
 } from './embed-reference';
 import { ExampleBlock } from './IntegrationExampleBlock';
+import { apiBaseUrl, EMBEDDED_ENDPOINTS } from './integration-reference';
 
-export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
+export function EmbeddedEditorGuide({ onManage }: { onManage: () => void }) {
   return (
     <div className="min-w-0 space-y-5">
       <Card>
@@ -48,7 +50,7 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
               <tr>
                 <td className="p-2">SDK distribution</td>
                 <td className="p-2">
-                  Workspace package available to build; registry/CDN publication is separate.
+                  One script tag loads the SDK from Envelope itself; no npm install or build step.
                 </td>
               </tr>
             </tbody>
@@ -95,8 +97,8 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
           origin, no wildcards or URL paths; HTTP loopback is limited to isolated tests. Your host’s
           frame-src policy must also allow Envelope.
         </p>
-        <ExampleBlock title="HealthProHub backend session" text={EMBED_BACKEND_EXAMPLE} />
-        <ExampleBlock title="HealthProHub SDK mount" text={EMBED_SDK_EXAMPLE} />
+        <ExampleBlock title="Backend: issue a session" text={EMBED_BACKEND_EXAMPLE} />
+        <ExampleBlock title="Browser: mount the editor" text={EMBED_SDK_EXAMPLE} />
         <details className="rounded-xl border border-slate-200 p-4">
           <summary className="min-h-11 cursor-pointer font-medium">
             Direct iframe alternative
@@ -113,6 +115,21 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
           the issuing full-access key; POST /api/v1/embed/session/close uses the scoped editor
           bearer.
         </p>
+      </Card>
+      <Card className="space-y-3">
+        <h3 className="text-lg font-semibold">Session operations</h3>
+        <p className="text-sm leading-6 text-slate-600">
+          Your backend issues and revokes sessions with a full-access API key. A complete, runnable
+          partner application that uses the hosted SDK is in examples/embedded-partner in the
+          repository.
+        </p>
+        {EMBEDDED_ENDPOINTS.map((endpoint) => (
+          <EndpointCard
+            key={endpoint.id}
+            endpoint={endpoint}
+            base={apiBaseUrl(window.location.origin)}
+          />
+        ))}
       </Card>
       <Card>
         <h3 className="text-lg font-semibold">Keep your application records up to date</h3>
@@ -156,6 +173,11 @@ export function HealthProHubGuide({ onManage }: { onManage: () => void }) {
           <li>
             Session revoked or send denied: check the issuing key, allowed origin and granted
             actions. Editing does not automatically grant sending.
+          </li>
+          <li>
+            SDK script does not load: open the script URL directly. A 503 means the deployment lacks
+            packages/embed/dist; a blocked request means your page’s Content-Security-Policy needs
+            Envelope’s origin in script-src.
           </li>
           <li>
             Production assets unavailable: build apps/web with its Vite manifest, make dist

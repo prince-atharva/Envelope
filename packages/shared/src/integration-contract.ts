@@ -18,9 +18,9 @@ import {
 } from './limits';
 import {
   FIRED_WEBHOOK_EVENT_TYPES,
+  type FiredWebhookEventType,
   WEBHOOK_API_VERSION,
   WEBHOOK_DELIVERY_HEADERS,
-  type WebhookEventType,
 } from './webhooks';
 
 /**
@@ -730,7 +730,6 @@ export interface WebhookEventReference {
   description: string;
   data: object;
 }
-export type FiredWebhookEventType = Exclude<WebhookEventType, 'envelope.delivered'>;
 
 const person = { envelopeId: EXAMPLE_ENVELOPE_ID, recipientId: EXAMPLE_RECIPIENT_ID };
 export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEventReference> = {
@@ -1227,4 +1226,4 @@ export function errorGuideRows(): ErrorGuideRow[] {
 
 /** The events a receiver can be sent, in documented order. */
 export const DOCUMENTED_WEBHOOK_EVENTS: readonly FiredWebhookEventType[] =
-  FIRED_WEBHOOK_EVENT_TYPES as readonly FiredWebhookEventType[];
+  FIRED_WEBHOOK_EVENT_TYPES;

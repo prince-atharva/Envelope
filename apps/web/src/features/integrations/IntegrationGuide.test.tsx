@@ -39,6 +39,30 @@ describe('integration guide', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Manage API keys and origins' }));
     expect(manage).toHaveBeenCalledOnce();
   });
+  it('opens on a setup checklist and one complete script that carries ids with jq', () => {
+    render(<IntegrationGuide onManage={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'Setup checklist' })).toBeTruthy();
+    expect(screen.getByLabelText('Complete script (bash, curl and jq)').textContent).toContain(
+      'jq -r .recipient.id',
+    );
+    expect(screen.getByText(/9 webhook events/)).toBeTruthy();
+  });
+  it('lists every error code the API documents, with what to do', () => {
+    render(<IntegrationGuide onManage={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Troubleshooting' }));
+    const table = screen.getByRole('table');
+    for (const code of ['DRAFT_REVISION_MISMATCH', 'API_KEY_READ_ONLY', 'EMBED_ORIGIN_NOT_ALLOWED'])
+      expect(table.textContent).toContain(code);
+  });
+  it('shows the hosted SDK and the session operations in the embedded editor guide', () => {
+    render(<IntegrationGuide onManage={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Embedded editor' }));
+    expect(screen.getByLabelText('Browser: mount the editor').textContent).toContain(
+      '/api/v1/embed/sdk/v1/envelope.js',
+    );
+    expect(screen.getByText('Issue an embedded editor session')).toBeTruthy();
+    expect(screen.getByText('Revoke an embedded editor session')).toBeTruthy();
+  });
   it('changes webhook payloads and explains the unsupported event', () => {
     render(<IntegrationGuide onManage={vi.fn()} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Webhook guide' }));

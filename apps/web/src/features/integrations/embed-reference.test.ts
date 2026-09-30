@@ -17,8 +17,12 @@ describe('HealthProHub guide contracts', () => {
   it('keeps API credentials on the backend and validates the direct iframe source', () => {
     expect(EMBED_BACKEND_EXAMPLE).toContain('process.env.ENVELOPE_API_KEY');
     expect(EMBED_SDK_EXAMPLE).not.toContain('ENVELOPE_API_KEY');
+    expect(EMBED_SDK_EXAMPLE).toContain('/api/v1/embed/sdk/v1/envelope.js');
+    expect(EMBED_SDK_EXAMPLE).not.toContain('@envelope/embed');
     expect(EMBED_IFRAME_EXAMPLE).toContain('event.source !== frame.contentWindow');
-    expect(EMBED_IFRAME_EXAMPLE).toContain('embedEventSchema.safeParse');
+    // A partner cannot import @envelope/shared, so the example checks the envelope by hand.
+    expect(EMBED_IFRAME_EXAMPLE).toContain('message.sessionId !== sessionId');
+    expect(EMBED_IFRAME_EXAMPLE).not.toContain('@envelope/shared');
     expect(EMBED_IFRAME_EXAMPLE).not.toContain("}, '*')");
   });
 });

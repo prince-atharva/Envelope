@@ -33,9 +33,11 @@ export const WEBHOOK_EVENT_TYPES = [
 export type WebhookEventType = (typeof WEBHOOK_EVENT_TYPES)[number];
 
 /** Fired by this phase. `envelope.delivered` is excluded — see above. */
-export const FIRED_WEBHOOK_EVENT_TYPES: readonly WebhookEventType[] = WEBHOOK_EVENT_TYPES.filter(
-  (type) => type !== 'envelope.delivered',
-);
+export type FiredWebhookEventType = Exclude<WebhookEventType, 'envelope.delivered'>;
+export const FIRED_WEBHOOK_EVENT_TYPES: readonly FiredWebhookEventType[] =
+  WEBHOOK_EVENT_TYPES.filter(
+    (type): type is FiredWebhookEventType => type !== 'envelope.delivered',
+  );
 
 /**
  * A test delivery (docs/18 workstream 9) is never fired for a real envelope
