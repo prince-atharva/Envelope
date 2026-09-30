@@ -194,12 +194,12 @@ All slices:
 | 7 | Change password: route, revoke other sessions, notice email, per-user limit | ✅ Built |
 | 8 | Web: Account page with the password form, header link | ✅ Built |
 | 9 | Documentation for slice 2 | ✅ Built |
-| 10 | Two-factor foundations: schema, env var, cipher, TOTP and recovery-code helpers | Planned |
-| 11 | Enrol and manage a factor: setup, enable, disable, regenerate codes, notices | Planned |
-| 12 | Sign in with a second factor: login challenge, challenge route, refresh check, limits | Planned |
-| 13 | Workspace policy and Owner reset: require flag, enrolment-token routes, reset route | Planned |
-| 14 | Web: enrolment, second sign-in step, workspace switch, per-user reset, QR code | Planned |
-| 15 | Documentation for slice 3 | Planned |
+| 10 | Two-factor foundations: schema, env var, cipher, TOTP and recovery-code helpers | ✅ Built |
+| 11 | Enrol and manage a factor: setup, enable, disable, regenerate codes, notices | ✅ Built |
+| 12 | Sign in with a second factor: login challenge, challenge route, refresh check, limits | ✅ Built |
+| 13 | Workspace policy and Owner reset: require flag, enrolment-token routes, reset route | ✅ Built |
+| 14 | Web: enrolment, second sign-in step, workspace switch, per-user reset, QR code | ✅ Built |
+| 15 | Documentation for slice 3 | ✅ Built |
 | 16 | Malware scanning: config, `ClamdMalwareScanner`, alert on outage, compose service, tests | Planned |
 | 17 | Documentation for slice 4, and the phase's changelog | Planned |
 
@@ -499,6 +499,46 @@ All slices:
 Built as planned. The Account link is a plain "Account" link beside Sign out, in `UserBar`, so it
 shows on desktop and phones alike. The generated developer docs (`openapi.json`, `errors.md`) were
 regenerated again for the new route and error code.
+
+## As Built (Slice 3)
+
+Built as planned, with these differences:
+
+- **A wrong code is `422`, not `401`.** `TWO_FACTOR_CODE_INVALID` is 422 (like `CURRENT_PASSWORD_INCORRECT`),
+  because a 401 makes the web client try a silent refresh; only `TWO_FACTOR_CHALLENGE_INVALID`, the
+  challenge-token failure on unauthenticated routes, is 401. `TWO_FACTOR_NOT_ENABLED` (409) was added.
+- **The policy route is `PUT /tenant/two-factor` in its own controller** (`TwoFactorPolicyController`),
+  and the Owner reset is on the users controller as planned.
+- **Setup is inline on the Account page, not a dialog.** The QR code is drawn in the browser from the
+  otpauth URI with `qrcode`, so the secret goes to no one else.
+- **A required enrolment holds the session back.** `POST /auth/2fa/enrol/finish` returns the session
+  and the recovery codes, and the web app adopts the session only after the codes have been shown, so the
+  sign-in redirect cannot hide them.
+- **`TwoFactorSection`, `PasswordSection`, `SetupPanel`, `RecoveryCodes`, `CodeStep` and
+  `RequiredEnrolment`** are the new web components; the accept-invitation page also uses
+  `RequiredEnrolment`.
+- **The browser suite has its own TOTP** (`e2e/totp.ts`, written separately from the API's) so it checks
+  the two against each other.
+- **A per-person wrong-code lockout was added** (found in review): five wrong codes in 15 minutes refuse
+  further tries for the rest of that window (`429 RATE_LIMITED`, `Retry-After`), counted in Redis, cleared by
+  a right code, and applied to sign-in, turning it off and replacing the recovery codes. The planned limits
+  (per challenge token and per address) let an attacker who holds the password fetch fresh challenges and
+  keep guessing; this bounds the account itself. ADR 0024 is unchanged and describes the weaker rule; this
+  strengthens it. An unreachable Redis lets attempts through (as the other rate limits do) and logs it.
+- **Turning it off checks the workspace rule before spending the code**, so a refused request does not
+  burn a recovery code or send a "recovery code used" email; replacing the recovery codes is one transaction.
+- **The challenge token's separation is by claim, not by a `typ` header.** It carries `purpose` and no
+  session id; `JwtAuthGuard` refuses any token with a `purpose` or without a `sid`, and `MfaChallengeService`
+  refuses any token without the exact purpose or with a `sid`. Both directions are tested.
+- **The two-factor routes are in `TwoFactorController`** (`auth/2fa`), with the public challenge and
+  enrolment routes on `AuthController`.
+- **No migration-time test.** The plan promised one that loads a user, workspace and session from before the
+  migration. The migration is additive with safe defaults, and the same guarantee is proved by behaviour tests
+  instead: an existing user signs in with the password alone (`two-factor.e2e.test.ts`), an existing session
+  and refresh cookie survive enrolment (`two-factor-signin.e2e.test.ts`), and pending invitees and unenrolled
+  members are handled when a workspace turns the rule on (`two-factor-policy.e2e.test.ts`).
+- Row-level security (docs/05, "deferred to Phase 8") stays deferred: it is not one of the four slices
+  the user chose for this phase.
 
 ## Existing Users and Data
 

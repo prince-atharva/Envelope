@@ -214,6 +214,15 @@ model User {
   @@index([tenantId])
 }
 
+// As built (Phase 8, docs/19, ADR 0023, ADR 0024, ADR 0025). User gains
+// `disabledAt` (a removed person), `totpSecretCiphertext`, `totpEnabledAt` and
+// `totpLastStep` (a second factor: the secret is AES-256-GCM ciphertext, pending
+// until a code confirms it, and the last step stops a code being used twice).
+// Tenant gains `requireTwoFactor`. Two new tables: PasswordResetToken (one row
+// per reset link, HMAC only, purged with expired sessions) and RecoveryCode (one
+// row per single-use recovery code, HMAC only). All additive: every existing
+// user has no factor and every workspace does not require one.
+
 model Envelope {
   id               String         @id @default(uuid())
   tenantId         String

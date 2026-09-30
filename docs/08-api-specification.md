@@ -125,6 +125,29 @@ API keys are shown once at creation, stored hashed, and are revocable. They MUST
 > Both act as the service-account user, so the audit trail's actor for a cancel is that user. Extend
 > and the automatic-reminder settings stay session-only, as do legal hold and audit export.
 
+> **As built (Phase 8 slice 3, docs/19, ADR 0024, ADR 0025).** Two-factor sign-in for senders (an
+> authenticator app, with ten single-use recovery codes). API keys, embedded sessions and recipients are
+> not affected. `POST /auth/login` now answers with one of three shapes:
+> a normal session (`AuthResponse`, refresh cookie set); `{ mfaRequired: true, challengeToken }` when a
+> factor is enrolled; or `{ mfaEnrolmentRequired: true, challengeToken }` when the workspace requires a
+> factor and the person has none. The last two set no cookie and issue no session; the challenge token is a
+> five-minute JWT with a `purpose` claim that is never accepted as an access token. Invitation acceptance
+> can answer `{ mfaEnrolmentRequired }` the same way.
+>
+> | Route | Auth | What it does |
+> |---|---|---|
+> | `POST /auth/2fa/challenge` `{ challengeToken, code }` | challenge token | Finishes a sign-in with a 6-digit code or a recovery code. 5 attempts per token, 10/min per IP |
+> | `POST /auth/2fa/enrol/start`, `/enrol/finish` | enrolment token | A required enrolment before any session; finish returns the session and the recovery codes |
+> | `GET /auth/2fa` | JWT | `{ enabled, recoveryCodesRemaining, required }` |
+> | `POST /auth/2fa/setup` | JWT | A pending secret and otpauth URI, shown once |
+> | `POST /auth/2fa/enable` `{ code }` | JWT | Confirms it; returns the recovery codes, once |
+> | `POST /auth/2fa/disable`, `/recovery-codes` `{ password, code }` | JWT | Turns it off, or replaces the codes |
+> | `PUT /tenant/two-factor` `{ required }` | OWNER | Requires it of everyone; refused until the Owner has enrolled |
+> | `DELETE /users/:id/two-factor` | OWNER | Clears someone else's factor and signs them out |
+>
+> The user list gains `twoFactorEnabled`. A workspace rule reaches signed-in people at their next
+> refresh. Wrong codes are `422 TWO_FACTOR_CODE_INVALID`.
+
 **Signer tokens are never sent in a header** — they arrive in the URL from an email link. Consequently they MUST NOT be logged, MUST be single-use, and MUST expire. See [10-security-and-threat-model.md](10-security-and-threat-model.md).
 
 > **As built (Phase 8 slice 1, docs/19, ADR 0022, ADR 0023).** Password reset adds three public
@@ -805,6 +828,10 @@ RFC 7807:
 | `INVITE_TOKEN_INVALID` / `INVITE_TOKEN_EXPIRED` (docs/17) | 401 | A tenant invitation link is unknown, already accepted, or past its date |
 | `PASSWORD_RESET_TOKEN_INVALID` / `PASSWORD_RESET_TOKEN_EXPIRED` (docs/19) | 401 | A password-reset link is unknown, already used, replaced by a newer one or its account was removed, or is past its hour |
 | `CURRENT_PASSWORD_INCORRECT` (docs/19) | 422 | The current password given to change one's own password was wrong |
+| `TWO_FACTOR_CODE_INVALID` (docs/19) | 422 | A second-factor code is wrong, or was already used |
+| `TWO_FACTOR_CHALLENGE_INVALID` (docs/19) | 401 | The sign-in step's token is expired, tampered with, or the wrong kind; sign in again |
+| `TWO_FACTOR_REQUIRED` (docs/19) | 403 | The workspace requires two-factor, so it cannot be turned off; or an Owner must enrol before requiring it |
+| `TWO_FACTOR_ALREADY_ENABLED` / `TWO_FACTOR_NOT_ENABLED` (docs/19) | 409 | Setup on an enrolled account; disable or reset on one with no factor |
 | `CONSENT_TEXT_CHANGED` | 409 | The notice changed after it was shown; show the new one |
 | `INVALID_SIGNATURE_IMAGE` | 422 | Not a transparent PNG, or too large |
 | `REQUIRED_FIELDS_INCOMPLETE` | 422 | Required fields unfilled |
@@ -834,6 +861,9 @@ RFC 7807:
 | Ask for a password-reset link (docs/19) | 10/hour per IP, and 3/hour per account |
 | Preview or use a reset link (docs/19) | 30/min and 10/min per IP |
 | Change one's own password (docs/19) | 5/hour per person |
+| Answer a sign-in code challenge, or enrol (docs/19) | 5 per challenge token in 5 min, 10/min per IP |
+| Manage one's own second factor (docs/19) | 10 per 15 minutes per person |
+| Wrong second-factor codes (docs/19) | 5 per 15 minutes per person, then `429` until the window ends |
 | Everything else | 300/min per IP |
 | Reminders | 1 per recipient per 24h |
 

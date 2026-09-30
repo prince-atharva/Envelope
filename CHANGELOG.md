@@ -12,6 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Change your password (Phase 8 slice 2, docs/19).** A new Account page (a link beside Sign out, for every role) changes your own password: the current one is asked for again, every other device is signed out, this one stays, and a "password changed" email is sent. New `POST /auth/password/change`, limited to 5 an hour per person.
 
+- **Two-factor sign-in (Phase 8 slice 3, docs/19, ADR 0024, ADR 0025).** Turn on an authenticator-app code from the Account page (scan a QR code or type the key, confirm with a code, keep ten one-time recovery codes). Sign-in then asks for a code after the password; a recovery code works once and is emailed. A code cannot be used twice, and five wrong codes in 15 minutes pause further tries for that person. Turning it off needs your password and a code. An Owner can require it for the whole workspace (Settings → Users): people without it set it up at their next sign-in or refresh, invited people enrol before their first session, and no one can switch it off. An Owner can reset a colleague's factor if they lose both phone and codes. Password reset does not get around it. **Existing users are unaffected until they, or an Owner, opt in.** New env var `TOTP_SECRET_ENC_KEY` (base64, 32 bytes, different from `WEBHOOK_SECRET_ENC_KEY`) is required; the API will not start without it. New migration adds columns and one table, additively. New web dependency `qrcode`.
+
 ### Changed
 
 - Reset links in URL paths are masked in request logs, error `instance` fields and browser error reports, like signing links (Phase 8 slice 1, docs/19).

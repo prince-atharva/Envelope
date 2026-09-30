@@ -241,6 +241,7 @@ Token leakage through observability tooling is the most likely real-world failur
 | **Spoofing** | Stolen database | HMAC with server-side salt | Low |
 | **Spoofing** | Forwarded email | IP/UA capture; optional SMS OTP | **Accepted** — inherent to accountless signing; equivalent to a posted paper contract |
 | **Spoofing** | Email account compromise | OTP option; expiry limits the window | **Accepted** — outside our control |
+| **Spoofing** | Stolen or reused sender password | TOTP second factor with single-use recovery codes; workspace can require it (docs/19, ADR 0024, ADR 0025); a password reset does not bypass it | Low |
 | **Tampering** | Editing a sealed PDF | SHA-256 chain; Object Lock; independent verification | Negligible — detectable |
 | **Tampering** | Rewriting the audit log | INSERT/SELECT privileges only; hash chain; nightly integrity job | Low |
 | **Tampering** | Altering field coordinates in transit | TLS; server-side range validation; ownership check | Low |
@@ -332,6 +333,7 @@ Processing runs on workers with constrained memory and no outbound network acces
 | Secrets | Environment variables; platform secret manager; **never committed**; CI secret scanning |
 | Password storage | Argon2id for sender accounts |
 | Session | Short-lived JWT plus refresh rotation; revocable |
+| Second factor | TOTP (RFC 6238) for senders, secrets AES-256-GCM encrypted under their own key, one use per code, recovery codes HMAC-only; a challenge token that is never an access token; enforced at sign-in and refresh when a workspace requires it (docs/19) |
 | Removed users | `User.disabledAt` (ADR 0023): sign-in and password reset refuse the account and removal revokes its sessions at once |
 
 ## Rate Limiting
@@ -347,6 +349,9 @@ Processing runs on workers with constrained memory and no outbound network acces
 | Password-reset request (docs/19) | 10/hour per IP, 3/hour per account | Mail flooding one mailbox; enumeration is closed by the uniform answer |
 | Reset link preview / use (docs/19) | 30/min, 10/min per IP | Guessing links |
 | Change own password (docs/19) | 5/hour per person | Guessing the current password from a stolen session |
+| Sign-in code challenge / enrolment (docs/19) | 5 per challenge in 5 min, 10/min per IP | Guessing a 6-digit code; new challenges need the password, itself limited to 5/min per account |
+| Manage own second factor (docs/19) | 10 per 15 min per person | Guessing a code with a stolen session |
+| Wrong second-factor codes (docs/19) | 5 per 15 min per person, then refused until the window ends | Guessing a 6-digit code with the password and fresh challenges |
 
 Signing limits key on the **token**, not the IP — corporate NAT means many legitimate signers share one address.
 
