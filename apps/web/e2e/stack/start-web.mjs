@@ -17,6 +17,15 @@ const env = childEnv({
   WEB_PORT: String(WEB_PORT),
 });
 
+// The API serves the embed SDK from this build (ADR 0020); the partner example loads it by URL.
+say('[e2e stack] Building the embed SDK');
+const sdk = spawnSync('pnpm', ['--filter', '@envelope/embed', 'build'], {
+  cwd: WEB_DIR,
+  env,
+  stdio: 'inherit',
+});
+if (sdk.status !== 0) process.exit(sdk.status ?? 1);
+
 say('[e2e stack] Building the web app');
 const build = spawnSync(
   'pnpm',

@@ -66,13 +66,6 @@ export default defineConfig(() => {
       manifest: true,
       sourcemap: true,
       target: 'es2022',
-      rolldownOptions: {
-        input: {
-          app: fileURLToPath(new URL('index.html', import.meta.url)),
-          'embed-sdk': fileURLToPath(new URL('../../packages/embed/src/index.ts', import.meta.url)),
-        },
-        preserveEntrySignatures: 'strict',
-      },
     },
   };
 });

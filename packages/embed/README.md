@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Status | Implemented; unpublished workspace package |
+| Status | Implemented; served by the Envelope API as a hosted script (ADR 0020) |
 | Version | Workspace version; unpublished |
-| Last updated | 28 September 2026 |
+| Last updated | 30 September 2026 |
 | Audience | Tenant integration developers |
 | What this doc answers | How to open and close the Envelope sender editor safely |
 
@@ -16,16 +16,25 @@ and let staff upload within the editor. Recipients sign through Envelope's email
 
 ## Technical Detail
 
-Build the workspace package with `pnpm --filter @envelope/embed build`. This package is private;
-there is no registry publication or CDN URL. Bundle its ESM artifact into the partner frontend.
-Use the Settings → Integrations → Integration guide → Embedded editor examples
-for backend authorization, both session bodies, direct iframe integration and webhook recovery.
+The SDK is one self-contained file with no dependencies. Envelope serves it at a stable,
+versioned URL, so a partner page needs no npm install and no build step:
+
+```html
+<script src="https://YOUR-ENVELOPE-HOST/api/v1/embed/sdk/v1/envelope.js"></script>
+<!-- global: EnvelopeEmbed.createEnvelopeEditor(...) -->
+<!-- or, as a module: import { createEnvelopeEditor } from '.../embed/sdk/v1/envelope.mjs' -->
+```
+
+A working page is in `examples/embedded-partner/`. The `v1` path segment is the compatibility
+promise: a breaking change would ship at `/sdk/v2/`. The response is cached for five minutes and
+carries an ETag. Deployment MUST include `packages/embed/dist` (build with
+`pnpm --filter @envelope/embed build`, which the root `pnpm build` already runs) under
+`APP_ROOT_DIR`; without it the URL answers 503. There is no npm or CDN publication and no
+subresource-integrity hash in this phase.
 
 ```ts
-import { createEnvelopeEditor } from '@envelope/embed';
-
 const session = await authorizedHealthProHubBackend.createEditorSession(recordId);
-const editor = createEnvelopeEditor({
+const editor = EnvelopeEmbed.createEnvelopeEditor({
   container: document.getElementById('editor')!,
   frameUrl: session.frameUrl,
   launchToken: session.launchToken,

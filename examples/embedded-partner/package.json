@@ -1,0 +1,12 @@
+{
+  "name": "envelope-embedded-partner-example",
+  "private": true,
+  "description": "Runnable partner application for Envelope's embedded sender editor. No dependencies.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}
