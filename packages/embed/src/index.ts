@@ -1,6 +1,6 @@
-import { EMBED_PROTOCOL_VERSION, type EmbedEvent, embedEventSchema } from '@envelope/shared';
+import { EMBED_PROTOCOL_VERSION, type EmbedEvent, parseEmbedEvent } from './protocol.js';
 
-export type { EmbedEvent } from '@envelope/shared';
+export type { EmbedEvent } from './protocol.js';
 export interface EnvelopeEditorOptions {
   container: HTMLElement;
   frameUrl: string;
@@ -57,9 +57,9 @@ export function createEnvelopeEditor(options: EnvelopeEditorOptions): EnvelopeEd
   }, options.timeoutMs ?? 60_000);
   function receive(message: MessageEvent) {
     if (destroyed || message.source !== frame.contentWindow || message.origin !== origin) return;
-    const parsed = embedEventSchema.safeParse(message.data);
-    if (!parsed.success || parsed.data.sessionId !== sessionId) return;
-    if (parsed.data.type === 'ready') {
+    const event = parseEmbedEvent(message.data);
+    if (!event || event.sessionId !== sessionId) return;
+    if (event.type === 'ready') {
       if (handedOff || !launchToken) return;
       handedOff = true;
       clearTimeout(timer);
@@ -69,7 +69,7 @@ export function createEnvelopeEditor(options: EnvelopeEditorOptions): EnvelopeEd
       );
       launchToken = null;
     }
-    onEvent?.(parsed.data);
+    onEvent?.(event);
   }
   window.addEventListener('message', receive);
   frame.src = url.href;
