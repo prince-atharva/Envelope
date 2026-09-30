@@ -273,6 +273,19 @@ export interface OutboxEmail {
 }
 
 /**
+ * One outbox email, or null while the mailer is still writing it: the file transport writes in place,
+ * so a poll can catch a half-written file. The next poll reads it whole.
+ */
+async function readOutboxEmail(file: string): Promise<OutboxEmail | null> {
+  try {
+    return JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
+  } catch (error) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+}
+
+/**
  * The newest signing link emailed to this address, read from the isolated
  * stack's file outbox (stack.mjs). Waits for the email worker, which sends
  * after the request that queued it has returned.
@@ -282,7 +295,8 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
   while (Date.now() < deadline) {
     const files = (await outboxMessages()).reverse();
     for (const file of files) {
-      const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
+      const message = await readOutboxEmail(file);
+      if (!message) continue;
       if (
         message.to !== email ||
         !['invitation', 'reminder', 'extended'].includes(message.template)
@@ -305,7 +319,8 @@ export async function emailFor(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const file of (await outboxMessages()).reverse()) {
-      const message = JSON.parse(await readFile(join(OUTBOX_DIR, file), 'utf8')) as OutboxEmail;
+      const message = await readOutboxEmail(file);
+      if (!message) continue;
       if (message.to === email && message.template === template) return message;
     }
     await new Promise((done) => setTimeout(done, 250));
@@ -328,9 +343,10 @@ export async function completedCopyFor(email: string, timeoutMs = 30_000): Promi
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     for (const name of (await outboxMessages()).reverse()) {
-      const message = JSON.parse(await readFile(join(OUTBOX_DIR, name), 'utf8')) as OutboxEmail & {
-        attachments?: { file: string }[];
-      };
+      const message = (await readOutboxEmail(name)) as
+        | (OutboxEmail & { attachments?: { file: string }[] })
+        | null;
+      if (!message) continue;
       if (message.to !== email || message.template !== 'completed') continue;
       const attached = message.attachments?.[0]?.file;
       const sha256 = /\b[0-9a-f]{64}\b/.exec(message.text)?.[0];
