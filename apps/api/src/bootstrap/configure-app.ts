@@ -70,7 +70,15 @@ export function configureApp(app: NestExpressApplication): void {
     app.enableCors({
       origin: config.CORS_ORIGINS,
       credentials: true,
-      exposedHeaders: [REQUEST_ID_HEADER, 'Retry-After', 'ETag', 'Idempotency-Replayed'],
+      exposedHeaders: [
+        REQUEST_ID_HEADER,
+        'Retry-After',
+        'ETag',
+        'Idempotency-Replayed',
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+      ],
     });
   }
 

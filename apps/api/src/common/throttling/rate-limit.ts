@@ -36,10 +36,29 @@ export async function countRequest(
   );
   // timeToExpire is already in seconds.
   const retryAfter = Math.max(1, Math.ceil(record.timeToExpire));
-  res.setHeader('X-RateLimit-Limit', String(rule.limit));
-  res.setHeader('X-RateLimit-Remaining', String(Math.max(0, rule.limit - record.totalHits)));
-  res.setHeader('X-RateLimit-Reset', String(retryAfter));
+  setRateLimitHeaders(res, {
+    limit: rule.limit,
+    remaining: Math.max(0, rule.limit - record.totalHits),
+    reset: retryAfter,
+  });
   return { limited: record.totalHits > rule.limit, hits: record.totalHits, retryAfter };
+}
+
+/**
+ * A request can be counted by several limits (the address, a key, the
+ * workspace). The headers describe the one with the fewest requests left, in
+ * whatever order they ran, so a caller who slows down for them stays inside
+ * every limit (docs/18, workstream 11). On a tie the earlier one stays.
+ */
+export function setRateLimitHeaders(
+  res: { getHeader(name: string): unknown; setHeader(name: string, value: string): unknown },
+  next: { limit: number; remaining: number; reset: number },
+): void {
+  const current = Number(res.getHeader('X-RateLimit-Remaining') ?? Number.NaN);
+  if (Number.isFinite(current) && current <= next.remaining) return;
+  res.setHeader('X-RateLimit-Limit', String(next.limit));
+  res.setHeader('X-RateLimit-Remaining', String(next.remaining));
+  res.setHeader('X-RateLimit-Reset', String(next.reset));
 }
 
 /** 429 RATE_LIMITED, with Retry-After in seconds. */

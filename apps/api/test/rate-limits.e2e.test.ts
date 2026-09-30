@@ -83,6 +83,44 @@ describe('request limits (e2e)', () => {
     await settings(b, other, theirs.id).expect(200);
   });
 
+  it('reports the tightest limit that counted the request, and exposes it to browsers', async () => {
+    const solo = await registerUser(a.http, { fullName: 'Header Workspace' });
+    const envelope = await prepareEnvelope(a.http, solo, [
+      { name: 'Header', email: 'header@example.com' },
+    ]);
+    await sendEnvelope(a.http, solo, envelope.id).expect(200);
+    await linkFor(worker.mailbox, 'header@example.com');
+    const remind = (n: number) =>
+      request(a.http)
+        .patch(`/api/v1/envelopes/${envelope.id}/reminders`)
+        .set('Authorization', bearer(solo))
+        .send({ intervalDays: 2 + (n % 2) });
+
+    // The address limit (300) and the workspace's lifecycle limit (30) both
+    // count this request; the headers describe the one with fewer left.
+    const first = await remind(0).expect(200);
+    expect(first.headers['x-ratelimit-limit']).toBe('30');
+    const second = await remind(1).expect(200);
+    expect(Number(second.headers['x-ratelimit-remaining'])).toBe(
+      Number(first.headers['x-ratelimit-remaining']) - 1,
+    );
+
+    process.env.CORS_ORIGINS = 'https://partner.example.test';
+    const cors = await createTestApp();
+    try {
+      const preflight = await request(cors.http)
+        .get('/api/v1/health')
+        .set('Origin', 'https://partner.example.test');
+      const exposed = String(preflight.headers['access-control-expose-headers']).toLowerCase();
+      for (const name of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-ratelimit-reset']) {
+        expect(exposed).toContain(name);
+      }
+    } finally {
+      await cors.close();
+      delete process.env.CORS_ORIGINS;
+    }
+  });
+
   it('tells a signer how long to wait, in seconds', async () => {
     const envelope = await prepareEnvelope(a.http, owner, [
       { name: 'Hasty', email: 'hasty@example.com' },
