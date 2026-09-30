@@ -41,15 +41,16 @@ describe('password reset (e2e)', () => {
   const forgot = (email: string, ip = nextClientIp()) =>
     request(t.http).post('/api/v1/auth/password/forgot').set('X-Forwarded-For', ip).send({ email });
 
-  /** Waits for the worker to finish one reset job for `email`: a mail, or a logged skip. */
-  async function settled(email: string): Promise<void> {
+  /**
+   * Waits until the worker has finished `sent` reset mails to `eligible` and `skipped`
+   * skipped jobs. Counts, not addresses: a skip is logged with a masked address, and
+   * nearly every test address masks to the same `u***@example.test`, so matching on
+   * it can stop waiting before the mail has even been sent.
+   */
+  async function settled(eligible: string, skipped: number): Promise<void> {
     await waitFor(() =>
-      emailsTo(worker.mailbox, email, 'password-reset').length > 0 ||
-      logs
-        .find('Password reset link skipped', 'info')
-        .some(
-          (call) => call.fields.email === `${email[0]}***${email.slice(email.lastIndexOf('@'))}`,
-        )
+      emailsTo(worker.mailbox, eligible, 'password-reset').length === 1 &&
+      logs.find('Password reset link skipped', 'info').length === skipped
         ? true
         : undefined,
     );
@@ -111,7 +112,8 @@ describe('password reset (e2e)', () => {
         expect(res.status).toBe(202);
         expect(res.body).toEqual({ message: FORGOT_PASSWORD_MESSAGE });
       }
-      for (const email of addresses) await settled(email);
+      // Four addresses are not eligible (unknown, removed, service, pending).
+      await settled(eligible.email, 4);
 
       expect(emailsTo(worker.mailbox, eligible.email, 'password-reset')).toHaveLength(1);
       for (const email of [unknown, removed.email, service.email, pending]) {
@@ -173,8 +175,15 @@ describe('password reset (e2e)', () => {
       expect(JSON.stringify(resetJobs.map((job) => job.data))).not.toContain(token);
       expect(logs.text()).not.toContain(token);
       expect(logs.text()).not.toContain(user.email);
-      const emailed = logs.find('Password reset link emailed', 'info')[0];
-      expect(emailed?.fields.tokenRef).toBe(row?.tokenHash.slice(0, 8));
+      // The worker logs the send right after the mail is recorded: wait for it, and look
+      // for this token's reference among the emailed lines rather than assuming the first.
+      const emailedRefs = await waitFor(() => {
+        const refs = logs
+          .find('Password reset link emailed', 'info')
+          .map((call) => call.fields.tokenRef);
+        return refs.length > 0 ? refs : undefined;
+      });
+      expect(emailedRefs).toContain(row?.tokenHash.slice(0, 8));
       expect(logs.text()).not.toContain(row?.tokenHash);
     });
 
