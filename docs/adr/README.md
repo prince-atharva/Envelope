@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Active |
 | **Version** | 1.0.0 |
-| **Last updated** | 28 September 2026 |
+| **Last updated** | 30 September 2026 |
 | **Audience** | Engineering |
 | **What this doc answers** | How do we record significant decisions, and what has been decided? |
 
@@ -93,6 +93,8 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0019](0019-partner-reference-and-optional-idempotency.md) | Partner references and optional idempotency | Accepted |
 | [0020](0020-serve-the-embed-sdk-as-a-hosted-script.md) | Serve the embed SDK as a hosted script | Accepted |
 | [0021](0021-one-integration-contract-catalog.md) | One integration contract catalog | Accepted |
+| [0022](0022-store-password-reset-tokens-as-hmacs-in-their-own-table.md) | Store password-reset tokens as HMACs in their own table | Accepted |
+| [0023](0023-disable-removed-users-instead-of-relying-on-a-locked-password.md) | Disable removed users instead of relying on a locked password | Accepted |
 
 ### Planned
 

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–7 complete. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide |
-| **Version** | 1.3.0 |
+| **Status** | Phases 1–7 complete. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness) is planned, starting with password reset |
+| **Version** | 1.4.0 |
 | **Last updated** | 30 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
@@ -88,6 +88,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 16 | [phase-5-envelope-lifecycle-plan](16-phase-5-envelope-lifecycle-plan.md) | What does Phase 5 deliver: cancelling, deadlines, automatic reminders, the dashboard, and the checks that keep it safe? |
 | 17 | [phase-6-compliance-plan](17-phase-6-compliance-plan.md) | What does Phase 6 deliver: jurisdiction policy, roles, legal hold, retention, audit export? |
 | 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What is built and proposed across integration APIs, Settings, the embedded editor/SDK and HealthProHub guide? |
+| 19 | [phase-8-launch-readiness-plan](19-phase-8-launch-readiness-plan.md) | What does Phase 8 deliver to make Envelope launch-ready, starting with password reset, and how is each slice built and checked? |
 | — | [developers/](developers/README.md) | How do I connect my application to Envelope? *(partner-facing guide, shareable on its own)* |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
 
