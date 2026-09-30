@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  changePasswordSchema,
   forgotPasswordSchema,
   hasAtLeast,
   loginSchema,
@@ -97,5 +98,34 @@ describe('resetPasswordSchema', () => {
     expect(
       resetPasswordSchema.safeParse({ password: 'twelve chars', email: 'a@b.co' }).success,
     ).toBe(false);
+  });
+});
+
+describe('changePasswordSchema', () => {
+  const valid = { currentPassword: 'the old password', newPassword: 'a brand new password' };
+
+  it('accepts a different password that meets the policy', () => {
+    expect(changePasswordSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('applies the registration policy to the new password only', () => {
+    expect(changePasswordSchema.safeParse({ ...valid, currentPassword: 'x' }).success).toBe(true);
+    const short = changePasswordSchema.safeParse({ ...valid, newPassword: 'short' });
+    expect(short.error?.issues[0]).toMatchObject({
+      path: ['newPassword'],
+      message: 'Use at least 12 characters',
+    });
+  });
+
+  it('refuses keeping the same password, and unknown fields', () => {
+    const same = changePasswordSchema.safeParse({
+      currentPassword: 'a brand new password',
+      newPassword: 'a brand new password',
+    });
+    expect(same.error?.issues[0]).toMatchObject({
+      path: ['newPassword'],
+      message: 'Choose a password you are not already using',
+    });
+    expect(changePasswordSchema.safeParse({ ...valid, role: 'OWNER' }).success).toBe(false);
   });
 });

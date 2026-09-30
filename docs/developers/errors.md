@@ -100,7 +100,7 @@ few codes add a `reason`, for example `ENVELOPE_TERMINAL` (`VOIDED` or `DECLINED
 <!-- /generated:errors-table -->
 
 <!-- generated:errors-note -->
-The catalog holds 67 error codes in total; the table above lists the ones a partner integration can meet.
+The catalog holds 68 error codes in total; the table above lists the ones a partner integration can meet.
 <!-- /generated:errors-note -->
 Codes for signing links, sign-in and invitations belong to the web app and to recipients, not to an
 API key, and are not listed.

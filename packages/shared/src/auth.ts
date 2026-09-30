@@ -33,6 +33,18 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const forgotPasswordSchema = z.strictObject({ email: emailSchema });
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
+/** POST /auth/password/change (docs/19 slice 2): the signed-in person changes their own password. */
+export const changePasswordSchema = z
+  .strictObject({
+    currentPassword: z.string().min(1, 'Enter your current password').max(PASSWORD_MAX_LENGTH),
+    newPassword: passwordSchema,
+  })
+  .refine((input) => input.newPassword !== input.currentPassword, {
+    path: ['newPassword'],
+    message: 'Choose a password you are not already using',
+  });
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 /** POST /auth/password/reset/:token. The same policy as registration. */
 export const resetPasswordSchema = z.strictObject({ password: passwordSchema });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

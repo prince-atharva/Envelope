@@ -96,10 +96,14 @@ export interface PasswordResetEmailJob {
   requestId?: string;
 }
 
-/** Tells a person their password was changed by a reset (docs/19). Id only. */
+/**
+ * Tells a person their password was changed (docs/19). Id only. `via` is
+ * absent on jobs queued before it existed, which were all resets.
+ */
 export interface PasswordChangedEmailJob {
   template: 'password-changed';
   userId: string;
+  via?: 'reset' | 'change';
   requestId?: string;
 }
 

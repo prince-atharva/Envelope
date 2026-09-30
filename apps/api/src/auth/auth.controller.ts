@@ -2,6 +2,8 @@ import {
   type AcceptInviteInput,
   type AuthResponse,
   acceptInviteSchema,
+  type ChangePasswordInput,
+  changePasswordSchema,
   type ForgotPasswordInput,
   type ForgotPasswordResponse,
   forgotPasswordSchema,
@@ -222,5 +224,20 @@ export class AuthController {
     @Client() client: ClientInfo,
   ): Promise<void> {
     await this.auth.resetPassword(token, body.password, client);
+  }
+
+  @Post('password/change')
+  @HttpCode(204)
+  @RateLimit(LIMITS.passwordChangePerUser)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change your own password; your other sessions end' })
+  @ApiBody({ schema: openApiSchema(changePasswordSchema) })
+  @ApiNoContentResponse()
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordInput,
+    @Client() client: ClientInfo,
+  ): Promise<void> {
+    await this.auth.changePassword(user.id, user.sessionId, body, client);
   }
 }

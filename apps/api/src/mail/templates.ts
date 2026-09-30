@@ -680,12 +680,17 @@ export interface PasswordChangedNotice {
   fullName: string;
   /** The forgot-password page, for someone who did not make the change. */
   resetRequestUrl: string;
+  /** A reset signs everything out; a change from the Account page keeps the device that made it. */
+  via?: 'reset' | 'change';
 }
 
 /** After a reset: the account's password changed and every device was signed out (docs/19). */
 export function renderPasswordChangedEmail(notice: PasswordChangedNotice): RenderedEmail {
   const subject = `Your ${BRAND.productName} password was changed`;
-  const intro = `The password for your ${BRAND.fullName} account was just changed, and every device that was signed in has been signed out.`;
+  const intro =
+    notice.via === 'change'
+      ? `The password for your ${BRAND.fullName} account was just changed from its Account page, and every other device that was signed in has been signed out.`
+      : `The password for your ${BRAND.fullName} account was just changed, and every device that was signed in has been signed out.`;
   const reassurance = 'If you made this change, you do not need to do anything.';
   const warning = 'If you did not, reset your password now so that only you can sign in:';
   const footer = `You received this email because the password of a ${BRAND.fullName} account with this address was changed.`;

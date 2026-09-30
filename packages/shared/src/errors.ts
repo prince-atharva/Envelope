@@ -38,6 +38,11 @@ export const ERROR_CATALOG = {
   /** A password-reset link is unknown, malformed, already used or voided by a newer one (docs/19). */
   PASSWORD_RESET_TOKEN_INVALID: { status: 401, title: 'Invalid or already-used reset link' },
   PASSWORD_RESET_TOKEN_EXPIRED: { status: 401, title: 'Reset link expired' },
+  /**
+   * The current password given to change it was wrong (docs/19). 422, not 401: a
+   * 401 makes the web client try a silent refresh and sign the person out.
+   */
+  CURRENT_PASSWORD_INCORRECT: { status: 422, title: 'Current password is incorrect' },
 
   // Upload hardening (docs/10)
   FILE_REQUIRED: { status: 400, title: 'A PDF file is required' },

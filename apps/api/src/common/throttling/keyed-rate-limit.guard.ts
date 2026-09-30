@@ -17,10 +17,10 @@ const RATE_LIMIT = 'keyedRateLimit';
 
 export interface KeyedRateLimit extends RateLimitRule {
   /**
-   * What the count is kept for: the signed-in user's workspace, or the account
+   * What the count is kept for: the signed-in user, their workspace, or the account
    * a sign-in names (the email in the body, lower-cased).
    */
-  by: 'tenant' | 'account' | 'embed' | 'embedLaunch' | 'tenantKey';
+  by: 'tenant' | 'account' | 'user' | 'embed' | 'embedLaunch' | 'tenantKey';
 }
 
 /**
@@ -42,6 +42,13 @@ export const LIMITS = {
   /** Cutting the certificate out of a sealed PDF is CPU work (docs/18, workstream 11). */
   certificate: { bucket: 'tenant-certificate', limit: 30, by: 'tenant' },
   loginPerAccount: { bucket: 'login-account', limit: 5, by: 'account' },
+  /** Changing one's own password needs the current one; this bounds guessing it with a stolen session. */
+  passwordChangePerUser: {
+    bucket: 'password-change-user',
+    limit: 5,
+    windowMs: 3_600_000,
+    by: 'user',
+  },
   /** Bounds how many reset emails one mailbox can be sent, from however many addresses (ADR 0022). */
   passwordResetPerAccount: {
     bucket: 'password-reset-account',
@@ -98,6 +105,7 @@ function keyOf(rule: KeyedRateLimit, req: Request): string | undefined {
     const token: unknown = (req.body as { launchToken?: unknown } | undefined)?.launchToken;
     return typeof token === 'string' ? createHash('sha256').update(token).digest('hex') : undefined;
   }
+  if (rule.by === 'user') return req.user?.id;
   if (rule.by === 'tenant' || rule.by === 'tenantKey') return req.user?.tenantId;
   const email: unknown = (req.body as { email?: unknown } | undefined)?.email;
   return typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : undefined;

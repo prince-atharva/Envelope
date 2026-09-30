@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   type AuthResponse,
+  type ChangePasswordInput,
   FORGOT_PASSWORD_MESSAGE,
   type ForgotPasswordResponse,
   type InvitationPreview,
@@ -279,6 +280,47 @@ export class AuthService {
       this.logger.error({ err: error }, 'Password reset email could not be queued');
     });
     return { message: FORGOT_PASSWORD_MESSAGE };
+  }
+
+  /**
+   * POST /auth/password/change. The current password is checked again, so a
+   * stolen session alone cannot change it. Every other session ends and this
+   * one stays, so the person is not thrown out of the page they are on.
+   */
+  async changePassword(
+    userId: string,
+    sessionId: string,
+    input: ChangePasswordInput,
+    client: ClientInfo,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.disabledAt) throw new AppException('UNAUTHENTICATED');
+    if (!(await this.passwords.verify(user.passwordHash, input.currentPassword))) {
+      this.logger.warn(
+        { reason: 'wrong-current-password', userId, tenantId: user.tenantId, ip: client.ip },
+        'Password change rejected',
+      );
+      throw new AppException('CURRENT_PASSWORD_INCORRECT');
+    }
+
+    const passwordHash = await this.passwords.hash(input.newPassword);
+    const now = new Date();
+    const revokedSessions = await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { passwordHash } });
+      const { count } = await tx.session.updateMany({
+        where: { userId, revokedAt: null, id: { not: sessionId } },
+        data: { revokedAt: now, revokedReason: 'password-change' satisfies RevokeReason },
+      });
+      return count;
+    });
+    this.logger.info(
+      { userId, tenantId: user.tenantId, revokedSessions, ip: client.ip },
+      'Password changed',
+    );
+    // The password has changed either way; a queue outage must not fail the request.
+    await this.mailQueue.enqueuePasswordChanged(userId, 'change').catch((error: unknown) => {
+      this.logger.error({ err: error, userId }, 'Password changed notice could not be queued');
+    });
   }
 
   /** GET /auth/password/reset/:token: shown before a new password is chosen. */

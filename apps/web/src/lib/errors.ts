@@ -42,6 +42,7 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   PASSWORD_RESET_TOKEN_INVALID:
     'This reset link is not valid. It may already have been used, or a newer link may have replaced it.',
   PASSWORD_RESET_TOKEN_EXPIRED: 'This reset link has expired. Reset links work for one hour.',
+  CURRENT_PASSWORD_INCORRECT: 'That is not your current password.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 

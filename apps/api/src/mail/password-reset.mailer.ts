@@ -91,6 +91,7 @@ export class PasswordResetMailer {
         to: user.email,
         fullName: user.fullName,
         resetRequestUrl: forgotPasswordUrl(this.config.APP_URL),
+        via: job.via ?? 'reset',
       }),
       job.template,
     );

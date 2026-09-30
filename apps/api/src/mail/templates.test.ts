@@ -352,4 +352,15 @@ describe('password-changed email', () => {
     expect(email.html).toContain('Asha &lt;Rao&gt;');
     expect(email.html.match(/<a /g)).toHaveLength(1);
   });
+
+  it('says every OTHER device was signed out when the change came from the Account page', () => {
+    const email = renderPasswordChangedEmail({
+      to: 'asha@example.com',
+      fullName: 'Asha Rao',
+      resetRequestUrl,
+      via: 'change',
+    });
+    expect(email.text).toContain('from its Account page');
+    expect(email.text).toContain('every other device that was signed in has been signed out');
+  });
 });

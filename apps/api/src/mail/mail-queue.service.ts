@@ -287,11 +287,15 @@ export class MailQueueService implements OnModuleInit {
     return job.id;
   }
 
-  /** Tells a person their password was just changed by a reset (docs/19). One job per change. */
-  async enqueuePasswordChanged(userId: string): Promise<string | undefined> {
+  /** Tells a person their password was just changed (docs/19). One job per change. */
+  async enqueuePasswordChanged(
+    userId: string,
+    via: 'reset' | 'change' = 'reset',
+  ): Promise<string | undefined> {
     const data: PasswordChangedEmailJob = {
       template: 'password-changed',
       userId,
+      via,
       requestId: this.cls.isActive() ? this.cls.getId() : undefined,
     };
     const job = await this.queue.add(data.template, data, {

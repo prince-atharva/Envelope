@@ -315,6 +315,53 @@
         ]
       }
     },
+    "/api/v1/auth/password/change": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change your own password; your other sessions end",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/embed/sessions": {
       "post": {
         "operationId": "embedSessionIssue",
@@ -4299,6 +4346,7 @@
               "INVITE_TOKEN_EXPIRED",
               "PASSWORD_RESET_TOKEN_INVALID",
               "PASSWORD_RESET_TOKEN_EXPIRED",
+              "CURRENT_PASSWORD_INCORRECT",
               "FILE_REQUIRED",
               "FILE_TOO_LARGE",
               "UNSUPPORTED_FILE_TYPE",
