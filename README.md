@@ -9,8 +9,8 @@ An electronic signature platform. Upload a PDF, mark where people sign, and send
 Signers sign in their browser on any device without creating an account. Every signature is burned
 into the PDF, sealed with a certificate and backed by a tamper-evident audit trail.
 
-> **Status:** Phases 1 to 8 are complete. The latest release is
-> [**v0.9.0, Phase 8: Launch readiness**](https://github.com/prince-atharva/Envelope/releases/tag/v0.9.0).
+> **Status:** Phases 1 to 9 are complete. The latest release is
+> [**v0.10.0, Phase 9: Templates and bulk send**](https://github.com/prince-atharva/Envelope/releases/tag/v0.10.0).
 > The specification is in [`docs/`](docs/README.md), every phase has its own plan, and
 > [`CHANGELOG.md`](CHANGELOG.md) lists every change.
 
@@ -46,6 +46,7 @@ with its own notes.
 
 | Version | Phase | What it delivers | Plan |
 |---|---|---|---|
+| [v0.10.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.10.0) | **9. Templates and bulk send** | Reusable templates, bulk send from a spreadsheet or the API, and bounce tracking with any mail provider | [docs/20](docs/20-phase-9-templates-bulk-send-plan.md) |
 | [v0.9.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.9.0) | **8. Launch readiness** | Password reset, change password, two-factor sign-in (an Owner can require it), malware scanning of uploads | [docs/19](docs/19-phase-8-launch-readiness-plan.md) |
 | [v0.8.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.8.0) | **7. Integrations** | Settings for API keys and webhooks, the embedded sender editor, webhook reliability, a hosted SDK, a developer guide | [docs/18](docs/18-phase-7-integration-plan.md) |
 | [v0.7.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.7.0) | 7. foundation | Tenant API keys and signed webhooks | [docs/18](docs/18-phase-7-integration-plan.md) |

@@ -6,7 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Phase 9 (Templates, bulk send and delivery tracking), built and not yet released. See
+## [0.10.0] - 2026-10-01
+
+Phase 9 (Templates, bulk send and delivery tracking), complete: save a prepared document once and send it
+again and again, to one person or to a whole spreadsheet, and find out when an email did not arrive. See
 [docs/20](docs/20-phase-9-templates-bulk-send-plan.md) and ADRs
 [0027](docs/adr/0027-copy-the-pdf-into-templates-and-refreeze-policy-per-envelope.md),
 [0028](docs/adr/0028-process-bulk-send-as-a-batch-of-independent-envelopes.md),

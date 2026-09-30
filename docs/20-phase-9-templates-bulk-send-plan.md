@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Built on 1 October 2026; not yet released (changelog `[Unreleased]`) |
-| **Version** | 1.1.0 |
+| **Status** | Complete. Built and released as `v0.10.0` on 1 October 2026 |
+| **Version** | 1.2.0 |
 | **Last updated** | 1 October 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 9 deliver, how is each part built, and how do we check it? |
@@ -113,7 +113,7 @@ backup runbook stay on the roadmap for a later phase. A release is cut only when
 | 6 | Web: bulk send from CSV (shared parser, preview, results) | ✅ Done |
 | 7 | Delivery tracking: `MailDelivery`, `/mail-events`, `EMAIL_BOUNCED`, sender notice, envelope detail | ✅ Done |
 | 8 | Tests: the finish line | ✅ Done |
-| 9 | Documentation; release `v0.10.0` only when asked | ✅ Docs done; release not cut |
+| 9 | Documentation and release `v0.10.0` | ✅ Done |
 
 Each step is one commit that builds on its own: contracts and schema first, wiring last. Commit
 subjects follow AGENTS §9 and name `docs/20 step K` in the body.
@@ -382,12 +382,12 @@ the internet. Bounce tests post to the test app. Clear the `bulk` queue in `befo
 | `pnpm typecheck` | clean, all four packages |
 | `pnpm test` | shared 178, api 266, web 227, embed 41: all pass |
 | API e2e (Node 22.19.0) | 58 files, 440 tests: all pass |
-| Browser e2e, `desktop-chrome` | 49 tests: all pass on the final run |
+| Browser e2e, `desktop-chrome` | 49 tests: all pass (also on the release run) |
+| Browser e2e, all three projects (release run) | 142 of 147 pass: desktop-chrome 49 of 49, mobile-pixel7 46 of 49, mobile-iphone14 47 of 49. The five failures are the known ones, below |
 | Each step on its own | typecheck, lint and unit tests pass on every step's tree, in a scratch worktree |
 | Migration drift check | no difference |
 
-Not run: the `mobile-iphone14` browser project (it covers the signing page, which this phase does not touch; CI
-runs it), and anything against a live mail provider (see "As Built").
+Not run: anything against a live mail provider (see "As Built").
 
 Two browser failures on the first full run, both looked into:
 
@@ -399,4 +399,18 @@ Two browser failures on the first full run, both looked into:
   were replaced when the next run started the stack afresh, so its cause was not captured. Treated as an
   unexplained timing failure under load, not as a fix: if it recurs, run the suite with the stack's `logs`
   folder kept (copy `apps/web/.e2e/logs` before the next run).
+
+The five failures of the release run, none in code this phase changed, and the same set recorded for `v0.8.0`
+and `v0.9.0` (docs/18, docs/19):
+
+- `mobile-iphone14`, two Settings → Integrations specs: WebKit does not implement Playwright's
+  `clipboard-write` permission (`Unknown permission`, at the first line that asks for it). CI does not run these
+  on that project.
+- `mobile-pixel7`, both embedded-editor specs: the editor's frame does not close after "Save and close". Not a
+  CI project. They fail the same way alone.
+- `mobile-pixel7`, "stores identical positions whether the work is done at 100% or 200%": the intermittent
+  field-builder zoom test, recorded at about half of runs. It failed again when run alone.
+
+Neither the embedded editor nor the field builder's zoom was changed in this phase. The first, unexplained
+`expiry.spec.ts` timeout above did not recur in the release run.
 

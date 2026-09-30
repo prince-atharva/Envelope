@@ -5520,7 +5520,7 @@
   "info": {
     "title": "Envelope powered by HealthProHub API",
     "description": "Server-to-server API for creating, sending and tracking documents for signature.\n\n- **Base URL:** `/api/v1` on your Envelope host.\n- **Authentication:** `Authorization: Bearer <API key>` (scheme `apiKey`). A key can call only the operations listed here; every other route needs a signed-in session.\n- **Errors:** RFC 7807 `application/problem+json` with a stable `code`.\n- **Webhooks:** see the `x-webhooks` extension and the `Webhook*` schemas.\n- **Guide:** `docs/developers/` in the repository is the same contract as a readable guide.",
-    "version": "0.9.0",
+    "version": "0.10.0",
     "contact": {}
   },
   "tags": [
