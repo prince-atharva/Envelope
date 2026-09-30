@@ -13,7 +13,9 @@ const MAX_BATCHES_PER_RUN = 200;
  * Deletes refresh-token rows well past their expiry (100M-row scale
  * follow-up, docs/16 step 14). Nothing else ever deletes a Session row —
  * every login, refresh and rotation adds one and none is ever removed — so
- * without this the table only grows.
+ * without this the table only grows. Password-reset tokens (docs/19, ADR
+ * 0022) are purged the same way: they expire in an hour, so a used or unused
+ * one is equally dead past the same cutoff.
  *
  * Batched, each batch its own statement: a single unbounded DELETE would
  * hold its row locks over however many million rows have piled up since the
@@ -32,28 +34,53 @@ export class SessionCleanupService {
       now.getTime() - this.config.SESSION_RETENTION_DAYS * 24 * 3600 * 1000,
     ).toISOString();
 
+    // Timestamps are stored as UTC without a zone, so `cutoff` is converted
+    // explicitly in each statement, as the envelope locks do.
+    const sessions = await this.sweep(
+      'Session',
+      () => this.prisma.$queryRaw<{ id: string }[]>`
+      DELETE FROM "Session"
+       WHERE id IN (
+         SELECT id FROM "Session"
+          WHERE "expiresAt" < (${cutoff}::timestamptz AT TIME ZONE 'UTC')
+          LIMIT ${CLEANUP_BATCH}
+       )
+      RETURNING id`,
+    );
+    const resetTokens = await this.sweep(
+      'PasswordResetToken',
+      () => this.prisma.$queryRaw<{ id: string }[]>`
+      DELETE FROM "PasswordResetToken"
+       WHERE id IN (
+         SELECT id FROM "PasswordResetToken"
+          WHERE "expiresAt" < (${cutoff}::timestamptz AT TIME ZONE 'UTC')
+          LIMIT ${CLEANUP_BATCH}
+       )
+      RETURNING id`,
+    );
+    const changed = sessions.changed + resetTokens.changed;
+    const failed = sessions.failed + resetTokens.failed;
+    return { scanned: changed, changed, failed };
+  }
+
+  /** Runs one batched delete until a batch comes back short. */
+  private async sweep(
+    table: string,
+    deleteBatch: () => Promise<{ id: string }[]>,
+  ): Promise<{ changed: number; failed: number }> {
     let changed = 0;
     let failed = 0;
     for (let batchCount = 0; batchCount < MAX_BATCHES_PER_RUN; batchCount += 1) {
       try {
-        // Timestamps are stored as UTC without a zone, so `cutoff` is
-        // converted explicitly, as the envelope locks do.
-        const deleted = await this.prisma.$queryRaw<{ id: string }[]>`
-          DELETE FROM "Session"
-           WHERE id IN (
-             SELECT id FROM "Session"
-              WHERE "expiresAt" < (${cutoff}::timestamptz AT TIME ZONE 'UTC')
-              LIMIT ${CLEANUP_BATCH}
-           )
-          RETURNING id`;
+        const deleted = await deleteBatch();
         changed += deleted.length;
         if (deleted.length < CLEANUP_BATCH) break;
       } catch (error) {
         failed += 1;
-        this.logger.error({ err: error }, 'Session cleanup batch failed');
+        this.logger.error({ err: error, table }, 'Session cleanup batch failed');
         break;
       }
     }
-    return { scanned: changed, changed, failed };
+    return { changed, failed };
   }
 }

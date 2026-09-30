@@ -674,3 +674,41 @@ export function renderPasswordResetEmail(notice: PasswordResetNotice): RenderedE
 
   return { to: notice.to, subject, html, text };
 }
+
+export interface PasswordChangedNotice {
+  to: string;
+  fullName: string;
+  /** The forgot-password page, for someone who did not make the change. */
+  resetRequestUrl: string;
+}
+
+/** After a reset: the account's password changed and every device was signed out (docs/19). */
+export function renderPasswordChangedEmail(notice: PasswordChangedNotice): RenderedEmail {
+  const subject = `Your ${BRAND.productName} password was changed`;
+  const intro = `The password for your ${BRAND.fullName} account was just changed, and every device that was signed in has been signed out.`;
+  const reassurance = 'If you made this change, you do not need to do anything.';
+  const warning = 'If you did not, reset your password now so that only you can sign in:';
+  const footer = `You received this email because the password of a ${BRAND.fullName} account with this address was changed.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.fullName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     <p style="margin:0 0 16px;">${escapeHtml(reassurance)}</p>
+     <p style="margin:0;">${escapeHtml(warning)}</p>
+     ${button(notice.resetRequestUrl, 'Reset my password')}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.fullName)},`,
+    '',
+    intro,
+    '',
+    reassurance,
+    `${warning} ${notice.resetRequestUrl}`,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}

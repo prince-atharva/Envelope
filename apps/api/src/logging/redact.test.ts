@@ -110,6 +110,18 @@ describe('redaction helpers', () => {
     );
   });
 
+  it('removes password-reset tokens from the page path and the API route', () => {
+    const token = 'd'.repeat(64);
+    expect(redactUrl(`/api/v1/auth/password/reset/${token}`)).toBe(
+      '/api/v1/auth/password/reset/[redacted]',
+    );
+    expect(scrubSecrets(`Opened https://app.test/reset-password/${token}:4:2`)).toBe(
+      'Opened https://app.test/reset-password/[redacted]:4:2',
+    );
+    // The request that asks for a link carries no token in its path.
+    expect(redactUrl('/api/v1/auth/password/forgot')).toBe('/api/v1/auth/password/forgot');
+  });
+
   it('scrubs signing links out of a browser stack trace', () => {
     const stack = [
       'TypeError: x is undefined',

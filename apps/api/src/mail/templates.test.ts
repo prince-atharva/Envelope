@@ -6,6 +6,7 @@ import {
   renderDeclinedEmail,
   renderExpiredEmail,
   renderMoreTimeEmail,
+  renderPasswordChangedEmail,
   renderPasswordResetEmail,
   renderSigningLinkEmail,
   renderVoidedEmail,
@@ -331,5 +332,24 @@ describe('password-reset email', () => {
     const email = renderPasswordResetEmail(notice);
     expect(email.html).toContain('Asha &lt;Rao&gt; Jr');
     expect(email.text).toContain('Hi Asha <Rao> Jr,');
+  });
+});
+
+describe('password-changed email', () => {
+  const resetRequestUrl = 'https://app.example.com/forgot-password';
+
+  it('says every device was signed out and offers one way back for someone who did not do it', () => {
+    const email = renderPasswordChangedEmail({
+      to: 'asha@example.com',
+      fullName: 'Asha <Rao>',
+      resetRequestUrl,
+    });
+    expect(email.subject).toBe('Your Envelope password was changed');
+    expect(email.text).toContain('every device that was signed in has been signed out');
+    expect(email.text).toContain(`If you did not, reset your password now`);
+    expect(email.text).toContain(resetRequestUrl);
+    expect(email.html).toContain(`href="${resetRequestUrl}"`);
+    expect(email.html).toContain('Asha &lt;Rao&gt;');
+    expect(email.html.match(/<a /g)).toHaveLength(1);
   });
 });

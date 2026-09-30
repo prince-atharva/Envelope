@@ -15,6 +15,7 @@ import type {
   EmailJobData,
   ExpiredNoticeJob,
   MoreTimeRequestedJob,
+  PasswordChangedEmailJob,
   PasswordResetEmailJob,
   SigningLinkEmailJob,
   UserInvitedJob,
@@ -281,6 +282,23 @@ export class MailQueueService implements OnModuleInit {
     });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, to: maskEmail(email) },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /** Tells a person their password was just changed by a reset (docs/19). One job per change. */
+  async enqueuePasswordChanged(userId: string): Promise<string | undefined> {
+    const data: PasswordChangedEmailJob = {
+      template: 'password-changed',
+      userId,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `password-changed-${userId}-${Date.now()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, userId },
       'Email job enqueued',
     );
     return job.id;

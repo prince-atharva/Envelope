@@ -1,3 +1,4 @@
+import type { AuthResponse } from '@envelope/shared';
 import { FORGOT_PASSWORD_MESSAGE, PASSWORD_RESET_TOKEN_EXPIRY_MINUTES } from '@envelope/shared';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
@@ -14,7 +15,13 @@ import {
   type TestWorker,
   waitFor,
 } from './helpers/app';
-import { nextClientIp, registerUser, type SignedInUser, uniqueEmail } from './helpers/auth';
+import {
+  nextClientIp,
+  refreshCookieFrom,
+  registerUser,
+  type SignedInUser,
+  uniqueEmail,
+} from './helpers/auth';
 import { ownerQuery, truncateAll } from './helpers/db';
 import { bearer, emailsTo } from './helpers/signing';
 
@@ -239,6 +246,214 @@ describe('password reset (e2e)', () => {
       expect(refused?.fields).toMatchObject({ bucket: 'password-reset-account', limit: 3 });
       expect(JSON.stringify(refused)).not.toContain(user.email);
       expect(logs.find('Password reset requested', 'info')).toHaveLength(3);
+    });
+  });
+
+  describe('completing a reset', () => {
+    const NEW_PASSWORD = 'a brand new password';
+
+    const preview = (token: string, ip = nextClientIp()) =>
+      request(t.http).get(`/api/v1/auth/password/reset/${token}`).set('X-Forwarded-For', ip);
+    const reset = (token: string, password = NEW_PASSWORD, ip = nextClientIp()) =>
+      request(t.http)
+        .post(`/api/v1/auth/password/reset/${token}`)
+        .set('X-Forwarded-For', ip)
+        .send({ password });
+    const login = (email: string, password: string) =>
+      request(t.http)
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', nextClientIp())
+        .send({ email, password });
+
+    /** Asks for a link and returns its raw token once the worker has mailed it. */
+    async function requestLink(email: string): Promise<string> {
+      const before = emailsTo(worker.mailbox, email, 'password-reset').length;
+      await forgot(email).expect(202);
+      await waitFor(() =>
+        emailsTo(worker.mailbox, email, 'password-reset').length > before ? true : undefined,
+      );
+      return tokenFrom(email);
+    }
+
+    it('previews the masked address and expiry, and refuses an unknown link', async () => {
+      const user = await registerUser(t.http);
+      const token = await requestLink(user.email);
+
+      const res = await preview(token).expect(200);
+      expect(res.body.email).toBe(
+        `${user.email[0]}***${user.email.slice(user.email.indexOf('@'))}`,
+      );
+      expect(res.body.email).not.toBe(user.email);
+      expect(new Date(res.body.expiresAt).getTime()).toBeGreaterThan(Date.now());
+
+      const unknown = await preview('e'.repeat(64)).expect(401);
+      expect(unknown.body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      // The error body's `instance` echoes the path, so it must not echo the token.
+      expect(unknown.body.instance).toBe('/api/v1/auth/password/reset/[redacted]');
+      expect(logs.find('Password reset rejected', 'warn').at(-1)?.fields).toMatchObject({
+        reason: 'unknown',
+      });
+    });
+
+    it('changes the password, ends every session, mails a notice, and works once', async () => {
+      const user = await registerUser(t.http);
+      const secondLogin = await login(user.email, user.password).expect(200);
+      const secondCookie = refreshCookieFrom(secondLogin);
+      const secondAccess = (secondLogin.body as AuthResponse).accessToken;
+      const token = await requestLink(user.email);
+      logs.clear();
+
+      await reset(token).expect(204);
+
+      // Every open session is gone, at once.
+      for (const bearerToken of [user.accessToken, secondAccess]) {
+        const me = await request(t.http)
+          .get('/api/v1/auth/me')
+          .set('Authorization', `Bearer ${bearerToken}`)
+          .expect(401);
+        expect(me.body.code).toBe('SESSION_EXPIRED');
+      }
+      for (const cookie of [user.cookie, secondCookie]) {
+        await request(t.http).post('/api/v1/auth/refresh').set('Cookie', cookie).expect(401);
+      }
+      const revoked = await ownerQuery<{ revokedReason: string }>(
+        `SELECT "revokedReason" FROM "Session" WHERE "userId" = $1 AND "revokedReason" = 'password-reset'`,
+        [user.body.user.id],
+      );
+      expect(revoked.rows).toHaveLength(2);
+
+      // The old password is dead and the new one signs in. Nothing signed the person in.
+      expect((await login(user.email, user.password).expect(401)).body.code).toBe(
+        'INVALID_CREDENTIALS',
+      );
+      await login(user.email, NEW_PASSWORD).expect(200);
+
+      // "Your password was changed", with a way back for someone who did not do it.
+      const notice = await waitFor(
+        () => emailsTo(worker.mailbox, user.email, 'password-changed')[0],
+      );
+      expect(notice.subject).toBe('Your Envelope password was changed');
+      expect(notice.text).toContain('/forgot-password');
+
+      // Single use: the link is spent for the preview and for a second reset.
+      const again = await preview(token).expect(401);
+      expect(again.body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      const replay = await reset(token, 'yet another password').expect(401);
+      expect(replay.body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      await login(user.email, NEW_PASSWORD).expect(200);
+
+      const completed = logs.find('Password reset completed', 'info')[0];
+      expect(completed?.fields).toMatchObject({ userId: user.body.user.id, revokedSessions: 2 });
+      expect(logs.text()).not.toContain(token);
+      expect(logs.text()).not.toContain(NEW_PASSWORD);
+      expect(logs.text()).not.toContain(user.password);
+    });
+
+    it('refuses an expired link and leaves the password alone', async () => {
+      const user = await registerUser(t.http);
+      const token = await requestLink(user.email);
+      await ownerQuery(
+        `UPDATE "PasswordResetToken" SET "expiresAt" = now() - interval '1 minute'
+          WHERE "userId" = $1`,
+        [user.body.user.id],
+      );
+
+      expect((await preview(token).expect(401)).body.code).toBe('PASSWORD_RESET_TOKEN_EXPIRED');
+      expect((await reset(token).expect(401)).body.code).toBe('PASSWORD_RESET_TOKEN_EXPIRED');
+      await login(user.email, user.password).expect(200);
+      expect(logs.find('Password reset rejected', 'warn').at(-1)?.fields).toMatchObject({
+        reason: 'expired',
+      });
+    });
+
+    it('a second link voids the first, and completing one voids the rest', async () => {
+      const user = await registerUser(t.http);
+      const first = await requestLink(user.email);
+      const second = await requestLink(user.email);
+      expect(second).not.toBe(first);
+
+      expect((await preview(first).expect(401)).body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      expect((await reset(first).expect(401)).body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      await preview(second).expect(200);
+
+      // A third link, unused when the second completes, is voided with it.
+      const third = await requestLink(user.email);
+      await reset(third).expect(204);
+      const unused = await ownerQuery<{ count: string }>(
+        `SELECT count(*)::text AS count FROM "PasswordResetToken"
+          WHERE "userId" = $1 AND "usedAt" IS NULL`,
+        [user.body.user.id],
+      );
+      expect(unused.rows[0]?.count).toBe('0');
+    });
+
+    it('only changes the account the link was issued for', async () => {
+      const owner = await registerUser(t.http);
+      const bystander = await registerUser(t.http);
+      const token = await requestLink(owner.email);
+
+      await reset(token).expect(204);
+
+      await login(bystander.email, bystander.password).expect(200);
+      await request(t.http)
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${bystander.accessToken}`)
+        .expect(200);
+    });
+
+    it('refuses a link whose account was removed after it was issued', async () => {
+      const user = await registerUser(t.http);
+      const token = await requestLink(user.email);
+      await ownerQuery(`UPDATE "User" SET "disabledAt" = now() WHERE id = $1`, [user.body.user.id]);
+
+      expect((await preview(token).expect(401)).body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      expect((await reset(token).expect(401)).body.code).toBe('PASSWORD_RESET_TOKEN_INVALID');
+      expect(logs.find('Password reset rejected', 'warn').at(-1)?.fields).toMatchObject({
+        reason: 'disabled',
+      });
+      const row = await ownerQuery<{ passwordHash: string }>(
+        `SELECT "passwordHash" FROM "User" WHERE id = $1`,
+        [user.body.user.id],
+      );
+      // Untouched: still a hash of the old password, not the attempted one.
+      expect(row.rows[0]?.passwordHash).toMatch(/^\$argon2id\$/);
+    });
+
+    it('rejects a weak password without spending the link', async () => {
+      const user = await registerUser(t.http);
+      const token = await requestLink(user.email);
+
+      const res = await reset(token, 'short').expect(400);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+      await preview(token).expect(200);
+      await reset(token).expect(204);
+    });
+
+    it('lets exactly one of two simultaneous requests use a link', async () => {
+      const user = await registerUser(t.http);
+      const token = await requestLink(user.email);
+
+      const results = await Promise.all([
+        reset(token, 'first simultaneous password'),
+        reset(token, 'second simultaneous password'),
+      ]);
+      expect(results.map((res) => res.status).sort()).toEqual([204, 401]);
+    });
+
+    it('rate-limits previews (30 a minute) and resets (10 a minute) from one address', async () => {
+      const previewIp = nextClientIp();
+      const previews: number[] = [];
+      for (let attempt = 0; attempt < 31; attempt += 1) {
+        previews.push((await preview('a'.repeat(64), previewIp)).status);
+      }
+      expect(previews).toEqual([...Array(30).fill(401), 429]);
+
+      const resetIp = nextClientIp();
+      const resets: number[] = [];
+      for (let attempt = 0; attempt < 11; attempt += 1) {
+        resets.push((await reset('b'.repeat(64), NEW_PASSWORD, resetIp)).status);
+      }
+      expect(resets).toEqual([...Array(10).fill(401), 429]);
     });
   });
 });

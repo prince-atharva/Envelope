@@ -4,17 +4,23 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config';
 import { maskEmail } from '../logging/redact';
 import { PrismaService } from '../prisma/prisma.service';
-import { mintPasswordResetToken, passwordResetUrl, tokenRef } from '../signing/signing-token';
-import type { PasswordResetEmailJob } from './mail.types';
+import {
+  forgotPasswordUrl,
+  mintPasswordResetToken,
+  passwordResetUrl,
+  tokenRef,
+} from '../signing/signing-token';
+import type { PasswordChangedEmailJob, PasswordResetEmailJob } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
 import type { SigningLinkResult } from './signing-link.mailer';
-import { renderPasswordResetEmail } from './templates';
+import { renderPasswordChangedEmail, renderPasswordResetEmail } from './templates';
 
 /**
- * Sends a password-reset link (docs/19, ADR 0022). The API answered the request
- * the same way for every address; this is where an account is looked up. The
- * token is minted here, so only its HMAC is stored and the raw value is never
- * queued or logged (ADR 0009, the same treatment as an invitation).
+ * Sends a password-reset link, and the notice that follows a reset (docs/19,
+ * ADR 0022). The API answered the request the same way for every address; this
+ * is where an account is looked up. The token is minted here, so only its HMAC
+ * is stored and the raw value is never queued or logged (ADR 0009, the same
+ * treatment as an invitation).
  */
 @Injectable()
 export class PasswordResetMailer {
@@ -70,6 +76,25 @@ export class PasswordResetMailer {
       { userId: user.id, tokenRef: tokenRef(tokenHash), messageId },
       'Password reset link emailed',
     );
+    return { messageId };
+  }
+
+  /** After a reset: tells the account's owner, so an unexpected change is noticed. */
+  async sendChanged(job: PasswordChangedEmailJob): Promise<SigningLinkResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: job.userId } });
+    if (!user) {
+      this.logger.info({ userId: job.userId }, 'Password changed notice not sent: user not found');
+      return { skipped: 'user not found' };
+    }
+    const { messageId } = await this.transport.send(
+      renderPasswordChangedEmail({
+        to: user.email,
+        fullName: user.fullName,
+        resetRequestUrl: forgotPasswordUrl(this.config.APP_URL),
+      }),
+      job.template,
+    );
+    this.logger.info({ userId: user.id, messageId }, 'Password changed notice emailed');
     return { messageId };
   }
 }

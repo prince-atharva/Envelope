@@ -96,6 +96,13 @@ export interface PasswordResetEmailJob {
   requestId?: string;
 }
 
+/** Tells a person their password was changed by a reset (docs/19). Id only. */
+export interface PasswordChangedEmailJob {
+  template: 'password-changed';
+  userId: string;
+  requestId?: string;
+}
+
 /**
  * A fresh link for an expired large-file download link (docs/17 step 10).
  * Ids only: the worker mints the token when it sends (ADR 0009).
@@ -148,6 +155,7 @@ export type EmailJobData =
   | MoreTimeRequestedJob
   | UserInvitedJob
   | PasswordResetEmailJob
+  | PasswordChangedEmailJob
   | DownloadRenewedJob
   | WebhookDisabledJob
   | AlertEmailJob;

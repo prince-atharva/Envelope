@@ -248,6 +248,73 @@
         ]
       }
     },
+    "/api/v1/auth/password/reset/{token}": {
+      "get": {
+        "operationId": "AuthController_passwordResetPreview",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "What a password-reset link is, before a password is chosen",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 12,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Choose a new password with a reset link; every session ends",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/embed/sessions": {
       "post": {
         "operationId": "embedSessionIssue",

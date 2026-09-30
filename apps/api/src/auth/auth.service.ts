@@ -5,6 +5,7 @@ import {
   type ForgotPasswordResponse,
   type InvitationPreview,
   type LoginInput,
+  type PasswordResetPreview,
   type RegisterInput,
   type UserProfile,
 } from '@envelope/shared';
@@ -17,10 +18,10 @@ import { Prisma, type Tenant, type User } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { hashInviteToken } from '../signing/signing-token';
+import { hashInviteToken, hashPasswordResetToken, tokenRef } from '../signing/signing-token';
 import type { AccessTokenClaims, ClientInfo } from './auth.types';
 import { PasswordService } from './password.service';
-import { type IssuedSession, SessionService } from './session.service';
+import { type IssuedSession, type RevokeReason, SessionService } from './session.service';
 
 const ROLE_LABEL: Record<User['role'], string> = {
   OWNER: 'an owner',
@@ -278,6 +279,87 @@ export class AuthService {
       this.logger.error({ err: error }, 'Password reset email could not be queued');
     });
     return { message: FORGOT_PASSWORD_MESSAGE };
+  }
+
+  /** GET /auth/password/reset/:token: shown before a new password is chosen. */
+  async passwordResetPreview(rawToken: string, client: ClientInfo): Promise<PasswordResetPreview> {
+    const { token } = await this.findUsableResetToken(rawToken, client);
+    return { email: maskEmail(token.user.email), expiresAt: token.expiresAt.toISOString() };
+  }
+
+  /**
+   * POST /auth/password/reset/:token. One transaction: this link and every
+   * other unused one are spent, the password changes, and every session of the
+   * account ends. No new session is issued: the emailed link must not become a
+   * login (ADR 0022).
+   */
+  async resetPassword(rawToken: string, password: string, client: ClientInfo): Promise<void> {
+    const { token, ref } = await this.findUsableResetToken(rawToken, client);
+    const userId = token.userId;
+    const passwordHash = await this.passwords.hash(password);
+
+    const now = new Date();
+    const revokedSessions = await this.prisma.$transaction(async (tx) => {
+      // The usedAt and expiry conditions make this safe against two requests
+      // presenting the same link at once: only one claims it.
+      const claimed = await tx.passwordResetToken.updateMany({
+        where: { id: token.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (claimed.count === 0) return null;
+      const updated = await tx.user.updateMany({
+        where: { id: userId, disabledAt: null },
+        data: { passwordHash },
+      });
+      if (updated.count === 0) return null;
+      await tx.passwordResetToken.updateMany({
+        where: { userId, usedAt: null },
+        data: { usedAt: now },
+      });
+      const { count } = await tx.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now, revokedReason: 'password-reset' satisfies RevokeReason },
+      });
+      return count;
+    });
+    if (revokedSessions === null) {
+      this.logger.warn(
+        { reason: 'raced-or-disabled', tokenRef: ref, ip: client.ip },
+        'Password reset rejected',
+      );
+      throw new AppException('PASSWORD_RESET_TOKEN_INVALID');
+    }
+
+    this.logger.info(
+      { userId, tenantId: token.user.tenantId, tokenRef: ref, revokedSessions, ip: client.ip },
+      'Password reset completed',
+    );
+    // The password has changed either way; a queue outage must not fail the reset.
+    await this.mailQueue.enqueuePasswordChanged(userId).catch((error: unknown) => {
+      this.logger.error({ err: error, userId }, 'Password changed notice could not be queued');
+    });
+  }
+
+  /** Finds a reset link that can still be used, or throws why it cannot (never the token itself). */
+  private async findUsableResetToken(rawToken: string, client: ClientInfo) {
+    const tokenHash = hashPasswordResetToken(this.config.SIGNING_TOKEN_SECRET, rawToken);
+    const ref = tokenRef(tokenHash);
+    const token = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    const reject = (
+      reason: 'unknown' | 'used' | 'expired' | 'disabled',
+      code: 'PASSWORD_RESET_TOKEN_INVALID' | 'PASSWORD_RESET_TOKEN_EXPIRED',
+    ): never => {
+      this.logger.warn({ reason, tokenRef: ref, ip: client.ip }, 'Password reset rejected');
+      throw new AppException(code);
+    };
+    if (!token) return reject('unknown', 'PASSWORD_RESET_TOKEN_INVALID');
+    if (token.usedAt) return reject('used', 'PASSWORD_RESET_TOKEN_INVALID');
+    if (token.expiresAt <= new Date()) return reject('expired', 'PASSWORD_RESET_TOKEN_EXPIRED');
+    if (token.user.disabledAt) return reject('disabled', 'PASSWORD_RESET_TOKEN_INVALID');
+    return { token, ref };
   }
 
   async profile(userId: string): Promise<UserProfile> {

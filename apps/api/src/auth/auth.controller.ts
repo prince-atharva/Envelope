@@ -8,8 +8,11 @@ import {
   type InvitationPreview,
   type LoginInput,
   loginSchema,
+  type PasswordResetPreview,
   type RegisterInput,
+  type ResetPasswordInput,
   registerSchema,
+  resetPasswordSchema,
   type UserProfile,
 } from '@envelope/shared';
 import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
@@ -193,5 +196,31 @@ export class AuthController {
     @Client() client: ClientInfo,
   ): Promise<ForgotPasswordResponse> {
     return this.auth.requestPasswordReset(body.email, client);
+  }
+
+  @Public()
+  @Get('password/reset/:token')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'What a password-reset link is, before a password is chosen' })
+  passwordResetPreview(
+    @Param('token') token: string,
+    @Client() client: ClientInfo,
+  ): Promise<PasswordResetPreview> {
+    return this.auth.passwordResetPreview(token, client);
+  }
+
+  @Public()
+  @Post('password/reset/:token')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Choose a new password with a reset link; every session ends' })
+  @ApiBody({ schema: openApiSchema(resetPasswordSchema) })
+  @ApiNoContentResponse()
+  async resetPassword(
+    @Param('token') token: string,
+    @Body(new ZodValidationPipe(resetPasswordSchema)) body: ResetPasswordInput,
+    @Client() client: ClientInfo,
+  ): Promise<void> {
+    await this.auth.resetPassword(token, body.password, client);
   }
 }

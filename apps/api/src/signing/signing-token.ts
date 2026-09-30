@@ -105,3 +105,8 @@ export function mintPasswordResetToken(secret: string): MintedToken {
 export function passwordResetUrl(appUrl: string, rawToken: string): string {
   return `${appUrl.replace(/\/+$/, '')}/reset-password/${rawToken}`;
 }
+
+/** Where the "password changed" email sends someone who did not make the change. */
+export function forgotPasswordUrl(appUrl: string): string {
+  return `${appUrl.replace(/\/+$/, '')}/forgot-password`;
+}

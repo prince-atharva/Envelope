@@ -67,4 +67,40 @@ describe('session cleanup (e2e)', () => {
     // Nothing left to delete on a second run.
     expect((await cleanup.run(new Date())).changed).toBe(0);
   });
+
+  it('also deletes password-reset tokens expired well past retention', async () => {
+    const insertToken = async (expiresAt: Date, usedAt: Date | null): Promise<string> => {
+      const id = randomUUID();
+      await ownerQuery(
+        `INSERT INTO "PasswordResetToken" (id, "userId", "tokenHash", "expiresAt", "usedAt")
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          id,
+          owner.body.user.id,
+          `hash-${id}`,
+          expiresAt.toISOString(),
+          usedAt?.toISOString() ?? null,
+        ],
+      );
+      return id;
+    };
+    const wayExpiredUnused = await insertToken(new Date(Date.now() - 45 * DAY), null);
+    const wayExpiredUsed = await insertToken(new Date(Date.now() - 45 * DAY), new Date());
+    const recentlyExpired = await insertToken(new Date(Date.now() - 5 * DAY), null);
+    const stillValid = await insertToken(new Date(Date.now() + DAY), null);
+
+    const result = await cleanup.run(new Date());
+    expect(result.changed).toBeGreaterThanOrEqual(2);
+    expect(result.failed).toBe(0);
+
+    const { rows } = await ownerQuery<{ id: string }>(
+      `SELECT id FROM "PasswordResetToken" WHERE "userId" = $1`,
+      [owner.body.user.id],
+    );
+    const remaining = rows.map((row) => row.id);
+    expect(remaining).not.toContain(wayExpiredUnused);
+    expect(remaining).not.toContain(wayExpiredUsed);
+    expect(remaining).toContain(recentlyExpired);
+    expect(remaining).toContain(stillValid);
+  });
 });

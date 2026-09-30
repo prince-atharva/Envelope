@@ -67,8 +67,9 @@ const BEARER = /\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT = /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g;
 // Stops at ':' and ')' as well, so a stack frame keeps its line number. Real
 // tokens are hex and contain neither.
-// Signing links and completion download links alike.
-const SIGNING_PATH = /(\/(?:sign|download)\/)[^/?#\s"':)]+/gi;
+// Signing links, completion download links and password-reset links alike: the
+// web page (/reset-password/:token) and its API route (/password/reset/:token).
+const SIGNING_PATH = /(\/(?:sign|download|reset-password|password\/reset)\/)[^/?#\s"':)]+/gi;
 const SECRET_QUERY = /([?&](?:token|code|access_token|refresh_token|signature)=)[^&#\s"']+/gi;
 const URL_CREDENTIALS = /(\b[a-z][a-z0-9+.-]*:\/\/[^:/?#\s]+:)[^@/?#\s]+@/gi;
 
