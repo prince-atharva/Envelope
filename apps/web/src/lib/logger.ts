@@ -11,11 +11,14 @@ function truncate(value: string | undefined, max: number): string | undefined {
   return value === undefined || value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 }
 
-/** A signing link's token, wherever it appears: page URL, API path, message or stack. */
-const SIGNING_PATH = /(\/sign\/)[^/?#\s"':)]+/gi;
+/**
+ * A signing or password-reset link's token, wherever it appears: page URL, API
+ * path, message or stack.
+ */
+const SIGNING_PATH = /(\/(?:sign|reset-password|password\/reset)\/)[^/?#\s"':)]+/gi;
 
 /**
- * Masks signing tokens in any text. The token is the signer's only credential
+ * Masks signing and password-reset tokens in any text. The token is the signer's only credential
  * (docs/10), and on the signing page it is in the page's own path, so it turns
  * up in stack traces and error messages. The server scrubs reports too; this
  * keeps the token from leaving the browser at all.

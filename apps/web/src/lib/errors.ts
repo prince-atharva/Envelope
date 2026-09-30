@@ -39,6 +39,9 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   WEBHOOK_ENDPOINT_ACTIVE: 'Deactivate this webhook endpoint before deleting it permanently.',
   WEBHOOK_DELIVERY_NOT_REDRIVABLE:
     'This delivery can no longer be retried. Failed deliveries are available for seven days.',
+  PASSWORD_RESET_TOKEN_INVALID:
+    'This reset link is not valid. It may already have been used, or a newer link may have replaced it.',
+  PASSWORD_RESET_TOKEN_EXPIRED: 'This reset link has expired. Reset links work for one hour.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 
@@ -57,8 +60,6 @@ const USE_SERVER_DETAIL = new Set<ErrorCode>([
   'DOWNLOAD_RENEW_TOO_SOON',
   'INVITE_TOKEN_INVALID',
   'INVITE_TOKEN_EXPIRED',
-  'PASSWORD_RESET_TOKEN_INVALID',
-  'PASSWORD_RESET_TOKEN_EXPIRED',
 ]);
 
 /** A message a person can act on, plus a reference id for unexpected failures. */

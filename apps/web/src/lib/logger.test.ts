@@ -66,6 +66,19 @@ describe('logger', () => {
   });
 
   describe('redactSigningLinks', () => {
+    it('never sends a password-reset token either', () => {
+      const error = new Error(`Failed to fetch /api/v1/auth/password/reset/${TOKEN}`);
+      error.stack = `Error\n    at https://app.example.com/reset-password/${TOKEN}:3:9`;
+
+      const log = buildClientLog(error, 'reset', {
+        url: `https://app.example.com/reset-password/${TOKEN}`,
+      });
+
+      expect(log.url).toBe('https://app.example.com/reset-password/[redacted]');
+      expect(log.message).toBe('Error: Failed to fetch /api/v1/auth/password/reset/[redacted]');
+      expect(JSON.stringify(log)).not.toContain(TOKEN);
+    });
+
     it('leaves text without a signing link alone', () => {
       expect(redactSigningLinks('/dashboard/envelopes/1')).toBe('/dashboard/envelopes/1');
     });

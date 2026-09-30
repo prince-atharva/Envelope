@@ -66,12 +66,70 @@ test('public and auth screens', async ({ page }) => {
     caption: 'Create an account with nothing filled in.',
   });
 
+  await page.goto('/forgot-password');
+  await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
+  await shot(page, 'forgot-password', { area: 'auth', caption: 'Ask for a password-reset link.' });
+
+  await page.getByLabel('Email address').fill(uniqueEmail('nisha.menon'));
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  await shot(page, 'forgot-password-sent', {
+    area: 'auth',
+    caption: 'After asking: the same answer for every address.',
+  });
+
+  await page.goto(`/reset-password/${'0'.repeat(64)}`);
+  await expect(page.getByRole('heading', { name: 'This link is not valid' })).toBeVisible();
+  await shot(page, 'reset-password-invalid', {
+    area: 'auth',
+    caption: 'A reset link that is used, replaced or made up.',
+  });
+
   // Verify is reachable without a session; this is what the public sees.
   await page.goto('/verify');
   await expect(page.getByRole('heading', { name: 'Verify a document' })).toBeVisible();
   await shot(page, 'verify-idle', {
     area: 'verify',
     caption: 'Public verification page before a file is chosen.',
+  });
+});
+
+test('password reset screens', async ({ page }) => {
+  const email = await signUpAs(page, 'gallery-reset', SENDER);
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.getByRole('link', { name: 'Forgot your password?' }).click();
+  await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible();
+  await page.getByLabel('Email address').fill(email);
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+
+  const message = await emailFor(email, 'password-reset');
+  const path = /\/reset-password\/[0-9a-f]{64}/.exec(message.text)?.[0];
+  if (!path) throw new Error('No reset link in the email');
+  await page.goto(path);
+  await expect(page.getByRole('heading', { name: 'Choose a new password' })).toBeVisible();
+  await shot(page, 'reset-password', {
+    area: 'auth',
+    caption: 'Choose a new password from the emailed link.',
+    mask: [page.getByText(/^Choose a new password for /)],
+  });
+
+  await page.getByLabel('New password').fill('short');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await shot(page, 'reset-password-errors', {
+    area: 'auth',
+    caption: 'A password that breaks the policy is stopped before it is sent.',
+    mask: [page.getByText(/^Choose a new password for /)],
+  });
+
+  await page.getByLabel('New password').fill('A Gallery Reset Password 7');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Password changed. Sign in with your new password.')).toBeVisible();
+  await shot(page, 'login-password-changed', {
+    area: 'auth',
+    caption: 'Sign in after a reset: the notice says the password changed.',
   });
 });
 

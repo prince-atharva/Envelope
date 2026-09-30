@@ -18,8 +18,9 @@ installGlobalErrorHandlers();
 const SigningPage = lazy(() => import('./features/signing/SigningPage'));
 // Verify is public too: anyone holding a copy can check it (docs/15 step 7).
 const VerifyPage = lazy(() => import('./features/verify/VerifyPage'));
-// A tenant invitation and a completion download link are both public, token-only pages.
+// A tenant invitation, a password reset and a completion download link are all public, token-only pages.
 const AcceptInvitePage = lazy(() => import('./features/invite/AcceptInvitePage'));
+const ResetPasswordPage = lazy(() => import('./features/auth/ResetPasswordPage'));
 const DownloadPage = lazy(() => import('./features/download/DownloadPage'));
 const EmbeddedApp = lazy(() => import('./features/embed/EmbeddedApp'));
 const SenderApp = lazy(() => import('./SenderApp'));
@@ -56,6 +57,7 @@ createRoot(root).render(
                 <Route path="/sign/:token" element={<SigningPage />} />
                 <Route path="/verify" element={<VerifyPage />} />
                 <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
+                <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
                 <Route path="/download/:token" element={<DownloadPage />} />
                 <Route path="*" element={<SenderApp />} />
               </Routes>

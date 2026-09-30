@@ -19,6 +19,8 @@ import {
   type ExtendEnvelopeInput,
   type ExtendEnvelopeResponse,
   type FieldInput,
+  type ForgotPasswordInput,
+  type ForgotPasswordResponse,
   type InvitationPreview,
   type InviteUserInput,
   type InviteUserResponse,
@@ -26,6 +28,7 @@ import {
   type LegalHoldInput,
   type LegalHoldResponse,
   type LoginInput,
+  type PasswordResetPreview,
   type ProblemDetails,
   type ProblemFieldError,
   type RecipientResponse,
@@ -34,6 +37,7 @@ import {
   type ReminderSettingsResponse,
   type RemindInput,
   type RemindResponse,
+  type ResetPasswordInput,
   type RotateWebhookSecretInput,
   type RotateWebhookSecretResponse,
   type SaveFieldsResponse,
@@ -330,6 +334,18 @@ export const api = {
     );
     setSession(session);
     return session;
+  },
+
+  forgotPassword: (input: ForgotPasswordInput) =>
+    json<ForgotPasswordResponse>('/auth/password/forgot', jsonBody(input)),
+
+  passwordResetPreview: (token: string) =>
+    json<PasswordResetPreview>(`/auth/password/reset/${encodeURIComponent(token)}`),
+
+  /** Every session of the account ends, this tab's included; the person signs in again. */
+  async resetPassword(token: string, input: ResetPasswordInput): Promise<void> {
+    await json<void>(`/auth/password/reset/${encodeURIComponent(token)}`, jsonBody(input));
+    setSession(null);
   },
 
   async logout(): Promise<void> {

@@ -1,9 +1,10 @@
 import { loginSchema } from '@envelope/shared';
 import { type FormEvent, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { Alert } from '../components/ui/Alert';
 import { Button } from '../components/ui/Button';
 import { TextField } from '../components/ui/Field';
+import type { LoginNotice } from '../features/auth/ResetPasswordPage';
 import { useAuth } from '../lib/auth';
 import { describeError } from '../lib/errors';
 import { useDocumentTitle } from '../lib/use-document-title';
@@ -11,6 +12,7 @@ import { useDocumentTitle } from '../lib/use-document-title';
 export function LoginPage() {
   useDocumentTitle('Sign in');
   const { login } = useAuth();
+  const passwordChanged = (useLocation().state as LoginNotice | null)?.passwordChanged === true;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -39,6 +41,9 @@ export function LoginPage() {
       <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
       <p className="mt-1 text-sm text-slate-600">Welcome back. Sign in to manage your documents.</p>
       <form className="mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)} noValidate>
+        {passwordChanged && !error && (
+          <Alert tone="success">Password changed. Sign in with your new password.</Alert>
+        )}
         {error && <Alert reference={error.reference}>{error.message}</Alert>}
         <TextField
           label="Email address"
@@ -58,6 +63,11 @@ export function LoginPage() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
+        <p className="text-right text-sm">
+          <Link to="/forgot-password" className="font-medium text-brand-700 hover:underline">
+            Forgot your password?
+          </Link>
+        </p>
         <Button type="submit" className="w-full" loading={submitting}>
           Sign in
         </Button>

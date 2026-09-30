@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
 import { AuthLayout } from './components/layout/AuthLayout';
+import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage';
 import { AuthProvider } from './lib/auth';
 import { DashboardPage } from './pages/DashboardPage';
 import { EnvelopeDetailPage } from './pages/EnvelopeDetailPage';
@@ -27,6 +28,7 @@ export default function SenderApp() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           </Route>
         </Route>
 
