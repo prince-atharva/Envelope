@@ -54,6 +54,7 @@ The API and the web app are separate on purpose. See
 ```bash
 cp .env.example .env      # then set the Gmail SMTP values and two random secrets
 docker compose up -d      # Postgres :5545, Redis :6391, MinIO :9102 (console :9103)
+docker compose up -d clamav   # optional: ClamAV :3310 for MALWARE_SCANNER=clamav (first start downloads signatures)
 pnpm install
 pnpm db:deploy            # apply migrations (or pnpm db:migrate to create one)
 pnpm dev                  # shared (watch) + API + worker + web

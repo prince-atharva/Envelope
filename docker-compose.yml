@@ -1,5 +1,5 @@
 # Local infrastructure for Envelope powered by HealthProHub (docs/04: "Docker Compose:
-# Postgres, Redis, MinIO"). Email is not here: it goes through real SMTP (Gmail),
+# Postgres, Redis, MinIO", and ClamAV for upload scanning, docs/19). Email is not here: it goes through real SMTP (Gmail),
 # configured in .env.
 #
 #   docker compose up -d        start everything

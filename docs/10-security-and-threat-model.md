@@ -93,7 +93,7 @@ People upload files, and files can be hostile.
 | A file that claims to be a PDF but is not | Inspect the actual contents, never trust the filename |
 | A tiny file that expands to fill all memory | Enforce size and page limits, process in isolation |
 | A PDF containing hidden code | Strip active content before displaying anything |
-| A file containing malware | Scan every upload |
+| A file containing malware | Scan every upload (built in Phase 8, docs/19: ClamAV, fail open with an alert) |
 | An enormous file to exhaust storage | Hard size limits per file and per account |
 
 ---
@@ -303,6 +303,18 @@ Two threats are **explicitly accepted** rather than mitigated: email forwarding 
 Steps 2 and 6 matter most. Content-Type is attacker-controlled. Embedded JavaScript in a PDF executes in some desktop viewers, so a signed document carrying active content would be a payload we distributed to both parties under our own name.
 
 Processing runs on workers with constrained memory and no outbound network access, so a parser exploit cannot reach internal services.
+
+> **As built (Phase 8 slice 4, docs/19, ADR 0026).** Step 5 is a ClamAV daemon (`clamd`) reached over
+> its `INSTREAM` protocol, selected with `MALWARE_SCANNER=clamav` (default `none`, which accepts every
+> upload and says so in the log). A detection is `422 MALWARE_DETECTED` and nothing is stored. **A scanner
+> that cannot answer does not stop uploads:** a connect error, a timeout or an `ERROR` reply accepts the
+> file, logs `Upload accepted without a malware scan`, raises the `malware-scanner-unavailable` alert
+> (one email per `ALERT_EMAIL_MIN_INTERVAL_MINUTES`) and records `malwareScan: "clamav-unavailable"` in
+> the envelope's `ENVELOPE_CREATED` audit event, so the files that were not scanned can be found. Production
+> refuses to start with scanning off unless `MALWARE_SCANNER_ALLOW_NONE=true`. Scanning covers uploads
+> through the API and the embedded editor (one validator) and is not re-run on stored files. The scan call
+> is made from the API process, so the API needs network reach to the daemon, unlike the workers above.
+> The API's outbound rule is the one exception this adds to the rule above. Signature quality is ClamAV's.
 
 ## Application Security
 

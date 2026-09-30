@@ -200,8 +200,8 @@ All slices:
 | 13 | Workspace policy and Owner reset: require flag, enrolment-token routes, reset route | ✅ Built |
 | 14 | Web: enrolment, second sign-in step, workspace switch, per-user reset, QR code | ✅ Built |
 | 15 | Documentation for slice 3 | ✅ Built |
-| 16 | Malware scanning: config, `ClamdMalwareScanner`, alert on outage, compose service, tests | Planned |
-| 17 | Documentation for slice 4, and the phase's changelog | Planned |
+| 16 | Malware scanning: config, `ClamdMalwareScanner`, alert on outage, compose service, tests | ✅ Built |
+| 17 | Documentation for slice 4, and the phase's changelog | ✅ Built |
 
 ## Step 1: Contracts and Schema
 
@@ -539,6 +539,24 @@ Built as planned, with these differences:
   members are handled when a workspace turns the rule on (`two-factor-policy.e2e.test.ts`).
 - Row-level security (docs/05, "deferred to Phase 8") stays deferred: it is not one of the four slices
   the user chose for this phase.
+
+## As Built (Slice 4)
+
+Built as planned, with these differences:
+
+- **The unscanned uploads are recorded, not only logged.** The scan engine stored in the envelope's
+  `ENVELOPE_CREATED` audit event (`malwareScan`) is `clamav-unavailable` when the scanner could not answer,
+  so those files can be found later. ADR 0026 lists "no record on the document" as accepted; this gives a
+  record without any schema change. There is still no rescan.
+- **The scanner tests are e2e-suite files, not unit tests.** They use a real local TCP server that speaks
+  the clamd reply format (`test/helpers/fake-clamd.ts`), which is a socket, and the unit suite is
+  socket-free. `clamd-scanner.e2e.test.ts` covers the client (clean, chunks, detection, `ERROR`, hang, hang-up,
+  connection refused); `malware-scan.e2e.test.ts` boots the app against it.
+- **ClamAV is a compose profile** (`scanning`), so a plain `docker compose up -d` does not pull the large
+  image; start it with `docker compose up -d clamav`.
+- **`ScanResult` gained `unavailable` and `reason`** (a short code, never file data).
+- Both scanner classes are built and `MALWARE_SCANNER` picks one, so the pass-through's "not configured"
+  log is printed only when it is the one in use.
 
 ## Existing Users and Data
 

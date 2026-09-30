@@ -194,7 +194,7 @@ The architecture in [03-architecture.md](03-architecture.md) already isolates se
 | Formatting | ~~Prettier~~ → **Biome**, enforced in CI ([ADR 0012](adr/0012-nestjs-api-and-react-vite-web.md)) |
 | Unit tests | Vitest — fast, native TypeScript |
 | E2E tests | Playwright — **real iOS Safari and Android Chrome required**, not just desktop emulation |
-| Local environment | Docker Compose: Postgres, Redis, MinIO (S3-compatible) |
+| Local environment | Docker Compose: Postgres, Redis, MinIO (S3-compatible), ClamAV (`clamd`, for upload scanning; Phase 8, docs/19) |
 | CI | GitHub Actions: lint → typecheck → unit → E2E → migration check |
 | Secrets | Environment variables locally; platform secret manager in production. **Never committed.** |
 
