@@ -10,6 +10,10 @@ export const queryKeys = {
   envelope: (id: string) => ['envelope', id] as const,
   envelopeEvents: (id: string) => ['envelope', id, 'events'] as const,
   document: (id: string, version = 0) => ['document', id, version] as const,
+  /** The prefix of every template list and detail. */
+  templates: ['templates'] as const,
+  templateList: (archived: boolean) => ['templates', 'list', archived] as const,
+  template: (id: string) => ['templates', 'detail', id] as const,
   users: ['users'] as const,
   twoFactor: ['two-factor'] as const,
   apiKeys: ['integrations', 'api-keys'] as const,

@@ -9,6 +9,8 @@ import {
   type ConfirmTwoFactorInput,
   type CreateApiKeyInput,
   type CreateApiKeyResponse,
+  type CreateFromTemplateInput,
+  type CreateTemplateInput,
   type CreateWebhookEndpointInput,
   type CreateWebhookEndpointResponse,
   type DraftRevisionResponse,
@@ -50,6 +52,8 @@ import {
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
   type SetTwoFactorPolicyInput,
+  type TemplateDetail,
+  type TemplateListResponse,
   type TenantUser,
   type TwoFactorChallengeInput,
   type TwoFactorEnrolFinishInput,
@@ -59,6 +63,7 @@ import {
   type TwoFactorStatus,
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
+  type UpdateTemplateInput,
   type UpdateWebhookEndpointInput,
   type UserProfile,
   type VoidEnvelopeInput,
@@ -484,6 +489,30 @@ export const api = {
       `/envelopes/${encodeURIComponent(id)}/fields`,
       draftChange({ fields }, 'PUT', revision),
     ),
+
+  // ─── Templates ───
+
+  listTemplates: (archived = false) =>
+    json<TemplateListResponse>(`/templates${archived ? '?archived=true' : ''}`),
+
+  getTemplate: (id: string) => json<TemplateDetail>(`/templates/${encodeURIComponent(id)}`),
+
+  saveTemplate: (input: CreateTemplateInput) => json<TemplateDetail>('/templates', jsonBody(input)),
+
+  updateTemplate: (id: string, input: UpdateTemplateInput) =>
+    json<TemplateDetail>(`/templates/${encodeURIComponent(id)}`, jsonBody(input, 'PATCH')),
+
+  /**
+   * Creates one envelope from a template. One key per open dialog, so a retry
+   * after a dropped connection gets the first envelope back, not a second.
+   */
+  createFromTemplate: (id: string, input: CreateFromTemplateInput, idempotencyKey: string) => {
+    const init = jsonBody(input);
+    return json<EnvelopeDetail>(`/templates/${encodeURIComponent(id)}/envelopes`, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
+    });
+  },
 
   // ─── Sending ───
 

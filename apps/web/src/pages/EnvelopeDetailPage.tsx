@@ -32,6 +32,7 @@ import { LegalHoldDialog } from '../features/envelope/LegalHoldDialog';
 import { PartnerReference } from '../features/envelope/PartnerReference';
 import { RecipientProgress } from '../features/sending/RecipientProgress';
 import type { SentState } from '../features/sending/SendDialog';
+import { canSaveAsTemplate, SaveTemplateDialog } from '../features/templates/SaveTemplateDialog';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { describeError } from '../lib/errors';
@@ -67,6 +68,7 @@ export function EnvelopeDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [extending, setExtending] = useState(false);
   const [placingHold, setPlacingHold] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const { user } = useAuth();
   const isAdmin = !!user && hasAtLeast(user.role, 'ADMIN');
   const queryClient = useQueryClient();
@@ -325,6 +327,16 @@ export function EnvelopeDetailPage() {
             </Button>
           )}
 
+          {isAdmin && canSaveAsTemplate(envelope) && (
+            <Button
+              variant="secondary"
+              onClick={() => setSavingTemplate(true)}
+              className="text-xs py-2 px-3.5 shadow-2xs"
+            >
+              Save as template
+            </Button>
+          )}
+
           {envelope.status === 'DRAFT' && (
             <ButtonLink
               to={`/dashboard/envelopes/${envelope.id}/prepare`}
@@ -343,6 +355,13 @@ export function EnvelopeDetailPage() {
         <ExtendDialog envelope={envelope} open={extending} onClose={() => setExtending(false)} />
       )}
       <CancelDialog envelope={envelope} open={cancelling} onClose={() => setCancelling(false)} />
+      {isAdmin && canSaveAsTemplate(envelope) && (
+        <SaveTemplateDialog
+          envelope={envelope}
+          open={savingTemplate}
+          onClose={() => setSavingTemplate(false)}
+        />
+      )}
       {isAdmin && (
         <LegalHoldDialog
           envelope={envelope}

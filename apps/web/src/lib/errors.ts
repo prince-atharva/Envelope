@@ -48,6 +48,13 @@ const MESSAGES: Partial<Record<ErrorCode, string>> = {
   TWO_FACTOR_CHALLENGE_INVALID: 'Your sign-in timed out. Please sign in again.',
   TWO_FACTOR_ALREADY_ENABLED: 'Two-factor authentication is already on.',
   TWO_FACTOR_NOT_ENABLED: 'Two-factor authentication is not on.',
+  TEMPLATE_NOT_FOUND: 'We could not find that template. It may have been removed.',
+  TEMPLATE_ARCHIVED: 'That template has been archived, so it can no longer be used.',
+  TEMPLATE_NAME_TAKEN: 'Another template already has that name. Choose a different one.',
+  TEMPLATE_ROLE_MISMATCH:
+    'The people given do not match the template. Each role needs one person, with a different email each.',
+  BULK_TOO_LARGE: 'That is more rows than one batch can hold. Split it into smaller batches.',
+  BULK_BATCH_NOT_FOUND: 'We could not find that batch.',
   SERVICE_UNAVAILABLE: 'Cannot reach Envelope right now. Check your connection and try again.',
 };
 

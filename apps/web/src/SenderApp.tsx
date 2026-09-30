@@ -13,6 +13,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { SettingsIntegrationsPage } from './pages/SettingsIntegrationsPage';
 import { SettingsUsersPage } from './pages/SettingsUsersPage';
+import { TemplatesPage } from './pages/TemplatesPage';
 import { GuestOnly, RequireAuth, RequireRole } from './routes/guards';
 
 /**
@@ -38,6 +39,7 @@ export default function SenderApp() {
           <Route element={<AppShell />}>
             <Route path="/account" element={<AccountPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/dashboard/new" element={<NewEnvelopePage />} />
             <Route path="/dashboard/envelopes/:id" element={<EnvelopeDetailPage />} />
             <Route path="/dashboard/envelopes/:id/prepare" element={<PreparePage />} />
