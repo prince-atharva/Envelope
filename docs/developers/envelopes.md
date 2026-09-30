@@ -40,6 +40,10 @@ Full request and response examples for every operation are in the [API reference
 | Send for signing | `POST /envelopes/:id/send` | Full key | Required | 100/min per workspace |
 | Cancel or discard | `POST /envelopes/:id/void` | Full key | — | 30/min per workspace |
 | Send a reminder | `POST /envelopes/:id/remind` | Full key | — | 30/min per workspace |
+| Save an envelope as a template | `POST /templates` | Full key | — | 30/min per workspace |
+| List templates | `GET /templates` | Read-only key or full key | — | — |
+| Read a template | `GET /templates/:id` | Read-only key or full key | — | — |
+| Rename, archive or restore a template | `PATCH /templates/:id` | Full key | — | 30/min per workspace |
 | Issue an embedded editor session | `POST /embed/sessions` | Full key | Optional | 30/min per workspace and API key |
 | Revoke an embedded editor session | `DELETE /embed/sessions/:id` | Full key | — | 30/min per workspace and API key |
 <!-- /generated:operations-table -->

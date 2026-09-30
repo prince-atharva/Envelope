@@ -45,6 +45,10 @@ The machine-readable form of this reference is [openapi.json](openapi.json).
 | Send for signing | `POST /envelopes/:id/send` | Full key | Required | 100/min per workspace |
 | Cancel or discard | `POST /envelopes/:id/void` | Full key | — | 30/min per workspace |
 | Send a reminder | `POST /envelopes/:id/remind` | Full key | — | 30/min per workspace |
+| Save an envelope as a template | `POST /templates` | Full key | — | 30/min per workspace |
+| List templates | `GET /templates` | Read-only key or full key | — | — |
+| Read a template | `GET /templates/:id` | Read-only key or full key | — | — |
+| Rename, archive or restore a template | `PATCH /templates/:id` | Full key | — | 30/min per workspace |
 | Issue an embedded editor session | `POST /embed/sessions` | Full key | Optional | 30/min per workspace and API key |
 | Revoke an embedded editor session | `DELETE /embed/sessions/:id` | Full key | — | 30/min per workspace and API key |
 <!-- /generated:operations-table -->
@@ -620,6 +624,231 @@ curl --request POST "$ENVELOPE_URL/api/v1/envelopes/$ENVELOPE_ID/remind" \
 ```
 
 Errors: `CONFLICT`, `ENVELOPE_TERMINAL`, `ENVELOPE_EXPIRED`, `REMINDER_TOO_SOON`, `RATE_LIMITED`, `NOT_FOUND`. REMINDER_TOO_SOON (429, with Retry-After) when everyone due was already reminded in the last 24 hours.
+
+### Save an envelope as a template
+
+`POST /templates` · Full key · Idempotency-Key: — · Rate limit: 30/min per workspace
+
+Turn a prepared envelope into a reusable template: its PDF, its people as named roles, and where they sign. The template keeps its own copy of the PDF.
+
+- envelopeId (required): an envelope in your workspace with at least one person and every signer given a required field. It may be a draft or already sent.
+- name (required): 1–120 characters, different from every other active template.
+- description (optional): up to 1,000 characters.
+- roleNames (optional): an object from recipient id to the role’s name, such as "Patient". A role is named after the person on the envelope unless listed here. Names must differ.
+
+```bash
+curl --request POST "$ENVELOPE_URL/api/v1/templates" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "envelopeId": "'"$ENVELOPE_ID"'",
+  "name": "Intake consent",
+  "roleNames": {
+    "'"$RECIPIENT_ID"'": "Patient"
+  }
+}'
+```
+
+201 · The template, with its roles and fields.
+
+```json
+{
+  "id": "44444444-4444-4444-8444-444444444444",
+  "name": "Intake consent",
+  "description": null,
+  "pageCount": 2,
+  "documentCategory": "OTHER",
+  "roleCount": 1,
+  "fieldCount": 1,
+  "archivedAt": null,
+  "createdAt": "2026-09-27T10:00:00.000Z",
+  "createdByName": "Jordan Lee",
+  "defaultMessage": null,
+  "sequentialSigning": false,
+  "reminderIntervalDays": null,
+  "roles": [
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Patient",
+      "role": "SIGNER",
+      "routingOrder": 1,
+      "colorIndex": 0
+    }
+  ],
+  "fields": [
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "templateRoleId": "55555555-5555-4555-8555-555555555555",
+      "type": "SIGNATURE",
+      "pageNumber": 1,
+      "ratioX": 0.1,
+      "ratioY": 0.7,
+      "ratioWidth": 0.3,
+      "ratioHeight": 0.08,
+      "required": true
+    }
+  ]
+}
+```
+
+Errors: `NOT_FOUND`, `NOT_READY_TO_SEND`, `TEMPLATE_NAME_TAKEN`, `ENVELOPE_PURGED`. NOT_READY_TO_SEND lists what the envelope still needs, exactly as the send operation does. Only a full-access key, never a read-only one, can save templates.
+
+### List templates
+
+`GET /templates` · Read-only key or full key · Idempotency-Key: — · Rate limit: —
+
+Active templates, newest first. Use an id from here to create envelopes from it.
+
+- archived (optional query): true lists archived templates instead. Defaults to false.
+
+```bash
+curl --request GET "$ENVELOPE_URL/api/v1/templatesarchived=false" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY"
+```
+
+200 · Template summaries, at most 500.
+
+```json
+{
+  "templates": [
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "Intake consent",
+      "description": null,
+      "pageCount": 2,
+      "documentCategory": "OTHER",
+      "roleCount": 1,
+      "fieldCount": 1,
+      "archivedAt": null,
+      "createdAt": "2026-09-27T10:00:00.000Z",
+      "createdByName": "Jordan Lee"
+    }
+  ]
+}
+```
+
+Errors: —. No operation-specific errors.
+
+### Read a template
+
+`GET /templates/:id` · Read-only key or full key · Idempotency-Key: — · Rate limit: —
+
+One template with its roles and fields. An archived template can still be read, but cannot start new envelopes.
+
+- id (path): the template id.
+
+```bash
+curl --request GET "$ENVELOPE_URL/api/v1/templates/$ENVELOPE_ID" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY"
+```
+
+200 · The template with its roles and fields.
+
+```json
+{
+  "id": "44444444-4444-4444-8444-444444444444",
+  "name": "Intake consent",
+  "description": null,
+  "pageCount": 2,
+  "documentCategory": "OTHER",
+  "roleCount": 1,
+  "fieldCount": 1,
+  "archivedAt": null,
+  "createdAt": "2026-09-27T10:00:00.000Z",
+  "createdByName": "Jordan Lee",
+  "defaultMessage": null,
+  "sequentialSigning": false,
+  "reminderIntervalDays": null,
+  "roles": [
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Patient",
+      "role": "SIGNER",
+      "routingOrder": 1,
+      "colorIndex": 0
+    }
+  ],
+  "fields": [
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "templateRoleId": "55555555-5555-4555-8555-555555555555",
+      "type": "SIGNATURE",
+      "pageNumber": 1,
+      "ratioX": 0.1,
+      "ratioY": 0.7,
+      "ratioWidth": 0.3,
+      "ratioHeight": 0.08,
+      "required": true
+    }
+  ]
+}
+```
+
+Errors: `TEMPLATE_NOT_FOUND`. TEMPLATE_NOT_FOUND when the id is not in your workspace.
+
+### Rename, archive or restore a template
+
+`PATCH /templates/:id` · Full key · Idempotency-Key: — · Rate limit: 30/min per workspace
+
+Change a template’s name, description, default message or whether it is archived. The layout cannot be edited: save a new template instead.
+
+- name (optional): 1–120 characters, different from every other active template.
+- description and defaultMessage (optional): text, or null to clear.
+- archived (optional): true hides the template from new use, false restores it.
+- Send at least one of these.
+
+```bash
+curl --request PATCH "$ENVELOPE_URL/api/v1/templates/$ENVELOPE_ID" \
+  --header "Authorization: Bearer $ENVELOPE_API_KEY" \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "archived": true
+}'
+```
+
+200 · The updated template.
+
+```json
+{
+  "id": "44444444-4444-4444-8444-444444444444",
+  "name": "Intake consent",
+  "description": null,
+  "pageCount": 2,
+  "documentCategory": "OTHER",
+  "roleCount": 1,
+  "fieldCount": 1,
+  "archivedAt": "2026-09-27T10:00:00.000Z",
+  "createdAt": "2026-09-27T10:00:00.000Z",
+  "createdByName": "Jordan Lee",
+  "defaultMessage": null,
+  "sequentialSigning": false,
+  "reminderIntervalDays": null,
+  "roles": [
+    {
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Patient",
+      "role": "SIGNER",
+      "routingOrder": 1,
+      "colorIndex": 0
+    }
+  ],
+  "fields": [
+    {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "templateRoleId": "55555555-5555-4555-8555-555555555555",
+      "type": "SIGNATURE",
+      "pageNumber": 1,
+      "ratioX": 0.1,
+      "ratioY": 0.7,
+      "ratioWidth": 0.3,
+      "ratioHeight": 0.08,
+      "required": true
+    }
+  ]
+}
+```
+
+Errors: `TEMPLATE_NOT_FOUND`, `TEMPLATE_NAME_TAKEN`. TEMPLATE_NAME_TAKEN when a rename or restore would duplicate an active name.
 
 ### Issue an embedded editor session
 

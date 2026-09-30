@@ -227,6 +227,61 @@ export const embedSessionIssueSchema = z
   })
   .meta({ id: 'EmbedSession' });
 
+export const templateRoleSchema = z
+  .looseObject({
+    id,
+    name: z.string(),
+    role: z.enum(['SIGNER', 'APPROVER', 'VIEWER', 'CC']),
+    routingOrder: z.number().int(),
+    colorIndex: z.number().int(),
+  })
+  .meta({ id: 'TemplateRole' });
+
+export const templateFieldSchema = z
+  .looseObject({
+    id,
+    templateRoleId: id,
+    type: z.enum(['SIGNATURE', 'INITIALS', 'DATE_SIGNED', 'TEXT_INPUT', 'CHECKBOX']),
+    pageNumber: z.number().int(),
+    ratioX: z.number(),
+    ratioY: z.number(),
+    ratioWidth: z.number(),
+    ratioHeight: z.number(),
+    required: z.boolean(),
+  })
+  .meta({ id: 'TemplateField' });
+
+const templateSummaryShape = {
+  id,
+  name: z.string(),
+  description: z.string().nullable(),
+  pageCount: z.number().int(),
+  documentCategory: z.string(),
+  roleCount: z.number().int(),
+  fieldCount: z.number().int(),
+  archivedAt: nullableTime,
+  createdAt: isoTime,
+  createdByName: z.string(),
+};
+export const templateSummarySchema = z
+  .looseObject(templateSummaryShape)
+  .meta({ id: 'TemplateSummary' });
+
+export const templateDetailSchema = z
+  .looseObject({
+    ...templateSummaryShape,
+    defaultMessage: z.string().nullable(),
+    sequentialSigning: z.boolean(),
+    reminderIntervalDays: z.number().int().nullable(),
+    roles: z.array(templateRoleSchema),
+    fields: z.array(templateFieldSchema),
+  })
+  .meta({ id: 'TemplateDetail' });
+
+export const templateListSchema = z
+  .looseObject({ templates: z.array(templateSummarySchema) })
+  .meta({ id: 'TemplateList' });
+
 export type OperationResponse =
   | { status: number; kind: 'json'; schema: z.ZodType }
   | { status: number; kind: 'pdf' }
@@ -251,6 +306,10 @@ export const OPERATION_RESPONSES: Record<string, OperationResponse> = {
   send: { status: 200, kind: 'json', schema: sendResponseSchema },
   void: { status: 200, kind: 'json', schema: voidResponseSchema },
   remind: { status: 200, kind: 'json', schema: remindResponseSchema },
+  'template-create': { status: 201, kind: 'json', schema: templateDetailSchema },
+  'template-list': { status: 200, kind: 'json', schema: templateListSchema },
+  'template-get': { status: 200, kind: 'json', schema: templateDetailSchema },
+  'template-update': { status: 200, kind: 'json', schema: templateDetailSchema },
   'embed-session-issue': { status: 201, kind: 'json', schema: embedSessionIssueSchema },
   'embed-session-revoke': { status: 204, kind: 'none' },
   'embed-close': { status: 204, kind: 'none' },

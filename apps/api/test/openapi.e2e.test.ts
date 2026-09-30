@@ -15,7 +15,7 @@ import { makePdf } from './fixtures/pdfs';
 import { createTestApp, createTestWorker, type TestApp, type TestWorker } from './helpers/app';
 import { registerUser, type SignedInUser, uniqueEmail } from './helpers/auth';
 import { truncateAll } from './helpers/db';
-import { bearer, linkFor } from './helpers/signing';
+import { bearer, linkFor, prepareEnvelope } from './helpers/signing';
 
 const SNAPSHOT = path.resolve(__dirname, '../../../docs/developers/openapi.json');
 const parentOrigin = 'https://partner.example';
@@ -204,6 +204,26 @@ describe('OpenAPI document and response contract (e2e)', () => {
       expectContract(
         'void',
         await call('post', `/envelopes/${id}/void`).send({ reason: 'Sent to the wrong patient' }),
+      );
+    });
+
+    it('saves, reads and archives a template', async () => {
+      const envelope = await prepareEnvelope(t.http, owner, [
+        { name: 'Alex Morgan', email: uniqueEmail('alex') },
+      ]);
+      const created = await call('post', '/templates').send({
+        envelopeId: envelope.id,
+        name: 'Contract template',
+      });
+      expectContract('template-create', created);
+      expectContract('template-list', await call('get', '/templates', readOnlyKey));
+      expectContract(
+        'template-get',
+        await call('get', `/templates/${created.body.id}`, readOnlyKey),
+      );
+      expectContract(
+        'template-update',
+        await call('patch', `/templates/${created.body.id}`).send({ archived: true }),
       );
     });
 

@@ -33,7 +33,13 @@ import {
 export const API_BASE_PATH = '/api/v1';
 
 export type OperationCaller = 'server' | 'editor';
-export type OperationGroup = 'envelopes' | 'drafts' | 'files' | 'lifecycle' | 'embedded';
+export type OperationGroup =
+  | 'envelopes'
+  | 'drafts'
+  | 'files'
+  | 'lifecycle'
+  | 'templates'
+  | 'embedded';
 export type ApiKeyAccess = 'read' | 'write';
 export type EmbedPermission = 'read' | 'edit' | 'send' | 'upload' | 'close';
 export type IdempotencyMode = 'none' | 'optional' | 'required';
@@ -563,6 +569,145 @@ const SERVER_OPERATIONS: readonly OperationContract[] = [
   },
 ];
 
+export const EXAMPLE_TEMPLATE_ID = '44444444-4444-4444-8444-444444444444';
+const templateRoleExample = {
+  id: '55555555-5555-4555-8555-555555555555',
+  name: 'Patient',
+  role: 'SIGNER',
+  routingOrder: 1,
+  colorIndex: 0,
+};
+export const templateSummaryExample = {
+  id: EXAMPLE_TEMPLATE_ID,
+  name: 'Intake consent',
+  description: null,
+  pageCount: 2,
+  documentCategory: 'OTHER',
+  roleCount: 1,
+  fieldCount: 1,
+  archivedAt: null,
+  createdAt: time,
+  createdByName: 'Jordan Lee',
+};
+export const templateDetailExample = {
+  ...templateSummaryExample,
+  defaultMessage: null,
+  sequentialSigning: false,
+  reminderIntervalDays: null,
+  roles: [templateRoleExample],
+  fields: [
+    {
+      id: '66666666-6666-4666-8666-666666666666',
+      templateRoleId: templateRoleExample.id,
+      type: 'SIGNATURE',
+      pageNumber: 1,
+      ratioX: 0.1,
+      ratioY: 0.7,
+      ratioWidth: 0.3,
+      ratioHeight: 0.08,
+      required: true,
+    },
+  ],
+};
+
+const TEMPLATE_OPERATIONS: readonly OperationContract[] = [
+  {
+    id: 'template-create',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'write',
+    embed: null,
+    idempotency: 'none',
+    rateLimit: 'lifecycle',
+    method: 'POST',
+    path: '/templates',
+    title: 'Save an envelope as a template',
+    description:
+      'Turn a prepared envelope into a reusable template: its PDF, its people as named roles, and where they sign. The template keeps its own copy of the PDF.',
+    inputs: [
+      'envelopeId (required): an envelope in your workspace with at least one person and every signer given a required field. It may be a draft or already sent.',
+      'name (required): 1–120 characters, different from every other active template.',
+      'description (optional): up to 1,000 characters.',
+      'roleNames (optional): an object from recipient id to the role’s name, such as "Patient". A role is named after the person on the envelope unless listed here. Names must differ.',
+    ],
+    body: {
+      envelopeId: EXAMPLE_ENVELOPE_ID,
+      name: 'Intake consent',
+      roleNames: { [EXAMPLE_RECIPIENT_ID]: 'Patient' },
+    },
+    response: templateDetailExample,
+    responseNote: '201 · The template, with its roles and fields.',
+    errorCodes: ['NOT_FOUND', 'NOT_READY_TO_SEND', 'TEMPLATE_NAME_TAKEN', 'ENVELOPE_PURGED'],
+    errorNote:
+      'NOT_READY_TO_SEND lists what the envelope still needs, exactly as the send operation does. Only a full-access key, never a read-only one, can save templates.',
+  },
+  {
+    id: 'template-list',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'read',
+    embed: null,
+    idempotency: 'none',
+    rateLimit: null,
+    method: 'GET',
+    path: '/templates',
+    title: 'List templates',
+    description: 'Active templates, newest first. Use an id from here to create envelopes from it.',
+    inputs: [
+      'archived (optional query): true lists archived templates instead. Defaults to false.',
+    ],
+    query: 'archived=false',
+    response: { templates: [templateSummaryExample] },
+    responseNote: '200 · Template summaries, at most 500.',
+    errorCodes: [],
+    errorNote: 'No operation-specific errors.',
+  },
+  {
+    id: 'template-get',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'read',
+    embed: null,
+    idempotency: 'none',
+    rateLimit: null,
+    method: 'GET',
+    path: '/templates/:id',
+    title: 'Read a template',
+    description:
+      'One template with its roles and fields. An archived template can still be read, but cannot start new envelopes.',
+    inputs: ['id (path): the template id.'],
+    response: templateDetailExample,
+    responseNote: '200 · The template with its roles and fields.',
+    errorCodes: ['TEMPLATE_NOT_FOUND'],
+    errorNote: 'TEMPLATE_NOT_FOUND when the id is not in your workspace.',
+  },
+  {
+    id: 'template-update',
+    caller: 'server',
+    group: 'templates',
+    apiKey: 'write',
+    embed: null,
+    idempotency: 'none',
+    rateLimit: 'lifecycle',
+    method: 'PATCH',
+    path: '/templates/:id',
+    title: 'Rename, archive or restore a template',
+    description:
+      'Change a template’s name, description, default message or whether it is archived. The layout cannot be edited: save a new template instead.',
+    inputs: [
+      'name (optional): 1–120 characters, different from every other active template.',
+      'description and defaultMessage (optional): text, or null to clear.',
+      'archived (optional): true hides the template from new use, false restores it.',
+      'Send at least one of these.',
+    ],
+    body: { archived: true },
+    response: { ...templateDetailExample, archivedAt: time },
+    responseNote: '200 · The updated template.',
+    errorCodes: ['TEMPLATE_NOT_FOUND', 'TEMPLATE_NAME_TAKEN'],
+    errorNote: 'TEMPLATE_NAME_TAKEN when a rename or restore would duplicate an active name.',
+  },
+];
+
 const EMBEDDED_OPERATIONS: readonly OperationContract[] = [
   {
     id: 'embed-session-issue',
@@ -673,6 +818,7 @@ const EMBEDDED_OPERATIONS: readonly OperationContract[] = [
 
 export const INTEGRATION_OPERATIONS: readonly OperationContract[] = [
   ...SERVER_OPERATIONS,
+  ...TEMPLATE_OPERATIONS,
   ...EMBEDDED_OPERATIONS,
 ];
 
@@ -709,7 +855,7 @@ export const RATE_LIMITS: Record<RateLimitName, RateLimitContract> = {
     limit: 30,
     windowSeconds: 60,
     scope: 'workspace',
-    covers: 'Cancelling and reminding, counted together.',
+    covers: 'Cancelling and reminding, and saving or changing templates, counted together.',
   },
   certificate: {
     limit: 30,

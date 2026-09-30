@@ -34,6 +34,11 @@ const TAGS: Record<OperationContract['group'], { name: string; description: stri
     description: 'Download the original, the sealed or the certificate PDF.',
   },
   lifecycle: { name: 'Sending', description: 'Send, remind and cancel.' },
+  templates: {
+    name: 'Templates',
+    description:
+      'Reusable documents: save an envelope once, then create envelopes or batches from it.',
+  },
   embedded: {
     name: 'Embedded editor',
     description:

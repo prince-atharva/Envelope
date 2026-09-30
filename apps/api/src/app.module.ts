@@ -26,6 +26,7 @@ import { RedisModule } from './redis/redis.module';
 import { SendingModule } from './sending/sending.module';
 import { SigningModule } from './signing/signing.module';
 import { StorageModule } from './storage/storage.module';
+import { TemplatesModule } from './templates/templates.module';
 import { UsersModule } from './users/users.module';
 import { VerifyModule } from './verify/verify.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -60,6 +61,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ApiKeysModule,
     EnvelopesModule,
     DraftsModule,
+    TemplatesModule,
     SendingModule,
     LifecycleModule,
     SigningModule,

@@ -35,6 +35,13 @@ export const createTemplateSchema = z.strictObject({
   envelopeId: z.uuid(),
   name: templateNameSchema,
   description: descriptionSchema.optional(),
+  /**
+   * What to call each person's role, by recipient id. A role is named after
+   * the person on the envelope unless it is listed here ("Patient", not "Alex Morgan").
+   */
+  roleNames: z
+    .record(z.uuid(), z.string().trim().min(1).max(TEMPLATE_ROLE_NAME_MAX_LENGTH))
+    .optional(),
 });
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
 

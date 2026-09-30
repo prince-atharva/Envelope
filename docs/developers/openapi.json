@@ -2984,6 +2984,403 @@
         "x-idempotency": "none"
       }
     },
+    "/api/v1/templates": {
+      "post": {
+        "operationId": "templateCreate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "envelopeId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "roleNames": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  }
+                },
+                "required": [
+                  "envelopeId",
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The template, with its roles and fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: TEMPLATE_NAME_TAKEN.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Error codes: ENVELOPE_PURGED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error codes: NOT_READY_TO_SEND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Save an envelope as a template",
+        "tags": [
+          "Templates"
+        ],
+        "description": "Turn a prepared envelope into a reusable template: its PDF, its people as named roles, and where they sign. The template keeps its own copy of the PDF.\n\n- envelopeId (required): an envelope in your workspace with at least one person and every signer given a required field. It may be a draft or already sent.\n\n- name (required): 1–120 characters, different from every other active template.\n\n- description (optional): up to 1,000 characters.\n\n- roleNames (optional): an object from recipient id to the role’s name, such as \"Patient\". A role is named after the person on the envelope unless listed here. Names must differ.",
+        "x-idempotency": "none",
+        "x-rate-limit": "30 per 60s per workspace"
+      },
+      "get": {
+        "operationId": "templateList",
+        "parameters": [
+          {
+            "name": "archived",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "true",
+                "false"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Template summaries, at most 500.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "List templates",
+        "tags": [
+          "Templates"
+        ],
+        "description": "Active templates, newest first. Use an id from here to create envelopes from it.\n\n- archived (optional query): true lists archived templates instead. Defaults to false.",
+        "x-idempotency": "none"
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "get": {
+        "operationId": "templateGet",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The template with its roles and fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: TEMPLATE_NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Read a template",
+        "tags": [
+          "Templates"
+        ],
+        "description": "One template with its roles and fields. An archived template can still be read, but cannot start new envelopes.\n\n- id (path): the template id.",
+        "x-idempotency": "none"
+      },
+      "patch": {
+        "operationId": "templateUpdate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "defaultMessage": {
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated template.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error codes: API_KEY_INVALID.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error codes: API_KEY_READ_ONLY.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error codes: TEMPLATE_NOT_FOUND.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error codes: TEMPLATE_NAME_TAKEN.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error codes: RATE_LIMITED.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          },
+          {
+            "session": []
+          }
+        ],
+        "summary": "Rename, archive or restore a template",
+        "tags": [
+          "Templates"
+        ],
+        "description": "Change a template’s name, description, default message or whether it is archived. The layout cannot be edited: save a new template instead.\n\n- name (optional): 1–120 characters, different from every other active template.\n\n- description and defaultMessage (optional): text, or null to clear.\n\n- archived (optional): true hides the template from new use, false restores it.\n\n- Send at least one of these.",
+        "x-idempotency": "none",
+        "x-rate-limit": "30 per 60s per workspace"
+      }
+    },
     "/api/v1/envelopes/{id}/send": {
       "post": {
         "operationId": "send",
@@ -4631,6 +5028,10 @@
       "description": "Send, remind and cancel."
     },
     {
+      "name": "Templates",
+      "description": "Reusable documents: save an envelope once, then create envelopes or batches from it."
+    },
+    {
       "name": "Embedded editor",
       "description": "Issue and revoke embedded sender-editor sessions. The editor itself calls the rest."
     }
@@ -4738,6 +5139,12 @@
               "DOWNLOAD_RENEW_TOO_SOON",
               "ENVELOPE_ON_LEGAL_HOLD",
               "ENVELOPE_PURGED",
+              "TEMPLATE_NOT_FOUND",
+              "TEMPLATE_ARCHIVED",
+              "TEMPLATE_NAME_TAKEN",
+              "TEMPLATE_ROLE_MISMATCH",
+              "BULK_TOO_LARGE",
+              "BULK_BATCH_NOT_FOUND",
               "API_KEY_INVALID",
               "API_KEY_NOT_ALLOWED",
               "API_KEY_READ_ONLY",
@@ -5883,6 +6290,267 @@
           "launchToken",
           "launchExpiresAt",
           "frameUrl"
+        ],
+        "additionalProperties": {}
+      },
+      "TemplateRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "SIGNER",
+              "APPROVER",
+              "VIEWER",
+              "CC"
+            ]
+          },
+          "routingOrder": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "colorIndex": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "routingOrder",
+          "colorIndex"
+        ],
+        "additionalProperties": {}
+      },
+      "TemplateField": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "templateRoleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "SIGNATURE",
+              "INITIALS",
+              "DATE_SIGNED",
+              "TEXT_INPUT",
+              "CHECKBOX"
+            ]
+          },
+          "pageNumber": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "ratioX": {
+            "type": "number"
+          },
+          "ratioY": {
+            "type": "number"
+          },
+          "ratioWidth": {
+            "type": "number"
+          },
+          "ratioHeight": {
+            "type": "number"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "templateRoleId",
+          "type",
+          "pageNumber",
+          "ratioX",
+          "ratioY",
+          "ratioWidth",
+          "ratioHeight",
+          "required"
+        ],
+        "additionalProperties": {}
+      },
+      "TemplateSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "pageCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "documentCategory": {
+            "type": "string"
+          },
+          "roleCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fieldCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "archivedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "createdByName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "pageCount",
+          "documentCategory",
+          "roleCount",
+          "fieldCount",
+          "archivedAt",
+          "createdAt",
+          "createdByName"
+        ],
+        "additionalProperties": {}
+      },
+      "TemplateDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "pageCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "documentCategory": {
+            "type": "string"
+          },
+          "roleCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "fieldCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "archivedAt": {
+            "nullable": true,
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "UTC ISO 8601 timestamp",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "defaultMessage": {
+            "nullable": true,
+            "type": "string"
+          },
+          "sequentialSigning": {
+            "type": "boolean"
+          },
+          "reminderIntervalDays": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateRole"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateField"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "pageCount",
+          "documentCategory",
+          "roleCount",
+          "fieldCount",
+          "archivedAt",
+          "createdAt",
+          "createdByName",
+          "defaultMessage",
+          "sequentialSigning",
+          "reminderIntervalDays",
+          "roles",
+          "fields"
+        ],
+        "additionalProperties": {}
+      },
+      "TemplateList": {
+        "type": "object",
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TemplateSummary"
+            }
+          }
+        },
+        "required": [
+          "templates"
         ],
         "additionalProperties": {}
       },
