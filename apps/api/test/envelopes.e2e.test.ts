@@ -153,6 +153,9 @@ describe('envelopes (e2e)', () => {
           if (res.text) throw new Error(`expected no body, got ${res.text.length} bytes`);
         });
       expect(logs.find('Document opened', 'info')).toHaveLength(before);
+      // Ending the response by hand and then returning made Nest send a second
+      // time: the client saw a clean 304, the server logged an error.
+      expect(logs.find('Unhandled error while processing request')).toHaveLength(0);
     });
 
     it('uses the title field and keeps non-ASCII file names intact', async () => {
@@ -420,6 +423,7 @@ describe('envelopes (e2e)', () => {
         .expect((res) => {
           if (res.text) throw new Error(`expected no body, got ${res.text.length} bytes`);
         });
+      expect(logs.find('Unhandled error while processing request')).toHaveLength(0);
 
       // A new audit event changes the ETag even though nothing here touches
       // the envelope row itself: every mutation in this codebase records

@@ -39,6 +39,8 @@ export function RateLimit(rule: Omit<KeyedRateLimit, 'windowMs'> & { windowMs?: 
 export const LIMITS = {
   createAndSend: { bucket: 'tenant-create-send', limit: 100, by: 'tenant' },
   lifecycle: { bucket: 'tenant-lifecycle', limit: 30, by: 'tenant' },
+  /** Cutting the certificate out of a sealed PDF is CPU work (docs/18, workstream 11). */
+  certificate: { bucket: 'tenant-certificate', limit: 30, by: 'tenant' },
   loginPerAccount: { bucket: 'login-account', limit: 5, by: 'account' },
 } as const satisfies Record<string, Omit<KeyedRateLimit, 'windowMs'>>;
 

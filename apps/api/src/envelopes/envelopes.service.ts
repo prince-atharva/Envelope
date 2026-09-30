@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
+import { buffer as bufferOf } from 'node:stream/consumers';
 import {
   type CreateEnvelopeInput,
   DRAFT_RETENTION_DAYS,
@@ -22,7 +23,9 @@ import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
 import { JurisdictionService } from '../compliance/jurisdiction.service';
 import type { Envelope, Prisma, Recipient } from '../generated/prisma/client';
+import { certificateFilename, signedFilename } from '../mail/templates';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
+import { extractLastPages } from '../sealing/certificate-extract';
 import { envelopeDocumentKey, StorageService } from '../storage/storage.service';
 import { PdfValidatorService } from '../uploads/pdf-validator.service';
 import {
@@ -186,6 +189,9 @@ function toSummary(
 type WithProgressRecipients = ListRow & {
   recipients: Pick<Recipient, keyof typeof PROGRESS_FIELDS>[];
 };
+
+/** A document named by what it is: the upload, the sealed result, or the sealed result's certificate pages. */
+export type NamedDocument = 'original' | 'completed' | 'certificate';
 
 export interface OpenedDocument {
   body: Readable;
@@ -804,19 +810,101 @@ export class EnvelopesService {
       },
     });
     const version = envelope?.versions[0];
-    // A MEMBER reading another member's document reads exactly like "not
-    // found" (docs/17 step 5; docs/18 workstream 7 step 7.0), checked before
-    // any ETag/304 answer so a 304 never leaks that a document exists.
-    if (!envelope || !version || (ownerId && envelope.ownerId !== ownerId)) {
-      throw new AppException('NOT_FOUND', 'Document not found.');
+    if (!version) throw new AppException('NOT_FOUND', 'Document not found.');
+    assertReadable(envelope, ownerId);
+    return { envelope, version };
+  }
+
+  /**
+   * Which stored version a name means, and the ETag for it. `completed` and
+   * `certificate` exist only once the envelope is sealed: the final version is
+   * the latest one, and the certificate is the pages it added to the one
+   * before it.
+   */
+  private async resolveNamed(id: string, kind: NamedDocument, ownerId?: string) {
+    if (kind === 'original') {
+      const { envelope, version } = await this.findVersion(id, 0, ownerId);
+      return { versionNumber: 0, etag: `"${version.hash}"`, filename: envelope.originalFilename };
     }
-    if (envelope.purgedAt) {
+    const envelope = await this.db.envelope.findUnique({
+      where: { id },
+      select: {
+        originalFilename: true,
+        purgedAt: true,
+        ownerId: true,
+        versions: {
+          orderBy: { versionNumber: 'desc' },
+          take: 2,
+          select: { versionNumber: true, hash: true, pageCount: true, isFinal: true },
+        },
+      },
+    });
+    assertReadable(envelope, ownerId);
+    const [final, before] = envelope.versions;
+    if (!final?.isFinal || !before) {
       throw new AppException(
-        'ENVELOPE_PURGED',
-        'This document has passed its retention period and its file has been removed.',
+        'CONFLICT',
+        'This envelope has not been completed, so it has no completed document yet.',
       );
     }
-    return { envelope, version };
+    if (kind === 'completed') {
+      return {
+        versionNumber: final.versionNumber,
+        etag: `"${final.hash}"`,
+        filename: signedFilename(envelope.originalFilename),
+      };
+    }
+    return {
+      versionNumber: final.versionNumber,
+      etag: `"${final.hash}-certificate"`,
+      filename: certificateFilename(envelope.originalFilename),
+      certificatePages: final.pageCount - before.pageCount,
+    };
+  }
+
+  /** Just enough to answer a conditional request for a named document. */
+  async namedDocumentMeta(
+    id: string,
+    kind: NamedDocument,
+    ownerId?: string,
+  ): Promise<{ etag: string }> {
+    const { etag } = await this.resolveNamed(id, kind, ownerId);
+    return { etag };
+  }
+
+  /**
+   * Streams a named document. The certificate is cut out of the sealed file on
+   * request: one bounded read of a file already capped at the upload limit,
+   * behind a per-workspace rate limit, with nothing extra stored.
+   */
+  async openNamedDocument(
+    id: string,
+    kind: NamedDocument,
+    ownerId?: string,
+  ): Promise<OpenedDocument> {
+    const target = await this.resolveNamed(id, kind, ownerId);
+    const document = await this.openDocument(id, target.versionNumber, ownerId);
+    if (kind !== 'certificate') return { ...document, filename: target.filename };
+
+    const pages = target.certificatePages ?? 0;
+    const started = performance.now();
+    const bytes = await extractLastPages(await bufferOf(document.body), pages);
+    this.logger.info(
+      {
+        envelopeId: id,
+        versionNumber: target.versionNumber,
+        certificatePages: pages,
+        bytesOut: bytes.length,
+        durationMs: Math.round(performance.now() - started),
+      },
+      'Certificate extracted',
+    );
+    return {
+      body: Readable.from(bytes),
+      sizeBytes: bytes.length,
+      sha256: document.sha256,
+      filename: target.filename,
+    };
   }
 
   /**
@@ -857,5 +945,25 @@ export class EnvelopesService {
       sha256: version.hash,
       filename: envelope.originalFilename,
     };
+  }
+}
+
+/**
+ * A MEMBER reading another member's document reads exactly like "not found"
+ * (docs/17 step 5; docs/18 workstream 7 step 7.0), checked before any
+ * ETag/304 answer so a 304 never leaks that a document exists.
+ */
+function assertReadable(
+  envelope: { ownerId: string; purgedAt: Date | null } | null | undefined,
+  ownerId?: string,
+): asserts envelope is { ownerId: string; purgedAt: Date | null } {
+  if (!envelope || (ownerId && envelope.ownerId !== ownerId)) {
+    throw new AppException('NOT_FOUND', 'Document not found.');
+  }
+  if (envelope.purgedAt) {
+    throw new AppException(
+      'ENVELOPE_PURGED',
+      'This document has passed its retention period and its file has been removed.',
+    );
   }
 }

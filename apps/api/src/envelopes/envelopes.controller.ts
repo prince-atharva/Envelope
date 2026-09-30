@@ -53,7 +53,7 @@ import { LIMITS, RateLimit } from '../common/throttling/keyed-rate-limit.guard';
 import { UuidParamPipe } from '../common/validation/uuid-param.pipe';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe';
 import { EmbedAllowed } from '../embed/embed.decorator';
-import { EnvelopesService } from './envelopes.service';
+import { EnvelopesService, type NamedDocument } from './envelopes.service';
 import {
   TenantUploadRateLimitGuard,
   UploadErrorsInterceptor,
@@ -211,7 +211,8 @@ export class EnvelopesController {
       // before using it, rather than ever serving it unchecked.
       res.set({ 'Cache-Control': 'private, no-cache', ETag: etag });
       if (ifNoneMatch === etag) {
-        res.status(304).end();
+        // Not `.end()`: with `passthrough` Nest sends once more after we return.
+        res.status(304);
         return undefined;
       }
     }
@@ -263,10 +264,84 @@ export class EnvelopesController {
     const etag = `"${meta.sha256}"`;
     res.set({ 'Cache-Control': 'private, max-age=31536000, immutable', ETag: etag });
     if (ifNoneMatch === etag) {
-      res.status(304).end();
+      res.status(304);
       return undefined;
     }
     const document = await this.envelopes.openDocument(id, query.version, scope);
+    return new StreamableFile(document.body, {
+      type: 'application/pdf',
+      length: document.sizeBytes,
+      disposition: contentDisposition(document.filename),
+    });
+  }
+
+  @Get(':id/documents/original')
+  @ApiKeyAllowed({ write: false })
+  @ApiOperation({ summary: 'The PDF as it was uploaded (version 0)' })
+  @ApiProduces('application/pdf')
+  original(
+    @Param('id', UuidParamPipe) id: string,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile | undefined> {
+    return this.namedDocument(id, 'original', ifNoneMatch, user, res);
+  }
+
+  @Get(':id/documents/completed')
+  @ApiKeyAllowed({ write: false })
+  @ApiOperation({
+    summary:
+      'The sealed, completed PDF with its certificate pages (409 until the envelope completes)',
+  })
+  @ApiProduces('application/pdf')
+  completed(
+    @Param('id', UuidParamPipe) id: string,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile | undefined> {
+    return this.namedDocument(id, 'completed', ifNoneMatch, user, res);
+  }
+
+  @Get(':id/documents/certificate')
+  @ApiKeyAllowed({ write: false })
+  @RateLimit(LIMITS.certificate)
+  @ApiOperation({
+    summary:
+      'Only the certificate pages of the completed PDF, cut out on request (409 until the envelope completes)',
+  })
+  @ApiProduces('application/pdf')
+  certificate(
+    @Param('id', UuidParamPipe) id: string,
+    @Headers('if-none-match') ifNoneMatch: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile | undefined> {
+    return this.namedDocument(id, 'certificate', ifNoneMatch, user, res);
+  }
+
+  /**
+   * A document named by what it is, not by a version number a caller cannot
+   * know. Cached like `file`: the bytes behind each name never change once
+   * they exist. The ETag comes from the cheap metadata lookup, after its scope
+   * check, so a 304 never reveals that a document exists.
+   */
+  private async namedDocument(
+    id: string,
+    kind: NamedDocument,
+    ifNoneMatch: string | undefined,
+    user: AuthenticatedUser,
+    res: Response,
+  ): Promise<StreamableFile | undefined> {
+    const scope = ownerScopeOf(user);
+    const meta = await this.envelopes.namedDocumentMeta(id, kind, scope);
+    res.set({ 'Cache-Control': 'private, max-age=31536000, immutable', ETag: meta.etag });
+    if (ifNoneMatch === meta.etag) {
+      res.status(304);
+      return undefined;
+    }
+    const document = await this.envelopes.openNamedDocument(id, kind, scope);
     return new StreamableFile(document.body, {
       type: 'application/pdf',
       length: document.sizeBytes,

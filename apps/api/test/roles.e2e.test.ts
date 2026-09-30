@@ -186,6 +186,26 @@ describe('roles and users (e2e)', () => {
       .expect(404);
     expect(conditionalAsA.body.code).toBe('NOT_FOUND');
 
+    // The named documents (docs/18 step 11.3) share that scope check, and it
+    // comes before their "not completed yet" 409 as well as before any ETag.
+    for (const name of ['original', 'completed', 'certificate']) {
+      const named = `/api/v1/envelopes/${draft.id}/documents/${name}`;
+      const res = await request(t.http)
+        .get(named)
+        .set('Authorization', bearer(memberA))
+        .expect(404);
+      expect(res.body.code).toBe('NOT_FOUND');
+      await request(t.http)
+        .get(named)
+        .set('Authorization', bearer(memberA))
+        .set('If-None-Match', etag)
+        .expect(404);
+    }
+    await request(t.http)
+      .get(`/api/v1/envelopes/${draft.id}/documents/original`)
+      .set('Authorization', bearer(memberB))
+      .expect(200);
+
     // OWNER (and, identically, ADMIN — same non-MEMBER code path) still sees
     // the whole tenant, unaffected by the scope check.
     await request(t.http)

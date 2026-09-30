@@ -492,12 +492,21 @@ export function renderCompletedEmail(email: CompletedEmail): RenderedEmail {
 
 /** "Agreement.pdf" becomes "Agreement (signed).pdf", with only safe characters. */
 export function signedFilename(originalFilename: string): string {
+  return `${safeStem(originalFilename)} (signed).pdf`;
+}
+
+/** "Agreement.pdf" becomes "Agreement (certificate).pdf". */
+export function certificateFilename(originalFilename: string): string {
+  return `${safeStem(originalFilename)} (certificate).pdf`;
+}
+
+function safeStem(originalFilename: string): string {
   const stem = originalFilename
     .replace(/\.pdf$/i, '')
     .replace(/[^\p{L}\p{N} ._()-]+/gu, '_')
     .trim()
     .slice(0, 120);
-  return `${stem || 'document'} (signed).pdf`;
+  return stem || 'document';
 }
 
 export interface UserInvitedNotice {
