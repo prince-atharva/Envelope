@@ -32,4 +32,11 @@ describe('WebhookSecretCipher', () => {
     const ciphertext = cipherWithKey(randomBytes(32)).encrypt('whsec_original');
     expect(() => cipherWithKey(randomBytes(32)).decrypt(ciphertext)).toThrow();
   });
+
+  it('still decrypts a secret stored before the cipher was factored out (same layout)', () => {
+    // Produced by the original implementation with this key, before ADR 0024.
+    const stored = 'PMCD2b1HP3f1NZmB4MU2xy5A2pa2cychJzwy2HnxTn/66nUrB5DfPUZkeEAvVg==';
+    const key = Buffer.from('BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=', 'base64');
+    expect(cipherWithKey(key).decrypt(stored)).toBe('whsec_legacy_value');
+  });
 });

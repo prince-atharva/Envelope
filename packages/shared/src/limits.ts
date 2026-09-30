@@ -83,3 +83,10 @@ export const MAX_METADATA_KEY_LENGTH = 40;
 export const MAX_METADATA_VALUE_LENGTH = 500;
 /** Total serialised size, so a partner cannot use metadata as a document store. */
 export const MAX_METADATA_BYTES = 2048;
+
+/** Two-factor sign-in (docs/19, ADR 0024): RFC 6238 with the values every authenticator app assumes. */
+export const TOTP_STEP_SECONDS = 30;
+export const TOTP_DIGITS = 6;
+export const RECOVERY_CODE_COUNT = 10;
+/** How long the password-then-code step of a sign-in may take. */
+export const MFA_CHALLENGE_TTL_SECONDS = 300;

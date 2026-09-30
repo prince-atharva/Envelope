@@ -48,6 +48,8 @@ export interface TenantUser {
   role: UserRole;
   lastLoginAt: string | null;
   createdAt: string;
+  /** Has a second factor enrolled (docs/19). */
+  twoFactorEnabled: boolean;
 }
 
 export const inviteUserSchema = z.strictObject({

@@ -24,6 +24,7 @@ function toTenantUser(user: User): TenantUser {
     role: user.role,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
+    twoFactorEnabled: user.totpEnabledAt !== null,
   };
 }
 

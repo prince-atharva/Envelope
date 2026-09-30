@@ -43,6 +43,17 @@ export const ERROR_CATALOG = {
    * 401 makes the web client try a silent refresh and sign the person out.
    */
   CURRENT_PASSWORD_INCORRECT: { status: 422, title: 'Current password is incorrect' },
+  /**
+   * Second factor (docs/19, ADR 0024, ADR 0025). A wrong code is 422 for the same
+   * reason as a wrong current password: a 401 would trigger a silent refresh.
+   */
+  TWO_FACTOR_CODE_INVALID: { status: 422, title: 'That code is not valid' },
+  /** The sign-in step's token is missing, expired, tampered with or the wrong kind. */
+  TWO_FACTOR_CHALLENGE_INVALID: { status: 401, title: 'Sign in again to continue' },
+  /** The workspace requires two-factor, so it cannot be turned off, or cannot be required yet. */
+  TWO_FACTOR_REQUIRED: { status: 403, title: 'Two-factor authentication is required' },
+  TWO_FACTOR_ALREADY_ENABLED: { status: 409, title: 'Two-factor authentication is already on' },
+  TWO_FACTOR_NOT_ENABLED: { status: 409, title: 'Two-factor authentication is not on' },
 
   // Upload hardening (docs/10)
   FILE_REQUIRED: { status: 400, title: 'A PDF file is required' },

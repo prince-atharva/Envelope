@@ -103,6 +103,10 @@ model Tenant {
   /// at creation (ADR 0011).
   jurisdictionCode String @default("US")
 
+  /// An Owner can require every human user of the workspace to use a second
+  /// factor (docs/19, ADR 0025).
+  requireTwoFactor Boolean @default(false)
+
   embedOrigins       EmbedOrigin[]
   apiKeyEmbedOrigins ApiKeyEmbedOrigin[]
   embedSessions      EmbedSession[]
@@ -152,6 +156,14 @@ model User {
   /// refuse a disabled account.
   disabledAt DateTime?
 
+  /// Second factor (docs/19, ADR 0024). The TOTP secret is AES-256-GCM
+  /// ciphertext under TOTP_SECRET_ENC_KEY; it is pending until totpEnabledAt is
+  /// set by a valid code. totpLastStep is the last accepted 30-second step, so a
+  /// code cannot be used twice.
+  totpSecretCiphertext String?
+  totpEnabledAt        DateTime?
+  totpLastStep         Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -163,6 +175,7 @@ model User {
   embedSessions       EmbedSession[]
   sessions            Session[]
   passwordResetTokens PasswordResetToken[]
+  recoveryCodes       RecoveryCode[]
   apiKeysActing       ApiKey[]             @relation("ApiKeyActingUser")
   apiKeysCreated      ApiKey[]             @relation("ApiKeyCreatedBy")
   webhookEndpoints    WebhookEndpoint[]
@@ -342,6 +355,19 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// One single-use recovery code for a user's second factor (docs/19, ADR 0024).
+/// Only the HMAC is stored; the code is shown once when issued.
+model RecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 // ─────────────────────────────────────────────────────────────

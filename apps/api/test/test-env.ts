@@ -29,6 +29,7 @@ export const TEST_ENV: Record<string, string> = {
   EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   // 32 raw bytes, base64-encoded — not a real secret, fixed for reproducible tests.
   WEBHOOK_SECRET_ENC_KEY: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=',
+  TOTP_SECRET_ENC_KEY: 'CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg=',
   // Milliseconds, not hours: lets retry/exhaustion tests finish quickly.
   WEBHOOK_RETRY_SCHEDULE_MS: '50,100,150,200,250,300',
   WEBHOOK_AUTO_DISABLE_THRESHOLD: '2',

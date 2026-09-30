@@ -11,6 +11,7 @@ const valid = {
   API_KEY_HASH_SECRET: 'd'.repeat(40),
   EMBED_SESSION_HASH_SECRET: 'embed-test-secret-0123456789abcdefghijklmnop',
   WEBHOOK_SECRET_ENC_KEY: Buffer.alloc(32, 9).toString('base64'),
+  TOTP_SECRET_ENC_KEY: Buffer.alloc(32, 10).toString('base64'),
   S3_ACCESS_KEY_ID: 'key',
   S3_SECRET_ACCESS_KEY: 'super-secret-s3-value',
   S3_BUCKET: 'bucket',
@@ -32,6 +33,17 @@ function problemsOf(env: Record<string, string>): string[] {
 }
 
 describe('parseEnv', () => {
+  it('requires a two-factor encryption key that is 32 bytes and not the webhook key (ADR 0024)', () => {
+    const { TOTP_SECRET_ENC_KEY: _omit, ...without } = valid;
+    expect(problemsOf(without)).toEqual([expect.stringMatching(/^TOTP_SECRET_ENC_KEY:/)]);
+    expect(problemsOf({ ...valid, TOTP_SECRET_ENC_KEY: 'c2hvcnQ=' })).toEqual([
+      expect.stringMatching(/^TOTP_SECRET_ENC_KEY:/),
+    ]);
+    expect(problemsOf({ ...valid, TOTP_SECRET_ENC_KEY: valid.WEBHOOK_SECRET_ENC_KEY })).toEqual([
+      'TOTP_SECRET_ENC_KEY: must be different from WEBHOOK_SECRET_ENC_KEY',
+    ]);
+  });
+
   it('requires a separate embedded-session HMAC secret', () => {
     const { EMBED_SESSION_HASH_SECRET: _omit, ...without } = valid;
     expect(problemsOf(without)).toEqual([expect.stringMatching(/^EMBED_SESSION_HASH_SECRET:/)]);

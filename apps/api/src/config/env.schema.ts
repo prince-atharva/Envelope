@@ -102,6 +102,13 @@ export const envSchema = z
      */
     WEBHOOK_SECRET_ENC_KEY: aes256Key,
     /**
+     * AES-256-GCM key that encrypts two-factor (TOTP) secrets at rest (docs/19,
+     * ADR 0024). Separate from WEBHOOK_SECRET_ENC_KEY so rotating one never
+     * breaks the other. Rotating it makes every stored TOTP secret
+     * unrecoverable: each enrolled user would have to enrol again.
+     */
+    TOTP_SECRET_ENC_KEY: aes256Key,
+    /**
      * Lets a webhook endpoint be http and/or resolve to a private address,
      * bypassing `webhook-url-guard.ts` (docs/18). Exists only for the e2e
      * suite's local receiver, the same way `S3_ENDPOINT` points at a real
@@ -295,12 +302,20 @@ export const envSchema = z
         env.SIGNING_TOKEN_SECRET,
         env.API_KEY_HASH_SECRET,
         env.WEBHOOK_SECRET_ENC_KEY,
+        env.TOTP_SECRET_ENC_KEY,
       ].includes(env.EMBED_SESSION_HASH_SECRET)
     ) {
       ctx.addIssue({
         code: 'custom',
         path: ['EMBED_SESSION_HASH_SECRET'],
         message: 'must be different from other authentication and webhook secrets',
+      });
+    }
+    if (env.TOTP_SECRET_ENC_KEY === env.WEBHOOK_SECRET_ENC_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TOTP_SECRET_ENC_KEY'],
+        message: 'must be different from WEBHOOK_SECRET_ENC_KEY',
       });
     }
     if (env.NODE_ENV === 'production' && env.SEALED_RETENTION_MODE === 'GOVERNANCE') {
