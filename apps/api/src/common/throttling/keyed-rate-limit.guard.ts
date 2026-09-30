@@ -20,7 +20,7 @@ export interface KeyedRateLimit extends RateLimitRule {
    * What the count is kept for: the signed-in user, their workspace, or the account
    * a sign-in names (the email in the body, lower-cased).
    */
-  by: 'tenant' | 'account' | 'user' | 'embed' | 'embedLaunch' | 'tenantKey';
+  by: 'tenant' | 'account' | 'user' | 'challenge' | 'embed' | 'embedLaunch' | 'tenantKey';
 }
 
 /**
@@ -49,6 +49,11 @@ export const LIMITS = {
     windowMs: 3_600_000,
     by: 'user',
   },
+  /**
+   * Attempts to answer one sign-in challenge. New challenges need the password,
+   * which the sign-in limits bound, so this bounds guessing a code (ADR 0024).
+   */
+  mfaChallenge: { bucket: 'mfa-challenge', limit: 5, windowMs: 300_000, by: 'challenge' },
   /** Six-digit codes have a million values; this keeps a stolen session from guessing one (ADR 0024). */
   twoFactorPerUser: {
     bucket: 'two-factor-user',
@@ -108,6 +113,12 @@ export class KeyedRateLimitGuard implements CanActivate {
 
 function keyOf(rule: KeyedRateLimit, req: Request): string | undefined {
   if (rule.by === 'embed') return req.user?.embed?.id;
+  if (rule.by === 'challenge') {
+    const token: unknown = (req.body as { challengeToken?: unknown } | undefined)?.challengeToken;
+    return typeof token === 'string' && token
+      ? createHash('sha256').update(token).digest('hex')
+      : undefined;
+  }
   if (rule.by === 'embedLaunch') {
     const token: unknown = (req.body as { launchToken?: unknown } | undefined)?.launchToken;
     return typeof token === 'string' ? createHash('sha256').update(token).digest('hex') : undefined;

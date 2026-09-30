@@ -104,6 +104,13 @@ export class JwtAuthGuard implements CanActivate {
       throw new AppException('UNAUTHENTICATED');
     }
 
+    // A sign-in challenge token (ADR 0024) carries a `purpose` and no session: it
+    // proves the password step only and is never an access token.
+    if (!claims.sid || 'purpose' in claims) {
+      this.logger.warn({ reason: 'not-an-access-token' }, 'Invalid access token');
+      throw new AppException('UNAUTHENTICATED');
+    }
+
     if (!(await this.sessions.isActive(claims.sid))) {
       this.logger.info(
         { userId: claims.sub, sessionId: claims.sid },

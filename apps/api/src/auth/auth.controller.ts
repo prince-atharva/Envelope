@@ -9,12 +9,15 @@ import {
   forgotPasswordSchema,
   type InvitationPreview,
   type LoginInput,
+  type LoginResponse,
   loginSchema,
   type PasswordResetPreview,
   type RegisterInput,
   type ResetPasswordInput,
   registerSchema,
   resetPasswordSchema,
+  type TwoFactorChallengeInput,
+  twoFactorChallengeSchema,
   type UserProfile,
 } from '@envelope/shared';
 import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
@@ -105,8 +108,30 @@ export class AuthController {
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Client() client: ClientInfo,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse> {
+  ): Promise<LoginResponse> {
     const result = await this.auth.login(body, client);
+    // A second factor is still to come: no cookie until it is given (ADR 0024).
+    if (!('refreshToken' in result)) return result;
+    this.setRefreshCookie(res, result.refreshToken);
+    return result.response;
+  }
+
+  @Public()
+  @Post('2fa/challenge')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @RateLimit(LIMITS.mfaChallenge)
+  @ApiOperation({
+    summary: 'Finish a sign-in that asked for a code: the challenge token and a code',
+  })
+  @ApiBody({ schema: openApiSchema(twoFactorChallengeSchema) })
+  @ApiOkResponse({ description: 'Signed in; refresh cookie set' })
+  async completeChallenge(
+    @Body(new ZodValidationPipe(twoFactorChallengeSchema)) body: TwoFactorChallengeInput,
+    @Client() client: ClientInfo,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    const result = await this.auth.completeChallenge(body, client);
     this.setRefreshCookie(res, result.refreshToken);
     return result.response;
   }

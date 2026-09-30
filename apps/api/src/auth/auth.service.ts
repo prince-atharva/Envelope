@@ -6,8 +6,10 @@ import {
   type ForgotPasswordResponse,
   type InvitationPreview,
   type LoginInput,
+  type MfaChallengeResponse,
   type PasswordResetPreview,
   type RegisterInput,
+  type TwoFactorChallengeInput,
   type UserProfile,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
@@ -21,8 +23,10 @@ import { MailQueueService } from '../mail/mail-queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashInviteToken, hashPasswordResetToken, tokenRef } from '../signing/signing-token';
 import type { AccessTokenClaims, ClientInfo } from './auth.types';
+import { MfaChallengeService } from './mfa-challenge';
 import { PasswordService } from './password.service';
 import { type IssuedSession, type RevokeReason, SessionService } from './session.service';
+import { TwoFactorService } from './two-factor.service';
 
 const ROLE_LABEL: Record<User['role'], string> = {
   OWNER: 'an owner',
@@ -71,6 +75,8 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: AppConfig,
     private readonly mailQueue: MailQueueService,
+    private readonly twoFactor: TwoFactorService,
+    private readonly mfa: MfaChallengeService,
     @InjectPinoLogger(AuthService.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -152,7 +158,11 @@ export class AuthService {
     return this.buildResult(user, issued);
   }
 
-  async login(input: LoginInput, client: ClientInfo): Promise<AuthResult> {
+  /**
+   * A session, or, when the account has a second factor, only a challenge to
+   * answer with `completeChallenge`: no session, no cookie (ADR 0024).
+   */
+  async login(input: LoginInput, client: ClientInfo): Promise<AuthResult | MfaChallengeResponse> {
     const email = maskEmail(input.email);
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
@@ -187,6 +197,24 @@ export class AuthService {
       data.passwordHash = await this.passwords.hash(input.password);
       this.logger.info({ userId: user.id }, 'Password hash upgraded to current Argon2 parameters');
     }
+    if (user.totpEnabledAt) {
+      // Only the password has been proved: keep the rehash, but sign no one in yet.
+      if (data.passwordHash) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { passwordHash: data.passwordHash },
+        });
+      }
+      this.logger.info(
+        { userId: user.id, tenantId: user.tenantId, ip: client.ip },
+        'Login needs a second factor',
+      );
+      return {
+        mfaRequired: true,
+        challengeToken: await this.mfa.issue(user.id, 'mfa'),
+      };
+    }
+
     // Independent: the new session row only needs the user to already exist,
     // not this update to have landed (100M-row scale follow-up, docs/16 step 14).
     const [, issued] = await Promise.all([
@@ -195,6 +223,36 @@ export class AuthService {
     ]);
     this.logger.info(
       { userId: user.id, tenantId: user.tenantId, sessionId: issued.session.id, ip: client.ip },
+      'Login succeeded',
+    );
+    return this.buildResult(user, issued);
+  }
+
+  /** The second step of a sign-in: the challenge token from `login` plus a code (ADR 0024). */
+  async completeChallenge(input: TwoFactorChallengeInput, client: ClientInfo): Promise<AuthResult> {
+    const userId = await this.mfa.verify(input.challengeToken, 'mfa');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { tenant: true },
+    });
+    // Removed or switched off since the password step: start again.
+    if (!user || user.disabledAt || !user.totpEnabledAt) {
+      throw new AppException('TWO_FACTOR_CHALLENGE_INVALID');
+    }
+    const method = await this.twoFactor.verifySecondFactor(user, input.code, client);
+
+    const [, issued] = await Promise.all([
+      this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+      this.sessions.create(user.id, client),
+    ]);
+    this.logger.info(
+      {
+        userId: user.id,
+        tenantId: user.tenantId,
+        sessionId: issued.session.id,
+        secondFactor: method,
+        ip: client.ip,
+      },
       'Login succeeded',
     );
     return this.buildResult(user, issued);

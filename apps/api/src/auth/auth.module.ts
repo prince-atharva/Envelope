@@ -8,6 +8,7 @@ import { ApiKeyGuard } from './api-key.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { MfaChallengeService } from './mfa-challenge';
 import { PasswordService } from './password.service';
 import { RolesGuard } from './roles.guard';
 import { SessionService } from './session.service';
@@ -47,6 +48,7 @@ const TOKEN_AUDIENCE = 'digitalsign';
     SessionService,
     TotpSecretCipher,
     TwoFactorService,
+    MfaChallengeService,
     ApiKeyGuard,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // After JwtAuthGuard: it reads req.user, which only JwtAuthGuard sets.
