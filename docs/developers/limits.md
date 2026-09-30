@@ -27,6 +27,8 @@ call the API. If you hit a speed limit you are told how long to wait.
 | Cancel reason | 1000 characters | Emailed to recipients; not stored in the audit trail. |
 | Signing deadline | 14 days by default, up to 90 | Set with expiresInDays when sending. |
 | Reminder cooldown | 24 hours per person | A reminder sooner than that is skipped. |
+| Bulk batch rows | 500 per batch | One envelope per row. Split a larger list into several batches. |
+| Template name | 120 characters | Different from every other active template in the workspace. |
 | externalId | 200 characters | Letters, digits and _ . : @ - only. Not unique. |
 | metadata | 10 string values, 2 KB in total | Echoed in every webhook; fixed once the envelope is sent. |
 | Webhook endpoints | 5 active, 20 saved | Inactive endpoints do not use an active slot; delete one to make room. |

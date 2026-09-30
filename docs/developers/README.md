@@ -25,6 +25,7 @@ by itself: nothing here needs access to Envelope's source code.
 | [Authentication](authentication.md) | API keys, access levels and what a key cannot do |
 | [Envelopes](envelopes.md) | The document lifecycle, references, downloads, cancelling and reminding |
 | [Webhooks](webhooks.md) | Receiving, verifying and recovering event notifications |
+| [Templates and bulk send](templates.md) | Saving a document once, creating envelopes from it, and sending to a whole list |
 | [Embedded editor](embedded-editor.md) | The sender editor in an iframe, the hosted SDK and the example app |
 | [Errors](errors.md) | Every error code you can meet and what to do |
 | [Limits](limits.md) | Size, count and rate limits |

@@ -888,6 +888,14 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 
 ## Deferred
 
+> **As built (Phase 9, docs/20, ADRs 0027 and 0028).** Templates are built: save an envelope as a
+> template, list and read templates, rename, archive or restore one, create an envelope from one, and
+> start a bulk send of up to 500 envelopes. Every one is an API-key operation, described in the catalog,
+> the served OpenAPI document and the [developer guide](developers/templates.md). Routes:
+> `POST /templates`, `GET /templates`, `GET /templates/:id`, `PATCH /templates/:id`,
+> `POST /templates/:id/envelopes`, `POST /templates/:id/bulk`, `GET /bulk-batches` and
+> `GET /bulk-batches/:id`.
+
 - OpenAPI 3.1 specification — Sprint 2 deliverable, generated from route handlers
 - SDKs (TypeScript, Python) — post-launch
 
@@ -899,6 +907,11 @@ Signing-session limits are per token rather than per IP, since legitimate signer
 > (ADR 0020); no Python or other language SDK exists.
 - Bulk send endpoint — Sprint 3–4
 - Template endpoints — Sprint 3–4
+
+> **As built (Phase 9, docs/20).** Both shipped in Phase 9, not in a sprint: see the note under "What
+> Can Be Automated" for the routes. Delivery events from a mail provider arrive at
+> `POST /mail-events/:adapter`, which is not part of the partner API (it is called by the provider,
+> authenticated by a shared secret); see [operations/mail-delivery](operations/mail-delivery.md).
 
 
 > **As built (Phase 7, docs/18 step 6.1).** Shared embedded-editor contracts and the additive

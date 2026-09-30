@@ -23,6 +23,7 @@ const EXPECTED_PAGES = [
   'quick-start.md',
   'recipes.md',
   'reference.md',
+  'templates.md',
   'webhooks.md',
 ];
 

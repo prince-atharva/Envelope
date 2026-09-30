@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Planned |
-| **Version** | 1.0.0 |
-| **Last updated** | 30 September 2026 |
+| **Status** | Built on 1 October 2026; not yet released (changelog `[Unreleased]`) |
+| **Version** | 1.1.0 |
+| **Last updated** | 1 October 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 9 deliver, how is each part built, and how do we check it? |
 
@@ -48,23 +48,23 @@ backup runbook stay on the roadmap for a later phase. A release is cut only when
 
 ## The Phase 9 Finish Line
 
-- [ ] An Admin saves an envelope as a template; a Member cannot (403); another workspace cannot see
+- [x] An Admin saves an envelope as a template; a Member cannot (403); another workspace cannot see
       it (404).
-- [ ] Creating from a template gives an envelope with the right recipients, colours, routing order
+- [x] Creating from a template gives an envelope with the right recipients, colours, routing order
       and fields, a fresh policy snapshot, a separate stored PDF, and an `ENVELOPE_CREATED` audit
       event naming the template.
-- [ ] A category blocked after a template was saved is refused when the template is used.
-- [ ] A 3-row batch with one invalid row creates and sends two envelopes, reports the third with its
+- [x] A category blocked after a template was saved is refused when the template is used.
+- [x] A 3-row batch with one invalid row creates and sends two envelopes, reports the third with its
       error code, and clears the processed rows' recipient data; a retried job creates no duplicate.
-- [ ] More than 500 rows, or a batch beyond the hourly limit, is refused with the right codes.
-- [ ] A bounce event for a known message appends `EMAIL_BOUNCED`, notifies the sender and shows in
+- [x] More than 500 rows, or a batch beyond the hourly limit, is refused with the right codes.
+- [x] A bounce event for a known message appends `EMAIL_BOUNCED`, notifies the sender and shows in
       the envelope detail; a wrong secret gets 401 and writes nothing; an unknown message is ignored;
       a repeated event is recorded once.
-- [ ] API keys: create-from-template and bulk work with a write key, a read-only key cannot write,
+- [x] API keys: create-from-template and bulk work with a write key, a read-only key cannot write,
       and the integration contract, OpenAPI and developer-guide tests pass.
-- [ ] No template, batch or delivery row, log line, Redis job or response leaks another workspace's
+- [x] No template, batch or delivery row, log line, Redis job or response leaks another workspace's
       data, a signing link, the mail-events secret or an unmasked address.
-- [ ] Browser: an Admin saves a template, a sender uploads a CSV, sees the preview, runs the batch
+- [x] Browser: an Admin saves a template, a sender uploads a CSV, sees the preview, runs the batch
       and sees the results (desktop-chrome).
 
 ## What We Need From You
@@ -99,20 +99,21 @@ backup runbook stay on the roadmap for a later phase. A release is cut only when
 - [ADR 0027](adr/0027-copy-the-pdf-into-templates-and-refreeze-policy-per-envelope.md) — Copy the PDF into templates, store role slots, and re-freeze policy per envelope
 - [ADR 0028](adr/0028-process-bulk-send-as-a-batch-of-independent-envelopes.md) — Process bulk send as a batch of independent envelopes on a queue
 - [ADR 0029](adr/0029-receive-delivery-events-through-one-neutral-authenticated-endpoint.md) — Receive delivery events through one neutral, authenticated endpoint
+- [ADR 0030](adr/0030-report-role-mismatches-per-row-in-bulk-send.md) — Report role mismatches per row in bulk send (added during the build)
 
 ## Steps
 
 | # | Step | Status |
 |---|---|---|
-| 1 | Shared contracts, errors, limits, migration, tenancy entries, `StorageService.copy`, `MAIL_EVENTS_SECRET` | Planned |
-| 2 | Templates API: save from envelope, list, get, rename, archive | Planned |
-| 3 | Create one envelope from a template, optionally send it | Planned |
-| 4 | Bulk send: batch API, worker job, progress, limit | Planned |
-| 5 | Web: Templates page, "Save as template", "Use template" | Planned |
-| 6 | Web: bulk send from CSV (shared parser, preview, results) | Planned |
-| 7 | Delivery tracking: `MailDelivery`, `/mail-events`, `EMAIL_BOUNCED`, sender notice, envelope detail | Planned |
-| 8 | Tests: the finish line | Planned |
-| 9 | Documentation and release `v0.10.0` (only when asked) | Planned |
+| 1 | Shared contracts, errors, limits, migration, tenancy entries, `StorageService.copy`, `MAIL_EVENTS_SECRET` | ✅ Done |
+| 2 | Templates API: save from envelope, list, get, rename, archive | ✅ Done |
+| 3 | Create one envelope from a template, optionally send it | ✅ Done |
+| 4 | Bulk send: batch API, worker job, progress, limit | ✅ Done |
+| 5 | Web: Templates page, "Save as template", "Use template" | ✅ Done |
+| 6 | Web: bulk send from CSV (shared parser, preview, results) | ✅ Done |
+| 7 | Delivery tracking: `MailDelivery`, `/mail-events`, `EMAIL_BOUNCED`, sender notice, envelope detail | ✅ Done |
+| 8 | Tests: the finish line | ✅ Done |
+| 9 | Documentation; release `v0.10.0` only when asked | ✅ Docs done; release not cut |
 
 Each step is one commit that builds on its own: contracts and schema first, wiring last. Commit
 subjects follow AGENTS §9 and name `docs/20 step K` in the body.
@@ -278,6 +279,67 @@ steps table and commit references, the developers' guide recipes for templates a
 (`v0.10.0`) follows `.claude/skills/release/SKILL.md` only when the user asks; nothing is pushed or
 tagged otherwise.
 
+## As Built
+
+Built as planned, with these differences and findings:
+
+- **Row validation in bulk send is split in two.** The plan (and ADR 0028 as first written) refused a whole
+  batch if any row's people did not match the template's roles, and also promised that a batch with one bad row
+  would create the good ones. Those cannot both hold. As built: a malformed row (a bad email, a missing name)
+  refuses the request with `VALIDATION_FAILED` and stores nothing; a row that does not match the template's
+  roles is accepted and reported `FAILED` with `TEMPLATE_ROLE_MISMATCH` by the worker. [ADR 0030](adr/0030-report-role-mismatches-per-row-in-bulk-send.md) records
+  this and supersedes item 1 of ADR 0028.
+- **A second migration.** `20260930160000_bulk_batch_client` adds `BulkBatch.clientIp` and
+  `clientUserAgent`, so the audit events the worker writes for a batch carry the requester's address and
+  browser, not the worker's. `Template.originalSizeBytes` (needed for the copied `DocumentVersion`) was added
+  to the first migration before it was committed. No other schema differences.
+- **`truncateAll()` needed no change**: it truncates `Tenant ... CASCADE`, which reaches every new table.
+- **Two services, not one.** `TemplatesService` holds list, get, save, update and `instantiate` (creation);
+  `TemplateEnvelopesService` adds the send and the envelope detail for the API. The worker provides
+  `TemplatesService`, `JurisdictionService` and `SendingService` itself (`BulkWorkerModule`) rather than
+  importing `TemplatesModule`, which would pull the API's controllers and upload pipeline into it. Each bulk
+  row runs inside `ClsService.run` with the batch's tenant, because the tenant-scoped client reads the
+  tenant from the request context and a job has none.
+- **What the trail records.** A created-from-template envelope gets the same events as one built by hand
+  (`ENVELOPE_CREATED` naming the `templateId`, one `RECIPIENT_ADDED` per person without name or email, and
+  `FIELDS_SAVED`). `RECIPIENT_ADDED` and `FIELDS_SAVED` also carry the template's ids.
+- **Who can save.** API keys act as an Admin, so a full-access key can save templates; a read-only key cannot
+  (`API_KEY_READ_ONLY`). Saving, renaming and archiving are structured logs, as planned.
+- **Other differences from the plan text.**
+  - "Save as template" is on a document's own page (envelope detail), not on the prepare and review
+    screens.
+  - A sixth error code, `TEMPLATE_NAME_TAKEN`, was needed for the unique-name rule.
+  - `/mail-events` is limited per address with the existing `@Throttle` pattern for public routes (600 a
+    minute), not `@RateLimit`.
+  - `MailDelivery` is scoped through its envelope in `TenantPrismaService`; the bounce endpoint and the mail
+    worker have no tenant and use `PrismaService`.
+  - Only a message still marked `SENT` can be claimed by a bounce or complaint, so a repeat, and a complaint
+    after a bounce, record nothing: the first problem wins.
+- **Defaults.** `send` defaults to `false` on both the single and the bulk route, so an integration that
+  forgets it gets drafts, not sent documents.
+- **Rate limit.** `bulkBatch` is 10 an hour; the generated limits table now says "per hour" where a window is
+  an hour. Rejected requests count against it too, as for every other limit, so tests that start many
+  batches use a workspace each.
+- **Delivery tracking.**
+  - Mail to someone on an envelope is tracked for: signing links and reminders, the cancellation notice, the
+    recipient's finished copy, and a renewed download link. Everything else is not.
+  - The Message-ID is ours (`<uuid@from-domain>`), also sent as `X-Envelope-Ref` and Postmark's
+    `X-PM-Metadata-envelope-ref`; the `postmark` adapter reads it from `Metadata["envelope-ref"]`.
+  - The provider's own explanation of a bounce is deliberately not stored or logged: it usually repeats the
+    address.
+  - The sender's notice is a new job, `delivery-failed`, skipped once the envelope is closed.
+  - **Not verified against a live provider.** The per-provider check the plan put at the start of step 7 could
+    not be run here, because no provider account or network exists in this environment and none was named. The
+    runbook ([operations/mail-delivery](operations/mail-delivery.md)) says what to confirm on first use. This
+    is the main open item before a release.
+- **A test-database slip.** Step 1's migration was edited once after the test database had applied it, so the
+  test database got a one-off `ALTER TABLE "Template" ADD COLUMN "originalSizeBytes"` by hand. A fresh
+  database built from the migrations is correct, and the drift check is clean. Only the local test database's
+  stored checksum for that migration differs.
+- **Web.** Templates page, "Save as template" (on a document's page, Admins only), "Use template",
+  "Send to many" (CSV), a results page and a batch list. `parseBulkCsv` lives in `packages/shared`, so the
+  browser and the API judge rows by one implementation (a parity test checks it).
+
 ## Deliberate Simplifications
 
 - Templates are immutable: no layout editing and no versions. Replace by saving a new template and
@@ -289,6 +351,10 @@ tagged otherwise.
 - Only the `generic` and `postmark` adapters ship. SES (through SNS) needs its own adapter later.
 - Only bounces and complaints are recorded: no delivered, opened or clicked events, no suppression list,
   no webhook event for partners (additive later, ADR 0018).
+- A row that fails on an unexpected error (a storage or database fault) is marked `FAILED` with
+  `INTERNAL_ERROR` and not retried; the job's own retries only help when the whole run fails.
+- A batch whose job is lost (Redis emptied) stays `PROCESSING`; there is no sweeper for it yet, and the
+  30-day purge only clears finished batches.
 - A template's PDF is not rescanned when copied (ADR 0026).
 - Still open from Phase 8: CAPTCHA, passkeys and "remember this device", rescanning files accepted
   during a scanner outage, email change and a password-strength check.
@@ -307,3 +373,30 @@ Tests use the memory mail transport, the test database and Redis db 1, never the
 the internet. Bounce tests post to the test app. Clear the `bulk` queue in `beforeAll`; wait on
 `linkFor(worker.mailbox, email)` before a second audit-writing action on the same envelope (docs/18,
 "A Pre-Existing Race").
+
+### Results (1 October 2026, final tree)
+
+| Check | Result |
+|---|---|
+| `pnpm lint` | clean |
+| `pnpm typecheck` | clean, all four packages |
+| `pnpm test` | shared 178, api 266, web 227, embed 41: all pass |
+| API e2e (Node 22.19.0) | 58 files, 440 tests: all pass |
+| Browser e2e, `desktop-chrome` | 49 tests: all pass on the final run |
+| Each step on its own | typecheck, lint and unit tests pass on every step's tree, in a scratch worktree |
+| Migration drift check | no difference |
+
+Not run: the `mobile-iphone14` browser project (it covers the signing page, which this phase does not touch; CI
+runs it), and anything against a live mail provider (see "As Built").
+
+Two browser failures on the first full run, both looked into:
+
+- `integrations.spec.ts` counted 17 operations in the in-app API reference; the guide now lists 25, because
+  templates and bulk send add eight. The expected number was updated. Nothing was weakened.
+- `expiry.spec.ts` ("an expired document ... it completes") timed out waiting for "Completed and sealed" after
+  30 seconds, once, in the middle of the full suite. It passed alone, with the specs that run before it, and in
+  two further full runs. The Postgres log shows no deadlock for the period. The stack's own logs for that run
+  were replaced when the next run started the stack afresh, so its cause was not captured. Treated as an
+  unexplained timing failure under load, not as a fix: if it recurs, run the suite with the stack's `logs`
+  folder kept (copy `apps/web/.e2e/logs` before the next run).
+

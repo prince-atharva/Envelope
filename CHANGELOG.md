@@ -6,6 +6,54 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+Phase 9 (Templates, bulk send and delivery tracking), built and not yet released. See
+[docs/20](docs/20-phase-9-templates-bulk-send-plan.md) and ADRs
+[0027](docs/adr/0027-copy-the-pdf-into-templates-and-refreeze-policy-per-envelope.md),
+[0028](docs/adr/0028-process-bulk-send-as-a-batch-of-independent-envelopes.md),
+[0029](docs/adr/0029-receive-delivery-events-through-one-neutral-authenticated-endpoint.md) and
+[0030](docs/adr/0030-report-role-mismatches-per-row-in-bulk-send.md).
+
+**Upgrading.** Two database migrations, both additive (`prisma migrate deploy`): six new tables and three
+enums, then two columns on the new `BulkBatch` table. A new optional env var `MAIL_EVENTS_SECRET` turns on the
+bounce endpoint; nothing changes until it is set. Mail keeps going out through the same SMTP settings, so
+Gmail in development and any provider in production need no change. No new dependency.
+
+### Added
+
+- **Templates (Phase 9 steps 1 to 3 and 5, docs/20, ADR 0027).** An Admin can save a prepared document as a
+  template from its page ("Save as template"): the PDF, who signs as named roles such as "Patient", and
+  where the boxes are. Anyone can then create a document from it with a name and an email for each role, as
+  a draft to check or sent at once (Templates in the top bar). Admins rename, describe, archive and restore
+  templates; the layout itself is not editable (save a new template and archive the old one). Every document
+  made from a template gets its own copy of the PDF and freezes policy afresh, so a document category blocked
+  since the template was saved is refused. New routes `POST /templates`, `GET /templates`,
+  `GET /templates/:id`, `PATCH /templates/:id` and `POST /templates/:id/envelopes`, all usable with an API key;
+  new tables `Template`, `TemplateRole` and `TemplateField`; `StorageService.copy`.
+- **Bulk send (Phase 9 steps 4 and 6, docs/20, ADR 0028).** "Send to many" on a template reads a spreadsheet
+  (CSV, one row per person, a name and an email column for each role), checks every row in the browser with
+  the rules the server uses, and makes one document per row in the background, as drafts or sent. A row that
+  fails never stops the others; the results page shows each row's document or what went wrong. Up to 500 rows a
+  batch and 10 batches an hour per workspace. Also `POST /templates/:id/bulk`, `GET /bulk-batches` and
+  `GET /bulk-batches/:id` for API keys, a new `bulk` queue and worker job, and the `BulkBatch` and
+  `BulkBatchRow` tables. The addresses kept on failed rows are cleared after 30 days.
+- **Delivery tracking (Phase 9 step 7, docs/20, ADR 0029).** When a mail provider reports that an email to a
+  recipient bounced or was reported as spam, the audit trail records `EMAIL_BOUNCED` or `EMAIL_COMPLAINED`, the
+  sender gets a "did not arrive" email, and the document shows "Email undeliverable: check this address" beside
+  that person. The provider calls `POST /mail-events/:adapter` with the shared secret `MAIL_EVENTS_SECRET`;
+  adapters exist for Postmark and for a neutral `generic` format. Mail to people on a document is now sent
+  under a Message-ID of Envelope's own, remembered in the new `MailDelivery` table. See
+  [operations/mail-delivery](docs/operations/mail-delivery.md) for setup with Gmail, Postmark and SES, and for
+  what has and has not been checked against a live provider.
+- The developer guide gains [Templates and bulk send](docs/developers/templates.md), and the catalog, OpenAPI
+  document, error guide and limits table cover the new operations, codes (`TEMPLATE_NOT_FOUND`,
+  `TEMPLATE_ARCHIVED`, `TEMPLATE_NAME_TAKEN`, `TEMPLATE_ROLE_MISMATCH`, `BULK_TOO_LARGE`,
+  `BULK_BATCH_NOT_FOUND`) and limits.
+
+### Changed
+
+- Recipients on an envelope's detail gain `emailProblem` (`BOUNCED`, `COMPLAINED` or `null`).
+- The rate-limit table in the developer guide now says "per hour" where a limit is hourly.
+
 ## [0.9.0] - 2026-09-30
 
 Phase 8 (Launch readiness), complete: the account and upload safety work that makes Envelope safe to put in front of a first customer. Four slices: password reset, a change-password screen, two-factor sign-in with a workspace rule Owners can turn on, and malware scanning of uploads. Existing users and workspaces are unaffected until they, or an Owner, opt in. See [docs/19](docs/19-phase-8-launch-readiness-plan.md) and ADRs [0022](docs/adr/0022-store-password-reset-tokens-as-hmacs-in-their-own-table.md), [0023](docs/adr/0023-disable-removed-users-instead-of-relying-on-a-locked-password.md), [0024](docs/adr/0024-add-a-totp-second-factor-with-recovery-codes.md), [0025](docs/adr/0025-enforce-workspace-two-factor-at-sign-in-and-refresh.md) and [0026](docs/adr/0026-scan-uploads-with-clamav-and-accept-them-when-it-is-down.md).

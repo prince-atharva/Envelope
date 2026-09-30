@@ -99,8 +99,9 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0025](0025-enforce-workspace-two-factor-at-sign-in-and-refresh.md) | Enforce workspace two-factor at sign-in and refresh, with an Owner reset | Accepted |
 | [0026](0026-scan-uploads-with-clamav-and-accept-them-when-it-is-down.md) | Scan uploads with ClamAV and accept them when it is down | Accepted |
 | [0027](0027-copy-the-pdf-into-templates-and-refreeze-policy-per-envelope.md) | Copy the PDF into templates, store role slots, and re-freeze policy per envelope | Accepted |
-| [0028](0028-process-bulk-send-as-a-batch-of-independent-envelopes.md) | Process bulk send as a batch of independent envelopes on a queue | Accepted |
+| [0028](0028-process-bulk-send-as-a-batch-of-independent-envelopes.md) | Process bulk send as a batch of independent envelopes on a queue | Accepted (item 1 superseded by 0030) |
 | [0029](0029-receive-delivery-events-through-one-neutral-authenticated-endpoint.md) | Receive delivery events through one neutral, authenticated endpoint | Accepted |
+| [0030](0030-report-role-mismatches-per-row-in-bulk-send.md) | Report role mismatches per row in bulk send (supersedes item 1 of 0028) | Accepted |
 
 ### Planned
 

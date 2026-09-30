@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–8 complete. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking) is planned in [docs/20](20-phase-9-templates-bulk-send-plan.md) |
-| **Version** | 1.6.0 |
+| **Status** | Phases 1–8 released; Phase 9 built. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking) is built, not yet released: [docs/20](20-phase-9-templates-bulk-send-plan.md) |
+| **Version** | 1.7.0 |
 | **Last updated** | 30 September 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |

@@ -2,6 +2,7 @@ import { ERROR_CATALOG, type ErrorCode } from './errors';
 import {
   DEFAULT_EXPIRY_DAYS,
   DEFAULT_WEBHOOK_SECRET_OVERLAP_HOURS,
+  MAX_BULK_ROWS,
   MAX_EXPIRY_DAYS,
   MAX_EXTERNAL_ID_LENGTH,
   MAX_FIELDS_PER_ENVELOPE,
@@ -10,6 +11,7 @@ import {
   MAX_METADATA_KEYS,
   MAX_PDF_PAGES,
   MAX_RECIPIENTS_PER_ENVELOPE,
+  MAX_TEMPLATE_NAME_LENGTH,
   MAX_UPLOAD_BYTES,
   MAX_VOID_REASON_LENGTH,
   MAX_WEBHOOK_ENDPOINT_ROWS_PER_TENANT,
@@ -1268,6 +1270,16 @@ export const INTEGRATION_LIMITS: readonly LimitContract[] = [
     name: 'Reminder cooldown',
     value: `${REMINDER_COOLDOWN_HOURS} hours per person`,
     notes: 'A reminder sooner than that is skipped.',
+  },
+  {
+    name: 'Bulk batch rows',
+    value: `${MAX_BULK_ROWS} per batch`,
+    notes: 'One envelope per row. Split a larger list into several batches.',
+  },
+  {
+    name: 'Template name',
+    value: `${MAX_TEMPLATE_NAME_LENGTH} characters`,
+    notes: 'Different from every other active template in the workspace.',
   },
   {
     name: 'externalId',
