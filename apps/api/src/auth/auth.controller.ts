@@ -2,6 +2,9 @@ import {
   type AcceptInviteInput,
   type AuthResponse,
   acceptInviteSchema,
+  type ForgotPasswordInput,
+  type ForgotPasswordResponse,
+  forgotPasswordSchema,
   type InvitationPreview,
   type LoginInput,
   loginSchema,
@@ -11,6 +14,7 @@ import {
 } from '@envelope/shared';
 import { Body, Controller, Get, HttpCode, Param, Post, Req, Res } from '@nestjs/common';
 import {
+  ApiAcceptedResponse,
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
@@ -173,5 +177,21 @@ export class AuthController {
     const result = await this.auth.acceptInvite(token, body.password, client);
     this.setRefreshCookie(res, result.refreshToken);
     return result.response;
+  }
+
+  @Public()
+  @Post('password/forgot')
+  @HttpCode(202)
+  // 10 an hour from one address, and 3 an hour for one mailbox from anywhere (ADR 0022).
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  @RateLimit(LIMITS.passwordResetPerAccount)
+  @ApiOperation({ summary: 'Ask for a password-reset link by email' })
+  @ApiBody({ schema: openApiSchema(forgotPasswordSchema) })
+  @ApiAcceptedResponse({ description: 'The same answer for every address' })
+  forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) body: ForgotPasswordInput,
+    @Client() client: ClientInfo,
+  ): Promise<ForgotPasswordResponse> {
+    return this.auth.requestPasswordReset(body.email, client);
   }
 }

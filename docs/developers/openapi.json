@@ -213,6 +213,41 @@
         ]
       }
     },
+    "/api/v1/auth/password/forgot": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The same answer for every address"
+          }
+        },
+        "summary": "Ask for a password-reset link by email",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/embed/sessions": {
       "post": {
         "operationId": "embedSessionIssue",

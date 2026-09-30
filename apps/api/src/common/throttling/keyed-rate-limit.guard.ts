@@ -42,7 +42,14 @@ export const LIMITS = {
   /** Cutting the certificate out of a sealed PDF is CPU work (docs/18, workstream 11). */
   certificate: { bucket: 'tenant-certificate', limit: 30, by: 'tenant' },
   loginPerAccount: { bucket: 'login-account', limit: 5, by: 'account' },
-} as const satisfies Record<string, Omit<KeyedRateLimit, 'windowMs'>>;
+  /** Bounds how many reset emails one mailbox can be sent, from however many addresses (ADR 0022). */
+  passwordResetPerAccount: {
+    bucket: 'password-reset-account',
+    limit: 3,
+    windowMs: 3_600_000,
+    by: 'account',
+  },
+} as const satisfies Record<string, Omit<KeyedRateLimit, 'windowMs'> & { windowMs?: number }>;
 
 @Injectable()
 export class KeyedRateLimitGuard implements CanActivate {

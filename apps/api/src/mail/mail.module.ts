@@ -5,6 +5,7 @@ import { EmailProcessor } from './email.processor';
 import { LifecycleMailer } from './lifecycle.mailer';
 import { MailQueueService } from './mail-queue.service';
 import { MailTransportService, MemoryMailbox } from './mail-transport.service';
+import { PasswordResetMailer } from './password-reset.mailer';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer } from './signing-link.mailer';
 import { UserInviteMailer } from './user-invite.mailer';
@@ -41,6 +42,7 @@ export class MailProducerModule {}
     CompletionMailer,
     LifecycleMailer,
     UserInviteMailer,
+    PasswordResetMailer,
     DownloadRenewMailer,
     WebhookNoticeMailer,
   ],

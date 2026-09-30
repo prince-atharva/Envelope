@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import type {
-  AuthResponse,
-  InvitationPreview,
-  LoginInput,
-  RegisterInput,
-  UserProfile,
+import {
+  type AuthResponse,
+  FORGOT_PASSWORD_MESSAGE,
+  type ForgotPasswordResponse,
+  type InvitationPreview,
+  type LoginInput,
+  type RegisterInput,
+  type UserProfile,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -262,6 +264,20 @@ export class AuthService {
       'Invitation accepted',
     );
     return this.buildResult(user, issued);
+  }
+
+  /**
+   * POST /auth/password/forgot. The answer and its work are the same for a
+   * registered, unknown, removed, service or pending address: a job is always
+   * queued and the worker decides whether to send anything (ADR 0022).
+   */
+  async requestPasswordReset(email: string, client: ClientInfo): Promise<ForgotPasswordResponse> {
+    this.logger.info({ email: maskEmail(email), ip: client.ip }, 'Password reset requested');
+    // A queue outage must not turn into a different answer for a known address.
+    await this.mailQueue.enqueuePasswordReset(email).catch((error: unknown) => {
+      this.logger.error({ err: error }, 'Password reset email could not be queued');
+    });
+    return { message: FORGOT_PASSWORD_MESSAGE };
   }
 
   async profile(userId: string): Promise<UserProfile> {

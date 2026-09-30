@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
@@ -14,6 +15,7 @@ import type {
   EmailJobData,
   ExpiredNoticeJob,
   MoreTimeRequestedJob,
+  PasswordResetEmailJob,
   SigningLinkEmailJob,
   UserInvitedJob,
   VoidedNoticeJob,
@@ -258,6 +260,27 @@ export class MailQueueService implements OnModuleInit {
     const job = await this.queue.add(data.template, data, { jobId: `user-invited-${userId}` });
     this.logger.info(
       { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, userId },
+      'Email job enqueued',
+    );
+    return job.id;
+  }
+
+  /**
+   * A password-reset request, for a known or an unknown address alike (ADR
+   * 0022). One job per request: the rate limits, not the job id, bound how
+   * many a person can cause.
+   */
+  async enqueuePasswordReset(email: string): Promise<string | undefined> {
+    const data: PasswordResetEmailJob = {
+      template: 'password-reset',
+      email,
+      requestId: this.cls.isActive() ? this.cls.getId() : undefined,
+    };
+    const job = await this.queue.add(data.template, data, {
+      jobId: `password-reset-${randomUUID()}`,
+    });
+    this.logger.info(
+      { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, to: maskEmail(email) },
       'Email job enqueued',
     );
     return job.id;

@@ -1,4 +1,4 @@
-import { BRAND } from '@envelope/shared';
+import { BRAND, PASSWORD_RESET_TOKEN_EXPIRY_MINUTES } from '@envelope/shared';
 import type { RenderedEmail, WelcomeEmailJob } from './mail.types';
 
 /** Brand colour placeholder until HealthProHub supplies its palette (docs/11, week 2). */
@@ -629,6 +629,43 @@ export function renderDownloadRenewedEmail(notice: DownloadRenewedNotice): Rende
     intro,
     '',
     `Download: ${notice.downloadUrl}`,
+    '',
+    expiry,
+    '',
+    footer,
+  ].join('\n');
+
+  return { to: notice.to, subject, html, text };
+}
+
+export interface PasswordResetNotice {
+  to: string;
+  fullName: string;
+  resetUrl: string;
+}
+
+/** The link a person asked for after forgetting their password (docs/19, ADR 0022). */
+export function renderPasswordResetEmail(notice: PasswordResetNotice): RenderedEmail {
+  const subject = `Reset your ${BRAND.productName} password`;
+  const intro = `We received a request to reset the password for your ${BRAND.fullName} account. Use the button below to choose a new password.`;
+  const expiry = `This link can be used once and expires in ${PASSWORD_RESET_TOKEN_EXPIRY_MINUTES} minutes. Asking for another link cancels this one.`;
+  const footer =
+    'If you did not ask for this, you can ignore this email: your password will not change.';
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.fullName))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     ${button(notice.resetUrl, 'Choose a new password')}
+     <p style="margin:0;color:#6b7785;font-size:13px;">${escapeHtml(expiry)}</p>`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.fullName)},`,
+    '',
+    intro,
+    '',
+    `Choose a new password: ${notice.resetUrl}`,
     '',
     expiry,
     '',

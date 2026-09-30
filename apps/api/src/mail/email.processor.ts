@@ -9,6 +9,7 @@ import { DownloadRenewMailer } from './download-renew.mailer';
 import { LifecycleMailer } from './lifecycle.mailer';
 import type { EmailJobData } from './mail.types';
 import { MailTransportService } from './mail-transport.service';
+import { PasswordResetMailer } from './password-reset.mailer';
 import { SenderNoticeMailer } from './sender-notice.mailer';
 import { SigningLinkMailer, type SigningLinkResult } from './signing-link.mailer';
 import { renderAlertEmail, renderWelcomeEmail } from './templates';
@@ -28,6 +29,7 @@ export class EmailProcessor extends WorkerHost {
     private readonly completions: CompletionMailer,
     private readonly lifecycle: LifecycleMailer,
     private readonly userInvites: UserInviteMailer,
+    private readonly passwordResets: PasswordResetMailer,
     private readonly downloadRenewals: DownloadRenewMailer,
     private readonly webhookNotices: WebhookNoticeMailer,
     private readonly config: AppConfig,
@@ -71,6 +73,8 @@ export class EmailProcessor extends WorkerHost {
         return this.lifecycle.sendVoided(data);
       case 'user-invited':
         return this.userInvites.send(data);
+      case 'password-reset':
+        return this.passwordResets.sendResetLink(data);
       case 'download-renewed':
         return this.downloadRenewals.send(data);
       case 'webhook-disabled':

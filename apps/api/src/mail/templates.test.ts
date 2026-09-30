@@ -6,6 +6,7 @@ import {
   renderDeclinedEmail,
   renderExpiredEmail,
   renderMoreTimeEmail,
+  renderPasswordResetEmail,
   renderSigningLinkEmail,
   renderVoidedEmail,
   renderWebhookDisabledEmail,
@@ -308,5 +309,27 @@ describe('webhook disabled notice', () => {
     expect(email.html).toContain('href="https://app.example.com/settings/integrations"');
     expect(email.html).toContain('Ada &lt;Admin&gt;');
     expect(email.html.match(/<a /g)).toHaveLength(1);
+  });
+});
+
+describe('password-reset email', () => {
+  const resetUrl = `https://app.example.com/reset-password/${'d'.repeat(64)}`;
+  const notice = { to: 'asha@example.com', fullName: 'Asha <Rao>\nJr', resetUrl };
+
+  it('has one call to action, says it works once and for an hour, and says what to do if unasked', () => {
+    const email = renderPasswordResetEmail(notice);
+    expect(email.to).toBe('asha@example.com');
+    expect(email.subject).toBe('Reset your Envelope password');
+    expect(email.text).toContain(`Choose a new password: ${resetUrl}`);
+    expect(email.text).toContain('can be used once and expires in 60 minutes');
+    expect(email.text).toContain('you can ignore this email');
+    expect(email.html).toContain(`href="${resetUrl}"`);
+    expect(email.html.match(/<a /g)).toHaveLength(1);
+  });
+
+  it('escapes the name in HTML and keeps it on one line in text', () => {
+    const email = renderPasswordResetEmail(notice);
+    expect(email.html).toContain('Asha &lt;Rao&gt; Jr');
+    expect(email.text).toContain('Hi Asha <Rao> Jr,');
   });
 });

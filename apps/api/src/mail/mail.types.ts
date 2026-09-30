@@ -85,6 +85,18 @@ export interface UserInvitedJob {
 }
 
 /**
+ * A password-reset request (docs/19, ADR 0022). It carries the address, not an
+ * id, because the API must answer identically for a known and an unknown
+ * address: the worker decides whether an account is eligible and mints the
+ * token itself, so the raw token is never written to Redis.
+ */
+export interface PasswordResetEmailJob {
+  template: 'password-reset';
+  email: string;
+  requestId?: string;
+}
+
+/**
  * A fresh link for an expired large-file download link (docs/17 step 10).
  * Ids only: the worker mints the token when it sends (ADR 0009).
  */
@@ -135,6 +147,7 @@ export type EmailJobData =
   | ExpiredNoticeJob
   | MoreTimeRequestedJob
   | UserInvitedJob
+  | PasswordResetEmailJob
   | DownloadRenewedJob
   | WebhookDisabledJob
   | AlertEmailJob;
