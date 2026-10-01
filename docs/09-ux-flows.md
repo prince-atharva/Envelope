@@ -421,6 +421,13 @@ Requirements: the signer never sees the sender's dashboard; the audit records bo
 
 ## Sender Dashboard
 
+> **As built (Phase 10, docs/21).** The sender workspace uses a desktop sidebar, with a modal
+> navigation drawer below 1024px. The sidebar carries the navigation and, at its foot, who is signed
+> in, Account and Sign out; the header holds only the menu button and quick search. Existing page
+> actions and flows use shared visual patterns, and the product footer shows on every layout.
+> Public signing and embedded editing retain independent shells; PDF canvas and field-overlay
+> geometry remain unchanged.
+
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │  Documents                              [+ New]  [Templates]  │

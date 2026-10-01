@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Phase 10 web UI redesign ([docs/21](docs/21-phase-10-ui-redesign-plan.md), ADR 0031): a workspace
+  sidebar (below 1024px, a drawer) that also holds who is signed in, Account and Sign out, with a
+  header of just the menu button and quick search. The product footer shows on every page. Documents,
+  Templates, bulk send, document detail, the editor, review, Account, Settings, sign-in, signing,
+  Verify and the embedded editor share one page heading, spacing and set of controls. Existing
+  behaviour, labels and permissions are unchanged.
+- Buttons use one component set: new `success`, `dangerOutline` and `link` variants, an `inline` size
+  and an icon-only `IconButton` replace roughly fifteen hand-styled buttons.
+- Loading skeletons were rebuilt to match the pages they stand in for, including the signed-in frame
+  and a card grid for Templates.
+
+### Added
+
+- `e2e/ui-layout.spec.ts`: navigation at 375, 720, 768, 1024 and 1440px, drawer focus containment and
+  return, and no horizontal overflow.
+- Screenshot-gallery coverage for the drawer, templates, bulk drafts, user administration and every
+  loading skeleton.
+
 ## [0.10.0] - 2026-10-01
 
 Phase 9 (Templates, bulk send and delivery tracking), complete: save a prepared document once and send it

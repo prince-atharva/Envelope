@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Approved — implementation starting |
+| **Status** | Built. Verified; release pending |
 | **Version** | 1.0.0 |
 | **Last updated** | 1 October 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
@@ -24,11 +24,17 @@ Existing workflows, labels, information, permissions and business logic MUST rem
 
 ## Proposed Visual Direction
 
-- A light 240px desktop sidebar with the existing brand, workspace identity and navigation.
-  Documents, Templates, existing bulk batches, Verify, Account and role-appropriate Settings remain
-  easy to reach. At narrower widths the navigation becomes an accessible drawer.
-- A compact 64px utility header with page context, existing quick search and account actions.
-  No new notifications, analytics, workspace switching or unsupported controls.
+- A light 240px desktop sidebar with the existing brand and navigation. Documents, Templates, bulk
+  batches, Verify and role-appropriate Settings sit at the top; who is signed in, their workspace,
+  Account and Sign out sit at the bottom. At narrower widths the same sidebar is an accessible drawer.
+  *As built:* the account block moved from the header to the sidebar, and the sidebar's tagline line
+  and separate workspace box were dropped.
+- A compact 64px header holding only the menu button (below 1024px) and the existing quick search.
+  *As built:* page context and the account actions moved out of it. No new notifications, analytics,
+  workspace switching or unsupported controls.
+- The product footer ("Envelope powered by HealthProHub · Sign documents securely, from any device.")
+  shows on every layout: workspace, authentication, public pages, the signing screen and the embedded
+  editor.
 - Off-white page canvas, white content surfaces, dark slate text and the current teal accent.
   Use teal for the primary action and selected navigation; status colours retain text labels.
 - Inter typography: 28–32px page titles, 18–20px section titles, 14–16px body and form text.
@@ -151,13 +157,13 @@ this phase introduces no business state transitions.
 
 | # | Step | Status | Commit |
 |---|---|---|---|
-| 1 | Visual foundations and reusable page patterns | Planned | — |
-| 2 | Sender shell, header and responsive navigation | Planned | — |
-| 3 | Documents, templates and bulk-send pages | Planned | — |
-| 4 | Document detail, preparation and review | Planned | — |
-| 5 | Account, settings and authentication | Planned | — |
-| 6 | Signing, public pages and embedded editor | Planned | — |
-| 7 | Cross-screen visual coverage and documentation | Planned | — |
+| 1 | Visual foundations and reusable page patterns | ✅ Done | `d8fd817` |
+| 2 | Sender shell, header and responsive navigation | ✅ Done | `2cf6370` |
+| 3 | Documents, templates and bulk-send pages | ✅ Done | `01c83b1` |
+| 4 | Document detail, preparation and review | ✅ Done | `c01c9ce` |
+| 5 | Account, settings and authentication | ✅ Done | `9c2c541` |
+| 6 | Signing, public pages and embedded editor | ✅ Done | `1cfc7db` |
+| 7 | Cross-screen visual coverage and documentation | ✅ Done | `f0eb4d9` |
 
 ## Step 1: Visual Foundations
 
@@ -222,6 +228,25 @@ Inspect actual before/after screenshots rather than treating screenshot generati
 Update this plan with evidence and commits, docs/README status and CHANGELOG Unreleased. Add an
 “As built” note beside docs/09's affected layouts after implementation. No release/version bump.
 
+## As Built: Differences From the Plan
+
+- **Account block in the sidebar, search-only header.** Decided during review: the header carried
+  identity, Account and Sign out, and read as crowded. They are now one block at the foot of the
+  sidebar (and of the drawer). Accessible names are unchanged: "Account" link, "Sign out" button.
+- **Footer everywhere.** The workspace dropped it while spacing was tightened; it was restored, and
+  added to the signing screen (the action dock sits above it) and the embedded editor.
+- **One button vocabulary.** `Button` gained `success`, `dangerOutline` and `link` variants and an
+  `inline` size; `IconButton` is new. Per-call `text-xs py-* px-*` overrides were removed in favour of
+  `size="sm"`, and about fifteen hand-styled buttons now use the shared components.
+- **Skeletons rebuilt to match.** The app-shell skeleton drew the old top header; every page skeleton
+  used the old card and width classes. All now use `page-stack`, `page-heading` and `surface` and the
+  same control heights, plus a grid skeleton for Templates. The gallery's loading scenario holds each
+  page on its skeleton so it can be compared with the loaded page.
+- **Embedded editor chrome stays compact.** A card-style bar pushed the PDF down far enough that
+  focusing a placed field scrolled the host page; it is a plain bar again.
+- **Test selectors follow the relocation.** `signOut` and `openAccount` helpers open the drawer on
+  narrow screens. No assertion was weakened or removed.
+
 ## Deliberate Simplifications
 
 - No dark mode, theme switcher, new logo, extra UI library, new feature or external font request.
@@ -244,3 +269,20 @@ with Node 22.19.0, browser e2e on desktop-chrome, mobile signing/layout checks, 
 or the development servers. Record test failures and investigate isolated reruns; never weaken tests.
 The previously documented shared typecheck failure was fixed in commit e5e82b4; do not assume it
 still exists. Planning itself runs no product tests and makes no claims of visual verification.
+
+
+## Implementation Evidence
+
+- Plan approved by the user and committed as `e9e9844` before product edits.
+- Baseline gallery: 39 scenarios passed across desktop, tablet and mobile; preserved separately
+  from the final gallery during implementation.
+- The seven steps are committed in order (see the steps table). Each commit's tree was rebuilt in a
+  scratch worktree and passed the web typecheck, Biome and the 228 web unit tests on its own.
+- Screenshots were inspected for the sender workspace, editor, review, detail, account, settings,
+  sign-in, consent, signing and Verify screens at desktop, tablet and phone widths, and for every
+  loading skeleton against its loaded page. The template, bulk, user-list, two-factor, download,
+  invitation and embedded screens were captured by the gallery but not individually inspected.
+- Pre-existing, not caused by this phase: `pdf-sealing.service.test.ts` ("runs onto more pages when
+  the history is long") exceeds Vitest's 5s default when all packages' tests run together, and fails
+  the same way on the commit before this phase. `IntegrationGuide.test.tsx` fails the same way only
+  under that load and passes alone.
