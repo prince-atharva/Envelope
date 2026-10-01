@@ -142,6 +142,9 @@ The signer being unauthenticated is the defining security constraint of the syst
 | ENV-08 | System SHOULD support bulk send — one template, many recipients, one envelope each | Should |
 | ENV-09 | System MAY support envelope correction (amend and resend without losing history) | May |
 
+> **As built (ENV-02 deferred, docs/22).** Not built as of v0.11.0: an envelope holds exactly one PDF. The owner moved
+> this to a later phase on 1 October 2026. Phase 11 does not include it; docs/22 "Deferred" records the two designs weighed.
+
 ### Recipients and Roles
 
 | ID | Requirement | Priority |

@@ -104,6 +104,10 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0030](0030-report-role-mismatches-per-row-in-bulk-send.md) | Report role mismatches per row in bulk send (supersedes item 1 of 0028) | Accepted |
 
 | [0031](0031-separate-workspace-navigation-from-document-surfaces.md) | Separate workspace navigation from document surfaces | Accepted |
+| [0032](0032-delegate-by-adding-a-recipient-and-keeping-the-delegator-as-history.md) | Delegate by adding a recipient and keeping the delegator as history | Accepted |
+| [0033](0033-mint-in-person-signing-links-in-the-request-and-end-the-hosts-session.md) | Mint in-person signing links in the request and end the host's session on hand-over | Accepted |
+| [0034](0034-brand-recipient-facing-surfaces-with-a-workspace-logo-and-accent-colour.md) | Brand recipient-facing surfaces with a workspace logo and accent colour | Accepted |
+| [0035](0035-gate-accessibility-with-axe-core-keyboard-only-and-device-size-checks.md) | Gate accessibility with axe-core, keyboard-only and device-size checks | Accepted |
 
 ### Planned
 

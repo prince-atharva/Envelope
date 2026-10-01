@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–10 complete. Phase 10 (UI redesign, `v0.11.0`, [docs/21](21-phase-10-ui-redesign-plan.md)) gives every web screen one workspace layout and set of controls. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking, `v0.10.0`) is in [docs/20](20-phase-9-templates-bulk-send-plan.md) |
-| **Version** | 1.9.0 |
+| **Status** | Phases 1–10 complete. Phase 10 (UI redesign, `v0.11.0`, [docs/21](21-phase-10-ui-redesign-plan.md)) gives every web screen one workspace layout and set of controls. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking, `v0.10.0`) is in [docs/20](20-phase-9-templates-bulk-send-plan.md). Phase 11 (delegation, in-person signing, branding, reports, accessibility) is planned in [docs/22](22-phase-11-signing-options-branding-reports-accessibility-plan.md) |
+| **Version** | 1.10.0 |
 | **Last updated** | 1 October 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
@@ -91,6 +91,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 19 | [phase-8-launch-readiness-plan](19-phase-8-launch-readiness-plan.md) | What does Phase 8 deliver (password reset, change password, two-factor sign-in, malware scanning), how is each slice built and checked, and how are existing users kept working? |
 | 20 | [phase-9-templates-bulk-send-plan](20-phase-9-templates-bulk-send-plan.md) | What does Phase 9 deliver (templates, bulk send from CSV or API, provider-neutral mail delivery tracking), how is each step built and checked? |
 | 21 | [phase-10-ui-redesign-plan](21-phase-10-ui-redesign-plan.md) | Approved full web UI redesign: professional workspace, consistent pages and preserved behavior |
+| 22 | [phase-11-signing-options-branding-reports-accessibility-plan](22-phase-11-signing-options-branding-reports-accessibility-plan.md) | What does Phase 11 deliver (delegation, in-person signing, branding, reports, accessibility), how is each step built, and how do we check it? |
 | — | [developers/](developers/README.md) | How do I connect my application to Envelope? *(partner-facing guide, shareable on its own)* |
 | — | [operations/mail-delivery](operations/mail-delivery.md) | How do I send email from my machine and from production, and find out when one did not arrive? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |
