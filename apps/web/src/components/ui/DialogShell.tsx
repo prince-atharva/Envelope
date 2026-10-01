@@ -61,14 +61,14 @@ export function DialogShell({
 
   const body = (
     <>
-      <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+      <h2 id={titleId} className="text-xl font-semibold tracking-tight text-slate-900">
         {title}
       </h2>
       {children}
       {/* Phones stack the buttons full width, main action on top; wider
           screens put them in a row on the right. */}
       {actions && (
-        <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:flex-wrap sm:justify-end">
           {actions}
         </div>
       )}
@@ -80,14 +80,14 @@ export function DialogShell({
       ref={dialogRef}
       aria-labelledby={titleId}
       onClose={onClose}
-      className={`m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white p-0 shadow-xl backdrop:bg-slate-900/40 ${className}`}
+      className={`m-auto w-[calc(100%-2rem)] max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-0 shadow-xl backdrop:bg-slate-950/45 ${className}`}
     >
       {onSubmit ? (
-        <form method="dialog" noValidate className="space-y-4 p-6" onSubmit={handleSubmit}>
+        <form method="dialog" noValidate className="space-y-5 p-5 sm:p-7" onSubmit={handleSubmit}>
           {body}
         </form>
       ) : (
-        <div className="space-y-4 p-6">{body}</div>
+        <div className="space-y-5 p-5 sm:p-7">{body}</div>
       )}
     </dialog>
   );

@@ -5,6 +5,7 @@ import {
   DashboardSkeleton,
   DocumentListSkeleton,
   EnvelopeDetailSkeleton,
+  TemplateGridSkeleton,
   TopProgressBar,
 } from './Skeletons';
 
@@ -43,5 +44,12 @@ describe('Skeletons', () => {
     const { container } = render(<AppShellSkeleton />);
     const root = container.firstChild as HTMLElement;
     expect(root.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('renders TemplateGridSkeleton with one card per requested template', () => {
+    const { container } = render(<TemplateGridSkeleton cards={3} />);
+    const root = container.firstChild as HTMLElement;
+    expect(root.getAttribute('aria-hidden')).toBe('true');
+    expect(root.children.length).toBe(3);
   });
 });

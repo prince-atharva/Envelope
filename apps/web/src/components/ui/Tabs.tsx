@@ -23,24 +23,24 @@ export function panelElementId(prefix: string, id: string): string {
 const VARIANTS = {
   pill: {
     list: 'flex gap-1 overflow-x-auto scrollbar-none',
-    tab: 'shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+    tab: 'min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
     selected: 'bg-brand-700 text-white',
     idle: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
     count: { on: 'bg-white/20 text-white', off: 'bg-slate-200/80 text-slate-700' },
   },
   underline: {
     list: 'flex gap-4 overflow-x-auto border-b border-slate-200 scrollbar-none',
-    tab: 'shrink-0 border-b-2 px-1 pb-2 text-sm font-medium transition-colors -mb-px',
+    tab: 'min-h-11 shrink-0 border-b-2 px-2 pb-2.5 text-sm font-medium transition-colors -mb-px',
     selected: 'border-brand-700 text-brand-800',
-    idle: 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800',
+    idle: 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-800',
     count: { on: 'bg-brand-50 text-brand-800', off: 'bg-slate-100 text-slate-600' },
   },
   segmented: {
     list: 'flex w-full gap-1 rounded-xl bg-slate-100 p-1',
-    tab: 'flex-1 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-semibold transition-all sm:px-3',
-    selected: 'bg-brand-700 text-white shadow-xs',
+    tab: 'min-h-11 flex-1 inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs font-semibold transition-all sm:px-3',
+    selected: 'bg-white text-brand-800 shadow-xs',
     idle: 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60',
-    count: { on: 'bg-white/20 text-white', off: 'bg-slate-200/90 text-slate-700' },
+    count: { on: 'bg-brand-50 text-brand-800', off: 'bg-slate-200/90 text-slate-700' },
   },
 } as const;
 

@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Brand tokens. These are placeholders until HealthProHub supplies its logo and
- * colours (docs/11, "What We Need From You", week 2). Change them here only.
+ * Shared presentation tokens for Phase 10 (docs/21). Keep brand colour changes here.
  */
 @theme {
   --font-sans:
@@ -30,6 +29,7 @@
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   :focus-visible {
@@ -141,5 +141,95 @@
 @media (prefers-reduced-motion: reduce) {
   .signing-sheet[open] {
     animation: none;
+  }
+}
+
+@utility page-stack {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+@utility page-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-slate-200);
+  &[data-flat] {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+}
+
+@utility page-title {
+  font-size: clamp(1.75rem, 2.5vw, 2rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  color: var(--color-slate-900);
+  overflow-wrap: anywhere;
+}
+
+@utility page-description {
+  margin-top: 0.25rem;
+  max-width: 42rem;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--color-slate-600);
+  overflow-wrap: anywhere;
+}
+
+@utility surface {
+  min-width: 0;
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.75rem;
+  background: white;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.025);
+}
+
+@utility section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+  color: var(--color-slate-900);
+}
+
+@utility form-control {
+  min-height: 2.75rem;
+  border-radius: 0.5rem;
+  border-color: var(--color-slate-300);
+  background-color: white;
+  font-size: 1rem;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+  &:focus-visible {
+    outline: 2px solid var(--color-brand-700);
+    outline-offset: 2px;
+  }
+}
+
+@utility empty-surface {
+  border: 1px solid var(--color-slate-200);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
   }
 }

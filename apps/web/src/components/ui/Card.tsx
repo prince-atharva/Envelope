@@ -3,11 +3,11 @@ import type { ElementType, HTMLAttributes, ReactNode } from 'react';
 const PADDING = {
   none: '',
   sm: 'p-4',
-  md: 'p-5',
+  md: 'p-5 sm:p-6',
   lg: 'p-6',
 } as const;
 
-const BASE = 'rounded-2xl border border-slate-200/90 bg-white shadow-xs';
+const BASE = 'surface';
 
 function cardClass(padding: keyof typeof PADDING = 'md', extra = ''): string {
   return `${BASE} ${PADDING[padding]} ${extra}`.trim();

@@ -17,7 +17,7 @@ export function TextField({
       </label>
       <input
         id={id}
-        className={`mt-1.5 block w-full rounded-lg border bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/30 sm:text-sm ${
+        className={`form-control mt-2 block w-full border px-3 py-2.5 text-slate-900 placeholder:text-slate-500 ${
           error ? 'border-red-400' : 'border-slate-300'
         }`}
         aria-invalid={error ? true : undefined}

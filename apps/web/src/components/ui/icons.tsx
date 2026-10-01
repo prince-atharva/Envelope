@@ -61,3 +61,29 @@ export const CopyIcon = (props: IconProps) => (
 export const CloseIcon = (props: IconProps) => <Glyph {...props} d="M6 18L18 6M6 6l12 12" />;
 
 export const ArrowRightIcon = (props: IconProps) => <Glyph {...props} d="M13 7l5 5-5 5M6 12h12" />;
+
+export const SearchIcon = (props: IconProps) => (
+  <Glyph {...props} d="M21 21l-5-5M18 10a8 8 0 11-16 0 8 8 0 0116 0z" />
+);
+export const MenuIcon = (props: IconProps) => <Glyph {...props} d="M4 6h16M4 12h16M4 18h16" />;
+export const ChevronUpIcon = (props: IconProps) => (
+  <Glyph {...props} d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+);
+export const ChevronDownIcon = (props: IconProps) => (
+  <Glyph {...props} d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+);
+export const TrashIcon = (props: IconProps) => (
+  <Glyph
+    {...props}
+    d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+  />
+);
+export const SignOutIcon = (props: IconProps) => (
+  <Glyph
+    {...props}
+    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+  />
+);
+export const UserIcon = (props: IconProps) => (
+  <Glyph {...props} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM4 21a8 8 0 0116 0" />
+);

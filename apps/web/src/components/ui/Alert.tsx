@@ -20,7 +20,7 @@ export function Alert({
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
-      className={`rounded-lg border px-4 py-3 text-sm ${TONES[tone]}`}
+      className={`rounded-lg border px-4 py-3.5 text-sm leading-relaxed ${TONES[tone]}`}
     >
       <div>{children}</div>
       {reference && <div className="mt-1 font-mono text-xs opacity-75">Reference: {reference}</div>}
