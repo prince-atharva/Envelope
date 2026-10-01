@@ -48,10 +48,10 @@ export function ExpiredBanner({
         ))}
       </div>
       <div className="flex shrink-0 flex-wrap gap-2 max-sm:[&>button]:grow">
-        <Button variant="secondary" onClick={onCancel} className="text-xs py-1.5 px-3.5">
+        <Button size="sm" variant="secondary" onClick={onCancel}>
           Cancel document
         </Button>
-        <Button onClick={onExtend} className="text-xs py-1.5 px-3.5">
+        <Button size="sm" onClick={onExtend}>
           Give more time
         </Button>
       </div>

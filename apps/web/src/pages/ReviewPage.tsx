@@ -107,10 +107,10 @@ export function ReviewPage() {
       : null;
 
   return (
-    <div className="flex flex-1 flex-col space-y-6 max-w-7xl mx-auto w-full pb-12">
+    <div className="page-stack flex-1">
       {/* 1. Header Bar: Breadcrumb, Step Badge, Title & Main Actions */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-white border border-slate-200/90 rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xs">
-        <div className="min-w-0 flex-1 space-y-1.5">
+      <div className="page-heading">
+        <div className="min-w-0 flex-1 basis-80 space-y-3">
           {/* Back link */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <Link
@@ -133,10 +133,7 @@ export function ReviewPage() {
 
           {/* Title & Step Badge */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1
-              className="truncate text-xl font-bold text-slate-900 tracking-tight sm:text-2xl max-w-xl"
-              title={envelope.title}
-            >
+            <h1 className="page-title" title={envelope.title}>
               {envelope.title}
             </h1>
             <span className="text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200/80 px-2.5 py-0.5 whitespace-nowrap rounded-full shrink-0">
@@ -150,32 +147,29 @@ export function ReviewPage() {
         </div>
 
         {/* Readiness Status & Actions */}
-        <div className="flex flex-wrap items-center gap-3 lg:shrink-0 lg:justify-end max-sm:[&>a]:grow max-sm:[&>button]:grow">
+        <div className="flex flex-wrap items-center gap-3 lg:justify-end max-sm:[&>a]:grow max-sm:[&>button]:grow">
           {ready ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-emerald-50 border-emerald-200/80 text-emerald-800 shadow-2xs">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-emerald-50 border-emerald-200/80 text-emerald-800">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               Ready to send
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-amber-50 border-amber-200/80 text-amber-800 shadow-2xs">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-amber-50 border-amber-200/80 text-amber-800">
               <span className="h-2 w-2 rounded-full bg-amber-500" />
               {issues.length} {issues.length === 1 ? 'action needed' : 'actions needed'}
             </span>
           )}
 
-          <ButtonLink
-            to={runtime.prepare(envelope.id)}
-            variant="secondary"
-            className="text-xs py-2 px-3.5 shadow-2xs"
-          >
+          <ButtonLink size="sm" to={runtime.prepare(envelope.id)} variant="secondary">
             Keep preparing
           </ButtonLink>
 
           <Button
+            size="sm"
             disabled={!ready || !runtime.canSend}
             onClick={() => setSending(true)}
             variant="primary"
-            className="text-xs py-2 px-4 shadow-2xs inline-flex items-center gap-1.5 font-bold"
+            className="inline-flex items-center gap-1.5"
           >
             <svg
               className="h-3.5 w-3.5 shrink-0"
@@ -228,9 +222,10 @@ export function ReviewPage() {
           </ul>
           <div className="pt-1">
             <ButtonLink
+              size="sm"
               to={runtime.prepare(envelope.id)}
               variant="secondary"
-              className="text-xs py-1.5 px-3 bg-white"
+              className="bg-white"
             >
               Fix these while preparing
             </ButtonLink>
@@ -239,9 +234,9 @@ export function ReviewPage() {
       )}
 
       {/* 3. The document on the left, who receives what on the right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Left Column: Document Details & Cryptographic Integrity (5 cols on lg) */}
-        <div className="lg:col-span-5 flex flex-col space-y-5">
+        <div className="min-w-0 lg:col-span-5 flex flex-col space-y-5">
           {/* Document Summary Card */}
           <Card className="space-y-4">
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
@@ -262,9 +257,7 @@ export function ReviewPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Document details
-                </h2>
+                <h2 className="section-title">Document details</h2>
               </div>
               <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 whitespace-nowrap rounded-full">
                 {fileSize ? `${fileSize} · ` : ''}
@@ -275,7 +268,7 @@ export function ReviewPage() {
             <dl className="space-y-3 text-xs">
               {isCustomTitle && (
                 <div>
-                  <dt className="text-slate-400 font-medium">Original file</dt>
+                  <dt className="text-slate-600 font-medium">Original file</dt>
                   <dd className="font-semibold text-slate-900 break-words mt-0.5">
                     {envelope.originalFilename}
                   </dd>
@@ -283,14 +276,14 @@ export function ReviewPage() {
               )}
 
               <div>
-                <dt className="text-slate-400 font-medium">Uploaded by</dt>
+                <dt className="text-slate-600 font-medium">Uploaded by</dt>
                 <dd className="font-medium text-slate-800 mt-0.5">
                   {envelope.owner.fullName} on {formatDateTime(envelope.createdAt)}
                 </dd>
               </div>
 
               <div>
-                <dt className="text-slate-400 font-medium">Signing order</dt>
+                <dt className="text-slate-600 font-medium">Signing order</dt>
                 <dd className="mt-1">
                   {envelope.sequentialSigning ? (
                     <div className="flex items-start gap-2 p-2.5 rounded-xl border border-indigo-200/80 bg-indigo-50/50">
@@ -348,7 +341,7 @@ export function ReviewPage() {
               </div>
 
               <div>
-                <dt className="text-slate-400 font-medium">Message in the email</dt>
+                <dt className="text-slate-600 font-medium">Message in the email</dt>
                 <dd className="mt-1">
                   {envelope.message ? (
                     <blockquote className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 text-xs italic">
@@ -384,9 +377,7 @@ export function ReviewPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Fingerprint
-                </h2>
+                <h2 className="section-title">Fingerprint</h2>
               </div>
               <span className="shrink-0 whitespace-nowrap text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-2 py-0.5 rounded-full">
                 SHA-256
@@ -417,7 +408,7 @@ export function ReviewPage() {
         </div>
 
         {/* Right Column: Recipient Delivery Schedule & Field Map (7 cols on lg) */}
-        <div className="lg:col-span-7 flex flex-col space-y-4">
+        <div className="min-w-0 lg:col-span-7 flex flex-col space-y-4">
           <Card className="space-y-4">
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -437,9 +428,7 @@ export function ReviewPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Who receives what
-                </h2>
+                <h2 className="section-title">Who receives what</h2>
               </div>
               <span className="text-xs font-semibold bg-brand-50 text-brand-700 px-2.5 py-0.5 whitespace-nowrap rounded-full border border-brand-200/60">
                 {envelope.recipients.length}{' '}
@@ -461,13 +450,13 @@ export function ReviewPage() {
                   return (
                     <li
                       key={recipient.id}
-                      className="rounded-xl border border-slate-200/90 p-4 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all shadow-2xs space-y-3"
+                      className="rounded-xl border border-slate-200/90 p-4 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all space-y-3"
                     >
                       {/* Recipient Header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0">
                           <div
-                            className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5 shadow-2xs ${color.swatch}`}
+                            className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 mt-0.5  ${color.swatch}`}
                           >
                             {envelope.sequentialSigning
                               ? index + 1
@@ -550,7 +539,7 @@ export function ReviewPage() {
           </Card>
 
           {/* Reassurance Footer Card */}
-          <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 shadow-2xs flex items-center gap-3.5">
+          <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 flex items-center gap-3.5">
             <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-700 border border-brand-200/60 flex items-center justify-center shrink-0">
               <svg
                 className="w-4 h-4"

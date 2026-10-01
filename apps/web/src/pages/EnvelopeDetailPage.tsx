@@ -13,7 +13,7 @@ import { Alert } from '../components/ui/Alert';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { HashBlock } from '../components/ui/HashBlock';
-import { ArrowRightIcon } from '../components/ui/icons';
+import { ArrowRightIcon, TrashIcon } from '../components/ui/icons';
 import { EnvelopeDetailSkeleton } from '../components/ui/Skeletons';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { TabPanel, Tabs } from '../components/ui/Tabs';
@@ -181,10 +181,10 @@ export function EnvelopeDetailPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col space-y-6 max-w-7xl mx-auto w-full pb-12">
+    <div className="page-stack flex-1">
       {/* 1. Header Bar: Breadcrumb, Title, Status & Actions */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-white border border-slate-200/90 rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xs">
-        <div className="min-w-0 flex-1 space-y-1.5">
+      <div className="page-heading">
+        <div className="min-w-0 flex-1 basis-80 space-y-3">
           {/* Back link */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <Link
@@ -207,10 +207,7 @@ export function EnvelopeDetailPage() {
 
           {/* Title & Status Badge */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1
-              className="truncate text-xl font-bold text-slate-900 tracking-tight sm:text-2xl max-w-xl"
-              title={envelope.title}
-            >
+            <h1 className="page-title" title={envelope.title}>
               {envelope.title}
             </h1>
             <StatusBadge status={envelope.status} />
@@ -249,54 +246,36 @@ export function EnvelopeDetailPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end max-sm:[&>a]:grow max-sm:[&>button]:grow">
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end max-sm:[&>a]:grow max-sm:[&>button]:grow">
           {/* An expired envelope offers both choices in its banner instead. */}
           {cancelModeFor(envelope.status) && envelope.status !== 'EXPIRED' && (
-            <button
-              type="button"
+            <Button
+              variant="dangerOutline"
+              size="sm"
               onClick={() => setCancelling(true)}
-              className="group inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-red-50 hover:text-red-700 hover:ring-red-200 transition-colors shadow-2xs cursor-pointer"
               title={
                 cancelModeFor(envelope.status) === 'discard'
                   ? 'Discard this draft'
                   : 'Cancel this document'
               }
             >
-              <svg
-                className="h-3.5 w-3.5 text-slate-400 group-hover:text-red-600 transition-colors"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                />
-              </svg>
-              <span>
-                {cancelModeFor(envelope.status) === 'discard' ? 'Discard draft' : 'Cancel document'}
-              </span>
-            </button>
+              <TrashIcon className="h-4 w-4" />
+              {cancelModeFor(envelope.status) === 'discard' ? 'Discard draft' : 'Cancel document'}
+            </Button>
           )}
 
           {canExtend(envelope.status) && envelope.status !== 'EXPIRED' && (
-            <Button
-              onClick={() => setExtending(true)}
-              variant="secondary"
-              className="text-xs py-2 px-3.5 shadow-2xs"
-            >
+            <Button size="sm" onClick={() => setExtending(true)} variant="secondary">
               Give more time
             </Button>
           )}
 
           <Button
+            size="sm"
             onClick={handleDownload}
             disabled={!pdfData}
             variant={envelope.status === 'COMPLETED' ? 'primary' : 'secondary'}
-            className="text-xs py-2 px-3.5 shadow-2xs inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5"
           >
             <svg
               className="h-3.5 w-3.5 shrink-0"
@@ -318,30 +297,23 @@ export function EnvelopeDetailPage() {
           </Button>
 
           {isAdmin && !envelope.legalHoldAt && (
-            <Button
-              variant="secondary"
-              onClick={() => setPlacingHold(true)}
-              className="text-xs py-2 px-3.5 shadow-2xs"
-            >
+            <Button size="sm" variant="secondary" onClick={() => setPlacingHold(true)}>
               Legal hold
             </Button>
           )}
 
           {isAdmin && canSaveAsTemplate(envelope) && (
-            <Button
-              variant="secondary"
-              onClick={() => setSavingTemplate(true)}
-              className="text-xs py-2 px-3.5 shadow-2xs"
-            >
+            <Button size="sm" variant="secondary" onClick={() => setSavingTemplate(true)}>
               Save as template
             </Button>
           )}
 
           {envelope.status === 'DRAFT' && (
             <ButtonLink
+              size="sm"
               to={`/dashboard/envelopes/${envelope.id}/prepare`}
               variant="primary"
-              className="text-xs py-2 px-4 shadow-2xs inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5"
             >
               <span>Prepare for signing</span>
               <ArrowRightIcon className="h-4 w-4" />
@@ -388,12 +360,12 @@ export function EnvelopeDetailPage() {
       />
 
       {/* 3. The document, with its people, fingerprint and history beside it */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* On a wide screen the document stays in view, one screen tall, while
             the sidebar scrolls past it: a fixed-height viewer left a large empty
             column beside a long audit trail. */}
-        <div className="lg:col-span-7 xl:col-span-8 lg:sticky lg:top-20">
-          <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col h-[70vh] min-h-112 lg:h-[calc(100dvh-6.5rem)]">
+        <div className="min-w-0 xl:col-span-8 xl:sticky xl:top-20">
+          <div className="surface overflow-hidden flex flex-col h-[70vh] min-h-112 lg:h-[calc(100dvh-6.5rem)]">
             {/* Live PDF Canvas */}
             {isLoadingPdf ? (
               <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/60 p-8">
@@ -436,7 +408,7 @@ export function EnvelopeDetailPage() {
         </div>
 
         {/* Sidebar: people, fingerprint, history */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col space-y-5">
+        <div className="min-w-0 xl:col-span-4 flex flex-col space-y-5">
           {/* Section 1A: Signers & Workflow for Draft */}
           {envelope.status === 'DRAFT' && (
             <Card className="space-y-3.5">
@@ -458,9 +430,7 @@ export function EnvelopeDetailPage() {
                       />
                     </svg>
                   </div>
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                    Signers & Setup
-                  </h2>
+                  <h2 className="section-title">Signers & Setup</h2>
                 </div>
                 <span className="text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200/60 px-2 py-0.5 whitespace-nowrap rounded-full">
                   {envelope.recipients.length}{' '}
@@ -491,9 +461,10 @@ export function EnvelopeDetailPage() {
                   ))}
                   <div className="pt-1">
                     <ButtonLink
+                      size="sm"
                       to={`/dashboard/envelopes/${envelope.id}/prepare`}
                       variant="secondary"
-                      className="w-full text-xs justify-center py-2 shadow-2xs"
+                      className="w-full justify-center"
                     >
                       Edit signers & fields
                     </ButtonLink>
@@ -550,9 +521,7 @@ export function EnvelopeDetailPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  Tamper-evident security
-                </h2>
+                <h2 className="section-title">Tamper-evident security</h2>
               </div>
               <span className="shrink-0 whitespace-nowrap text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full">
                 SHA-256
@@ -592,7 +561,7 @@ export function EnvelopeDetailPage() {
           </Card>
 
           {/* Section 3: Tabbed Activity & History (Audit Trail & Document Versions) */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+          <div className="surface overflow-hidden flex flex-col">
             <Tabs
               idPrefix={activityTabsId}
               label="Document history"
@@ -608,20 +577,12 @@ export function EnvelopeDetailPage() {
 
             {isAdmin && activityTab === 'audit' && (
               <div className="flex justify-end gap-2 border-b border-slate-100 px-4 py-2">
-                <button
-                  type="button"
-                  onClick={() => void exportAudit('json')}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
+                <Button variant="secondary" size="sm" onClick={() => void exportAudit('json')}>
                   Export JSON
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void exportAudit('csv')}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => void exportAudit('csv')}>
                   Export CSV
-                </button>
+                </Button>
               </div>
             )}
 

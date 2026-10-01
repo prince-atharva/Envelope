@@ -279,10 +279,10 @@ export function PreparePage() {
   const readyToSend = issues.length === 0 && state.fields.length > 0;
 
   return (
-    <div className="flex flex-1 flex-col space-y-4 max-w-7xl mx-auto w-full pb-10 min-h-0">
+    <div className="page-stack min-h-0 flex-1">
       {/* 1. Header Bar: Breadcrumb, Step Badge, Title, Autosave & Action CTAs */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-white border border-slate-200/90 rounded-2xl p-4 sm:px-6 sm:py-4 shadow-xs">
-        <div className="min-w-0 flex-1 space-y-1.5">
+      <div className="page-heading">
+        <div className="min-w-0 flex-1 basis-80 space-y-3">
           {/* Back link */}
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             {!runtime.embedded && (
@@ -307,9 +307,7 @@ export function PreparePage() {
 
           {/* Title, Step Badge & Metadata */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-              Prepare for signing
-            </h1>
+            <h1 className="page-title">Prepare for signing</h1>
             <span className="text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200/80 px-2.5 py-0.5 whitespace-nowrap rounded-full shrink-0 inline-flex items-center gap-1">
               <span>Step 2: Place fields</span>
             </span>
@@ -332,12 +330,12 @@ export function PreparePage() {
         </div>
 
         {/* Status Pill & Action CTAs */}
-        <div className="flex flex-wrap items-center gap-2.5 lg:shrink-0 lg:justify-end max-sm:[&>a]:grow max-sm:[&>button]:grow">
+        <div className="flex flex-wrap items-center gap-2.5 lg:justify-end max-sm:[&>a]:grow max-sm:[&>button]:grow">
           {/* Live Autosave Status Badge */}
           <div
             role="status"
             aria-live="polite"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border bg-slate-50/80 border-slate-200/90 text-slate-600 shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border bg-slate-50/80 border-slate-200/90 text-slate-600"
           >
             {autosave.state === 'saving' ? (
               <>
@@ -366,12 +364,7 @@ export function PreparePage() {
               Save and exit
             </Button>
           ) : (
-            <ButtonLink
-              to={runtime.detail(envelope.id)}
-              variant="secondary"
-              size="sm"
-              className="shadow-2xs"
-            >
+            <ButtonLink to={runtime.detail(envelope.id)} variant="secondary" size="sm">
               Save and exit
             </ButtonLink>
           )}
@@ -387,9 +380,10 @@ export function PreparePage() {
             </Button>
           ) : (
             <ButtonLink
+              size="sm"
               to={runtime.review(envelope.id)}
               variant="primary"
-              className="text-xs py-2 px-4 shadow-2xs inline-flex items-center gap-1.5"
+              className="inline-flex items-center gap-1.5"
             >
               <span>Continue to review</span>
               <ArrowRightIcon className="h-4 w-4" />
@@ -404,8 +398,9 @@ export function PreparePage() {
           This document was changed in another tab. Reload to see those changes; anything you have
           done here since will be lost.{' '}
           <Button
+            size="sm"
             variant="ghost"
-            className="px-1.5 py-0.5 text-xs font-bold underline"
+            className="underline"
             onClick={() => window.location.reload()}
           >
             Reload
@@ -414,9 +409,9 @@ export function PreparePage() {
       )}
 
       {/* 2. Sidebar and document */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start flex-1 min-h-0">
+      <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[20rem_minmax(0,1fr)]">
         {/* Left Sidebar: 4 cols on lg, 3.5 on xl */}
-        <aside className="lg:col-span-4 xl:col-span-4 flex flex-col space-y-4 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs overflow-hidden">
+        <aside className="surface flex min-w-0 flex-col space-y-5 overflow-hidden p-4">
           <Tabs
             idPrefix={sidebarTabsId}
             label="Prepare panels"
@@ -440,25 +435,22 @@ export function PreparePage() {
             {selectedField && (
               <section
                 aria-labelledby={inspectorId}
-                className="rounded-xl border-2 border-brand-500/40 bg-brand-50/20 p-3.5 space-y-3 shadow-2xs animate-fade-in"
+                className="rounded-xl border-2 border-brand-500/40 bg-brand-50/20 p-3.5 space-y-3 animate-fade-in"
               >
                 <div className="flex items-center justify-between pb-1.5 border-b border-brand-200/50">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-brand-600" />
-                    <h2
-                      id={inspectorId}
-                      className="text-xs font-bold uppercase tracking-wider text-slate-900"
-                    >
+                    <h2 id={inspectorId} className="section-title">
                       Selected: {FIELD_LABEL[selectedField.type]}
                     </h2>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="inline"
                     onClick={() => dispatch({ type: 'clearSelection' })}
-                    className="text-xs font-semibold text-slate-500 hover:text-slate-800"
                   >
                     Deselect
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Reassign Recipient Dropdown */}
@@ -475,7 +467,7 @@ export function PreparePage() {
                     onChange={(e) =>
                       dispatch({ type: 'assignSelection', recipientId: e.target.value })
                     }
-                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow-2xs focus:border-brand-600 focus:outline-none cursor-pointer"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 focus:border-brand-600 focus:outline-none cursor-pointer"
                   >
                     {signers.map((r) => (
                       <option key={r.id} value={r.id}>
@@ -486,7 +478,7 @@ export function PreparePage() {
                 </div>
 
                 {/* Required Switch */}
-                <label className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/90 text-xs font-semibold text-slate-800 cursor-pointer shadow-2xs">
+                <label className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/90 text-xs font-semibold text-slate-800 cursor-pointer">
                   <span>Must be filled in</span>
                   <input
                     type="checkbox"
@@ -505,8 +497,9 @@ export function PreparePage() {
                 {/* Quick Action Buttons */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <Button
+                    size="sm"
                     variant="secondary"
-                    className="text-xs py-1.5 px-2.5 justify-center shadow-2xs"
+                    className="justify-center"
                     onClick={() =>
                       dispatch({
                         type: 'copyToAllPages',
@@ -521,8 +514,9 @@ export function PreparePage() {
                     Copy to all pages
                   </Button>
                   <Button
-                    variant="ghost"
-                    className="text-xs py-1.5 px-2.5 justify-center text-red-700 hover:bg-red-50 hover:text-red-800 border border-red-200/80 shadow-2xs"
+                    size="sm"
+                    variant="dangerOutline"
+                    className="justify-center"
                     onClick={() => dispatch({ type: 'deleteSelection' })}
                   >
                     Delete field
@@ -611,10 +605,7 @@ export function PreparePage() {
             className="pt-3 border-t border-slate-100 space-y-2"
           >
             <div className="flex items-center justify-between">
-              <h2
-                id={checklistId}
-                className="text-xs font-bold uppercase tracking-wider text-slate-700"
-              >
+              <h2 id={checklistId} className="section-title">
                 Before sending
               </h2>
               {readyToSend ? (
@@ -677,7 +668,7 @@ export function PreparePage() {
         {/* Center Stage: PDF Canvas with Overlays */}
         <div
           ref={viewerCardRef}
-          className="scroll-mt-28 lg:col-span-8 xl:col-span-8 relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs h-[80vh] max-h-230 sm:min-h-165"
+          className="surface scroll-mt-24 relative flex min-h-0 min-w-0 flex-col overflow-hidden h-[80vh] max-h-230 sm:min-h-140"
         >
           {/* What the next click does. One line on any screen: centred and
               wrapping, it grew into a block that covered the page on a phone. */}

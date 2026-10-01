@@ -43,10 +43,11 @@ export function LegalHoldBanner({
       </div>
       {onRelease && (
         <Button
+          size="sm"
           variant="secondary"
           onClick={onRelease}
           loading={releasing}
-          className="shrink-0 text-xs py-1.5 px-3.5"
+          className="shrink-0"
         >
           Release hold
         </Button>

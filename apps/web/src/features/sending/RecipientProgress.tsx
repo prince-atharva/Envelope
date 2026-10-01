@@ -112,7 +112,7 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
   return (
     <section
       aria-labelledby={headingId}
-      className="space-y-3 rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs"
+      className="space-y-3 rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id={headingId} className="text-sm font-bold text-slate-900">

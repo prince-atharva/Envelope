@@ -145,7 +145,7 @@ export function FieldPalette({
     <section aria-labelledby={headingId} className="space-y-3.5">
       {/* Whose fields the next placements are */}
       {recipients.length > 0 && onSelectRecipient && (
-        <div className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-3 space-y-1.5 shadow-2xs">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Assign fields to
@@ -163,7 +163,7 @@ export function FieldPalette({
             <div className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-200 text-xs">
               {color && <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${color.swatch}`} />}
               <span className="font-semibold text-slate-800 truncate">{activeRecipient?.name}</span>
-              <span className="text-xs text-slate-400 truncate">({activeRecipient?.email})</span>
+              <span className="text-xs text-slate-600 truncate">({activeRecipient?.email})</span>
             </div>
           ) : (
             <div className="relative">
@@ -171,7 +171,7 @@ export function FieldPalette({
                 aria-label="Assign fields to recipient"
                 value={activeRecipientId ?? ''}
                 onChange={(e) => onSelectRecipient(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-800 shadow-2xs focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 cursor-pointer"
+                className="form-control w-full appearance-none border border-slate-300 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-800 focus:border-brand-600 focus:outline-none focus:ring-1 focus:ring-brand-600 cursor-pointer"
               >
                 {recipients.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -202,7 +202,7 @@ export function FieldPalette({
 
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h2 id={headingId} className="text-xs font-bold uppercase tracking-wider text-slate-700">
+          <h2 id={headingId} className="section-title">
             Fields
           </h2>
           {armed && (
@@ -234,10 +234,10 @@ export function FieldPalette({
                 aria-pressed={isArmed}
                 aria-label={FIELD_LABEL[field.type]}
                 onClick={() => onArm(isArmed ? null : field.type)}
-                className={`group flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`group min-h-11 flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                   isArmed
                     ? 'border-brand-600 bg-brand-50/80 ring-2 ring-brand-600/30 shadow-xs'
-                    : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-2xs'
+                    : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/80 '
                 }`}
               >
                 <div

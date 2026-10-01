@@ -103,16 +103,16 @@ export function NewEnvelopePage() {
   const busy = phase !== 'idle';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Upload a document</h1>
-        <p className="mt-1 text-sm text-slate-600">
+    <div className="page-stack mx-auto max-w-3xl">
+      <div className="page-heading block">
+        <h1 className="page-title">Upload a document</h1>
+        <p className="page-description">
           PDF only, up to {formatBytes(MAX_UPLOAD_BYTES)} and {MAX_PDF_PAGES} pages. Each file is
           checked for hidden scripts and fingerprinted before it is stored.
         </p>
       </div>
 
-      <form className="space-y-5" onSubmit={(event) => void onSubmit(event)} noValidate>
+      <form className="surface space-y-5 p-5" onSubmit={(event) => void onSubmit(event)} noValidate>
         {error && <Alert reference={error.reference}>{error.message}</Alert>}
 
         <label
@@ -123,10 +123,10 @@ export function NewEnvelopePage() {
           }}
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors ${
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-16 has-focus-visible:outline-2 has-focus-visible:outline-offset-4 has-focus-visible:outline-brand-700 text-center transition-colors ${
             dragging
               ? 'border-brand-600 bg-brand-50'
-              : 'border-slate-300 bg-white hover:border-brand-500'
+              : 'border-slate-300 bg-slate-50 hover:border-brand-600 hover:bg-brand-50/30'
           } ${busy ? 'pointer-events-none opacity-60' : ''}`}
         >
           <svg
@@ -145,14 +145,16 @@ export function NewEnvelopePage() {
           </svg>
           {file ? (
             <>
-              <span className="mt-3 font-medium text-slate-900">{file.name}</span>
+              <span className="mt-5 break-all text-lg font-semibold text-slate-900">
+                {file.name}
+              </span>
               <span className="text-sm text-slate-500">
                 {formatBytes(file.size)} · click to choose another
               </span>
             </>
           ) : (
             <>
-              <span className="mt-3 font-medium text-slate-900">
+              <span className="mt-5 break-all text-lg font-semibold text-slate-900">
                 Drop a PDF here, or click to choose
               </span>
               <span className="text-sm text-slate-500">
@@ -196,7 +198,7 @@ export function NewEnvelopePage() {
                 onChange={(event) =>
                   setDocumentCategory(event.target.value as (typeof DOCUMENT_CATEGORIES)[number])
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="form-control w-full border px-3 py-2"
               >
                 {DOCUMENT_CATEGORIES.map((category) => (
                   <option key={category} value={category}>
@@ -233,7 +235,7 @@ export function NewEnvelopePage() {
           </div>
         )}
 
-        <div className="flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 pt-4">
           {runtime.embedded ? (
             <Button variant="secondary" onClick={runtime.close}>
               Cancel
