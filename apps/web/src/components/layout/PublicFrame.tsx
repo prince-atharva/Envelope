@@ -24,9 +24,9 @@ export function PublicFrame({
   backLabel?: string;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-linear-to-b from-brand-50/60 to-slate-50">
-      <main className="flex flex-1 flex-col items-center px-4 py-8 sm:justify-center sm:py-12">
-        <div className="mb-6 flex flex-col items-center gap-2">
+    <div className="flex min-h-dvh flex-col bg-slate-50">
+      <main className="flex flex-1 flex-col items-center px-5 py-10 sm:justify-center sm:py-16">
+        <div className="mb-8 flex flex-col items-center gap-3">
           {backTo ? (
             <Link to={backTo} aria-label={backLabel}>
               <Logo />
@@ -37,14 +37,14 @@ export function PublicFrame({
           {backTo && (
             <Link
               to={backTo}
-              className="text-xs font-medium text-slate-500 hover:text-brand-700 hover:underline"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-slate-600 hover:text-brand-700 hover:underline"
             >
               ← {backLabel}
             </Link>
           )}
         </div>
         <div
-          className={`w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} rounded-2xl border border-slate-200 bg-white p-5 shadow-xs sm:p-8`}
+          className={`w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} surface border-t-4 border-t-brand-700 p-6 sm:p-10`}
         >
           {children}
         </div>

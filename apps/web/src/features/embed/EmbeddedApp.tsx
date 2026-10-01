@@ -6,6 +6,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MemoryRouter, Navigate, Route, Routes } from 'react-router';
+import { AppFooter } from '../../components/layout/AppFooter';
 import { Button } from '../../components/ui/Button';
 import { DialogShell } from '../../components/ui/DialogShell';
 import { NewEnvelopePage } from '../../pages/NewEnvelopePage';
@@ -205,7 +206,7 @@ export default function EmbeddedApp() {
   );
   if (ended) return <p className="p-6">Editor closed. You can continue in your application.</p>;
   return (
-    <div className="min-h-screen bg-slate-50 p-3 sm:p-5">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4">
       <DialogShell
         open={discarding}
         onClose={() => setDiscarding(false)}
@@ -221,9 +222,11 @@ export default function EmbeddedApp() {
       >
         <p>Your unsaved changes will be lost. The last saved draft remains in Envelope.</p>
       </DialogShell>
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <p className="font-semibold">Envelope powered by HealthProHub</p>
-        <Button variant="secondary" onClick={() => void close()}>
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-semibold tracking-tight text-brand-800">
+          Envelope powered by HealthProHub
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => void close()}>
           Close editor
         </Button>
       </header>
@@ -244,7 +247,7 @@ export default function EmbeddedApp() {
             <EditorRuntimeContext.Provider value={runtime}>
               {sentId ? (
                 <div role="status">
-                  <h1 className="text-xl font-semibold">Sent for signing</h1>
+                  <h1 className="page-title">Sent for signing</h1>
                   <p>
                     Recipients will receive signing links by email. your application will receive
                     status updates.
@@ -282,6 +285,7 @@ export default function EmbeddedApp() {
       ) : (
         !failure && <p role="status">Waiting for your application…</p>
       )}
+      <AppFooter className="mt-6 rounded-lg border" />
     </div>
   );
 }

@@ -107,7 +107,7 @@ export function EndScreen({ state, token }: { state: EndState; token?: string })
             <path d={icon.path} />
           </svg>
         </span>
-        <h1 className="text-xl font-semibold text-slate-900">{screen.title}</h1>
+        <h1 className="page-title">{screen.title}</h1>
         <p className="max-w-md text-sm text-slate-600">{screen.body}</p>
         {state.kind === 'expired' && token && <MoreTimeRequest token={token} />}
       </div>

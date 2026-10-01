@@ -37,7 +37,7 @@ export function Sheet({
       ref={dialogRef}
       aria-labelledby={labelledBy}
       onClose={onClose}
-      className={`signing-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-full overflow-y-auto rounded-t-2xl bg-white p-0 shadow-xl backdrop:bg-slate-900/50 sm:m-auto sm:rounded-2xl ${className}`}
+      className={`signing-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-full overflow-y-auto rounded-t-2xl bg-white p-0 shadow-xl backdrop:bg-slate-950/45 sm:m-auto sm:rounded-xl ${className}`}
     >
       {open && children}
     </dialog>
@@ -47,7 +47,7 @@ export function Sheet({
 /** Buttons along the bottom of a sheet, clear of the iPhone home indicator. */
 export function SheetActions({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col-reverse gap-2 border-t border-slate-200 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
+    <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
       {children}
     </div>
   );

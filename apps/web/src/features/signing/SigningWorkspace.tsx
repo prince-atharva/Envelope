@@ -2,6 +2,7 @@ import type { SignatureKind, SigningField, SigningSession } from '@envelope/shar
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { LogoMark } from '../../components/brand/Logo';
+import { AppFooter } from '../../components/layout/AppFooter';
 import { PdfViewer } from '../../components/pdf/PdfViewer';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
@@ -237,13 +238,13 @@ export default function SigningWorkspace({
 
   return (
     <div className="flex h-dvh flex-col bg-slate-100 relative">
-      <header className="flex-none bg-white border-b border-slate-200/90 shadow-2xs z-20 px-3 sm:px-5 py-2.5">
+      <header className="flex-none bg-white border-b border-slate-200/90 z-20 px-4 sm:px-6 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-brand-600" />
             <div className="min-w-0">
               <h1
-                className="truncate text-xs sm:text-sm font-bold text-slate-900 tracking-tight"
+                className="truncate text-sm sm:text-base font-semibold text-slate-900 tracking-tight"
                 title={session.envelopeTitle}
               >
                 {session.envelopeTitle}
@@ -265,13 +266,9 @@ export default function SigningWorkspace({
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSheet({ type: 'decline' })}
-              className="min-h-11 text-sm font-medium text-slate-600 hover:text-red-700 hover:bg-red-50/80 px-3 rounded-lg transition-colors cursor-pointer border border-slate-200 hover:border-red-200 shadow-2xs"
-            >
+            <Button variant="dangerOutline" size="sm" onClick={() => setSheet({ type: 'decline' })}>
               Decline
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -329,18 +326,19 @@ export default function SigningWorkspace({
           </div>
         )}
       </main>
+      <AppFooter className="flex-none" />
 
       {/* Floating action dock: progress and the one next step. */}
       {/* Full width on a phone, where a centred pill squeezed the status to one
           word a line and pushed it under the button; a pill from sm up. */}
-      <div className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 flex flex-col items-stretch sm:inset-x-auto sm:bottom-[max(1.5rem,env(safe-area-inset-bottom))] sm:left-1/2 sm:max-w-[calc(100vw-2rem)] sm:-translate-x-1/2 sm:items-center">
+      <div className="fixed inset-x-3 bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4.25rem))] z-30 flex flex-col items-stretch sm:inset-x-auto sm:bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+4rem))] sm:left-1/2 sm:max-w-[calc(100vw-2rem)] sm:-translate-x-1/2 sm:items-center">
         {submitFailure && (
           <div className="mb-2 max-w-md shadow-lg">
             <Alert reference={submitFailure.reference}>{submitFailure.message}</Alert>
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white/95 py-2 pr-2 pl-4 text-slate-900 shadow-xl ring-1 ring-black/5 backdrop-blur-md sm:rounded-full">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white py-2 pr-2 pl-4 text-slate-900 shadow-xl ring-1 ring-black/5 backdrop-blur-md sm:rounded-xl">
           <p
             aria-live="polite"
             className={`flex min-w-0 items-center gap-1.5 text-xs leading-snug ${
@@ -359,9 +357,10 @@ export default function SigningWorkspace({
           <div className="hidden h-4 w-px shrink-0 bg-slate-200 sm:block" aria-hidden="true" />
 
           {progress.complete ? (
-            <button
-              type="button"
-              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white px-4 text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            <Button
+              variant="success"
+              size="sm"
+              className="shrink-0"
               disabled={!pdf.data || submit.isPending}
               aria-busy={submit.isPending || undefined}
               onClick={() => submit.mutate()}
@@ -378,19 +377,19 @@ export default function SigningWorkspace({
               ) : (
                 <CheckIcon className="h-4 w-4" />
               )}
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
+            <Button
+              size="sm"
+              className="shrink-0"
               disabled={!pdf.data || upcoming === null}
               onClick={() => upcoming && goTo(upcoming)}
-              className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-brand-700 hover:bg-brand-800 active:bg-brand-900 text-white px-4 text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
             >
               <span>
                 {upcoming && currentId !== null ? `Next: ${fieldTypeName(upcoming.type)}` : 'Start'}
               </span>
               <ArrowRightIcon className="h-4 w-4" />
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -201,7 +201,7 @@ function AdoptForm({
                 maxLength={initials ? 6 : 80}
                 autoComplete={initials ? 'off' : 'name'}
                 autoCapitalize="words"
-                className="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-600/30 focus:outline-none"
+                className="mt-1.5 block form-control w-full border bg-white px-3 py-2.5 text-base text-slate-900 shadow-sm focus:border-brand-600 focus:ring-2 focus:ring-brand-600/30 focus:outline-none"
               />
             </div>
             <fieldset className="space-y-2">
@@ -241,14 +241,14 @@ function AdoptForm({
               <p className="text-xs sm:text-sm text-slate-600">
                 Draw your {noun} with your finger, stylus, or mouse.
               </p>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => padRef.current?.clear()}
                 disabled={!hasInk}
-                className="text-xs font-semibold text-slate-500 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer px-2.5 py-1 rounded-md hover:bg-red-50"
               >
                 Clear
-              </button>
+              </Button>
             </div>
             <SignaturePadCanvas
               ref={padRef}

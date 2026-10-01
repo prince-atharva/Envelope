@@ -69,15 +69,13 @@ export function ConsentScreen({
 
   return (
     <SigningFrame>
-      <div className="space-y-5">
-        <div className="space-y-1">
+      <div className="space-y-7">
+        <div className="space-y-3">
           <p className="text-sm text-slate-600">
             Hello {session.recipientName}. {session.senderName} has sent you a document to{' '}
             {session.role === 'APPROVER' ? 'approve' : 'sign'}.
           </p>
-          <h1 className="text-xl font-semibold break-words text-slate-900">
-            {session.envelopeTitle}
-          </h1>
+          <h1 className="page-title">{session.envelopeTitle}</h1>
           <p className="text-sm text-slate-500">
             {pluralize(session.pageCount, 'page')}
             {session.expiresAt ? ` · Link expires ${formatDate(session.expiresAt)}` : null}
@@ -103,7 +101,7 @@ export function ConsentScreen({
         )}
 
         <section aria-labelledby={noticeId} className="space-y-2">
-          <h2 id={noticeId} className="text-sm font-semibold text-slate-900">
+          <h2 id={noticeId} className="section-title">
             Agreement to sign electronically
           </h2>
           <div
@@ -113,7 +111,7 @@ export function ConsentScreen({
             role="document"
             aria-labelledby={noticeId}
             data-testid="consent-notice"
-            className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm whitespace-pre-line text-slate-700"
+            className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-sm leading-relaxed whitespace-pre-line text-slate-700"
           >
             {session.consentText}
           </div>
