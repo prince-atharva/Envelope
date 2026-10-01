@@ -28,24 +28,19 @@ export function BulkBatchPage() {
   const failed = batch.rows.filter((row) => row.status === 'FAILED');
 
   return (
-    <div className="space-y-6 pb-8">
-      <div>
+    <div className="page-stack">
+      <div className="page-heading block">
         <Link to="/bulk-batches" className="text-sm font-medium text-brand-700 underline">
           All batches
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          {batch.templateName}
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="page-title mt-3">{batch.templateName}</h1>
+        <p className="page-description">
           Started {formatDateTime(batch.createdAt)}
           {batch.finishedAt ? `, finished ${formatDateTime(batch.finishedAt)}` : ''}.
         </p>
       </div>
 
-      <section
-        aria-label="Progress"
-        className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6"
-      >
+      <section aria-label="Progress" className="space-y-3 surface p-5 sm:p-7">
         <p role="status" className="text-base font-semibold text-slate-900">
           {batchSummaryLine(batch)}
         </p>
@@ -76,15 +71,15 @@ export function BulkBatchPage() {
         </Alert>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <div className="overflow-x-auto surface">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <caption className="sr-only">Result of each row</caption>
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th scope="col" className="px-4 py-2">
+              <th scope="col" className="px-5 py-3.5">
                 Row
               </th>
-              <th scope="col" className="px-4 py-2">
+              <th scope="col" className="px-5 py-3.5">
                 Result
               </th>
             </tr>
@@ -92,8 +87,8 @@ export function BulkBatchPage() {
           <tbody className="divide-y divide-slate-100">
             {batch.rows.map((row) => (
               <tr key={row.rowIndex}>
-                <td className="px-4 py-2 text-slate-500">{row.rowIndex + 1}</td>
-                <td className="px-4 py-2">
+                <td className="px-5 py-3.5 text-slate-500">{row.rowIndex + 1}</td>
+                <td className="px-5 py-3.5">
                   {row.status === 'PENDING' && <span className="text-slate-500">Waiting</span>}
                   {row.status === 'SUCCEEDED' && row.envelopeId && (
                     <Link

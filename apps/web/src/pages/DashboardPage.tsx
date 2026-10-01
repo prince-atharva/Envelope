@@ -8,7 +8,9 @@ import {
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Alert } from '../components/ui/Alert';
-import { Button, ButtonLink } from '../components/ui/Button';
+import { Button, ButtonLink, IconButton } from '../components/ui/Button';
+import { CloseIcon } from '../components/ui/icons';
+import { PageHeader } from '../components/ui/PageHeader';
 import { DocumentListSkeleton, TopProgressBar } from '../components/ui/Skeletons';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { TabPanel, Tabs } from '../components/ui/Tabs';
@@ -170,40 +172,27 @@ export function DashboardPage() {
   const firstName = user?.fullName.trim().split(/\s+/)[0];
 
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header section with greeting & upload action */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          {/* The greeting sits under the title rather than replacing it. As the
-              <h1> it renamed the page three times a day, so neither a returning
-              sender nor a screen reader could rely on what this screen is. */}
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Documents
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {firstName ? `${getTimeGreeting()}, ${firstName}. ` : ''}
-            Manage, track, and send your documents for signature.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <ButtonLink
-            to="/dashboard/new"
-            className="shadow-sm hover:shadow-md transition-shadow inline-flex items-center gap-2"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
+    <div className="page-stack">
+      {/* The greeting sits in the description, not the title. As the <h1> it renamed the page
+          three times a day, so neither a returning user nor the e2e suite could find it. */}
+      <PageHeader
+        flat
+        title="Documents"
+        description={
+          <>
+            {firstName ? `${getTimeGreeting()}, ${firstName}. ` : ''}Manage, track, and send your
+            documents for signature.
+          </>
+        }
+        actions={
+          <ButtonLink to="/dashboard/new">
+            <span aria-hidden="true" className="text-lg leading-none">
+              +
+            </span>
             Upload document
           </ButtonLink>
-        </div>
-      </div>
+        }
+      />
 
       {/* Tabs */}
       {!nothingAtAll && view && (
@@ -262,23 +251,16 @@ export function DashboardPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, file, or recipient…"
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-8 text-sm placeholder-slate-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="form-control w-full border py-2 pl-9 pr-8 text-sm placeholder-slate-400 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             />
             {searchQuery && (
-              <button
-                type="button"
+              <IconButton
+                label="Clear search"
+                className="absolute inset-y-0 right-0"
                 onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
-                aria-label="Clear search"
               >
-                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
+                <CloseIcon className="h-4 w-4" />
+              </IconButton>
             )}
           </div>
 
@@ -290,7 +272,7 @@ export function DashboardPage() {
               id={sortId}
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="form-control border px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             >
               <option value="recent">Recent activity</option>
               <option value="deadline">Nearest deadline</option>
@@ -309,7 +291,7 @@ export function DashboardPage() {
 
       {/* Starter Guide: 0 Documents in Workspace */}
       {nothingAtAll && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center sm:p-12">
+        <div className="empty-surface sm:p-12">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
             <svg
               className="h-8 w-8"
@@ -371,7 +353,7 @@ export function DashboardPage() {
       {!nothingAtAll && !view && <DocumentListSkeleton rows={5} />}
 
       {!nothingAtAll && view && (
-        <TabPanel idPrefix={tabsId} id={view} className="space-y-6 focus-visible:outline-none">
+        <TabPanel idPrefix={tabsId} id={view} className="space-y-4 focus-visible:outline-none">
           {/* A hairline while a tab refreshes or switches, over the rows already shown. */}
           {documents.isFetching && !documents.isPending && <TopProgressBar />}
 
@@ -379,7 +361,7 @@ export function DashboardPage() {
 
           {/* Tab Empty State */}
           {documents.isSuccess && items.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+            <div className="empty-surface">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                 {view === 'attention' ? (
                   <svg
@@ -416,20 +398,21 @@ export function DashboardPage() {
                 {EMPTY_MESSAGES[view].desc}
               </p>
               {view !== 'all' && (
-                <button
-                  type="button"
+                <Button
+                  variant="link"
+                  size="inline"
+                  className="mt-2"
                   onClick={() => setParams({ view: 'all' }, { replace: true })}
-                  className="mt-4 text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline"
                 >
                   View all documents →
-                </button>
+                </Button>
               )}
             </div>
           )}
 
           {/* Search No Results */}
           {items.length > 0 && filteredItems.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center">
               <p className="text-sm font-medium text-slate-900">No matching documents</p>
               <p className="mt-1 text-xs text-slate-500">
                 {documents.hasNextPage
@@ -437,20 +420,21 @@ export function DashboardPage() {
                   : 'No documents in this view match'}{' '}
                 &ldquo;{searchQuery.trim()}&rdquo;.
               </p>
-              <button
-                type="button"
+              <Button
+                variant="link"
+                size="inline"
+                className="mt-2"
                 onClick={() => setSearchQuery('')}
-                className="mt-3 inline-flex items-center text-xs font-medium text-brand-700 hover:underline"
               >
                 Clear search filter
-              </button>
+              </Button>
             </div>
           )}
 
           {/* Document List */}
           {filteredItems.length > 0 && (
             <ul
-              className={`divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-opacity duration-150 ${
+              className={`surface divide-y divide-slate-200 overflow-hidden transition-opacity duration-150 ${
                 documents.isPlaceholderData ? 'opacity-60 pointer-events-none' : 'opacity-100'
               }`}
               data-testid="envelope-list"
@@ -462,7 +446,7 @@ export function DashboardPage() {
                     <Link
                       to={`/dashboard/envelopes/${item.id}`}
                       state={{ fromView: view }}
-                      className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                      className="flex flex-col gap-3 px-4 py-3.5 xl:flex-row xl:items-center xl:justify-between"
                     >
                       {/* Left: Document Icon & Info */}
                       <div className="flex items-start gap-3.5 min-w-0">
@@ -523,7 +507,7 @@ export function DashboardPage() {
                       </div>
 
                       {/* Right: Date, Status Badge & Arrow */}
-                      <div className="flex shrink-0 items-center justify-between sm:justify-end gap-3 text-xs text-slate-500 border-t border-slate-100 pt-2 sm:border-0 sm:pt-0">
+                      <div className="flex shrink-0 flex-wrap items-center justify-between xl:justify-end gap-3 text-xs text-slate-500 border-t border-slate-100 pt-3 xl:border-0 xl:pt-0">
                         {item.expiresAt && item.progress && item.progress.waitingOn.length > 0 ? (
                           <span className="inline-flex items-center gap-1 font-medium text-slate-600">
                             <svg

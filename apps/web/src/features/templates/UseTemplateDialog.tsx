@@ -167,7 +167,7 @@ export function UseTemplateDialog({
           maxLength={MAX_MESSAGE_LENGTH}
           value={messageValue}
           onChange={(event) => setMessage(event.target.value)}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+          className="form-control w-full border px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
         />
       </div>
       <fieldset className="space-y-2">

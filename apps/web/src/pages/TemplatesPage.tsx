@@ -5,7 +5,9 @@ import { Link, useLocation } from 'react-router';
 import { Alert } from '../components/ui/Alert';
 import { Button, buttonClass } from '../components/ui/Button';
 import { type Confirmation, ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { DocumentListSkeleton } from '../components/ui/Skeletons';
+import { DocumentIcon } from '../components/ui/icons';
+import { PageHeader } from '../components/ui/PageHeader';
+import { TemplateGridSkeleton } from '../components/ui/Skeletons';
 import { EditTemplateDialog } from '../features/templates/EditTemplateDialog';
 import { templateFacts } from '../features/templates/templates-presentation';
 import type { TemplatesPageState } from '../features/templates/templates-state';
@@ -63,7 +65,7 @@ export function TemplatesPage() {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="page-stack">
       <ConfirmDialog pending={pending} onCancel={() => setPending(null)} />
       {using && (
         <UseTemplateDialog
@@ -75,32 +77,28 @@ export function TemplatesPage() {
       )}
       {editing && <EditTemplateDialog template={editing} open onClose={() => setEditing(null)} />}
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Templates
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Documents you send again and again, set up once.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-4">
-          <Link to="/bulk-batches" className="text-sm font-medium text-brand-700 underline">
-            Bulk sends
-          </Link>
-          {isAdmin && (
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(event) => setShowArchived(event.target.checked)}
-                className="h-4 w-4 rounded border-slate-300"
-              />
-              Show archived templates
-            </label>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Templates"
+        description="Documents you send again and again, set up once."
+        actions={
+          <div className="flex shrink-0 flex-wrap items-center gap-4">
+            <Link to="/bulk-batches" className="text-sm font-medium text-brand-700 underline">
+              Bulk sends
+            </Link>
+            {isAdmin && (
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(event) => setShowArchived(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Show archived templates
+              </label>
+            )}
+          </div>
+        }
+      />
 
       {saved && <Alert tone="success">Saved “{saved}” as a template.</Alert>}
       {error && (
@@ -109,9 +107,9 @@ export function TemplatesPage() {
       {archiveMutation.error && <Alert>{describeError(archiveMutation.error).message}</Alert>}
 
       {isLoading ? (
-        <DocumentListSkeleton rows={3} />
+        <TemplateGridSkeleton cards={4} />
       ) : templates.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+        <div className="empty-surface">
           <h2 className="text-base font-semibold text-slate-900">
             {archived ? 'No archived templates' : 'No templates yet'}
           </h2>
@@ -124,15 +122,17 @@ export function TemplatesPage() {
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <ul className="grid gap-5 xl:grid-cols-2">
           {templates.map((template) => (
-            <li
-              key={template.id}
-              className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
-            >
-              <div className="min-w-0 space-y-1">
+            <li key={template.id} className="surface flex min-w-0 flex-col gap-5 p-5 sm:p-6">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-50 text-brand-800">
+                  <DocumentIcon className="h-6 w-6" />
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="font-semibold text-slate-900">{template.name}</h2>
+                  <h2 className="break-words text-lg font-semibold tracking-tight text-slate-900">
+                    {template.name}
+                  </h2>
                   {template.archivedAt && (
                     <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-300">
                       Archived
@@ -147,7 +147,7 @@ export function TemplatesPage() {
                   {formatDate(template.createdAt)}
                 </p>
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-slate-200 pt-4">
                 {!template.archivedAt && (
                   <Button size="sm" onClick={() => setUsing(template)}>
                     Use template

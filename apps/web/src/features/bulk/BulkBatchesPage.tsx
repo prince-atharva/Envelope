@@ -18,15 +18,13 @@ export function BulkBatchesPage() {
   const batches = data?.batches ?? [];
 
   return (
-    <div className="space-y-6 pb-8">
-      <div>
+    <div className="page-stack">
+      <div className="page-heading block">
         <Link to="/templates" className="text-sm font-medium text-brand-700 underline">
           Templates
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          Bulk sends
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">Documents sent to many people at once.</p>
+        <h1 className="page-title mt-3">Bulk sends</h1>
+        <p className="page-description">Documents sent to many people at once.</p>
       </div>
       {error && (
         <Alert reference={describeError(error).reference}>{describeError(error).message}</Alert>
@@ -34,14 +32,14 @@ export function BulkBatchesPage() {
       {isLoading ? (
         <p className="text-sm text-slate-600">Loading…</p>
       ) : batches.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+        <div className="empty-surface">
           <h2 className="text-base font-semibold text-slate-900">No bulk sends yet</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
             Choose “Send to many” on a template to send it to a whole spreadsheet of people.
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+        <ul className="divide-y divide-slate-200 overflow-hidden surface">
           {batches.map((batch) => (
             <li key={batch.id}>
               <Link

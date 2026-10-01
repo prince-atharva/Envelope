@@ -100,21 +100,19 @@ export function BulkSendPage() {
   const failure = mutation.error ? describeError(mutation.error) : null;
 
   return (
-    <div className="space-y-6 pb-8">
-      <div>
+    <div className="page-stack">
+      <div className="page-heading block">
         <Link to="/templates" className="text-sm font-medium text-brand-700 underline">
           Templates
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          Send “{template.data.name}” to many people
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="page-title mt-3">Send “{template.data.name}” to many people</h1>
+        <p className="page-description">
           One document is made for every row of your spreadsheet, up to {MAX_BULK_ROWS} at a time.
         </p>
       </div>
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
-        <h2 className="text-sm font-semibold text-slate-900">1. Get the spreadsheet ready</h2>
+      <section className="space-y-3 surface p-5 sm:p-7">
+        <h2 className="section-title">1. Get the spreadsheet ready</h2>
         <p className="text-sm text-slate-600">
           It needs a name column and an email column for each role:{' '}
           <strong>{roleNames.join(', ')}</strong>. An optional <code>externalId</code> column keeps
@@ -129,8 +127,8 @@ export function BulkSendPage() {
         </Button>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
-        <h2 className="text-sm font-semibold text-slate-900">2. Choose your file</h2>
+      <section className="space-y-3 surface p-5 sm:p-7">
+        <h2 className="section-title">2. Choose your file</h2>
         <label htmlFor={fileId} className="block text-sm font-medium text-slate-800">
           Spreadsheet (CSV)
         </label>
@@ -153,8 +151,8 @@ export function BulkSendPage() {
       </section>
 
       {parsed && parsed.fileProblems.length === 0 && (
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
-          <h2 className="text-sm font-semibold text-slate-900">3. Check, then send</h2>
+        <section className="space-y-4 surface p-5 sm:p-7">
+          <h2 className="section-title">3. Check, then send</h2>
           <p role="status" className="text-sm text-slate-700">
             {rows.length - bad.length} of {rows.length} rows are ready
             {bad.length > 0 ? `; ${bad.length} need fixing` : ''}.
@@ -165,15 +163,15 @@ export function BulkSendPage() {
               <caption className="sr-only">Rows in the spreadsheet</caption>
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th scope="col" className="px-3 py-2">
+                  <th scope="col" className="px-4 py-3">
                     Line
                   </th>
                   {roleNames.map((role) => (
-                    <th key={role} scope="col" className="px-3 py-2">
+                    <th key={role} scope="col" className="px-4 py-3">
                       {role}
                     </th>
                   ))}
-                  <th scope="col" className="px-3 py-2">
+                  <th scope="col" className="px-4 py-3">
                     Check
                   </th>
                 </tr>
@@ -181,16 +179,16 @@ export function BulkSendPage() {
               <tbody className="divide-y divide-slate-100">
                 {rows.slice(0, 200).map((row) => (
                   <tr key={row.line} className={row.row ? '' : 'bg-red-50/60'}>
-                    <td className="px-3 py-2 text-slate-500">{row.line}</td>
+                    <td className="px-4 py-3 text-slate-500">{row.line}</td>
                     {roleNames.map((role) => {
                       const person = row.row?.recipients.find((p) => p.role === role);
                       return (
-                        <td key={role} className="px-3 py-2 text-slate-800">
+                        <td key={role} className="px-4 py-3 text-slate-800">
                           {person ? `${person.name} (${person.email})` : '—'}
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3">
                       {row.row ? (
                         <span className="font-medium text-emerald-700">Ready</span>
                       ) : (
@@ -239,7 +237,7 @@ export function BulkSendPage() {
               rows={3}
               value={messageValue}
               onChange={(event) => setMessage(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="form-control w-full border px-4 py-3 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
             />
           </div>
 
