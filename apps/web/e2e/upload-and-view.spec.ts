@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
+import { signOut } from './helpers';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pdfPath = resolve(__dirname, 'fixtures/test-12-pages.pdf');
@@ -241,7 +242,7 @@ test.describe('Document lifecycle end-to-end', () => {
     ).toBeVisible();
 
     // 18. Sign out
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
   });
 });

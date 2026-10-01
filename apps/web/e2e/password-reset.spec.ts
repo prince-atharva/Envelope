@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { emailFor, signUp, TEST_PASSWORD, uniqueEmail } from './helpers';
+import { emailFor, signOut, signUp, TEST_PASSWORD, uniqueEmail } from './helpers';
 
 const NEW_PASSWORD = 'A Brand New Password 42';
 
@@ -27,7 +27,7 @@ test.describe('Password reset', () => {
     await otherPage.getByRole('button', { name: 'Sign in' }).click();
     await expect(otherPage).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
 
     await page.getByRole('link', { name: 'Forgot your password?' }).click();
@@ -70,7 +70,7 @@ test.describe('Password reset', () => {
     await other.close();
 
     // The link works once.
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await page.goto(resetPath);
     await expect(page.getByRole('heading', { name: 'This link is not valid' })).toBeVisible();
     await page.getByRole('link', { name: 'Send me a new link' }).click();

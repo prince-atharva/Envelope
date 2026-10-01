@@ -1,5 +1,13 @@
 import { expect, type Page, test } from '@playwright/test';
-import { emailFor, signUp, TEST_PASSWORD, uniqueEmail } from './helpers';
+import {
+  emailFor,
+  expectSignedIn,
+  openAccount,
+  signOut,
+  signUp,
+  TEST_PASSWORD,
+  uniqueEmail,
+} from './helpers';
 import { totpNow } from './totp';
 
 /** Reads the key the setup screen shows, without its spaces. */
@@ -10,7 +18,7 @@ async function shownSecret(page: Page): Promise<string> {
 
 /** Turns two-factor on from the Account page, and returns the key and recovery codes. */
 async function enableTwoFactor(page: Page): Promise<{ secret: string; codes: string[] }> {
-  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await openAccount(page);
   await page.getByRole('button', { name: 'Set up two-factor authentication' }).click();
   await expect(page.getByAltText('QR code for your authenticator app')).toBeVisible();
   const secret = await shownSecret(page);
@@ -41,7 +49,7 @@ test.describe('Two-factor authentication', () => {
     const email = await signUp(page, 'twofactor');
     const { secret, codes } = await enableTwoFactor(page);
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
 
     // The password alone no longer signs in: a code is asked for. The code that
@@ -55,21 +63,21 @@ test.describe('Two-factor authentication', () => {
     // left, so the test does not depend on the URL.)
     await page.getByLabel('Authentication code').fill(totpNow(secret, 1));
     await page.getByRole('button', { name: 'Verify' }).click();
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 15_000 });
+    await expectSignedIn(page);
 
     // A recovery code signs in once.
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await signInWithPassword(page, email);
     await page.getByRole('button', { name: 'Use a recovery code instead' }).click();
     await page.getByLabel('Recovery code').fill(codes[0] ?? '');
     await page.getByRole('button', { name: 'Verify' }).click();
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 15_000 });
+    await expectSignedIn(page);
     // Using a recovery code is reported to the account's owner, with how many are left.
     const notice = (await emailFor(email, 'two-factor-notice')).text;
     expect(notice).toContain('A recovery code was used to sign in');
     expect(notice).toContain('You have 9 unused recovery codes left.');
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await signInWithPassword(page, email);
     await page.getByRole('button', { name: 'Use a recovery code instead' }).click();
     await page.getByLabel('Recovery code').fill(codes[0] ?? '');
@@ -77,10 +85,10 @@ test.describe('Two-factor authentication', () => {
     await expect(page.getByText(/That code is not valid/)).toBeVisible();
     await page.getByLabel('Recovery code').fill(codes[1] ?? '');
     await page.getByRole('button', { name: 'Verify' }).click();
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 15_000 });
+    await expectSignedIn(page);
 
     // Turning it off needs the password and a code (a recovery code will do).
-    await page.getByRole('link', { name: 'Account', exact: true }).click();
+    await openAccount(page);
     await expect(page.getByText(/8 unused recovery codes left/)).toBeVisible();
     await page.getByRole('button', { name: 'Turn off two-factor' }).click();
     // (Not getByLabel: the page's "Password" section region has the same name.)
@@ -92,9 +100,9 @@ test.describe('Two-factor authentication', () => {
     ).toBeVisible();
 
     // Back to the password alone.
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await signInWithPassword(page, email);
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 15_000 });
+    await expectSignedIn(page);
   });
 
   test('an owner requires it: an invited member must enrol, and the owner can reset them', async ({

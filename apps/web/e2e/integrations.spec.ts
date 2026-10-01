@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import { expect, test } from '@playwright/test';
 import pg from 'pg';
-import { signUp, TEST_PASSWORD } from './helpers';
+import { signOut, signUp, TEST_PASSWORD } from './helpers';
 import { STACK_ENV } from './stack/stack.mjs';
 
 let receiver: Server | undefined;
@@ -285,17 +285,17 @@ test('each API key has its own embedded-editor origins (docs/18 workstream 7)', 
 test('settings routes follow the Admin and Member role floor', async ({ page }) => {
   const adminEmail = await signUp(page, 'integrations-admin');
   await setRole(adminEmail, 'ADMIN');
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
   await signIn(page, adminEmail);
   await page.goto('/settings/integrations');
   await expect(page.getByRole('heading', { name: 'Integrations' })).toBeVisible();
   await page.goto('/settings/users');
   await expect(page).toHaveURL(/\/dashboard/);
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
 
   const memberEmail = await signUp(page, 'integrations-member');
   await setRole(memberEmail, 'MEMBER');
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
   await signIn(page, memberEmail);
   const menu = page.getByRole('button', { name: 'Open navigation' });
   if (await menu.isVisible()) {

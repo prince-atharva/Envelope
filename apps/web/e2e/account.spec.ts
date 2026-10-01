@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signUp, TEST_PASSWORD } from './helpers';
+import { expectSignedIn, openAccount, signOut, signUp, TEST_PASSWORD } from './helpers';
 
 const NEW_PASSWORD = 'A Changed Password 99';
 
@@ -19,7 +19,7 @@ test.describe('Account', () => {
     await otherPage.getByRole('button', { name: 'Sign in' }).click();
     await expect(otherPage).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
-    await page.getByRole('link', { name: 'Account', exact: true }).click();
+    await openAccount(page);
     await expect(page).toHaveURL(/\/account/);
     await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
 
@@ -45,7 +45,7 @@ test.describe('Account', () => {
     await other.close();
 
     // The old password no longer signs in; the new one does.
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
     await page.getByLabel('Email address').fill(email);
     await page.getByLabel('Password').fill(TEST_PASSWORD);
@@ -55,6 +55,6 @@ test.describe('Account', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     // Signed in: the header offers Sign out. (Where sign-in lands depends on the page that was
     // left, so the test does not depend on the URL.)
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible({ timeout: 15_000 });
+    await expectSignedIn(page);
   });
 });

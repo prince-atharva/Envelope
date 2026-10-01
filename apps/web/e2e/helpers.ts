@@ -454,7 +454,7 @@ export async function setPartnerReference(
 }
 
 /** At widths where the sidebar is a drawer, open it; at desktop width the sidebar is already there. */
-async function openNavigationIfCollapsed(page: Page): Promise<void> {
+export async function openNavigation(page: Page): Promise<void> {
   const menu = page.getByRole('button', { name: 'Open navigation' });
   // Right after sign-in the shell may still be loading, and isVisible() does not wait:
   // without this, a narrow screen skips the drawer and then waits for a hidden link.
@@ -467,12 +467,25 @@ async function openNavigationIfCollapsed(page: Page): Promise<void> {
 
 /** Sign out from the sidebar, opening the navigation drawer first on narrow screens. */
 export async function signOut(page: Page): Promise<void> {
-  await openNavigationIfCollapsed(page);
+  await openNavigation(page);
   await page.getByRole('button', { name: 'Sign out' }).click();
 }
 
 /** Open Account from the sidebar, opening the navigation drawer first on narrow screens. */
 export async function openAccount(page: Page): Promise<void> {
-  await openNavigationIfCollapsed(page);
+  await openNavigation(page);
   await page.getByRole('link', { name: 'Account', exact: true }).click();
+}
+
+/**
+ * Signed in, on any layout: the sidebar's Sign out where the sidebar is showing, or the
+ * menu button that opens it where it is a drawer.
+ */
+export async function expectSignedIn(page: Page): Promise<void> {
+  await expect(
+    page
+      .getByRole('button', { name: 'Open navigation' })
+      .or(page.getByRole('button', { name: 'Sign out' }))
+      .first(),
+  ).toBeVisible({ timeout: 15_000 });
 }

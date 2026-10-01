@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { signOut } from './helpers';
 
 const password = 'TestPassword123!';
 
@@ -46,7 +47,7 @@ test.describe('Authentication flow', () => {
     await expect(page.getByRole('heading', { name: 'Documents', exact: true })).toBeVisible();
 
     // Logout
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await signOut(page);
     await expect(page).toHaveURL(/\/login/);
 
     // Login again

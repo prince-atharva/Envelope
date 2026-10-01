@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   emailFor,
+  openNavigation,
   prepareToSend,
   sendFromReview,
   signingLinkFor,
@@ -128,6 +129,7 @@ test.describe('Templates', () => {
     await member.getByRole('button', { name: 'Accept and sign in' }).click();
     await expect(member).toHaveURL(/\/dashboard/, { timeout: 15_000 });
 
+    await openNavigation(member);
     await member.getByRole('link', { name: 'Templates' }).first().click();
     const card = member.getByRole('listitem').filter({ hasText: 'Shared form' });
     await expect(card.getByRole('button', { name: 'Use template' })).toBeVisible();
