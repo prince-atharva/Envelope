@@ -53,20 +53,13 @@ export function RotateSecretDialog({
       onSubmit={rotate.rawValue ? undefined : () => rotate.mutate(overlapHours)}
       actions={
         rotate.rawValue ? (
-          <Button className="min-h-11" onClick={close}>
-            I have saved the secret
-          </Button>
+          <Button onClick={close}>I have saved the secret</Button>
         ) : (
           <>
-            <Button
-              className="min-h-11"
-              variant="secondary"
-              onClick={close}
-              disabled={rotate.isPending}
-            >
+            <Button variant="secondary" onClick={close} disabled={rotate.isPending}>
               Cancel
             </Button>
-            <Button className="min-h-11" type="submit" loading={rotate.isPending}>
+            <Button type="submit" loading={rotate.isPending}>
               Rotate secret
             </Button>
           </>

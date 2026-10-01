@@ -18,6 +18,7 @@ import { DialogShell } from '../components/ui/DialogShell';
 import { TextField } from '../components/ui/Field';
 import { HashBlock } from '../components/ui/HashBlock';
 import { BoltIcon, CheckIcon, CopyIcon } from '../components/ui/icons';
+import { PageHeader } from '../components/ui/PageHeader';
 import { TabPanel, Tabs } from '../components/ui/Tabs';
 import { ApiKeyEmbedOriginsDialog } from '../features/integrations/ApiKeyEmbedOriginsDialog';
 import { parseOriginsInput } from '../features/integrations/api-key-origins-form';
@@ -98,20 +99,13 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
       }
       actions={
         mutation.rawValue ? (
-          <Button className="min-h-11" onClick={close}>
-            I have saved the key
-          </Button>
+          <Button onClick={close}>I have saved the key</Button>
         ) : (
           <>
-            <Button
-              className="min-h-11"
-              variant="secondary"
-              onClick={close}
-              disabled={mutation.isPending}
-            >
+            <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
               Cancel
             </Button>
-            <Button className="min-h-11" type="submit" loading={mutation.isPending}>
+            <Button type="submit" loading={mutation.isPending}>
               Create key
             </Button>
           </>
@@ -168,7 +162,7 @@ function CreateApiKeyDialog({ open, onClose }: { open: boolean; onClose: () => v
                 <textarea
                   id={originsFieldId}
                   rows={2}
-                  className="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"
+                  className="mt-2 form-control w-full border p-3 text-sm"
                   placeholder="https://healthprohub.example"
                   value={originsText}
                   onChange={(event) => {
@@ -201,7 +195,7 @@ function ApiKeyRow({
   const revoked = Boolean(apiKey.revokedAt);
   const originCount = apiKey.embedOrigins?.length ?? 0;
   return (
-    <li className="px-4 py-5 sm:px-6 sm:py-6">
+    <li className="px-4 py-4 sm:px-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -216,11 +210,11 @@ function ApiKeyRow({
         {!revoked && (
           <div className="flex flex-col gap-2 self-start sm:flex-row">
             {!apiKey.readOnly && (
-              <Button className="min-h-11" variant="secondary" onClick={onEditOrigins}>
+              <Button variant="secondary" onClick={onEditOrigins}>
                 Edit origins
               </Button>
             )}
-            <Button className="min-h-11" variant="secondary" onClick={onRevoke}>
+            <Button variant="secondary" onClick={onRevoke}>
               Revoke
             </Button>
           </div>
@@ -366,21 +360,13 @@ function WebhookDialog({
       onSubmit={create.rawValue ? undefined : submit}
       actions={
         create.rawValue ? (
-          <Button className="min-h-11" onClick={close}>
-            I have saved the secret
-          </Button>
+          <Button onClick={close}>I have saved the secret</Button>
         ) : (
           <>
-            <Button
-              className="min-h-11"
-              variant="secondary"
-              onClick={close}
-              disabled={mutation.isPending}
-            >
+            <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
               Cancel
             </Button>
             <Button
-              className="min-h-11"
               type="submit"
               loading={mutation.isPending}
               disabled={!allEvents && selected.length === 0}
@@ -500,7 +486,7 @@ function WebhookCard({
     ? endpoint.subscribedEvents.map((event) => WEBHOOK_EVENT_LABELS[event]).join(', ')
     : 'All available events';
   return (
-    <li className="px-4 py-5 sm:px-6 sm:py-6">
+    <li className="px-4 py-4 sm:px-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="break-all text-sm font-semibold text-slate-900">
@@ -541,30 +527,28 @@ function WebhookCard({
         </div>
       )}
       <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 sm:justify-end">
-        <Button className="min-h-11" variant="secondary" onClick={onDeliveries}>
+        <Button variant="secondary" onClick={onDeliveries}>
           Deliveries
         </Button>
-        <Button className="min-h-11" variant="secondary" loading={testing} onClick={onTest}>
+        <Button variant="secondary" loading={testing} onClick={onTest}>
           Send test event
         </Button>
-        <Button className="min-h-11" variant="secondary" onClick={onRotate}>
+        <Button variant="secondary" onClick={onRotate}>
           Rotate secret
         </Button>
-        <Button className="min-h-11" variant="secondary" onClick={onEdit}>
+        <Button variant="secondary" onClick={onEdit}>
           Edit
         </Button>
         {endpoint.isActive ? (
-          <Button className="min-h-11" variant="secondary" onClick={onDeactivate}>
+          <Button variant="secondary" onClick={onDeactivate}>
             Deactivate
           </Button>
         ) : (
           <>
-            <Button className="min-h-11" variant="danger" onClick={onDelete}>
+            <Button variant="danger" onClick={onDelete}>
               Delete permanently
             </Button>
-            <Button className="min-h-11" onClick={onReactivate}>
-              Reactivate
-            </Button>
+            <Button onClick={onReactivate}>Reactivate</Button>
           </>
         )}
       </div>
@@ -669,7 +653,7 @@ function DeliveryDialog({
       title="Webhook deliveries"
       className="max-w-3xl"
       actions={
-        <Button className="min-h-11" variant="secondary" onClick={close}>
+        <Button variant="secondary" onClick={close}>
           Close
         </Button>
       }
@@ -776,7 +760,6 @@ function DeliveryDialog({
                   {canRedriveWebhookDelivery(delivery.status, delivery.eventType) &&
                     !redrivenIds.has(delivery.id) && (
                       <Button
-                        className="min-h-11"
                         variant="secondary"
                         loading={retry.isPending && retry.variables === delivery.id}
                         onClick={() => retry.mutate(delivery.id)}
@@ -804,7 +787,6 @@ function DeliveryDialog({
           {deliveries.hasNextPage && (
             <div className="flex justify-center pt-1">
               <Button
-                className="min-h-11"
                 variant="secondary"
                 loading={deliveries.isFetchingNextPage}
                 onClick={() => void deliveries.fetchNextPage()}
@@ -913,8 +895,7 @@ export function SettingsIntegrationsPage() {
   const activeCount = (endpoints.data ?? []).filter((endpoint) => endpoint.isActive).length;
 
   return (
-    <div className="space-y-6 pb-8">
-      <SettingsNav />
+    <div className="page-stack">
       <ConfirmDialog pending={pending} onCancel={() => setPending(null)} />
       <CreateApiKeyDialog open={creatingKey} onClose={() => setCreatingKey(false)} />
       <ApiKeyEmbedOriginsDialog
@@ -929,12 +910,12 @@ export function SettingsIntegrationsPage() {
         endpoint={webhookDialog.endpoint}
         onClose={() => setWebhookDialog({ open: false, endpoint: null })}
       />
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-          Integrations
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">Connect trusted software to this workspace.</p>
-      </div>
+      <PageHeader
+        flat
+        title="Integrations"
+        description="Connect trusted software to this workspace."
+      />
+      <SettingsNav />
       <Tabs
         idPrefix={viewId}
         label="Integration views"
@@ -949,7 +930,7 @@ export function SettingsIntegrationsPage() {
       <TabPanel idPrefix={viewId} id="guide" hidden={view !== 'guide'}>
         {view === 'guide' && <IntegrationGuide onManage={() => setView('manage')} />}
       </TabPanel>
-      <TabPanel idPrefix={viewId} id="manage" hidden={view !== 'manage'} className="space-y-6">
+      <TabPanel idPrefix={viewId} id="manage" hidden={view !== 'manage'} className="space-y-4">
         <Card
           as="section"
           padding="none"
@@ -1066,10 +1047,10 @@ function SectionHeading({
           <h2 id={id} className="text-base font-semibold text-slate-900">
             {title}
           </h2>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
+          <p className="page-description">{description}</p>
         </div>
       </div>
-      <Button className="min-h-11 shrink-0" onClick={onAction}>
+      <Button className="shrink-0" onClick={onAction}>
         <span aria-hidden="true" className="text-lg leading-none">
           +
         </span>
@@ -1093,9 +1074,9 @@ function Loading({ label }: { label: string }) {
 }
 function Empty({ title, body }: { title: string; body: string }) {
   return (
-    <div className="px-6 py-12 text-center">
+    <div className="px-6 py-8 text-center">
       <h3 className="font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1 text-sm text-slate-500">{body}</p>
+      <p className="page-description">{body}</p>
     </div>
   );
 }

@@ -48,7 +48,7 @@ export function RequiredEnrolment({
 
   if (setup) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Set up two-factor</h1>
           <p className="mt-1 text-sm text-slate-600">
@@ -67,7 +67,7 @@ export function RequiredEnrolment({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-slate-900">Two-factor is required</h1>
         <p className="mt-1 text-sm text-slate-600">

@@ -20,7 +20,7 @@ export function RecoveryCodes({
   const { state, copy } = useCopyToClipboard();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div>
         <h3 className="text-base font-semibold text-slate-900">Save your recovery codes</h3>
         <p className="mt-1 text-sm text-slate-600">

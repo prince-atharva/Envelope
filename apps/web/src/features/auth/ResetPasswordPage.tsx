@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
       preview.error instanceof ApiError && preview.error.code === 'PASSWORD_RESET_TOKEN_EXPIRED';
     return (
       <PublicFrame>
-        <h1 className="text-lg font-semibold text-slate-900">
+        <h1 className="section-title">
           {expired ? 'This link has expired' : 'This link is not valid'}
         </h1>
         <p className="mt-2 text-sm text-slate-600">{describeError(preview.error).message}</p>
@@ -78,13 +78,13 @@ export default function ResetPasswordPage() {
 
   return (
     <PublicFrame>
-      <h1 className="text-lg font-semibold text-slate-900">Choose a new password</h1>
+      <h1 className="section-title">Choose a new password</h1>
       <p className="mt-2 text-sm text-slate-600">
         Choose a new password for {details.email}. You will be signed out everywhere and asked to
         sign in again.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
         <TextField
           label="New password"
           type="password"

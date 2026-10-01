@@ -60,7 +60,7 @@ export default function AcceptInvitePage() {
   if (preview.error) {
     return (
       <PublicFrame>
-        <h1 className="text-lg font-semibold text-slate-900">This invitation is not valid</h1>
+        <h1 className="section-title">This invitation is not valid</h1>
         <p className="mt-2 text-sm text-slate-600">{describeError(preview.error).message}</p>
         <p className="mt-4 text-sm text-slate-600">
           Ask whoever invited you to send a new invitation.
@@ -79,13 +79,13 @@ export default function AcceptInvitePage() {
 
   return (
     <PublicFrame>
-      <h1 className="text-lg font-semibold text-slate-900">Join {invitation.workspaceName}</h1>
+      <h1 className="section-title">Join {invitation.workspaceName}</h1>
       <p className="mt-2 text-sm text-slate-600">
         You have been invited to join "{invitation.workspaceName}" as {invitation.roleLabel}. Choose
         a password to finish setting up {invitation.email}.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
         <TextField
           label="Password"
           type="password"

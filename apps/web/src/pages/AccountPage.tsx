@@ -1,3 +1,4 @@
+import { PageHeader } from '../components/ui/PageHeader';
 import { PasswordSection } from '../features/account/PasswordSection';
 import { TwoFactorSection } from '../features/account/TwoFactorSection';
 import { useAuth } from '../lib/auth';
@@ -9,13 +10,11 @@ export function AccountPage() {
   const { user } = useAuth();
 
   return (
-    <div className="space-y-6 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Account</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          How you sign in{user ? ` as ${user.email}` : ''}.
-        </p>
-      </div>
+    <div className="page-stack max-w-4xl">
+      <PageHeader
+        title="Account"
+        description={`How you sign in${user ? ` as ${user.email}` : ''}.`}
+      />
       <PasswordSection />
       <TwoFactorSection />
     </div>

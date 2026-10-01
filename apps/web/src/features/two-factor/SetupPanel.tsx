@@ -59,7 +59,7 @@ export function SetupPanel({
 
   return (
     <div className="space-y-5">
-      <ol className="list-decimal space-y-4 pl-5 text-sm text-slate-700">
+      <ol className="list-decimal space-y-5 pl-5 text-sm text-slate-700">
         <li>
           Scan this code with an authenticator app such as Google Authenticator, 1Password or Authy.
           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -85,7 +85,7 @@ export function SetupPanel({
         <li>Enter the 6-digit code the app shows to turn it on.</li>
       </ol>
 
-      <form onSubmit={onSubmit} className="max-w-xs space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="max-w-xs space-y-5" noValidate>
         {confirm.error && (
           <Alert reference={describeError(confirm.error).reference}>
             {describeError(confirm.error).message}

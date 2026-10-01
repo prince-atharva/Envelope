@@ -75,33 +75,22 @@ export function ApiKeyEmbedOriginsDialog({
         removing ? (
           <>
             <Button
-              className="min-h-11"
               variant="secondary"
               onClick={() => setRemoving(null)}
               disabled={mutation.isPending}
             >
               Go back
             </Button>
-            <Button
-              className="min-h-11"
-              type="submit"
-              variant="danger"
-              loading={mutation.isPending}
-            >
+            <Button type="submit" variant="danger" loading={mutation.isPending}>
               Remove and save
             </Button>
           </>
         ) : (
           <>
-            <Button
-              className="min-h-11"
-              variant="secondary"
-              onClick={close}
-              disabled={mutation.isPending}
-            >
+            <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
               Cancel
             </Button>
-            <Button className="min-h-11" type="submit" loading={mutation.isPending}>
+            <Button type="submit" loading={mutation.isPending}>
               Save origins
             </Button>
           </>

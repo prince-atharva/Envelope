@@ -46,7 +46,7 @@ function ConfirmFactorForm({
   }
 
   return (
-    <form onSubmit={submit} className="max-w-md space-y-4" noValidate>
+    <form onSubmit={submit} className="max-w-md space-y-5" noValidate>
       {(invalid || mutation.error) && (
         <Alert reference={mutation.error ? describeError(mutation.error).reference : undefined}>
           {invalid ?? (mutation.error ? describeError(mutation.error).message : '')}
@@ -105,18 +105,15 @@ export function TwoFactorSection() {
   const data = status.data;
 
   return (
-    <section
-      aria-labelledby="two-factor-heading"
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6"
-    >
-      <h2 id="two-factor-heading" className="text-lg font-semibold text-slate-900">
+    <section aria-labelledby="two-factor-heading" className="surface p-5 sm:p-7">
+      <h2 id="two-factor-heading" className="section-title">
         Two-factor authentication
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="page-description">
         A code from an authenticator app, asked for after your password when you sign in.
       </p>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 space-y-5">
         {status.error && <Alert>{describeError(status.error).message}</Alert>}
         {setup.error && <Alert>{describeError(setup.error).message}</Alert>}
 

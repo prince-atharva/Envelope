@@ -50,7 +50,7 @@ export function CodeStep({
           ? 'Enter one of your recovery codes. Each works once.'
           : 'Enter the 6-digit code from your authenticator app.'}
       </p>
-      <form className="mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)} noValidate>
+      <form className="mt-6 space-y-5" onSubmit={(event) => void onSubmit(event)} noValidate>
         {error && <Alert reference={error.reference}>{error.message}</Alert>}
         <TextField
           label={recovery ? 'Recovery code' : 'Authentication code'}
@@ -67,20 +67,20 @@ export function CodeStep({
         </Button>
       </form>
       <div className="mt-6 flex items-center justify-between text-sm">
-        <button
-          type="button"
+        <Button
+          variant="link"
+          size="inline"
           onClick={() => {
             setRecovery(!recovery);
             setCode('');
             setError(null);
           }}
-          className="font-medium text-brand-700 hover:underline"
         >
           {recovery ? 'Use my authenticator app' : 'Use a recovery code instead'}
-        </button>
-        <button type="button" onClick={onBack} className="text-slate-600 hover:underline">
+        </Button>
+        <Button variant="ghost" size="inline" onClick={onBack}>
           Back to sign in
-        </button>
+        </Button>
       </div>
     </>
   );

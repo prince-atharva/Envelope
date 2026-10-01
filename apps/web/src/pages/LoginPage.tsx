@@ -62,7 +62,7 @@ export function LoginPage() {
     <>
       <h1 className="text-xl font-semibold text-slate-900">Sign in</h1>
       <p className="mt-1 text-sm text-slate-600">Welcome back. Sign in to manage your documents.</p>
-      <form className="mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)} noValidate>
+      <form className="mt-6 space-y-5" onSubmit={(event) => void onSubmit(event)} noValidate>
         {passwordChanged && !error && (
           <Alert tone="success">Password changed. Sign in with your new password.</Alert>
         )}

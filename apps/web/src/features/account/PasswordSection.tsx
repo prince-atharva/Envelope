@@ -54,18 +54,15 @@ export function PasswordSection() {
   }
 
   return (
-    <section
-      aria-labelledby="password-heading"
-      className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6"
-    >
-      <h2 id="password-heading" className="text-lg font-semibold text-slate-900">
+    <section aria-labelledby="password-heading" className="surface p-5 sm:p-7">
+      <h2 id="password-heading" className="section-title">
         Password
       </h2>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="page-description">
         Changing it signs you out everywhere else. You stay signed in here.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-5 max-w-md space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="mt-5 max-w-md space-y-5" noValidate>
         {done && (
           <Alert tone="success">Password changed. Your other devices were signed out.</Alert>
         )}

@@ -58,7 +58,7 @@ export function RegisterPage() {
       <p className="mt-1 text-sm text-slate-600">
         Set up a workspace for your practice or organisation.
       </p>
-      <form className="mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)} noValidate>
+      <form className="mt-6 space-y-5" onSubmit={(event) => void onSubmit(event)} noValidate>
         {error && <Alert reference={error.reference}>{error.message}</Alert>}
         <TextField
           label="Full name"

@@ -5,10 +5,12 @@ import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { SettingsNav } from '../components/layout/SettingsNav';
 import { Alert } from '../components/ui/Alert';
-import { Button } from '../components/ui/Button';
+import { Button, IconButton } from '../components/ui/Button';
 import { type Confirmation, ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { DialogShell } from '../components/ui/DialogShell';
 import { TextField } from '../components/ui/Field';
+import { CloseIcon } from '../components/ui/icons';
+import { PageHeader } from '../components/ui/PageHeader';
 import { UsersPageSkeleton } from '../components/ui/Skeletons';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -83,7 +85,7 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
           id={roleId}
           value={input.role}
           onChange={(event) => setInput({ ...input, role: event.target.value as UserRole })}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+          className="form-control w-full border px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
         >
           {USER_ROLES.map((role) => (
             <option key={role} value={role}>
@@ -192,40 +194,17 @@ export function SettingsUsersPage() {
   const totalUsers = (users ?? []).length;
 
   return (
-    <div className="space-y-6 pb-8">
-      <SettingsNav />
+    <div className="page-stack">
       <ConfirmDialog pending={pending} onCancel={() => setPending(null)} />
       <InviteDialog open={inviting} onClose={() => setInviting(false)} />
 
-      {/* Page Header — same structure as DashboardPage */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Users</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Who can sign in to this workspace, and what they can do.
-          </p>
-        </div>
-        <Button
-          onClick={() => setInviting(true)}
-          className="shadow-sm hover:shadow-md transition-shadow inline-flex items-center gap-2"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-            />
-          </svg>
-          Invite someone
-        </Button>
-      </div>
+      <PageHeader
+        flat
+        title="Users"
+        description="Who can sign in to this workspace, and what they can do."
+        actions={<Button onClick={() => setInviting(true)}>Invite someone</Button>}
+      />
+      <SettingsNav />
 
       {/* Error alerts */}
       {error && (
@@ -236,7 +215,7 @@ export function SettingsUsersPage() {
       )}
 
       {/* Stats strip — same card style as dashboard empty-state steps */}
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-xs">
+      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-xs">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
           <svg
             className="h-5 w-5"
@@ -264,7 +243,7 @@ export function SettingsUsersPage() {
       {/* Workspace rule (docs/19, ADR 0025) */}
       <section
         aria-labelledby="two-factor-policy-heading"
-        className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-xs sm:px-6"
+        className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-xs sm:px-6"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -306,7 +285,7 @@ export function SettingsUsersPage() {
       </section>
 
       {/* User list — same card shape as dashboard document list */}
-      <ul className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <ul className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
         {(users ?? []).map((person) => {
           const isSelf = person.id === me?.id;
           return (
@@ -361,15 +340,15 @@ export function SettingsUsersPage() {
               {/* Right: Role + Remove — same right-side pattern as dashboard row */}
               <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 pt-3 sm:justify-end sm:border-0 sm:pt-0">
                 {person.twoFactorEnabled && !isSelf && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     disabled={resetTwoFactorMutation.isPending}
                     onClick={() => resetTwoFactor(person)}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
                     aria-label={`Reset two-factor for ${person.fullName}`}
                   >
                     Reset two-factor
-                  </button>
+                  </Button>
                 )}
                 <label className="sr-only" htmlFor={`role-${person.id}`}>
                   Role for {person.fullName}
@@ -392,25 +371,15 @@ export function SettingsUsersPage() {
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
+                <IconButton
+                  label={`Remove ${person.fullName}`}
+                  tone="danger"
                   disabled={isSelf || removeMutation.isPending}
                   onClick={() => removeUser(person)}
-                  className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
-                  aria-label={`Remove ${person.fullName}`}
                   title={isSelf ? 'You cannot remove yourself' : `Remove ${person.fullName}`}
                 >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                  <CloseIcon className="h-4 w-4" />
+                </IconButton>
               </div>
             </li>
           );
@@ -419,7 +388,7 @@ export function SettingsUsersPage() {
 
       {/* Empty state — matching dashboard empty tab state */}
       {(users ?? []).length === 0 && !isLoading && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700">
             <svg
               className="h-6 w-6"
@@ -437,16 +406,12 @@ export function SettingsUsersPage() {
             </svg>
           </div>
           <h3 className="mt-3 text-base font-semibold text-slate-900">No users yet</h3>
-          <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">
+          <p className="page-description max-w-sm mx-auto">
             Invite your team to collaborate in this workspace.
           </p>
-          <button
-            type="button"
-            onClick={() => setInviting(true)}
-            className="mt-4 text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline"
-          >
+          <Button variant="link" size="inline" className="mt-2" onClick={() => setInviting(true)}>
             Invite someone →
-          </button>
+          </Button>
         </div>
       )}
     </div>

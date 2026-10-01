@@ -55,7 +55,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
               changes. Everything you need to connect your server is here.
             </p>
           </div>
-          <Button variant="secondary" className="min-h-11 shrink-0 self-start" onClick={onManage}>
+          <Button variant="secondary" className="shrink-0 self-start" onClick={onManage}>
             Manage connections
           </Button>
         </div>
@@ -175,10 +175,8 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                 instead, use /envelopes/:id/file?version=… with data.finalVersionNumber.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <Button className="min-h-11" onClick={() => setSection('webhooks')}>
-                  Set up a webhook receiver
-                </Button>
-                <Button variant="secondary" className="min-h-11" onClick={() => setSection('api')}>
+                <Button onClick={() => setSection('webhooks')}>Set up a webhook receiver</Button>
+                <Button variant="secondary" onClick={() => setSection('api')}>
                   Explore all API operations
                 </Button>
               </div>
@@ -223,7 +221,7 @@ export function IntegrationGuide({ onManage }: { onManage: () => void }) {
                 <p className="text-sm text-slate-600">
                   No matching operations. Try “GET”, “recipient” or “send”.
                 </p>
-                <Button variant="secondary" className="mt-3 min-h-11" onClick={() => setSearch('')}>
+                <Button variant="secondary" className="mt-3" onClick={() => setSearch('')}>
                   Clear search
                 </Button>
               </Card>

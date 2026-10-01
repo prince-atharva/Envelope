@@ -70,7 +70,7 @@ export function ForgotPasswordPage() {
         Enter the email address of your account and we will send you a link to choose a new
         password.
       </p>
-      <form className="mt-6 space-y-4" onSubmit={(event) => void onSubmit(event)} noValidate>
+      <form className="mt-6 space-y-5" onSubmit={(event) => void onSubmit(event)} noValidate>
         {error && <Alert reference={error.reference}>{error.message}</Alert>}
         <TextField
           label="Email address"

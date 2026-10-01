@@ -56,7 +56,7 @@ export function EmbeddedEditorGuide({ onManage }: { onManage: () => void }) {
             </tbody>
           </table>
         </div>
-        <Button className="mt-4 min-h-11" variant="secondary" onClick={onManage}>
+        <Button className="mt-4" variant="secondary" onClick={onManage}>
           Manage API keys and origins
         </Button>
       </Card>
