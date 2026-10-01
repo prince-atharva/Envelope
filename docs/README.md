@@ -90,6 +90,7 @@ Everything, in numbered order. Do not skip `06` — it contains the coordinate m
 | 18 | [phase-7-integration-plan](18-phase-7-integration-plan.md) | What is built and proposed across integration APIs, Settings, the embedded editor/SDK and HealthProHub guide? |
 | 19 | [phase-8-launch-readiness-plan](19-phase-8-launch-readiness-plan.md) | What does Phase 8 deliver (password reset, change password, two-factor sign-in, malware scanning), how is each slice built and checked, and how are existing users kept working? |
 | 20 | [phase-9-templates-bulk-send-plan](20-phase-9-templates-bulk-send-plan.md) | What does Phase 9 deliver (templates, bulk send from CSV or API, provider-neutral mail delivery tracking), how is each step built and checked? |
+| 21 | [phase-10-ui-redesign-plan](21-phase-10-ui-redesign-plan.md) | Approved full web UI redesign: professional workspace, consistent pages and preserved behavior |
 | — | [developers/](developers/README.md) | How do I connect my application to Envelope? *(partner-facing guide, shareable on its own)* |
 | — | [operations/mail-delivery](operations/mail-delivery.md) | How do I send email from my machine and from production, and find out when one did not arrive? |
 | — | [adr/](adr/) | Records of significant decisions and why they were made |

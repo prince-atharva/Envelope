@@ -103,6 +103,8 @@ Do **not** write one for routine choices with an obvious default, naming convent
 | [0029](0029-receive-delivery-events-through-one-neutral-authenticated-endpoint.md) | Receive delivery events through one neutral, authenticated endpoint | Accepted |
 | [0030](0030-report-role-mismatches-per-row-in-bulk-send.md) | Report role mismatches per row in bulk send (supersedes item 1 of 0028) | Accepted |
 
+| [0031](0031-separate-workspace-navigation-from-document-surfaces.md) | Separate workspace navigation from document surfaces | Accepted |
+
 ### Planned
 
 Decisions already made in the design documents that should be captured as ADRs when their phase is built:
