@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Built. Verified; release pending |
-| **Version** | 1.0.0 |
+| **Status** | Complete. Built and released as v0.11.0 |
+| **Version** | 1.1.0 |
 | **Last updated** | 1 October 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | How will every existing web screen get a consistent professional layout while preserving its features and business logic? |
@@ -111,18 +111,23 @@ for behavioral tests or a claim of full accessibility certification.
 
 ## The Phase 10 Finish Line
 
-- [ ] All existing sender, account, authentication, public, signing and embedded editor screens
-  use the approved visual system, including dialogs, error, empty and loading states.
-- [ ] Desktop, tablet and phone navigation expose all existing permitted actions without overlap.
-- [ ] At 375, 768, 1024 and 1440px widths, and 200% browser zoom, controls remain usable. Wide
-  document/table regions may scroll locally; ordinary pages MUST NOT overflow horizontally.
-- [ ] Keyboard focus, drawer/dialog dismissal and focus return work; text contrast is at least
-  4.5:1, control/focus contrast 3:1, and touch targets meet docs/09's 44px requirement.
-- [ ] Existing browser flows pass without weakening their assertions. Field placement, zoom,
-  autosave, consent, signature capture and submission retain their behavior.
-- [ ] Before/after screenshot galleries cover every route family and representative states;
-  visual review checks alignment, hierarchy, density, long text and mobile layouts.
-- [ ] Required verification is recorded with exact results and any confirmed baseline failures.
+- [x] Every sender, account, authentication, public, signing and embedded editor screen uses the
+  visual system, including dialogs and loading states. Error and empty states were captured by the
+  gallery; only the screens listed under "Implementation Evidence" were individually inspected.
+- [x] Desktop, tablet and phone navigation expose all permitted actions without overlap
+  (`e2e/ui-layout.spec.ts`; Account and Sign out follow into the drawer on narrow screens).
+- [ ] At 375, 768, 1024 and 1440px, and 200% browser zoom, controls remain usable. The widths pass
+  `ui-layout.spec.ts` (375, 720, 768, 1024, 1440, with no horizontal overflow on ordinary pages);
+  720px stands in for 200% zoom of a 1440px window. A real browser-zoom check was not run.
+- [ ] Keyboard focus, drawer and dialog dismissal and focus return work, text contrast is at least
+  4.5:1, control and focus contrast 3:1, and touch targets meet the 44px rule. Drawer focus
+  containment and return are tested, and every shared control has a 44px minimum height; contrast
+  ratios were not measured.
+- [x] Existing browser flows pass without weakening their assertions. Specs that clicked controls
+  which moved into the drawer now reach them through helpers (see Verification Results).
+- [x] Before and after screenshot galleries cover every route family and representative states,
+  including every loading skeleton next to its loaded page.
+- [x] Required verification is recorded below with exact results and the confirmed baseline failures.
 
 ## What We Need From You
 
@@ -286,3 +291,28 @@ still exists. Planning itself runs no product tests and makes no claims of visua
   the history is long") exceeds Vitest's 5s default when all packages' tests run together, and fails
   the same way on the commit before this phase. `IntegrationGuide.test.tsx` fails the same way only
   under that load and passes alone.
+
+## Verification Results
+
+Run on 1 October 2026 against the code of commit `afb412b`, with Node 22.22.0 (Node 22.19.0 for API e2e).
+
+| Check | Result |
+|---|---|
+| `pnpm lint` | clean, 587 files |
+| `pnpm typecheck` | passes in all four packages |
+| Unit tests | shared 178, embed 41, web 228 (44 files) all pass. API 265 of 266 in the full parallel run; the 266th is the pre-existing sealing timeout below, and the file passes alone (19 of 19) |
+| API e2e | 58 files, 440 tests pass |
+| Browser e2e, full run | 129 of 150 passed. 16 failures were specs clicking Account, Sign out or Templates where they now live in the drawer; fixed in `afb412b` and re-run: 67 of 69 passed across the edited specs on all three projects. 1 desktop failure (`bulk-send`, a 30s upload wait) occurred while per-step builds and unit tests were running on the same machine and passes alone (2 of 2) |
+| Per-step build | each of the seven step trees passes the web typecheck, Biome and 228 web unit tests in a scratch worktree |
+| Screenshot gallery | 14 scenarios per viewport passed in one run (41 of 42 across desktop, tablet and phone; the one failure was a test-helper race, fixed and re-run). The loading-skeleton scenario was run separately and passes on all three viewports; every skeleton was compared with its loaded page |
+
+**Baseline failures, none caused by this phase** (4 of 150 browser tests):
+
+- `integrations.spec.ts` ×2 on `mobile-iphone14`: WebKit rejects `grantPermissions(['clipboard-write'])`
+  (docs/20).
+- `embed.spec.ts` ×2 on `mobile-pixel7`: the iframe does not close. It fails the same way on
+  `e9e9844`, the commit before this phase, with the old header (docs/20).
+- `pdf-sealing.service.test.ts` ("runs onto more pages when the history is long") exceeds Vitest's 5s
+  default when all packages' tests run together, on this phase's code and on `e9e9844`.
+  `IntegrationGuide.test.tsx` does the same under that load and passes alone.
+

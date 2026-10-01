@@ -219,7 +219,7 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 > webhook foundation shipped in `v0.7.0`, Settings management and responsive polish are built, and
 > the in-page integration guide is built. A further Phase 7 embedded sender editor, thin SDK and
 > HealthProHub guide workstream is implemented in docs/18 (ADR 0016); verification is recorded in docs/18.
-> The consolidated Phase 7 release shipped as `v0.8.0`. Phase 8 (launch readiness: password reset, change password, two-factor sign-in and upload malware scanning) shipped as `v0.9.0`; see [docs/19](19-phase-8-launch-readiness-plan.md). Phase 9 (templates, bulk send from a spreadsheet or the API, and provider-neutral bounce tracking) shipped as `v0.10.0`; see [docs/20](20-phase-9-templates-bulk-send-plan.md). Production packaging, monitoring and a backup runbook remain for a later phase, and a live check of bounce tracking against a real mail provider is still to do.
+> The consolidated Phase 7 release shipped as `v0.8.0`. Phase 8 (launch readiness: password reset, change password, two-factor sign-in and upload malware scanning) shipped as `v0.9.0`; see [docs/19](19-phase-8-launch-readiness-plan.md). Phase 9 (templates, bulk send from a spreadsheet or the API, and provider-neutral bounce tracking) shipped as `v0.10.0`; see [docs/20](20-phase-9-templates-bulk-send-plan.md). Phase 10 (a UI redesign of every existing web screen, with no new features) shipped as `v0.11.0`; see [docs/21](21-phase-10-ui-redesign-plan.md). Production packaging, monitoring and a backup runbook remain for a later phase, and a live check of bounce tracking against a real mail provider is still to do.
 
 - [x] Parallel routing alongside sequential
 - [x] Reminder scheduler and expiry sweeper

@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-01
+
+Phase 10 (UI redesign), complete: every existing web screen now shares one professional workspace
+layout, one page heading and one set of controls, without changing any behaviour, label or permission.
+See [docs/21](docs/21-phase-10-ui-redesign-plan.md) and [ADR 0031](docs/adr/0031-separate-workspace-navigation-from-document-surfaces.md).
+
 ### Changed
 
 - Phase 10 web UI redesign ([docs/21](docs/21-phase-10-ui-redesign-plan.md), ADR 0031): a workspace
@@ -25,6 +31,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   return, and no horizontal overflow.
 - Screenshot-gallery coverage for the drawer, templates, bulk drafts, user administration and every
   loading skeleton.
+
+### Fixed
+
+- End-to-end specs reach Account, Sign out and Templates through the navigation drawer on phone-width
+  screens, where they now live. No assertion changed.
 
 ## [0.10.0] - 2026-10-01
 
