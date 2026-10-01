@@ -3,10 +3,10 @@ import { NavLink } from 'react-router';
 import { useAuth } from '../../lib/auth';
 
 function tabClass({ isActive }: { isActive: boolean }): string {
-  return `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+  return `inline-flex min-h-11 shrink-0 items-center border-b-2 px-2 text-sm font-medium transition-colors -mb-px ${
     isActive
-      ? 'bg-brand-50 text-brand-800'
-      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+      ? 'border-brand-700 text-brand-800'
+      : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-800'
   }`;
 }
 
@@ -14,7 +14,10 @@ function tabClass({ isActive }: { isActive: boolean }): string {
 export function SettingsNav() {
   const { user } = useAuth();
   return (
-    <nav aria-label="Settings" className="flex gap-1 border-b border-slate-200 pb-3">
+    <nav
+      aria-label="Settings"
+      className="flex gap-4 overflow-x-auto border-b border-slate-200 scrollbar-none"
+    >
       <NavLink to="/settings/integrations" className={tabClass}>
         Integrations
       </NavLink>

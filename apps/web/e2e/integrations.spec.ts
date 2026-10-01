@@ -297,6 +297,16 @@ test('settings routes follow the Admin and Member role floor', async ({ page }) 
   await setRole(memberEmail, 'MEMBER');
   await page.getByRole('button', { name: 'Sign out' }).click();
   await signIn(page, memberEmail);
+  const menu = page.getByRole('button', { name: 'Open navigation' });
+  if (await menu.isVisible()) {
+    await menu.click();
+    await expect(
+      page
+        .getByRole('dialog', { name: 'Workspace navigation' })
+        .getByRole('link', { name: 'Settings', exact: true }),
+    ).toHaveCount(0);
+    await page.getByRole('button', { name: 'Close navigation' }).click();
+  }
   await expect(page.getByRole('link', { name: 'Settings' })).toHaveCount(0);
   await page.goto('/settings/integrations');
   await expect(page).toHaveURL(/\/dashboard/);

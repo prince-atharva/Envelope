@@ -452,3 +452,27 @@ export async function setPartnerReference(
     await client.end();
   }
 }
+
+/** At widths where the sidebar is a drawer, open it; at desktop width the sidebar is already there. */
+async function openNavigationIfCollapsed(page: Page): Promise<void> {
+  const menu = page.getByRole('button', { name: 'Open navigation' });
+  // Right after sign-in the shell may still be loading, and isVisible() does not wait:
+  // without this, a narrow screen skips the drawer and then waits for a hidden link.
+  await menu
+    .or(page.getByRole('link', { name: 'Account', exact: true }))
+    .first()
+    .waitFor();
+  if (await menu.isVisible()) await menu.click();
+}
+
+/** Sign out from the sidebar, opening the navigation drawer first on narrow screens. */
+export async function signOut(page: Page): Promise<void> {
+  await openNavigationIfCollapsed(page);
+  await page.getByRole('button', { name: 'Sign out' }).click();
+}
+
+/** Open Account from the sidebar, opening the navigation drawer first on narrow screens. */
+export async function openAccount(page: Page): Promise<void> {
+  await openNavigationIfCollapsed(page);
+  await page.getByRole('link', { name: 'Account', exact: true }).click();
+}

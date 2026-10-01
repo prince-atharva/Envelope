@@ -1,34 +1,57 @@
 import { BRAND, hasAtLeast } from '@envelope/shared';
-import { useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../lib/auth';
 import { Logo } from '../brand/Logo';
+import { IconButton } from '../ui/Button';
+import { CloseIcon, MenuIcon, SearchIcon } from '../ui/icons';
 import { AppFooter } from './AppFooter';
 import { GlobalSearchModal } from './GlobalSearchModal';
-import { UserBar } from './UserBar';
-
-function navClass({ isActive }: { isActive: boolean }): string {
-  return `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-    isActive
-      ? 'bg-brand-50 text-brand-800 font-semibold'
-      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-  }`;
-}
-
-/** Returns to the top when the link clicked is the screen already open. */
-function scrollToTop() {
-  window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-}
+import { navItemClass } from './navStyles';
+import { SidebarAccount } from './SidebarAccount';
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.userAgent);
 const SEARCH_SHORTCUT = IS_MAC ? '⌘K' : 'Ctrl K';
 
-/** Signed-in layout: header with navigation, quick search and the account; footer. */
+const LINKS = [
+  { to: '/dashboard', label: 'Documents', path: 'M9 12h6m-6 4h6M7 3h7l5 5v13H5V3h2z' },
+  {
+    to: '/templates',
+    label: 'Templates',
+    path: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  },
+  { to: '/bulk-batches', label: 'Bulk batches', path: 'M7 7h14v14H7zM3 17V3h14M10 12h8m-8 4h5' },
+  {
+    to: '/verify',
+    label: 'Verify',
+    path: 'M12 3l8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3zM8 12l3 3 5-6',
+  },
+];
+
+function NavIcon({ path }: { path: string }) {
+  return (
+    <svg
+      className="h-5 w-5 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      aria-hidden="true"
+    >
+      <path d={path} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const drawerRef = useRef<HTMLDialogElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
 
   async function signOut() {
     setSigningOut(true);
@@ -39,16 +62,11 @@ export function AppShell() {
     }
   }
 
-  // Verify is its own chunk; start fetching it as soon as the pointer heads there.
-  const prefetchVerify = () => {
-    void import('../../features/verify/VerifyPage');
-  };
-
-  // ⌘K / Ctrl+K opens and closes quick search from anywhere in the app.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        setMenuOpen(false);
         setSearchOpen((prev) => !prev);
       }
     }
@@ -56,167 +74,169 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+    if (menuOpen && !drawer.open) drawer.showModal();
+    else if (!menuOpen && drawer.open) drawer.close();
+  }, [menuOpen]);
+
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 1024px)');
+    const closeAtDesktop = () => {
+      if (wide.matches) setMenuOpen(false);
+    };
+    wide.addEventListener('change', closeAtDesktop);
+    return () => wide.removeEventListener('change', closeAtDesktop);
+  }, []);
+
+  function prefetchVerify() {
+    void import('../../features/verify/VerifyPage');
+  }
+
+  function closeNavigation() {
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }
+
+  const onSettings = location.pathname.startsWith('/settings');
+
+  const navigation = (label: string) => (
+    <nav aria-label={label} className="shrink-0 space-y-1">
+      {LINKS.map((link) => (
+        <NavLink
+          key={link.to}
+          to={link.to}
+          className={({ isActive }) => navItemClass(isActive)}
+          onClick={closeNavigation}
+          onMouseEnter={link.to === '/verify' ? prefetchVerify : undefined}
+          onFocus={link.to === '/verify' ? prefetchVerify : undefined}
+        >
+          <NavIcon path={link.path} />
+          <span>{link.label}</span>
+        </NavLink>
+      ))}
+      {user && hasAtLeast(user.role, 'ADMIN') && (
+        <div className="mt-3 border-t border-slate-200 pt-3">
+          <Link
+            to="/settings/integrations"
+            aria-current={onSettings ? 'page' : undefined}
+            className={navItemClass(onSettings)}
+            onClick={closeNavigation}
+          >
+            <NavIcon path="M12 8a4 4 0 100 8 4 4 0 000-8zM9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1 1-3z" />
+            <span>Settings</span>
+          </Link>
+        </div>
+      )}
+    </nav>
+  );
+
+  const account = (
+    <SidebarAccount
+      user={user}
+      signingOut={signingOut}
+      onSignOut={signOut}
+      onNavigate={closeNavigation}
+      isAccountActive={location.pathname === '/account'}
+    />
+  );
+
+  function trapFocus(event: React.KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== 'Tab') return;
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'),
+    );
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (!first || !last) return;
+    const active = document.activeElement;
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-50/50">
+    <div className="min-h-dvh bg-slate-50">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-brand-800 focus:p-3 focus:text-white"
+      >
+        Skip to content
+      </a>
       <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-md shadow-2xs">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-          {/* Nothing here may wrap: at tablet width the logo, the search label and
-              the name used to break onto two lines and push Sign out off screen. */}
-          <div className="flex min-w-0 items-center gap-4 lg:gap-6">
-            <Link to="/dashboard" onClick={scrollToTop} aria-label={`${BRAND.fullName}: documents`}>
-              <Logo />
-            </Link>
-
-            <nav
-              aria-label="Main"
-              className="hidden shrink-0 items-center gap-1 whitespace-nowrap sm:flex"
-            >
-              <NavLink to="/dashboard" end className={navClass} onClick={scrollToTop}>
-                <svg
-                  className="h-4 w-4 shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <span>Documents</span>
-              </NavLink>
-
-              <NavLink to="/templates" className={navClass} onClick={scrollToTop}>
-                <svg
-                  className="h-4 w-4 shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
-                  />
-                </svg>
-                <span>Templates</span>
-              </NavLink>
-
-              <NavLink
-                to="/verify"
-                className={navClass}
-                onMouseEnter={prefetchVerify}
-                onFocus={prefetchVerify}
-              >
-                <svg
-                  className="h-4 w-4 shrink-0"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
-                </svg>
-                <span>Verify</span>
-              </NavLink>
-
-              {user && hasAtLeast(user.role, 'ADMIN') && (
-                <NavLink to="/settings/integrations" className={navClass} onClick={scrollToTop}>
-                  <svg
-                    className="h-4 w-4 shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  <span>Settings</span>
-                </NavLink>
-              )}
-            </nav>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col overflow-y-auto border-r border-slate-200 bg-white lg:flex">
+        <Link
+          to="/dashboard"
+          onClick={closeNavigation}
+          className="flex h-16 shrink-0 items-center border-b border-slate-200 px-5"
+          aria-label={`${BRAND.fullName}: documents`}
+        >
+          <Logo />
+        </Link>
+        <div className="px-3 pt-4">{navigation('Main')}</div>
+        {account}
+      </aside>
+      <dialog
+        ref={drawerRef}
+        aria-label="Workspace navigation"
+        onKeyDown={trapFocus}
+        onClose={() => {
+          setMenuOpen(false);
+          menuRef.current?.focus();
+        }}
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-dvh w-72 max-w-[calc(100vw-3rem)] border-r border-slate-200 bg-white p-0 shadow-xl backdrop:bg-slate-950/45"
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-200 pl-5 pr-3">
+            <Logo />
+            <IconButton label="Close navigation" onClick={() => setMenuOpen(false)}>
+              <CloseIcon className="h-5 w-5" />
+            </IconButton>
           </div>
-
-          <div className="flex shrink-0 items-center gap-2.5 whitespace-nowrap sm:gap-3">
+          <div className="overflow-y-auto px-3 pt-4">{navigation('Main, compact')}</div>
+          {account}
+        </div>
+      </dialog>
+      <div className="flex min-h-dvh min-w-0 flex-col lg:pl-60">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+          <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-2 px-4 sm:px-6 lg:px-8">
+            <IconButton
+              ref={menuRef}
+              label="Open navigation"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(true)}
+              className="border border-slate-200 lg:hidden"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </IconButton>
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-slate-200/90 bg-slate-50/70 px-2.5 py-1.5 text-xs text-slate-500 hover:border-slate-300 hover:bg-slate-100 transition-colors"
+              className="ml-auto flex min-h-11 min-w-11 items-center justify-center gap-3 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50 sm:w-full sm:max-w-sm sm:justify-start lg:ml-0"
               aria-label={`Open quick search (${SEARCH_SHORTCUT})`}
             >
-              <svg
-                className="h-3.5 w-3.5 text-slate-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <span className="hidden lg:inline">Quick search…</span>
-              <kbd className="hidden lg:inline-flex items-center rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-400">
+              <SearchIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Quick search…</span>
+              <kbd className="ml-auto hidden rounded border border-slate-200 px-1.5 text-xs sm:inline">
                 {SEARCH_SHORTCUT}
               </kbd>
             </button>
-
-            <UserBar user={user} onSignOut={signOut} signingOut={signingOut} />
           </div>
-        </div>
-
-        {/* Phones: the same links on a strip of their own. */}
-        <nav
-          aria-label="Main, compact"
-          className="flex gap-1 border-t border-slate-100 px-4 py-2 sm:hidden"
+        </header>
+        <main
+          id="main-content"
+          className="mx-auto flex w-full min-w-0 max-w-[1440px] flex-1 flex-col px-4 py-5 sm:px-6 lg:px-8"
+          tabIndex={-1}
         >
-          <NavLink to="/dashboard" end className={navClass} onClick={scrollToTop}>
-            Documents
-          </NavLink>
-          <NavLink to="/templates" className={navClass} onClick={scrollToTop}>
-            Templates
-          </NavLink>
-          <NavLink
-            to="/verify"
-            className={navClass}
-            onMouseEnter={prefetchVerify}
-            onFocus={prefetchVerify}
-          >
-            Verify
-          </NavLink>
-          {user && hasAtLeast(user.role, 'ADMIN') && (
-            <NavLink to="/settings/integrations" className={navClass} onClick={scrollToTop}>
-              Settings
-            </NavLink>
-          )}
-        </nav>
-      </header>
-
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-4 sm:px-6 sm:py-6 flex flex-col min-h-0">
-        <Outlet />
-      </main>
-
-      <AppFooter />
+          <Outlet />
+        </main>
+        <AppFooter />
+      </div>
     </div>
   );
 }
