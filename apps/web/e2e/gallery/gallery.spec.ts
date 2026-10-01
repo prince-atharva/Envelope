@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, type Route, test } from '@playwright/test';
 import pg from 'pg';
 import { createEmbedHost } from '../embed-host';
 import {
@@ -7,6 +7,7 @@ import {
   allSigningTokens,
   DEMO_AGREEMENT_PDF,
   emailFor,
+  openAccount,
   openAsSigner,
   passDeadline,
   placeField,
@@ -14,6 +15,7 @@ import {
   sendFromReview,
   signingLinkFor,
   signOnlyBoxes,
+  signOut,
   signUpAs,
   TEST_PASSWORD,
   uniqueEmail,
@@ -97,7 +99,7 @@ test('public and auth screens', async ({ page }) => {
 
 test('password reset screens', async ({ page }) => {
   const email = await signUpAs(page, 'gallery-reset', SENDER);
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
   await expect(page).toHaveURL(/\/login/);
 
   await page.getByRole('link', { name: 'Forgot your password?' }).click();
@@ -136,7 +138,7 @@ test('password reset screens', async ({ page }) => {
 
 test('account screen', async ({ page }) => {
   await signUpAs(page, 'gallery-account', SENDER);
-  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await openAccount(page);
   await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
   await shot(page, 'account', {
     area: 'account',
@@ -156,7 +158,7 @@ test('account screen', async ({ page }) => {
 
 test('two-factor screens', async ({ page }) => {
   const email = await signUpAs(page, 'gallery-2fa', SENDER);
-  await page.getByRole('link', { name: 'Account', exact: true }).click();
+  await openAccount(page);
   await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
   await shot(page, 'account-two-factor-off', {
     area: 'account',
@@ -197,7 +199,7 @@ test('two-factor screens', async ({ page }) => {
     mask: [page.getByText(/^How you sign in as /)],
   });
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await signOut(page);
   await page.getByLabel('Email address').fill(email);
   await page.getByLabel('Password').fill(TEST_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
@@ -826,4 +828,167 @@ test('HealthProHub integration guide', async ({ page }) => {
     caption: 'Both editor entry modes, secure sessions, SDK and direct iframe examples.',
     fullPage: true,
   });
+});
+
+test('workspace navigation, templates, bulk drafts and user administration', async ({ page }) => {
+  await signUpAs(page, 'gallery-phase10', SENDER);
+  const menu = page.getByRole('button', { name: 'Open navigation' });
+  if (await menu.isVisible()) {
+    await menu.click();
+    await shot(page, 'navigation-drawer', {
+      area: 'workspace',
+      caption: 'Mobile workspace navigation with clear active location.',
+    });
+    await page.getByRole('button', { name: 'Close navigation' }).click();
+  }
+  await page.goto('/templates');
+  await expect(page.getByText('No templates yet')).toBeVisible();
+  await shot(page, 'templates-empty', {
+    area: 'templates',
+    caption: 'The empty template library.',
+  });
+  await uploadDocument(page, DEMO_AGREEMENT_PDF);
+  const envelopeId = /envelopes\/([0-9a-f-]+)/.exec(page.url())?.[1];
+  if (!envelopeId) throw new Error('Missing gallery envelope id');
+  await page.goto(`/dashboard/envelopes/${envelopeId}/prepare`);
+  await addRecipient(page, PRIYA, uniqueEmail('gallery-template'));
+  await selectRecipient(page, PRIYA);
+  await placeField(page, 'Signature', 1, { xRatio: 0.25, yRatio: 0.4 });
+  await waitForFieldsSaved(page, 1);
+  await page.goto(`/dashboard/envelopes/${envelopeId}`);
+  await page.getByRole('button', { name: 'Save as template' }).click();
+  const save = page.getByRole('dialog', { name: 'Save as template' });
+  await save.getByLabel('Template name').fill('Patient intake and consent');
+  await save.getByLabel(`Role for ${PRIYA}`).fill('Patient');
+  await shot(page, 'save-template', {
+    area: 'templates',
+    caption: 'Save a prepared document as a template.',
+  });
+  await save.getByRole('button', { name: 'Save template' }).click();
+  await expect(page).toHaveURL(/\/templates$/);
+  await shot(page, 'templates-library', {
+    area: 'templates',
+    caption: 'Template cards with grouped existing actions.',
+  });
+  await page.getByRole('button', { name: 'Use template' }).click();
+  await shot(page, 'use-template', {
+    area: 'templates',
+    caption: 'Create a document from a reusable template.',
+  });
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('link', { name: 'Send to many' }).click();
+  await page.getByLabel('Spreadsheet (CSV)').setInputFiles({
+    name: 'patients.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`Patient name,Patient email\nJordan Lee,${uniqueEmail('gallery-bulk')}\n`),
+  });
+  await expect(page.getByRole('button', { name: 'Make 1 drafts' })).toBeEnabled();
+  await shot(page, 'bulk-preview', {
+    area: 'bulk',
+    caption: 'CSV preview and the existing draft/send choices.',
+    fullPage: true,
+  });
+  await page.getByRole('button', { name: 'Make 1 drafts' }).click();
+  await expect(page.getByRole('link', { name: 'Draft made: open the document' })).toBeVisible({
+    timeout: 30_000,
+  });
+  await shot(page, 'bulk-results', {
+    area: 'bulk',
+    caption: 'Completed batch with a link to its draft.',
+  });
+  await page.goto('/bulk-batches');
+  await expect(page.getByRole('link', { name: /Patient intake and consent/ })).toBeVisible();
+  await shot(page, 'bulk-list', { area: 'bulk', caption: 'Recent batch activity.' });
+  await page.goto('/settings/users');
+  await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
+  await shot(page, 'users', {
+    area: 'settings',
+    caption: 'Workspace users and security policy.',
+    fullPage: true,
+  });
+  await page.getByRole('button', { name: 'Invite someone' }).click();
+  await shot(page, 'invite-user', {
+    area: 'settings',
+    caption: 'Invitation form using shared dialog styling.',
+  });
+});
+
+/**
+ * Holds the API's answers back so a page stays on its loading skeleton, then
+ * photographs it. Set beside the loaded shots of the same pages, these show
+ * whether each skeleton still has the layout of the screen it stands in for.
+ * `auth` holds the session restore instead, which is what the app-shell
+ * skeleton covers.
+ */
+async function loadingShot(
+  page: Page,
+  path: string,
+  name: string,
+  caption: string,
+  hold: 'data' | 'auth' = 'data',
+): Promise<void> {
+  // Only the requests being held are routed. Anything else going through
+  // route.continue() would lose the HttpOnly refresh cookie in WebKit and sign
+  // the next page out.
+  const matches = (url: URL) =>
+    url.pathname.startsWith('/api/v1/') && url.pathname.includes('/auth/') === (hold === 'auth');
+  const inflight: Promise<unknown>[] = [];
+  const handler = async (route: Route) => {
+    if (hold === 'data' && route.request().method() !== 'GET') return route.continue();
+    const work = (async () => {
+      // fetch() uses the browser context's cookie jar, which a held refresh needs.
+      const response = await route.fetch().catch(() => null);
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      if (response) await route.fulfill({ response }).catch(() => {});
+      else await route.abort().catch(() => {});
+    })();
+    inflight.push(work);
+    await work;
+  };
+  await page.route(matches, handler);
+  await page.goto(path, { waitUntil: 'commit' });
+  await page.waitForTimeout(1_200);
+  await shot(page, name, { area: 'loading', caption });
+  // Let every held request finish before the next navigation. Leaving one in flight
+  // lets the server rotate the session cookie while the browser drops the reply,
+  // which signs the next page out.
+  await Promise.all(inflight);
+  await page.waitForLoadState('networkidle');
+  await page.unroute(matches, handler);
+}
+
+test('loading skeletons match the screens they stand in for', async ({ page }) => {
+  await signUpAs(page, 'gallery-loading', SENDER);
+  await uploadDocument(page, DEMO_AGREEMENT_PDF);
+  const envelopeId = /envelopes\/([0-9a-f-]+)/.exec(page.url())?.[1];
+  if (!envelopeId) throw new Error('Missing gallery envelope id');
+
+  await loadingShot(page, '/dashboard', 'dashboard', 'Documents while the list loads.');
+  await loadingShot(
+    page,
+    `/dashboard/envelopes/${envelopeId}`,
+    'document-detail',
+    'Document detail while it loads.',
+  );
+  await loadingShot(
+    page,
+    `/dashboard/envelopes/${envelopeId}/prepare`,
+    'prepare',
+    'The field editor while it loads.',
+  );
+  await loadingShot(
+    page,
+    `/dashboard/envelopes/${envelopeId}/review`,
+    'review',
+    'Review before sending while it loads.',
+  );
+  await loadingShot(page, '/templates', 'templates', 'The template library while it loads.');
+  await loadingShot(page, '/settings/users', 'users', 'Settings, users while they load.');
+  await loadingShot(
+    page,
+    '/dashboard',
+    'app-shell',
+    'Signed-in frame while the session is restored.',
+    'auth',
+  );
 });
