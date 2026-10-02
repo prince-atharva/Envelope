@@ -249,11 +249,13 @@ const PdfPage = ({
     >
       <canvas
         ref={canvasRef}
+        role="img"
+        aria-label={`Page ${pageNumber} of the document. Its text is not available to screen readers; the fields on it are listed in order.`}
         className={`block ${hasEverRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-150`}
         style={{ width: `${Math.round(displayWidth)}px`, height: `${Math.round(displayHeight)}px` }}
       />
       {!hasEverRendered && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 text-xs text-slate-400 gap-2">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50 text-xs text-slate-600 gap-2">
           <div className="w-5 h-5 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
           <span className="font-medium text-slate-500">Page {pageNumber}</span>
         </div>
@@ -777,7 +779,7 @@ export function PdfViewer({
             <button
               type="button"
               onClick={zoomOut}
-              className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-white transition-colors"
+              className="p-1.5 rounded text-slate-600 hover:text-slate-900 hover:bg-white transition-colors"
               aria-label="Zoom Out"
               title="Zoom Out (Ctrl + Scroll Down)"
             >
@@ -823,7 +825,7 @@ export function PdfViewer({
             <button
               type="button"
               onClick={zoomIn}
-              className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-white transition-colors"
+              className="p-1.5 rounded text-slate-600 hover:text-slate-900 hover:bg-white transition-colors"
               aria-label="Zoom In"
               title="Zoom In (Ctrl + Scroll Up)"
             >
@@ -852,6 +854,9 @@ export function PdfViewer({
         ref={scrollRef}
         onScroll={handleScroll}
         aria-label="PDF Document Scroll Area"
+        // A scrolling region has to be reachable by keyboard (axe: scrollable-region-focusable).
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: it is the keyboard's way to scroll the document.
+        tabIndex={0}
         className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 overscroll-contain cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-600"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >

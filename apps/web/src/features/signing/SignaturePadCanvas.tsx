@@ -101,7 +101,7 @@ export function SignaturePadCanvas({
       {/* Signature baseline guide - sits behind transparent canvas */}
       <div className="pointer-events-none absolute inset-x-6 bottom-10 flex items-center gap-2 border-b border-slate-200 select-none">
         <CloseIcon className="h-3.5 w-3.5 text-slate-300" />
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+        <span className="text-xs font-medium text-slate-600 uppercase tracking-wider">
           Sign above this line
         </span>
       </div>
