@@ -78,7 +78,9 @@ function readRedisValue(redis: Redis, key: string, type: string): Promise<unknow
  * signing and download token ever emailed in everything the system keeps or
  * returns. Verified, not assumed. A third (docs/16 step 15) goes through every
  * Phase 5 email: "expires soon", expired, more time asked for and given, an
- * automatic reminder, cancelled, and alerts.
+ * automatic reminder, cancelled, and alerts. A fourth (docs/22) has a signer pass
+ * their part on, and the sender host another signer in person: the one response
+ * that carries a link by design is the sender's own, and is left out of the search.
  *
  * The real log files are audited by the browser tests (apps/web/e2e/token-leak.spec.ts),
  * which run the API and worker as real processes that write them.
@@ -94,6 +96,8 @@ describe('signing-link leak audit (e2e)', () => {
   /** Every raw token emailed during the flows, signing and download, including replaced ones. */
   let tokens: string[] = [];
   let signingTokens: string[] = [];
+  /** Links made for in-person signing: returned once to the signed-in sender, never emailed. */
+  const inPersonTokens: string[] = [];
   let downloadTokens: string[] = [];
   /** The fingerprint of a PDF checked on Verify that matches nothing: never logged. */
   let unknownFingerprint = '';
@@ -317,6 +321,42 @@ describe('signing-link leak audit (e2e)', () => {
     );
     expect(cancelled.status).toBe(200);
     await waitFor(() => emailsTo(worker.mailbox, late.email, 'voided')[0]);
+    // A fourth envelope: one signer passes their part to a delegate (ADR 0032), and the
+    // sender hosts the other signer in person (ADR 0033). The in-person response holds
+    // the link for the signed-in sender, so it is the one response not kept for the search.
+    const passer = { name: 'Audit Passer', email: 'audit.passer@example.com' };
+    const guest = { name: 'Audit Guest', email: 'audit.guest@example.com' };
+    const delegate = { name: 'Audit Delegate', email: 'audit.delegate@example.com' };
+    const options = await prepareEnvelope(t.http, owner, [passer, guest], { upload: true });
+    expect(
+      keep(await sendEnvelope(t.http, owner, options.id, { allowDelegation: true })).status,
+    ).toBe(200);
+    const passerLink = await linkFor(worker.mailbox, passer.email);
+    await linkFor(worker.mailbox, guest.email);
+    expect((await post(passerLink, '/delegate', delegate)).status).toBe(200);
+    expect((await get(passerLink)).status).toBe(410);
+    const delegateLink = await linkFor(worker.mailbox, delegate.email);
+    expect((await get(delegateLink)).status).toBe(200);
+    await waitFor(() => emailsTo(worker.mailbox, owner.email, 'delegation-notice')[0]);
+    const hosted = await request(t.http)
+      .post(`/api/v1/envelopes/${options.id}/recipients/${options.recipients[1]?.id}/in-person`)
+      .set('Authorization', bearer(owner))
+      .send();
+    expect(hosted.status).toBe(200);
+    expect(hosted.headers['cache-control']).toBe('no-store');
+    const hostedToken = /^\/sign\/([0-9a-f]{64})$/.exec(hosted.body.signingPath)?.[1] ?? '';
+    inPersonTokens.push(hostedToken);
+    expect((await get(hostedToken)).status).toBe(200);
+    expect((await post(hostedToken, '/decline', { reason: 'Declined in person.' })).status).toBe(
+      200,
+    );
+    await waitFor(() => emailsTo(worker.mailbox, owner.email, 'declined')[1]);
+    keep(
+      await request(t.http)
+        .get(`/api/v1/envelopes/${options.id}`)
+        .set('Authorization', bearer(owner)),
+    );
+
     // Alerts, from the API (queued) and from the worker (sent directly). Keys
     // unique to the run: the email gate outlives it.
     const run = randomUUID().slice(0, 8);
@@ -341,7 +381,7 @@ describe('signing-link leak audit (e2e)', () => {
     ];
     signingTokens = emailed(/\/sign\/([0-9a-f]{64})/g);
     downloadTokens = emailed(DOWNLOAD_LINK);
-    tokens = [...signingTokens, ...downloadTokens];
+    tokens = [...signingTokens, ...downloadTokens, ...inPersonTokens];
   });
 
   afterAll(async () => {
@@ -352,9 +392,13 @@ describe('signing-link leak audit (e2e)', () => {
 
   it('found every link it is looking for', () => {
     // Invitation to each signer, the reminder's replacement, and the closer's invitation;
-    // then the late signer's invitation, "expires soon", extension and automatic reminder.
-    expect(signingTokens).toHaveLength(8);
+    // then the late signer's invitation, "expires soon", extension and automatic reminder;
+    // then the passer's and the guest's invitations and the delegate's own link.
+    expect(signingTokens).toHaveLength(11);
     expect(signingTokens).toContain(rotated);
+    // The in-person link was never emailed: it is a different token from the guest's invitation.
+    expect(inPersonTokens).toHaveLength(1);
+    expect(signingTokens).not.toContain(inPersonTokens[0]);
     // A download link each for the closer and the sender.
     expect(downloadTokens).toHaveLength(2);
     for (const token of tokens) expect(token).toMatch(/^[0-9a-f]{64}$/);
@@ -400,6 +444,10 @@ describe('signing-link leak audit (e2e)', () => {
       expect.arrayContaining(['Recipient', 'AuditTrail', 'Envelope', 'DocumentField']),
     );
     expect(text).toContain(hmac(rotated));
+    // The in-person link is kept as its hash too, and the delegation and hand-over are on record.
+    expect(text).toContain(hmac(inPersonTokens[0] ?? ''));
+    expect(text).toContain('RECIPIENT_DELEGATED');
+    expect(text).toContain('IN_PERSON_STARTED');
     expect(text).toContain('RECIPIENT_DECLINED');
     // The sealed envelope is there too, its download links kept only as HMACs.
     expect(text).toContain('ENVELOPE_COMPLETED');

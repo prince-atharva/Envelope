@@ -3624,6 +3624,9 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 30
+                  },
+                  "allowDelegation": {
+                    "type": "boolean"
                   }
                 },
                 "additionalProperties": false
@@ -3846,6 +3849,43 @@
         "description": "Email a fresh signing link to the people whose turn it is and who have not finished. The previous link stops working.\n\n- Optional JSON: recipientIds, a list of recipient UUIDs. Omitted, it reminds everyone whose turn it is.\n\n- One reminder per person per 24 hours: anyone reminded sooner comes back in skipped with a reason, and if nobody could be reminded the request answers 429 REMINDER_TOO_SOON with Retry-After. A full-access key only; shares the 30 a minute workspace limit with cancel.",
         "x-idempotency": "none",
         "x-rate-limit": "30 per 60s per workspace"
+      }
+    },
+    "/api/v1/envelopes/{id}/recipients/{recipientId}/in-person": {
+      "post": {
+        "operationId": "SendingController_startInPerson",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recipientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Host a signer in person: returns a one-time signing link for this device",
+        "tags": [
+          "sending"
+        ]
       }
     },
     "/api/v1/templates/{id}/bulk": {
@@ -4682,6 +4722,57 @@
         ]
       }
     },
+    "/api/v1/sign/{token}/delegate": {
+      "post": {
+        "operationId": "SigningController_delegate",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the signing link. It is the signer’s only credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Pass this document to someone else, if the sender allowed it (docs/22).",
+        "tags": [
+          "signing"
+        ]
+      }
+    },
     "/api/v1/sign/{token}/request-more-time": {
       "post": {
         "operationId": "SigningController_requestMoreTime",
@@ -4727,6 +4818,31 @@
           }
         },
         "summary": "Download a finished document with a completion email link",
+        "tags": [
+          "completion"
+        ]
+      }
+    },
+    "/api/v1/download/{token}/brand": {
+      "get": {
+        "operationId": "CompletionDownloadController_brand",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "description": "The token from the completion email. It is a credential: never log it.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "The workspace's name, colour and logo, for the download page",
         "tags": [
           "completion"
         ]
@@ -5076,6 +5192,182 @@
         ]
       }
     },
+    "/api/v1/branding": {
+      "get": {
+        "operationId": "BrandingController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The workspace's accent colour and logo",
+        "tags": [
+          "branding"
+        ]
+      },
+      "patch": {
+        "operationId": "BrandingController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "color": {
+                    "nullable": true,
+                    "type": "string",
+                    "pattern": "^#[0-9a-f]{6}$"
+                  }
+                },
+                "required": [
+                  "color"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set or clear the accent colour (white text must stay readable on it)",
+        "tags": [
+          "branding"
+        ]
+      }
+    },
+    "/api/v1/branding/logo": {
+      "put": {
+        "operationId": "BrandingController_setLogo",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set or replace the logo (PNG or JPEG, up to 512 KB)",
+        "tags": [
+          "branding"
+        ]
+      },
+      "delete": {
+        "operationId": "BrandingController_removeLogo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove the logo",
+        "tags": [
+          "branding"
+        ]
+      }
+    },
+    "/api/v1/branding/logo/{ref}": {
+      "get": {
+        "operationId": "BrandingController_logo",
+        "parameters": [
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "description": "The random reference in the logo URL",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "A workspace's logo, by its public reference",
+        "tags": [
+          "branding"
+        ]
+      }
+    },
+    "/api/v1/reports/summary": {
+      "get": {
+        "operationId": "ReportsController_summary",
+        "parameters": [
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Last day, YYYY-MM-DD (UTC)",
+            "schema": {}
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "First day, YYYY-MM-DD (UTC)",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sent, completed and drop-off numbers for the workspace over a window of up to 366 days",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/v1/webhooks": {
       "get": {
         "operationId": "WebhooksController_list",
@@ -5115,7 +5407,7 @@
                   },
                   "subscribedEvents": {
                     "default": [],
-                    "maxItems": 10,
+                    "maxItems": 11,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -5126,6 +5418,7 @@
                         "recipient.consented",
                         "recipient.signed",
                         "recipient.declined",
+                        "recipient.delegated",
                         "envelope.completed",
                         "envelope.voided",
                         "envelope.expired",
@@ -5187,7 +5480,7 @@
                     "maxLength": 500
                   },
                   "subscribedEvents": {
-                    "maxItems": 10,
+                    "maxItems": 11,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -5198,6 +5491,7 @@
                         "recipient.consented",
                         "recipient.signed",
                         "recipient.declined",
+                        "recipient.delegated",
                         "envelope.completed",
                         "envelope.voided",
                         "envelope.expired",
@@ -5644,6 +5938,9 @@
               "TOKEN_INVALID",
               "TOKEN_EXPIRED",
               "TOKEN_ALREADY_USED",
+              "TOKEN_DELEGATED",
+              "DELEGATION_NOT_ALLOWED",
+              "INVALID_BRAND_LOGO",
               "CONSENT_REQUIRED",
               "CONSENT_TEXT_CHANGED",
               "INVALID_SIGNATURE_IMAGE",
@@ -5743,7 +6040,8 @@
               "DELIVERED",
               "VIEWED",
               "SIGNED",
-              "DECLINED"
+              "DECLINED",
+              "DELEGATED"
             ]
           },
           "routingOrder": {
@@ -5798,7 +6096,8 @@
               "DELIVERED",
               "VIEWED",
               "SIGNED",
-              "DECLINED"
+              "DECLINED",
+              "DELEGATED"
             ]
           },
           "routingOrder": {
@@ -5871,6 +6170,18 @@
               "BOUNCED",
               "COMPLAINED"
             ]
+          },
+          "delegatedFromId": {
+            "nullable": true,
+            "description": "Set on someone who was handed this part by another recipient (docs/22).",
+            "type": "string",
+            "format": "uuid"
+          },
+          "delegatedAt": {
+            "nullable": true,
+            "description": "Set on a recipient who passed their part to someone else (status DELEGATED).",
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
           }
         },
         "required": [
@@ -5890,7 +6201,9 @@
           "declinedReason",
           "copySentAt",
           "moreTimeRequestedAt",
-          "emailProblem"
+          "emailProblem",
+          "delegatedFromId",
+          "delegatedAt"
         ],
         "additionalProperties": {}
       },
@@ -6433,6 +6746,10 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "allowDelegation": {
+            "type": "boolean",
+            "description": "Whether signers may pass their part to someone else (docs/22). Fixed at send."
+          },
           "expiredAt": {
             "nullable": true,
             "type": "string",
@@ -6568,6 +6885,7 @@
           "draftRevision",
           "sentAt",
           "reminderIntervalDays",
+          "allowDelegation",
           "expiredAt",
           "voidedAt",
           "voidReason",
@@ -7295,6 +7613,7 @@
               "recipient.consented",
               "recipient.signed",
               "recipient.declined",
+              "recipient.delegated",
               "envelope.completed",
               "envelope.voided",
               "envelope.expired",
@@ -7437,6 +7756,34 @@
             "recipientEmail": "alex@example.com",
             "declinedAt": "2026-09-27T10:00:00.000Z",
             "envelopeStatus": "DECLINED",
+            "externalId": "visit:1001",
+            "metadata": {
+              "department": "billing"
+            }
+          }
+        }
+      },
+      "WebhookEventRecipientDelegated": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/WebhookEvent"
+          }
+        ],
+        "description": "A recipient passed their part to someone else. The new person has their own recipient id and link.",
+        "example": {
+          "id": "evt_55555555-5555-4555-8555-555555555555",
+          "type": "recipient.delegated",
+          "apiVersion": "v1",
+          "createdAt": "2026-09-27T10:00:00.000Z",
+          "data": {
+            "envelopeId": "11111111-1111-4111-8111-111111111111",
+            "envelopeTitle": "Consulting agreement",
+            "fromRecipientId": "22222222-2222-4222-8222-222222222222",
+            "fromRecipientEmail": "alex@example.com",
+            "toRecipientId": "33333333-3333-4333-8333-333333333333",
+            "toRecipientEmail": "sam@example.com",
+            "envelopeStatus": "SENT",
+            "delegatedAt": "2026-09-27T10:00:00.000Z",
             "externalId": "visit:1001",
             "metadata": {
               "department": "billing"
@@ -7593,6 +7940,9 @@
       },
       "recipient.declined": {
         "$ref": "#/components/schemas/WebhookEventRecipientDeclined"
+      },
+      "recipient.delegated": {
+        "$ref": "#/components/schemas/WebhookEventRecipientDelegated"
       },
       "envelope.completed": {
         "$ref": "#/components/schemas/WebhookEventEnvelopeCompleted"

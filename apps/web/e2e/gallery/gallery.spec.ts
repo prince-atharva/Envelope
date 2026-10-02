@@ -992,3 +992,94 @@ test('loading skeletons match the screens they stand in for', async ({ page }) =
     'auth',
   );
 });
+
+// A 1x1 PNG: enough for the server to decode and re-encode as a workspace logo.
+const GALLERY_LOGO = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+test('signing options, branding and reports', async ({ page, browser }) => {
+  await signUpAs(page, 'gallery-phase11', SENDER);
+
+  await page.goto('/settings/branding');
+  await expect(page.getByRole('heading', { name: 'Branding', level: 1 })).toBeVisible();
+  await shot(page, 'branding-empty', {
+    area: 'branding',
+    caption: 'Branding settings before anything is set, with the preview beside them.',
+  });
+  await page.getByLabel('Colour', { exact: true }).fill('#ffeb3b');
+  await shot(page, 'branding-low-contrast', {
+    area: 'branding',
+    caption: 'A colour white text cannot be read on is refused before it is saved.',
+  });
+  await page.getByLabel('Colour', { exact: true }).fill('#1d4ed8');
+  await page.getByRole('button', { name: 'Save colour' }).click();
+  await expect(page.getByText('Accent colour saved.')).toBeVisible();
+  await page.getByLabel('Upload logo').setInputFiles({
+    name: 'logo.png',
+    mimeType: 'image/png',
+    buffer: GALLERY_LOGO,
+  });
+  await expect(page.getByText('Logo saved.')).toBeVisible();
+  await shot(page, 'branding-set', {
+    area: 'branding',
+    caption: 'A colour and logo set, with a live preview of what recipients see.',
+  });
+
+  const priya = { name: PRIYA, email: uniqueEmail('priya.sharma') };
+  await uploadDocument(page, DEMO_AGREEMENT_PDF);
+  await page.getByRole('link', { name: 'Prepare for signing' }).click();
+  await addRecipient(page, priya.name, priya.email);
+  await selectRecipient(page, priya.name);
+  await placeField(page, 'Signature', 1, { xRatio: 0.2, yRatio: 0.3 });
+  await waitForFieldsSaved(page, 1);
+  await page.getByRole('link', { name: 'Review' }).click();
+  await page.getByRole('button', { name: 'Send for signing' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Let signers pass it to someone else').check();
+  await shot(page, 'send-dialog-delegation', {
+    area: 'signing-options',
+    caption: 'The send dialog with the option to let signers pass their part on.',
+  });
+  await dialog.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.getByText(/^Sent\./)).toBeVisible({ timeout: 15_000 });
+  await shot(page, 'sent-with-in-person', {
+    area: 'signing-options',
+    caption: 'A sent document, with "Sign in person" beside the person whose turn it is.',
+    mask: [page.locator(HASHES)],
+  });
+
+  const link = await signingLinkFor(priya.email);
+  const signer = await browser.newPage();
+  await openAsSigner(signer, link);
+  await shot(signer, 'signer-consent-branded', {
+    area: 'branding',
+    caption: "The signer's first screen wearing the workspace colour and logo.",
+  });
+  await agreeToSign(signer);
+  await signer.getByRole('button', { name: 'Pass to someone else' }).click();
+  await shot(signer, 'signer-pass-on', {
+    area: 'signing-options',
+    caption: 'The signer is asked who to pass their part to.',
+  });
+  await signer.close();
+
+  await page.goto('/reports');
+  await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Totals' })).toBeVisible();
+  await shot(page, 'reports', {
+    area: 'reports',
+    caption: 'Reports for the last 30 days: tiles, signer funnel and sent-per-day bars.',
+    fullPage: true,
+  });
+  await page.getByRole('button', { name: 'Custom range' }).click();
+  await page.getByLabel('From').fill('2024-01-01');
+  await shot(page, 'reports-range-too-long', {
+    area: 'reports',
+    caption: 'A custom range over a year is refused before anything is asked of the server.',
+  });
+
+  await loadingShot(page, '/reports', 'reports', 'Reports while the numbers load.');
+  await loadingShot(page, '/settings/branding', 'branding', 'Branding settings while they load.');
+});
