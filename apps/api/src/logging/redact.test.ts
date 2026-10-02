@@ -122,6 +122,19 @@ describe('redaction helpers', () => {
     expect(redactUrl('/api/v1/auth/password/forgot')).toBe('/api/v1/auth/password/forgot');
   });
 
+  it('removes workspace invitation tokens from the page path and the API route', () => {
+    const token = 'e'.repeat(64);
+    expect(redactUrl(`/api/v1/auth/invitations/${token}`)).toBe(
+      '/api/v1/auth/invitations/[redacted]',
+    );
+    expect(redactUrl(`/api/v1/auth/invitations/${token}/accept`)).toBe(
+      '/api/v1/auth/invitations/[redacted]/accept',
+    );
+    expect(scrubSecrets(`Opened https://app.test/accept-invite/${token}:4:2`)).toBe(
+      'Opened https://app.test/accept-invite/[redacted]:4:2',
+    );
+  });
+
   it('scrubs signing links out of a browser stack trace', () => {
     const stack = [
       'TypeError: x is undefined',

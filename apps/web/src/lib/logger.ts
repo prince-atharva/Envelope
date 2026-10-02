@@ -15,7 +15,8 @@ function truncate(value: string | undefined, max: number): string | undefined {
  * A signing or password-reset link's token, wherever it appears: page URL, API
  * path, message or stack.
  */
-const SIGNING_PATH = /(\/(?:sign|reset-password|password\/reset)\/)[^/?#\s"':)]+/gi;
+const SIGNING_PATH =
+  /(\/(?:sign|reset-password|password\/reset|accept-invite|auth\/invitations)\/)[^/?#\s"':)]+/gi;
 
 /**
  * Masks signing and password-reset tokens in any text. The token is the signer's only credential

@@ -79,6 +79,19 @@ describe('logger', () => {
       expect(JSON.stringify(log)).not.toContain(TOKEN);
     });
 
+    it('never sends a workspace invitation token either', () => {
+      const error = new Error(`Failed to fetch /api/v1/auth/invitations/${TOKEN}/accept`);
+      error.stack = `Error\n    at https://app.example.com/accept-invite/${TOKEN}:3:9`;
+
+      const log = buildClientLog(error, 'invite', {
+        url: `https://app.example.com/accept-invite/${TOKEN}`,
+      });
+
+      expect(log.url).toBe('https://app.example.com/accept-invite/[redacted]');
+      expect(log.message).toBe('Error: Failed to fetch /api/v1/auth/invitations/[redacted]/accept');
+      expect(JSON.stringify(log)).not.toContain(TOKEN);
+    });
+
     it('leaves text without a signing link alone', () => {
       expect(redactSigningLinks('/dashboard/envelopes/1')).toBe('/dashboard/envelopes/1');
     });
