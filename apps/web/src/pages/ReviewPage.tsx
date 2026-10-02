@@ -348,7 +348,7 @@ export function ReviewPage() {
                       “{envelope.message}”
                     </blockquote>
                   ) : (
-                    <span className="text-slate-400 text-xs italic">
+                    <span className="text-slate-600 text-xs italic">
                       None. The email carries the standard invitation only.
                     </span>
                   )}
@@ -437,7 +437,7 @@ export function ReviewPage() {
             </div>
 
             {envelope.recipients.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-xs">
+              <div className="text-center py-8 text-slate-600 text-xs">
                 No recipients added yet. Return to the builder to add signers.
               </div>
             ) : (

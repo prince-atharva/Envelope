@@ -216,7 +216,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                       </span>
 
                       <span className="ml-3 flex shrink-0 items-center gap-2">
-                        <span className="hidden text-xs text-slate-400 sm:inline">
+                        <span className="hidden text-xs text-slate-600 sm:inline">
                           {formatDateTime(item.createdAt)}
                         </span>
                         <StatusBadge status={item.status} />
@@ -229,7 +229,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           </div>
 
           {/* Keyboard hints only where there is a keyboard. */}
-          <div className="hidden items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-400 pointer-fine:flex">
+          <div className="hidden items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600 pointer-fine:flex">
             <span className="flex items-center gap-3">
               <span>
                 <kbd className="rounded border border-slate-200 bg-white px-1 font-mono">↑</kbd>{' '}

@@ -220,7 +220,7 @@ export function EnvelopeDetailPage() {
                 data-testid="shown-version"
               >
                 <span>v{latest.versionNumber}</span>
-                <span className="font-normal text-brand-600">
+                <span className="font-normal text-brand-700">
                   {latest.isFinal ? '(the sealed document)' : '(signatures in progress)'}
                 </span>
               </span>
@@ -453,7 +453,7 @@ export function EnvelopeDetailPage() {
                         </span>
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-800 truncate">{recipient.name}</p>
-                          <p className="text-xs text-slate-400 truncate">{recipient.email}</p>
+                          <p className="text-xs text-slate-600 truncate">{recipient.email}</p>
                         </div>
                       </div>
                       <span className="text-xs capitalize font-medium text-brand-700 bg-brand-50 border border-brand-200/70 px-2 py-0.5 whitespace-nowrap rounded-full shrink-0">

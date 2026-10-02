@@ -31,7 +31,7 @@ import { queryKeys } from '../lib/query-keys';
 import { useDocumentTitle } from '../lib/use-document-title';
 
 const DONE = {
-  wrapper: 'bg-emerald-50 text-emerald-600 ring-emerald-500/20',
+  wrapper: 'bg-emerald-50 text-emerald-700 ring-emerald-500/20',
   path: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
 };
 const STOPPED = {

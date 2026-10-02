@@ -746,7 +746,7 @@ function DeliveryDialog({
                         ? ` · Next retry ${formatDateTime(delivery.nextAttemptAt)}`
                         : ''}
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-slate-400">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-slate-600">
                       <span className="font-medium text-slate-500">Event</span>
                       <CopyIdButton value={delivery.eventId} label="Event id" />
                       {delivery.envelopeId && (

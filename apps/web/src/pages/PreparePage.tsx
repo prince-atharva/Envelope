@@ -629,7 +629,7 @@ export function PreparePage() {
                     key={`${issue.code}-${'recipientId' in issue ? issue.recipientId : 'fieldId' in issue ? issue.fieldId : ''}`}
                     className="flex items-start gap-1.5"
                   >
-                    <span className="mt-0.5 text-amber-600 font-bold">•</span>
+                    <span className="mt-0.5 text-amber-700 font-bold">•</span>
                     <span>{issue.message}</span>
                   </li>
                 ))}
@@ -656,7 +656,7 @@ export function PreparePage() {
           </section>
 
           {/* Keyboard hints, only where there is a keyboard-and-mouse pointer. */}
-          <div className="hidden pointer-fine:block pt-2 border-t border-slate-100 text-xs text-slate-400 space-y-0.5">
+          <div className="hidden pointer-fine:block pt-2 border-t border-slate-100 text-xs text-slate-600 space-y-0.5">
             <p>
               <strong className="font-semibold text-slate-600">Tip:</strong> Use arrow keys to nudge
               selected fields, <kbd className="font-mono text-xs">Del</kbd> to delete, or{' '}

@@ -314,7 +314,7 @@ export function SettingsUsersPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                     <span>{person.email}</span>
-                    <span className="inline-flex items-center gap-1 text-slate-400">
+                    <span className="inline-flex items-center gap-1 text-slate-600">
                       <svg
                         className="h-3 w-3 shrink-0"
                         fill="none"
