@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AlertService } from '../alert/alert.service';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
+import { absoluteBrand, toSigningBrand } from '../branding/signing-brand';
 import { AppConfig } from '../config/app-config';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,6 +51,7 @@ export class CompletionMailer {
       where: { id: job.envelopeId },
       include: {
         owner: { select: { email: true, fullName: true } },
+        tenant: { select: { name: true, brandColor: true, brandLogoRef: true } },
         recipients: { select: { id: true, name: true, email: true } },
         versions: { where: { isFinal: true } },
       },
@@ -134,6 +136,8 @@ export class CompletionMailer {
         ? undefined
         : new URL(`/dashboard/envelopes/${envelope.id}`, this.config.APP_URL).toString(),
       delivery,
+      // The sender's own copy is a staff email: it keeps the product look (docs/22, ADR 0034).
+      brand: recipient ? absoluteBrand(toSigningBrand(envelope.tenant), this.config.APP_URL) : null,
     });
     if (attachment && delivery.kind === 'attachment') {
       email.attachments = [

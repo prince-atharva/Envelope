@@ -2,6 +2,8 @@ import { receivesSigningLink } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
+import { absoluteBrand, toSigningBrand } from '../branding/signing-brand';
+import { AppConfig } from '../config/app-config';
 import type { Envelope, Recipient } from '../generated/prisma/client';
 import { lockEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
@@ -31,6 +33,7 @@ export class LifecycleMailer {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly transport: MailTransportService,
+    private readonly config: AppConfig,
     @InjectPinoLogger(LifecycleMailer.name) private readonly logger: PinoLogger,
   ) {}
 
@@ -44,7 +47,14 @@ export class LifecycleMailer {
     const ids = { envelopeId: job.envelopeId, recipientId: job.recipientId };
     const recipient = await this.prisma.recipient.findFirst({
       where: { id: job.recipientId, envelopeId: job.envelopeId },
-      include: { envelope: { include: { owner: { select: { fullName: true } } } } },
+      include: {
+        envelope: {
+          include: {
+            owner: { select: { fullName: true } },
+            tenant: { select: { name: true, brandColor: true, brandLogoRef: true } },
+          },
+        },
+      },
     });
 
     if (!recipient) {
@@ -65,6 +75,7 @@ export class LifecycleMailer {
         senderName: envelope.owner.fullName,
         envelopeTitle: envelope.title,
         reason: envelope.voidReason,
+        brand: absoluteBrand(toSigningBrand(envelope.tenant), this.config.APP_URL),
       }),
       job.template,
       { envelopeId: envelope.id, recipientId: recipient.id },

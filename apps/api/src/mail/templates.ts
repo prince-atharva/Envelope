@@ -22,24 +22,63 @@ function oneLine(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').trim();
 }
 
-function button(href: string, label: string): string {
+/**
+ * A workspace's look for recipient-facing emails (docs/22, ADR 0034). The logo address is
+ * absolute, because a mail client fetches it without the site's cookies. Staff and account
+ * emails never take one.
+ */
+export interface EmailBrand {
+  name: string;
+  color: string | null;
+  logoUrl: string | null;
+}
+
+const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
+
+/** The accent to draw with. Re-checked here so a bad stored value can never reach an email's HTML. */
+function accentOf(brand?: EmailBrand | null): string {
+  return brand?.color && HEX_COLOUR.test(brand.color) ? brand.color : BRAND_COLOR;
+}
+
+function button(href: string, label: string, brand?: EmailBrand | null): string {
   return `<p style="margin:24px 0;">
-       <a href="${escapeHtml(href)}" style="background:${BRAND_COLOR};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block;font-weight:bold;">${escapeHtml(label)}</a>
+       <a href="${escapeHtml(href)}" style="background:${accentOf(brand)};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block;font-weight:bold;">${escapeHtml(label)}</a>
      </p>`;
 }
 
-function layout(preheader: string, bodyHtml: string, footer: string): string {
+function quote(text: string, brand?: EmailBrand | null): string {
+  return `<blockquote style="margin:0 0 16px;padding:12px 16px;background:#f4f6f8;border-left:3px solid ${accentOf(brand)};white-space:pre-line;">${escapeHtml(text)}</blockquote>`;
+}
+
+function headerHtml(brand?: EmailBrand | null): string {
+  const hasBrand = Boolean(brand && (brand.logoUrl || brand.color));
+  if (!brand || !hasBrand) {
+    return `<div style="font-size:20px;font-weight:bold;">${escapeHtml(BRAND.productName)}</div>
+          <div style="font-size:12px;opacity:0.85;">Powered by ${escapeHtml(BRAND.companyName)}</div>`;
+  }
+  const identity = brand.logoUrl
+    ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(oneLine(brand.name))}" height="40" style="display:block;border:0;max-height:40px;max-width:240px;height:auto;">`
+    : `<div style="font-size:20px;font-weight:bold;">${escapeHtml(oneLine(brand.name))}</div>`;
+  return `${identity}
+          <div style="font-size:12px;opacity:0.85;margin-top:6px;">Sent with ${escapeHtml(BRAND.productName)} · Powered by ${escapeHtml(BRAND.companyName)}</div>`;
+}
+
+function layout(
+  preheader: string,
+  bodyHtml: string,
+  footer: string,
+  brand?: EmailBrand | null,
+): string {
   return `<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(BRAND.fullName)}</title></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(brand?.name ? oneLine(brand.name) : BRAND.fullName)}</title></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">
   <span style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</span>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:24px 12px;">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;">
-        <tr><td style="background:${BRAND_COLOR};padding:20px 28px;color:#ffffff;">
-          <div style="font-size:20px;font-weight:bold;">${escapeHtml(BRAND.productName)}</div>
-          <div style="font-size:12px;opacity:0.85;">Powered by ${escapeHtml(BRAND.companyName)}</div>
+        <tr><td style="background:${accentOf(brand)};padding:20px 28px;color:#ffffff;">
+          ${headerHtml(brand)}
         </td></tr>
         <tr><td style="padding:28px;font-size:15px;line-height:1.6;">${bodyHtml}</td></tr>
         <tr><td style="padding:16px 28px;border-top:1px solid #e5e9ef;font-size:12px;color:#6b7785;">
@@ -133,6 +172,8 @@ export interface DelegationNotice {
   delegateName: string;
   envelopeTitle: string;
   envelopeUrl: string;
+  /** The workspace's look, used for the person who passed their part on (docs/22, ADR 0034). */
+  brand?: EmailBrand | null;
 }
 
 /**
@@ -158,6 +199,7 @@ export function renderDelegationNoticeEmail(notice: DelegationNotice): RenderedE
      <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
      ${forSender ? button(notice.envelopeUrl, 'View the document') : ''}`,
     footer,
+    forSender ? null : notice.brand,
   );
   const text = [
     `Hi ${oneLine(notice.name)},`,
@@ -178,6 +220,8 @@ export interface VoidedNotice {
   envelopeTitle: string;
   /** The sender's reason, shown as they wrote it. */
   reason: string;
+  /** The workspace's look (docs/22, ADR 0034). */
+  brand?: EmailBrand | null;
 }
 
 /** To someone asked to sign or approve: the sender cancelled. It carries no link. */
@@ -196,9 +240,10 @@ export function renderVoidedEmail(notice: VoidedNotice): RenderedEmail {
     `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.recipientName))},</p>
      <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
      <p style="margin:0 0 8px;">Their reason:</p>
-     <blockquote style="margin:0 0 16px;padding:12px 16px;background:#f4f6f8;border-left:3px solid ${BRAND_COLOR};white-space:pre-line;">${escapeHtml(notice.reason)}</blockquote>
+     ${quote(notice.reason, notice.brand)}
      <p style="margin:0;color:#6b7785;font-size:13px;">${escapeHtml(links)}</p>`,
     footer,
+    notice.brand,
   );
   const text = [
     `Hi ${oneLine(notice.recipientName)},`,
@@ -414,6 +459,8 @@ export interface SigningLinkEmail {
   expiresAt: Date;
   /** Holds the raw token. Rendered into the email and nowhere else. */
   signingUrl: string;
+  /** The workspace's look (docs/22, ADR 0034). */
+  brand?: EmailBrand | null;
 }
 
 function formatDate(date: Date): string {
@@ -467,20 +514,19 @@ export function renderSigningLinkEmail(email: SigningLinkEmail): RenderedEmail {
     'The link is personal to you, so please do not forward this email. ' +
     'If you were not expecting it, you can ignore it.';
 
-  const messageHtml = email.message
-    ? `<blockquote style="margin:0 0 16px;padding:12px 16px;background:#f4f6f8;border-left:3px solid ${BRAND_COLOR};white-space:pre-line;">${escapeHtml(email.message)}</blockquote>`
-    : '';
+  const messageHtml = email.message ? quote(email.message, email.brand) : '';
 
   const html = layout(
     intro,
     `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(email.recipientName))},</p>
      <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
      ${messageHtml}
-     ${button(email.signingUrl, cta)}
+     ${button(email.signingUrl, cta, email.brand)}
      <p style="margin:0 0 8px;color:#6b7785;font-size:13px;">This link works until ${escapeHtml(expires)}.</p>
      ${replaced ? `<p style="margin:0 0 8px;color:#6b7785;font-size:13px;">${escapeHtml(replaced)}</p>` : ''}
      <p style="margin:0;color:#6b7785;font-size:13px;">Or copy this link into your browser: ${escapeHtml(email.signingUrl)}</p>`,
     footer,
+    email.brand,
   );
 
   const text = [
@@ -519,6 +565,8 @@ export interface CompletedEmail {
   /** Only for the sender. */
   envelopeUrl?: string;
   delivery: CompletedDelivery;
+  /** The workspace's look (docs/22, ADR 0034). */
+  brand?: EmailBrand | null;
 }
 
 /**
@@ -549,9 +597,9 @@ export function renderCompletedEmail(email: CompletedEmail): RenderedEmail {
 
   const actions =
     email.delivery.kind === 'link'
-      ? button(email.delivery.url, 'Download the document')
+      ? button(email.delivery.url, 'Download the document', email.brand)
       : email.envelopeUrl
-        ? button(email.envelopeUrl, 'View the envelope')
+        ? button(email.envelopeUrl, 'View the envelope', email.brand)
         : '';
 
   const html = layout(
@@ -563,13 +611,14 @@ export function renderCompletedEmail(email: CompletedEmail): RenderedEmail {
      <p style="margin:0 0 4px;">Fingerprint (SHA-256) of the finished document:</p>
      <p style="margin:0 0 16px;padding:8px 12px;background:#f4f6f8;font-family:Menlo,Consolas,monospace;font-size:12px;word-break:break-all;">${escapeHtml(email.sha256)}</p>
      <p style="margin:0 0 8px;color:#6b7785;font-size:13px;">${escapeHtml(check)}
-       <a href="${escapeHtml(email.verifyUrl)}" style="color:${BRAND_COLOR};">Open the Verify page</a>.</p>
+       <a href="${escapeHtml(email.verifyUrl)}" style="color:${accentOf(email.brand)};">Open the Verify page</a>.</p>
      ${
        email.delivery.kind === 'link' && email.envelopeUrl
-         ? `<p style="margin:0;color:#6b7785;font-size:13px;"><a href="${escapeHtml(email.envelopeUrl)}" style="color:${BRAND_COLOR};">View the envelope</a></p>`
+         ? `<p style="margin:0;color:#6b7785;font-size:13px;"><a href="${escapeHtml(email.envelopeUrl)}" style="color:${accentOf(email.brand)};">View the envelope</a></p>`
          : ''
      }`,
     footer,
+    email.brand,
   );
 
   const text = [
@@ -708,6 +757,8 @@ export interface DownloadRenewedNotice {
   envelopeTitle: string;
   downloadUrl: string;
   expiresAt: Date;
+  /** The workspace's look (docs/22, ADR 0034). */
+  brand?: EmailBrand | null;
 }
 
 /** A fresh link after the old one expired (docs/17 step 10). */
@@ -722,9 +773,10 @@ export function renderDownloadRenewedEmail(notice: DownloadRenewedNotice): Rende
     intro,
     `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.name))},</p>
      <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
-     ${button(notice.downloadUrl, 'Download the document')}
+     ${button(notice.downloadUrl, 'Download the document', notice.brand)}
      <p style="margin:0;color:#6b7785;font-size:13px;">${escapeHtml(expiry)}</p>`,
     footer,
+    notice.brand,
   );
   const text = [
     `Hi ${oneLine(notice.name)},`,

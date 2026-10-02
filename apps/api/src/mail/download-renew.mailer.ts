@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { absoluteBrand, toSigningBrand } from '../branding/signing-brand';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import { downloadUrl, mintDownloadToken, tokenRef } from '../signing/signing-token';
@@ -32,6 +33,7 @@ export class DownloadRenewMailer {
             title: true,
             status: true,
             owner: { select: { email: true, fullName: true } },
+            tenant: { select: { name: true, brandColor: true, brandLogoRef: true } },
           },
         },
         recipient: { select: { name: true, email: true } },
@@ -59,6 +61,9 @@ export class DownloadRenewMailer {
       envelopeTitle: link.envelope.title,
       downloadUrl: downloadUrl(this.config.APP_URL, rawToken),
       expiresAt,
+      brand: link.recipient
+        ? absoluteBrand(toSigningBrand(link.envelope.tenant), this.config.APP_URL)
+        : null,
     });
     const { messageId } = await this.transport.send(
       email,

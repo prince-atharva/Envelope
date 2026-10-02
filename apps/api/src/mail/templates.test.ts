@@ -482,3 +482,102 @@ describe('delegation notice', () => {
     expect(email.text).not.toContain('View the document');
   });
 });
+
+describe('workspace branding in recipient emails (docs/22, ADR 0034)', () => {
+  const signing = {
+    kind: 'invitation' as const,
+    to: 'priya@example.com',
+    recipientName: 'Priya Sharma',
+    action: 'sign' as const,
+    senderName: 'Raj Kumar',
+    envelopeTitle: 'Lease',
+    message: 'Please sign.',
+    expiresAt: new Date('2026-10-20T00:00:00Z'),
+    signingUrl: `https://sign.example.com/sign/${'a'.repeat(64)}`,
+  };
+  const brand = {
+    name: 'Acme <Clinic>',
+    color: '#1d4ed8',
+    logoUrl: 'https://app.example.com/api/v1/branding/logo/abc123',
+  };
+
+  it('keeps the product look when no brand is given', () => {
+    const { html } = renderSigningLinkEmail(signing);
+    expect(html).toContain('#0f766e');
+    expect(html).toContain('Powered by HealthProHub');
+    expect(html).not.toContain('<img');
+  });
+
+  it('uses the accent colour for the header, the button and the quoted message', () => {
+    const { html } = renderSigningLinkEmail({ ...signing, brand });
+    expect(html).not.toContain('#0f766e');
+    expect(html.match(/#1d4ed8/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows the logo with the workspace name as its text alternative, escaped', () => {
+    const { html } = renderSigningLinkEmail({ ...signing, brand });
+    expect(html).toContain('src="https://app.example.com/api/v1/branding/logo/abc123"');
+    expect(html).toContain('alt="Acme &lt;Clinic&gt;"');
+    expect(html).toContain('Powered by HealthProHub');
+  });
+
+  it('falls back to the workspace name when there is no logo', () => {
+    const { html } = renderSigningLinkEmail({ ...signing, brand: { ...brand, logoUrl: null } });
+    expect(html).not.toContain('<img');
+    expect(html).toContain('Acme &lt;Clinic&gt;');
+  });
+
+  it('never lets an invalid stored colour into the HTML', () => {
+    const { html } = renderSigningLinkEmail({
+      ...signing,
+      brand: { ...brand, color: 'red;"><script>' },
+    });
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('#0f766e');
+  });
+
+  it('does not change the plain-text copy', () => {
+    expect(renderSigningLinkEmail({ ...signing, brand }).text).toBe(
+      renderSigningLinkEmail(signing).text,
+    );
+  });
+
+  it('brands the cancellation and download-renewal emails but not the sender notices', () => {
+    const voided = renderVoidedEmail({
+      to: 'priya@example.com',
+      recipientName: 'Priya',
+      senderName: 'Raj',
+      envelopeTitle: 'Lease',
+      reason: 'Wrong version',
+      brand,
+    });
+    expect(voided.html).toContain('#1d4ed8');
+    const declined = renderDeclinedEmail({
+      to: 'raj@example.com',
+      senderName: 'Raj',
+      recipientName: 'Priya',
+      envelopeTitle: 'Lease',
+      reason: 'No',
+      envelopeUrl: 'https://app.example.com/dashboard/envelopes/1',
+    });
+    expect(declined.html).not.toContain('#1d4ed8');
+  });
+
+  it('brands the delegation notice for the delegator only', () => {
+    const notice = {
+      to: 'a@example.com',
+      name: 'Asha',
+      delegatorName: 'Asha',
+      delegateName: 'Dev',
+      envelopeTitle: 'Lease',
+      envelopeUrl: 'https://app.example.com/dashboard/envelopes/1',
+      brand,
+    };
+    expect(renderDelegationNoticeEmail({ ...notice, audience: 'delegator' }).html).toContain(
+      '#1d4ed8',
+    );
+    expect(renderDelegationNoticeEmail({ ...notice, audience: 'sender' }).html).not.toContain(
+      '#1d4ed8',
+    );
+  });
+});

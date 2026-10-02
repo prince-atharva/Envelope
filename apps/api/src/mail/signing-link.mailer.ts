@@ -2,6 +2,7 @@ import { isOpenEnvelope, OPEN_ENVELOPE_STATUSES, receivesSigningLink } from '@en
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService, SYSTEM_ACTOR } from '../audit/audit.service';
+import { absoluteBrand, toSigningBrand } from '../branding/signing-brand';
 import { AppConfig } from '../config/app-config';
 import type { Envelope, Recipient } from '../generated/prisma/client';
 import { lockEnvelope, lockOpenEnvelope } from '../prisma/envelope-locks';
@@ -63,7 +64,12 @@ export class SigningLinkMailer {
       const found = await tx.recipient.findFirst({
         where: { id: job.recipientId, envelopeId: job.envelopeId },
         include: {
-          envelope: { include: { owner: { select: { fullName: true } } } },
+          envelope: {
+            include: {
+              owner: { select: { fullName: true } },
+              tenant: { select: { name: true, brandColor: true, brandLogoRef: true } },
+            },
+          },
           delegatedFrom: { select: { name: true } },
         },
       });
@@ -119,6 +125,7 @@ export class SigningLinkMailer {
       message: envelope.message,
       expiresAt: envelope.expiresAt,
       signingUrl: signingUrl(this.config.APP_URL, rawToken),
+      brand: absoluteBrand(toSigningBrand(envelope.tenant), this.config.APP_URL),
     });
     const { messageId } = await this.transport.send(email, job.template, {
       envelopeId: envelope.id,

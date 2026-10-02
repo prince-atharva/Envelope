@@ -1,6 +1,7 @@
 import { isTerminalEnvelope, receivesSigningLink } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { absoluteBrand, toSigningBrand } from '../branding/signing-brand';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -71,6 +72,7 @@ export class SenderNoticeMailer {
         envelope: {
           include: {
             owner: { select: { email: true, fullName: true } },
+            tenant: { select: { name: true, brandColor: true, brandLogoRef: true } },
           },
         },
       },
@@ -99,6 +101,7 @@ export class SenderNoticeMailer {
         delegateName: delegate.name,
         envelopeTitle: envelope.title,
         envelopeUrl: envelopeUrl.toString(),
+        brand: absoluteBrand(toSigningBrand(envelope.tenant), this.config.APP_URL),
       }),
       job.template,
     );
