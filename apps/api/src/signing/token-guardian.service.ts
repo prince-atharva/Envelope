@@ -35,6 +35,7 @@ const RECIPIENT_FIELDS = {
   initialsImageKey: true,
   servedVersionNumber: true,
   viewedAt: true,
+  delegatedFromId: true,
 } as const;
 
 const ENVELOPE_FIELDS = {
@@ -47,6 +48,7 @@ const ENVELOPE_FIELDS = {
   title: true,
   pageCount: true,
   message: true,
+  allowDelegation: true,
 } as const;
 
 type ResolvedRecipient = Pick<Recipient, keyof typeof RECIPIENT_FIELDS>;
@@ -66,6 +68,7 @@ export interface SignerContext {
 export type AccessRefusal =
   | { code: 'ENVELOPE_TERMINAL'; reason: TerminalReason }
   | { code: 'TOKEN_ALREADY_USED' }
+  | { code: 'TOKEN_DELEGATED' }
   | { code: 'TOKEN_EXPIRED'; expiredAt: Date }
   | { code: 'ENVELOPE_NOT_OPEN' };
 
@@ -93,6 +96,7 @@ export function checkSignerAccess(
     };
   }
 
+  if (recipient.status === 'DELEGATED') return { code: 'TOKEN_DELEGATED' };
   if (recipient.status === 'SIGNED' || recipient.tokenUsedAt) return { code: 'TOKEN_ALREADY_USED' };
 
   const expiresAt = earliest(recipient.tokenExpiresAt, envelope.expiresAt);
@@ -118,6 +122,11 @@ function refusalException(refusal: AccessRefusal): AppException {
       });
     case 'TOKEN_ALREADY_USED':
       return new AppException('TOKEN_ALREADY_USED', 'You have already signed this document.');
+    case 'TOKEN_DELEGATED':
+      return new AppException(
+        'TOKEN_DELEGATED',
+        'You passed this document to someone else, so there is nothing more for you to do.',
+      );
     case 'TOKEN_EXPIRED':
       return new AppException(
         'TOKEN_EXPIRED',

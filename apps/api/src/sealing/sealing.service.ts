@@ -70,6 +70,15 @@ function toStampField(field: DocumentField): StampField {
   };
 }
 
+/** The person who passed this part on, with the time they did (docs/22, ADR 0032). */
+function delegatedFromOf(
+  party: Pick<Recipient, 'delegatedFromId'>,
+  byId: Map<string, Pick<Recipient, 'name' | 'delegatedAt'>>,
+): { name: string; at: Date } | null {
+  const from = party.delegatedFromId ? byId.get(party.delegatedFromId) : undefined;
+  return from?.delegatedAt ? { name: from.name, at: from.delegatedAt } : null;
+}
+
 /** Signed, and a signer or approver: someone whose fields go into a version. */
 function hasSigned(recipient: Pick<Recipient, 'role' | 'status'>): boolean {
   return receivesSigningLink(recipient.role) && recipient.status === 'SIGNED';
@@ -168,12 +177,14 @@ export class SealingService {
 
   /**
    * One completion email per recipient, whatever their role, and one for the
-   * sender (docs/15 step 6). A failure is thrown, so the seal job is retried
-   * and queues them again.
+   * sender (docs/15 step 6). Someone who passed their part on gets none: the
+   * finished document carries the signature of the person who holds it now
+   * (docs/22). A failure is thrown, so the seal job is retried and queues them
+   * again.
    */
   private async queueCompletionEmails(envelopeId: string): Promise<void> {
     const recipients = await this.prisma.recipient.findMany({
-      where: { envelopeId },
+      where: { envelopeId, status: { not: 'DELEGATED' } },
       select: { id: true },
       orderBy: { routingOrder: 'asc' },
     });
@@ -379,7 +390,9 @@ export class SealingService {
     if (!latest) throw new Error(`Envelope ${envelopeId} has no version 0`);
     if (latest.isFinal) return { kind: 'idle', reason: 'already sealed' } as const;
 
-    const parties = envelope.recipients.filter((r) => receivesSigningLink(r.role));
+    const parties = envelope.recipients.filter(
+      (r) => receivesSigningLink(r.role) && r.status !== 'DELEGATED',
+    );
     const stampedBefore = new Set(envelope.versions.map((v) => v.createdByRecipientId));
     const waiting = parties.filter((r) => !hasSigned(r) || !stampedBefore.has(r.id)).length;
     if (parties.length === 0 || waiting > 0) {
@@ -504,6 +517,7 @@ export class SealingService {
     parties: Recipient[],
   ): CertificateData {
     const names = new Map(envelope.recipients.map((r) => [r.id, r.name]));
+    const byId = new Map(envelope.recipients.map((r) => [r.id, r]));
     const signedEvents = new Map(
       envelope.auditLogs
         .filter((event) => event.action === 'RECIPIENT_SIGNED' && event.recipientId)
@@ -540,6 +554,7 @@ export class SealingService {
           userAgent: signed?.userAgent ?? 'Not recorded',
           signatureMethod: party.signatureMethod,
           documentVersion: metadata.documentVersion ?? null,
+          delegatedFrom: delegatedFromOf(party, byId),
         };
       }),
       versions: envelope.versions.map((version) => ({

@@ -77,6 +77,16 @@ describe('routing', () => {
     expect(ids(recipientsDueInvitation(list, true))).toEqual(['a', 'b']);
   });
 
+  it('never waits for, or invites, someone who passed their part on', () => {
+    const list = [person('a', 1, 'DELEGATED'), person('b', 1, 'SENT'), person('c', 2)];
+    expect(ids(currentRoutingGroup(list, true))).toEqual(['b']);
+    expect(ids(currentRoutingGroup(list, false))).toEqual(['b', 'c']);
+    expect(ids(recipientsDueInvitation(list, true))).toEqual([]);
+    expect(ids(currentRoutingGroup([person('a', 1, 'DELEGATED'), person('c', 2)], true))).toEqual([
+      'c',
+    ]);
+  });
+
   it('moves to the next group only once the whole group has signed', () => {
     const halfway = [person('a', 1, 'SIGNED'), person('b', 1, 'VIEWED'), person('c', 2)];
     expect(ids(currentRoutingGroup(halfway, true))).toEqual(['b']);

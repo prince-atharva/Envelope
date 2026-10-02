@@ -44,12 +44,15 @@ export class EmailProcessor extends WorkerHost {
       case 'welcome':
         return this.transport.send(renderWelcomeEmail(data, this.config.APP_URL), data.template);
       case 'invitation':
+      case 'delegated':
       case 'reminder':
       case 'extended':
       case 'expiry-warning':
         return this.signingLinks.send(data);
       case 'declined':
         return this.senderNotices.sendDeclined(data);
+      case 'delegation-notice':
+        return this.senderNotices.sendDelegationNotice(data);
       case 'expired':
         return this.senderNotices.sendExpired(data);
       case 'more-time-requested':

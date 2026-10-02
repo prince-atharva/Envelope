@@ -7,7 +7,10 @@ import {
   consentSchema,
   type DeclineInput,
   type DeclineResponse,
+  type DelegateInput,
+  type DelegateResponse,
   declineSchema,
+  delegateSchema,
   type MoreTimeResponse,
   type SigningSession,
   type SubmitSigningInput,
@@ -146,6 +149,21 @@ export class SigningController {
     @Client() client: ClientInfo,
   ): Promise<DeclineResponse> {
     return this.signing.decline(token, body, client);
+  }
+
+  @Post('delegate')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Pass this document to someone else, if the sender allowed it (docs/22).',
+  })
+  @ApiParam(TOKEN_PARAM)
+  @ApiBody({ schema: openApiSchema(delegateSchema) })
+  delegate(
+    @Param('token') token: string,
+    @Body(new ZodValidationPipe(delegateSchema)) body: DelegateInput,
+    @Client() client: ClientInfo,
+  ): Promise<DelegateResponse> {
+    return this.signing.delegate(token, body, client);
   }
 
   @Post('request-more-time')

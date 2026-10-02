@@ -30,6 +30,15 @@ describe('checkSignerAccess', () => {
     ).toEqual({ code: 'ENVELOPE_TERMINAL', reason: 'YOU_DECLINED' });
   });
 
+  it('tells someone who passed their part on that they did, unless the envelope closed', () => {
+    const passedOn = { ...waiting, status: 'DELEGATED' } as const;
+    expect(checkSignerAccess(passedOn, open, NOW)).toEqual({ code: 'TOKEN_DELEGATED' });
+    expect(checkSignerAccess(passedOn, { ...open, status: 'VOIDED' }, NOW)).toEqual({
+      code: 'ENVELOPE_TERMINAL',
+      reason: 'VOIDED',
+    });
+  });
+
   it('treats a spent token as signed, even before the status changes', () => {
     expect(checkSignerAccess({ ...waiting, status: 'SIGNED' }, open, NOW)).toEqual({
       code: 'TOKEN_ALREADY_USED',

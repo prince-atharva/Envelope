@@ -14,6 +14,8 @@ export interface CertificateParty {
   signatureMethod: string | null;
   /** The version they were shown and signed (ADR 0003). */
   documentVersion: number | null;
+  /** Who passed this part to them, and when (docs/22, ADR 0032). Null for the person first named. */
+  delegatedFrom: { name: string; at: Date } | null;
 }
 
 export interface CertificateVersion {
@@ -74,6 +76,7 @@ const ACTIONS: Record<string, string> = {
   SIGNATURE_ADOPTED: 'Signature adopted',
   RECIPIENT_SIGNED: 'Signed',
   RECIPIENT_DECLINED: 'Declined',
+  RECIPIENT_DELEGATED: 'Passed to someone else',
   VERSION_CREATED: 'Version created',
 };
 
@@ -119,6 +122,15 @@ export function certificateBlocks(data: CertificateData): CertificateBlock[] {
       { kind: 'field', label: 'Name', value: party.name },
       { kind: 'field', label: 'Email', value: party.email },
       { kind: 'field', label: 'Role', value: titleCase(party.role) },
+      ...(party.delegatedFrom
+        ? [
+            {
+              kind: 'field' as const,
+              label: 'Delegated by',
+              value: `${party.delegatedFrom.name}, ${utc(party.delegatedFrom.at)}`,
+            },
+          ]
+        : []),
       { kind: 'field', label: 'Signed', value: utc(party.signedAt) },
       {
         kind: 'field',

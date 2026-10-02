@@ -228,6 +228,8 @@ export interface SigningSession {
   fields: SigningField[];
   /** What has been adopted so far, and how. */
   adopted: Partial<Record<SignatureKind, SignatureMethod>>;
+  /** The sender allowed this person to pass their part to someone else (docs/22). */
+  allowDelegation: boolean;
 }
 
 export interface ConsentResponse {
@@ -308,8 +310,13 @@ export function receivesSigningLink(role: RecipientRole): boolean {
   return canOwnFields(role);
 }
 
+/** A delegator's part now belongs to the person they passed it to (docs/22, ADR 0032). */
 function hasFinished(recipient: RoutingRecipient): boolean {
-  return recipient.status === 'SIGNED' || recipient.status === 'DECLINED';
+  return (
+    recipient.status === 'SIGNED' ||
+    recipient.status === 'DECLINED' ||
+    recipient.status === 'DELEGATED'
+  );
 }
 
 /**

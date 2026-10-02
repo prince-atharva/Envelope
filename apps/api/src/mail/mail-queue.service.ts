@@ -11,6 +11,7 @@ import type {
   AlertEmailJob,
   CompletedEmailJob,
   DeclinedNoticeJob,
+  DelegationNoticeJob,
   DeliveryFailedNoticeJob,
   DownloadRenewedJob,
   EmailJobData,
@@ -147,6 +148,32 @@ export class MailQueueService implements OnModuleInit {
       'Email job enqueued',
     );
     return job.id;
+  }
+
+  /** Tells the person who passed their part on, and the sender (docs/22, ADR 0032). */
+  async enqueueDelegationNotices(
+    envelopeId: string,
+    recipientId: string,
+    delegateId: string,
+  ): Promise<void> {
+    const requestId = this.cls.isActive() ? this.cls.getId() : undefined;
+    for (const audience of ['delegator', 'sender'] as const) {
+      const data: DelegationNoticeJob = {
+        template: 'delegation-notice',
+        envelopeId,
+        recipientId,
+        delegateId,
+        audience,
+        requestId,
+      };
+      const job = await this.queue.add(data.template, data, {
+        jobId: `delegation-notice-${recipientId}-${audience}`,
+      });
+      this.logger.info(
+        { queue: EMAIL_QUEUE, jobId: job.id, template: data.template, envelopeId, audience },
+        'Email job enqueued',
+      );
+    }
   }
 
   /**

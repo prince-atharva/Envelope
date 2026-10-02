@@ -5,6 +5,7 @@ import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   DeclinedNoticeJob,
+  DelegationNoticeJob,
   DeliveryFailedNoticeJob,
   ExpiredNoticeJob,
   MoreTimeRequestedJob,
@@ -13,6 +14,7 @@ import { MailTransportService } from './mail-transport.service';
 import type { SigningLinkResult } from './signing-link.mailer';
 import {
   renderDeclinedEmail,
+  renderDelegationNoticeEmail,
   renderDeliveryFailedEmail,
   renderExpiredEmail,
   renderMoreTimeEmail,
@@ -59,6 +61,50 @@ export class SenderNoticeMailer {
   }
 
   /**
+   * Someone passed their part to another person (docs/22, ADR 0032): one email
+   * to the person who passed it on, one to the sender. No signing link in either.
+   */
+  async sendDelegationNotice(job: DelegationNoticeJob): Promise<SigningLinkResult> {
+    const delegator = await this.prisma.recipient.findFirst({
+      where: { id: job.recipientId, envelopeId: job.envelopeId, status: 'DELEGATED' },
+      include: {
+        envelope: {
+          include: {
+            owner: { select: { email: true, fullName: true } },
+          },
+        },
+      },
+    });
+    const delegate = await this.prisma.recipient.findFirst({
+      where: { id: job.delegateId, envelopeId: job.envelopeId },
+      select: { name: true },
+    });
+    if (!delegator || !delegate) {
+      this.logger.warn(
+        { envelopeId: job.envelopeId, recipientId: job.recipientId },
+        'Delegation notice not sent: nothing was delegated',
+      );
+      return { skipped: 'nothing delegated' };
+    }
+
+    const { envelope } = delegator;
+    const envelopeUrl = new URL(`/dashboard/envelopes/${envelope.id}`, this.config.APP_URL);
+    const forSender = job.audience === 'sender';
+    return this.transport.send(
+      renderDelegationNoticeEmail({
+        to: forSender ? envelope.owner.email : delegator.email,
+        name: forSender ? envelope.owner.fullName : delegator.name,
+        audience: job.audience,
+        delegatorName: delegator.name,
+        delegateName: delegate.name,
+        envelopeTitle: envelope.title,
+        envelopeUrl: envelopeUrl.toString(),
+      }),
+      job.template,
+    );
+  }
+
+  /**
    * The deadline passed. Skipped if the sender has already extended or
    * cancelled it by the time this runs: the news would be stale.
    */
@@ -86,7 +132,9 @@ export class SenderNoticeMailer {
         envelopeTitle: envelope.title,
         deadline: envelope.expiresAt,
         waitingFor: envelope.recipients
-          .filter((r) => receivesSigningLink(r.role) && r.status !== 'SIGNED')
+          .filter(
+            (r) => receivesSigningLink(r.role) && r.status !== 'SIGNED' && r.status !== 'DELEGATED',
+          )
           .map((r) => r.name),
         envelopeUrl: envelopeUrl.toString(),
       }),

@@ -125,6 +125,7 @@ export class SendingService {
           sentAt,
           expiresAt,
           reminderIntervalDays,
+          allowDelegation: input.allowDelegation ?? false,
           ...(input.message === undefined ? {} : { message: input.message }),
         },
       });
@@ -144,6 +145,7 @@ export class SendingService {
           sequential: envelope.sequentialSigning,
           expiresInDays,
           reminderIntervalDays,
+          allowDelegation: input.allowDelegation ?? false,
         },
       });
 
@@ -255,7 +257,11 @@ export class SendingService {
       for (const id of targets) {
         const recipient = byId.get(id);
         if (!recipient) continue;
-        if (recipient.status === 'SIGNED' || recipient.status === 'DECLINED') {
+        if (
+          recipient.status === 'SIGNED' ||
+          recipient.status === 'DECLINED' ||
+          recipient.status === 'DELEGATED'
+        ) {
           refused.push({ recipientId: id, reason: 'FINISHED' });
         } else if (!turn.has(id)) {
           refused.push({ recipientId: id, reason: 'NOT_THEIR_TURN' });

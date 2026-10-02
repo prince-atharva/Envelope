@@ -350,6 +350,7 @@ describe('PdfSealingService.appendCertificate', () => {
             'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
           signatureMethod: 'DRAWN',
           documentVersion: 0,
+          delegatedFrom: null,
         },
         {
           name: 'Ελένη Юрий',
@@ -361,6 +362,7 @@ describe('PdfSealingService.appendCertificate', () => {
           userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
           signatureMethod: 'TYPED',
           documentVersion: 1,
+          delegatedFrom: { name: 'Mia Clarke', at: at(15) },
         },
       ],
       versions: [
@@ -428,6 +430,8 @@ describe('PdfSealingService.appendCertificate', () => {
     expect(printed).toContain('Consent given 2026-09-19 10:09:00 UTC');
     expect(printed).toContain('Signature Drawn');
     expect(printed).toContain('Role Approver');
+    expect(printed).toContain('Delegated by Mia Clarke, 2026-09-19 10:15:00 UTC');
+    expect(printed.match(/Delegated by/g)).toHaveLength(1);
     for (const version of data.versions) expect(printed).toContain(version.sha256);
     expect(printed).toContain('1 2026-09-19 10:00:00 UTC Signing link opened');
     expect(printed).toContain('2 2026-09-19 10:01:00 UTC Signed');

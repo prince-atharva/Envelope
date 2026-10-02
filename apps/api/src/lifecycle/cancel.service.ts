@@ -94,11 +94,14 @@ export class CancelService {
         ? []
         : await tx.recipient.findMany({
             where: { envelopeId },
-            select: { id: true, role: true },
+            select: { id: true, role: true, status: true },
           });
       return {
         fromStatus: status,
-        notify: recipients.filter((r) => receivesSigningLink(r.role)).map((r) => r.id),
+        // A delegator was told their part moved on; the cancellation is for whoever holds it now.
+        notify: recipients
+          .filter((r) => receivesSigningLink(r.role) && r.status !== 'DELEGATED')
+          .map((r) => r.id),
       };
     });
 

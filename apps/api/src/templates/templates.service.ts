@@ -114,8 +114,10 @@ export class TemplatesService {
     const original = envelope.versions[0];
     if (!original) throw new Error(`Envelope ${envelope.id} has no version 0`);
 
+    // A delegator's fields moved to the delegate; the delegator is history, not a role (ADR 0032).
+    const parties = envelope.recipients.filter((recipient) => recipient.status !== 'DELEGATED');
     const issues = checkReadyToSend({
-      recipients: envelope.recipients.map(toRecipientInfo),
+      recipients: parties.map(toRecipientInfo),
       fields: envelope.fields.map(toFieldInfo),
     });
     if (issues.length > 0) {
@@ -128,7 +130,7 @@ export class TemplatesService {
       );
     }
 
-    const known = new Set(envelope.recipients.map((r) => r.id));
+    const known = new Set(parties.map((r) => r.id));
     for (const recipientId of Object.keys(input.roleNames ?? {})) {
       if (!known.has(recipientId)) {
         throw new AppException(
@@ -144,7 +146,7 @@ export class TemplatesService {
     }
     const roleNameFor = new Map<string, string>();
     const taken = new Set<string>();
-    for (const recipient of envelope.recipients) {
+    for (const recipient of parties) {
       const wanted = (input.roleNames?.[recipient.id] ?? recipient.name).slice(
         0,
         TEMPLATE_ROLE_NAME_MAX_LENGTH - 4,
@@ -167,7 +169,7 @@ export class TemplatesService {
     const key = templateDocumentKey(user.tenantId, templateId, randomUUID());
     await this.storage.copy(envelope.originalFileUrl, key);
 
-    const roleIdFor = new Map(envelope.recipients.map((r) => [r.id, randomUUID()]));
+    const roleIdFor = new Map(parties.map((r) => [r.id, randomUUID()]));
     try {
       await this.db.$transaction(async (tx) => {
         const clash = await tx.template.findFirst({
@@ -192,7 +194,7 @@ export class TemplatesService {
             reminderIntervalDays: envelope.reminderIntervalDays,
             createdById: user.id,
             roles: {
-              create: envelope.recipients.map((recipient) => ({
+              create: parties.map((recipient) => ({
                 id: roleIdFor.get(recipient.id) as string,
                 name: roleNameFor.get(recipient.id) as string,
                 role: recipient.role,
@@ -232,7 +234,7 @@ export class TemplatesService {
         tenantId: user.tenantId,
         userId: user.id,
         sourceEnvelopeId: envelope.id,
-        roleCount: envelope.recipients.length,
+        roleCount: parties.length,
         fieldCount: envelope.fields.length,
         durationMs: Math.round(performance.now() - started),
       },

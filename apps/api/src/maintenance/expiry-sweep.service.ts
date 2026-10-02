@@ -51,7 +51,10 @@ export class ExpirySweepService {
         // keep re-matching and using up a batch slot on every run until
         // sealing catches up (100M-row scale follow-up, docs/16 step 14).
         recipients: {
-          some: { role: { in: ['SIGNER', 'APPROVER'] }, status: { notIn: ['SIGNED', 'DECLINED'] } },
+          some: {
+            role: { in: ['SIGNER', 'APPROVER'] },
+            status: { notIn: ['SIGNED', 'DECLINED', 'DELEGATED'] },
+          },
         },
       },
       select: { id: true },
@@ -105,7 +108,7 @@ export class ExpirySweepService {
         where: {
           envelopeId,
           role: { in: ['SIGNER', 'APPROVER'] },
-          status: { notIn: ['SIGNED', 'DECLINED'] },
+          status: { notIn: ['SIGNED', 'DECLINED', 'DELEGATED'] },
         },
       });
       // Everyone signed in time; the seal is still to run. Not overdue.

@@ -70,7 +70,8 @@ export function progressOf(
   recipients: ProgressRecipient[],
 ): EnvelopeProgress | null {
   if (envelope.status === 'DRAFT' || !envelope.sentAt) return null;
-  const signers = recipients.filter((r) => receivesSigningLink(r.role));
+  // A delegator's part is now someone else's: they are neither signed nor waited on (docs/22).
+  const signers = recipients.filter((r) => receivesSigningLink(r.role) && r.status !== 'DELEGATED');
   const stillOpen = envelope.status === 'EXPIRED' || isOpenEnvelope(envelope.status);
   const unopened = signers
     .filter((r) => (r.status === 'SENT' || r.status === 'DELIVERED') && r.invitedAt)

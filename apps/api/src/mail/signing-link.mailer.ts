@@ -62,11 +62,14 @@ export class SigningLinkMailer {
     const prepared = await this.prisma.$transaction(async (tx) => {
       const found = await tx.recipient.findFirst({
         where: { id: job.recipientId, envelopeId: job.envelopeId },
-        include: { envelope: { include: { owner: { select: { fullName: true } } } } },
+        include: {
+          envelope: { include: { owner: { select: { fullName: true } } } },
+          delegatedFrom: { select: { name: true } },
+        },
       });
       if (!found) return { sent: false, reason: 'recipient not found' } as const;
 
-      const { envelope, ...recipient } = found;
+      const { envelope, delegatedFrom, ...recipient } = found;
       const reason = whyNotSend(recipient, envelope, now);
       if (reason) return { sent: false, reason } as const;
       // Holds off a cancel or decline until this link is stored, so a link is
@@ -88,7 +91,7 @@ export class SigningLinkMailer {
         data: { tokenHash, tokenExpiresAt: envelope.expiresAt },
       });
       if (claimed.count === 0) return { sent: false, reason: 'changed while sending' } as const;
-      return { sent: true, rawToken, tokenHash, recipient, envelope } as const;
+      return { sent: true, rawToken, tokenHash, recipient, envelope, delegatedFrom } as const;
     });
 
     if (!prepared.sent) {
@@ -96,7 +99,7 @@ export class SigningLinkMailer {
       return { skipped: prepared.reason };
     }
 
-    const { rawToken, tokenHash, recipient, envelope } = prepared;
+    const { rawToken, tokenHash, recipient, envelope, delegatedFrom } = prepared;
     if (!envelope.expiresAt) throw new Error('A sent envelope has no expiry');
 
     const email = renderSigningLinkEmail({
@@ -105,6 +108,7 @@ export class SigningLinkMailer {
       recipientName: recipient.name,
       action: recipient.role === 'APPROVER' ? 'approve' : 'sign',
       senderName: envelope.owner.fullName,
+      delegatorName: delegatedFrom?.name ?? null,
       envelopeTitle: envelope.title,
       message: envelope.message,
       expiresAt: envelope.expiresAt,

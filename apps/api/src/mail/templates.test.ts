@@ -4,6 +4,7 @@ import {
   renderAlertEmail,
   renderCompletedEmail,
   renderDeclinedEmail,
+  renderDelegationNoticeEmail,
   renderDeliveryFailedEmail,
   renderExpiredEmail,
   renderMoreTimeEmail,
@@ -86,6 +87,13 @@ describe('signing-link emails', () => {
     const email = renderSigningLinkEmail({ ...base, kind: 'reminder' });
     expect(email.subject).toBe('Reminder: Lease <2026> awaits your signature');
     expect(email.text).toContain('Links in earlier emails about this document no longer work.');
+  });
+
+  it('tells a delegate who passed the document on, and carries their own link', () => {
+    const email = renderSigningLinkEmail({ ...base, kind: 'delegated', delegatorName: 'Asha Rao' });
+    expect(email.subject).toBe('Asha Rao passed a document to you to sign');
+    expect(email.text).toContain('Asha Rao has passed "Lease <2026>" to you to sign');
+    expect(email.text).toContain(url);
   });
 
   it('asks an approver to approve', () => {
@@ -436,5 +444,41 @@ describe('two-factor notice emails', () => {
     expect(email.subject).toBe('Your two-factor authentication was reset');
     expect(email.text).toContain('ask the owner of your workspace');
     expect(email.html).not.toContain('<a ');
+  });
+});
+
+describe('delegation notice', () => {
+  const base = {
+    name: 'Raj Kumar',
+    delegatorName: 'Asha Rao',
+    delegateName: 'Sam <Lee>',
+    envelopeTitle: 'Lease',
+    envelopeUrl: 'https://app.example.com/dashboard/envelopes/abc',
+  };
+
+  it('tells the sender who passed it to whom, and where to look, with no signing link', () => {
+    const email = renderDelegationNoticeEmail({
+      ...base,
+      to: 'raj@example.com',
+      audience: 'sender',
+    });
+    expect(email.subject).toBe('Asha Rao passed Lease to Sam <Lee>');
+    expect(email.text).toContain(
+      'View the document: https://app.example.com/dashboard/envelopes/abc',
+    );
+    expect(email.html).toContain('Sam &lt;Lee&gt;');
+    expect(email.text).not.toContain('/sign/');
+  });
+
+  it('tells the person who passed it on that their old link no longer works', () => {
+    const email = renderDelegationNoticeEmail({
+      ...base,
+      name: 'Asha Rao',
+      to: 'asha@example.com',
+      audience: 'delegator',
+    });
+    expect(email.subject).toBe('You passed Lease to Sam <Lee>');
+    expect(email.text).toContain('no longer works');
+    expect(email.text).not.toContain('View the document');
   });
 });

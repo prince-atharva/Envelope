@@ -91,7 +91,7 @@ export class VerifyService {
         owner: { select: { id: true, fullName: true } },
         recipients: {
           orderBy: [{ routingOrder: 'asc' }, { createdAt: 'asc' }],
-          select: { id: true, name: true, email: true, role: true, signedAt: true },
+          select: { id: true, name: true, email: true, role: true, status: true, signedAt: true },
         },
         versions: {
           orderBy: { versionNumber: 'asc' },
@@ -142,7 +142,7 @@ export class VerifyService {
       // (privacy fix, 100M-row scale follow-up API pass, docs/16 step 14).
       // The full values stay in the sender's audit trail and detail view.
       signers: envelope.recipients
-        .filter((r) => r.role === 'SIGNER' || r.role === 'APPROVER')
+        .filter((r) => (r.role === 'SIGNER' || r.role === 'APPROVER') && r.status !== 'DELEGATED')
         .map((r) => ({
           name: r.name,
           maskedEmail: maskEmail(r.email),

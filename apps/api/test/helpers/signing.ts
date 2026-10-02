@@ -154,7 +154,11 @@ const LINK = /\/sign\/([0-9a-f]{64})/;
 export async function linkFor(mailbox: MemoryMailbox, email: string): Promise<string> {
   const message = await waitFor(() =>
     mailbox.messages
-      .filter((m) => m.to === email && (m.template === 'invitation' || m.template === 'reminder'))
+      .filter(
+        (m) =>
+          m.to === email &&
+          (m.template === 'invitation' || m.template === 'reminder' || m.template === 'delegated'),
+      )
       .at(-1),
   );
   return tokenIn(message);

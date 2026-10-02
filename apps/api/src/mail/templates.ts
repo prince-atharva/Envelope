@@ -124,6 +124,52 @@ export function renderDeclinedEmail(notice: DeclinedNotice): RenderedEmail {
   return { to: notice.to, subject, html, text };
 }
 
+export interface DelegationNotice {
+  to: string;
+  /** Who the email is addressed to. */
+  name: string;
+  audience: 'delegator' | 'sender';
+  delegatorName: string;
+  delegateName: string;
+  envelopeTitle: string;
+  envelopeUrl: string;
+}
+
+/**
+ * Tells the person who passed their part on, or the sender, that it happened
+ * (docs/22, ADR 0032). Neither version carries a signing link.
+ */
+export function renderDelegationNoticeEmail(notice: DelegationNotice): RenderedEmail {
+  const from = oneLine(notice.delegatorName);
+  const to = oneLine(notice.delegateName);
+  const title = oneLine(notice.envelopeTitle);
+  const forSender = notice.audience === 'sender';
+  const subject = forSender ? `${from} passed ${title} to ${to}` : `You passed ${title} to ${to}`;
+  const intro = forSender
+    ? `${from} passed their part of "${title}" to ${to}. ${to} has been emailed their own link.`
+    : `You passed your part of "${title}" to ${to}. They have been emailed their own link, and the link in your earlier email no longer works.`;
+  const footer = forSender
+    ? `You received this email because you sent this document using ${BRAND.fullName}.`
+    : `You received this email because you passed a document on using ${BRAND.fullName}. If this was not you, contact the sender.`;
+
+  const html = layout(
+    intro,
+    `<p style="margin:0 0 16px;">Hi ${escapeHtml(oneLine(notice.name))},</p>
+     <p style="margin:0 0 16px;">${escapeHtml(intro)}</p>
+     ${forSender ? button(notice.envelopeUrl, 'View the document') : ''}`,
+    footer,
+  );
+  const text = [
+    `Hi ${oneLine(notice.name)},`,
+    '',
+    intro,
+    ...(forSender ? ['', `View the document: ${notice.envelopeUrl}`] : []),
+    '',
+    footer,
+  ].join('\n');
+  return { to: notice.to, subject, html, text };
+}
+
 /** Everything an invitation or reminder needs, read by the worker from the database. */
 export interface VoidedNotice {
   to: string;
@@ -353,7 +399,9 @@ export function renderAlertEmail(alert: AlertEmail): RenderedEmail {
 }
 
 export interface SigningLinkEmail {
-  kind: 'invitation' | 'reminder' | 'extended' | 'expiry-warning';
+  kind: 'invitation' | 'reminder' | 'extended' | 'expiry-warning' | 'delegated';
+  /** Who passed the document on, for `delegated` (docs/22). */
+  delegatorName?: string | null;
   /** For "expires in N days". Defaults to the time of rendering. */
   now?: Date;
   to: string;
@@ -401,12 +449,14 @@ export function renderSigningLinkEmail(email: SigningLinkEmail): RenderedEmail {
     reminder: `Reminder: ${title} awaits your ${noun}`,
     extended: `More time to ${verb} ${title}`,
     'expiry-warning': `${title} expires ${inDays}`,
+    delegated: `${oneLine(email.delegatorName ?? sender)} passed a document to you to ${verb}`,
   }[email.kind];
   const intro = {
     invitation: `${sender} has sent you "${title}" to ${verb}.`,
     reminder: `This is a reminder that ${sender} is waiting for you to ${verb} "${title}".`,
     extended: `${sender} has given you more time to ${verb} "${title}". Anything you already did is kept.`,
     'expiry-warning': `${sender} is still waiting for your ${noun} on "${title}", and it expires ${inDays}.`,
+    delegated: `${oneLine(email.delegatorName ?? 'Someone')} has passed "${title}" to you to ${verb}. It was sent to them by ${sender}.`,
   }[email.kind];
   const replaced =
     email.kind === 'invitation'

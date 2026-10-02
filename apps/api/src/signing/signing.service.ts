@@ -7,6 +7,8 @@ import {
   type ConsentResponse,
   type DeclineInput,
   type DeclineResponse,
+  type DelegateInput,
+  type DelegateResponse,
   type MoreTimeResponse,
   OPEN_ENVELOPE_STATUSES,
   orderFieldsForSigning,
@@ -20,6 +22,7 @@ import { AuditService } from '../audit/audit.service';
 import type { ClientInfo } from '../auth/auth.types';
 import { AppException } from '../common/errors/app-exception';
 import { Prisma } from '../generated/prisma/client';
+import { maskEmail } from '../logging/redact';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { lockEnvelope, lockOpenEnvelope } from '../prisma/envelope-locks';
 import { PrismaService } from '../prisma/prisma.service';
@@ -126,6 +129,7 @@ export class SigningService {
         ...(recipient.signatureMethod ? { SIGNATURE: recipient.signatureMethod } : {}),
         ...(recipient.initialsMethod ? { INITIALS: recipient.initialsMethod } : {}),
       },
+      allowDelegation: envelope.allowDelegation && !recipient.delegatedFromId,
     };
   }
 
@@ -437,7 +441,7 @@ export class SigningService {
         where: {
           envelopeId: envelope.id,
           role: { in: ['SIGNER', 'APPROVER'] },
-          status: { notIn: ['SIGNED', 'DECLINED'] },
+          status: { notIn: ['SIGNED', 'DECLINED', 'DELEGATED'] },
         },
       });
       // Read back rather than assumed: the two writes above only ever leave
@@ -568,6 +572,150 @@ export class SigningService {
       this.logger.error({ err: error, alert: true }, 'Decline notice could not be queued');
     }
     return { status: 'DECLINED', declinedAt: declinedAt.toISOString() };
+  }
+
+  /**
+   * POST /sign/:token/delegate: the signer passes their part to someone else
+   * (docs/22, ADR 0032). The delegate becomes a new recipient who takes over the
+   * fields; the signer's own row stays as history. Allowed only when the sender
+   * chose it at send, once, and never from a delegate.
+   */
+  async delegate(
+    rawToken: string,
+    input: DelegateInput,
+    client: ClientInfo,
+  ): Promise<DelegateResponse> {
+    const signer = await this.guardian.resolve(rawToken);
+    const { recipient, envelope } = signer;
+    if (!envelope.allowDelegation) {
+      throw new AppException(
+        'DELEGATION_NOT_ALLOWED',
+        'The sender has not allowed this document to be passed to someone else.',
+      );
+    }
+    if (recipient.delegatedFromId) {
+      throw new AppException(
+        'DELEGATION_NOT_ALLOWED',
+        'This document was passed to you, so it cannot be passed on again.',
+      );
+    }
+    if (input.email === recipient.email.toLowerCase()) {
+      throw new AppException('RECIPIENT_EMAIL_TAKEN', 'That is your own address.');
+    }
+
+    const delegatedAt = new Date();
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (!(await lockOpenEnvelope(tx, envelope.id, delegatedAt))) return null;
+      const claimed = await tx.recipient.updateMany({
+        where: {
+          id: recipient.id,
+          tokenUsedAt: null,
+          status: { in: [...AWAITING] },
+          envelope: { status: { in: [...OPEN_ENVELOPE_STATUSES] } },
+        },
+        data: { status: 'DELEGATED', delegatedAt },
+      });
+      if (claimed.count === 0) return null;
+
+      const taken = await tx.recipient.findFirst({
+        where: { envelopeId: envelope.id, email: input.email },
+        select: { id: true },
+      });
+      if (taken) {
+        throw new AppException('RECIPIENT_EMAIL_TAKEN', 'That person is already on this document.');
+      }
+
+      const from = await tx.recipient.findUniqueOrThrow({
+        where: { id: recipient.id },
+        select: {
+          role: true,
+          routingOrder: true,
+          colorIndex: true,
+          signatureImageKey: true,
+          initialsImageKey: true,
+        },
+      });
+      const delegate = await tx.recipient.create({
+        data: {
+          envelopeId: envelope.id,
+          name: input.name,
+          email: input.email,
+          role: from.role,
+          routingOrder: from.routingOrder,
+          colorIndex: from.colorIndex,
+          status: 'SENT',
+          invitedAt: delegatedAt,
+          delegatedFromId: recipient.id,
+        },
+        select: { id: true },
+      });
+      await tx.documentField.updateMany({
+        where: { envelopeId: envelope.id, recipientId: recipient.id },
+        data: { recipientId: delegate.id },
+      });
+      // What they adopted was theirs alone; the delegate adopts their own.
+      await tx.recipient.update({
+        where: { id: recipient.id },
+        data: {
+          signatureImageKey: null,
+          signatureMethod: null,
+          initialsImageKey: null,
+          initialsMethod: null,
+        },
+      });
+      await this.audit.record(tx, {
+        envelopeId: envelope.id,
+        recipientId: recipient.id,
+        action: 'RECIPIENT_DELEGATED',
+        ipAddress: client.ip,
+        userAgent: client.userAgent,
+        // Ids only: both people are on their own recipient rows.
+        metadata: { toRecipientId: delegate.id },
+      });
+      return {
+        delegateId: delegate.id,
+        images: [from.signatureImageKey, from.initialsImageKey].filter(
+          (key): key is string => key !== null,
+        ),
+      };
+    });
+
+    if (!result) {
+      await this.guardian.resolve(rawToken); // Throws the reason: signed, declined, closed, expired.
+      throw new AppException('CONFLICT', 'Please reload and try again.');
+    }
+
+    for (const key of result.images) await this.discard(key);
+    await this.webhooks.enqueue(envelope.tenantId, 'recipient.delegated', {
+      envelopeId: envelope.id,
+      fromRecipientId: recipient.id,
+      fromRecipientEmail: recipient.email,
+      toRecipientId: result.delegateId,
+      toRecipientEmail: input.email,
+      envelopeStatus: envelope.status,
+      delegatedAt: delegatedAt.toISOString(),
+    });
+    this.logger.info(
+      {
+        envelopeId: envelope.id,
+        fromRecipientId: recipient.id,
+        toRecipientId: result.delegateId,
+        to: maskEmail(input.email),
+      },
+      'Recipient delegated their part',
+    );
+    try {
+      await this.mail.enqueueSigningLink('delegated', envelope.id, result.delegateId, delegatedAt);
+      await this.mail.enqueueDelegationNotices(envelope.id, recipient.id, result.delegateId);
+    } catch (error) {
+      // The delegation stands either way; the sender can remind the new person from the envelope page.
+      this.logger.error({ err: error, alert: true }, 'Delegation emails could not be queued');
+    }
+    return {
+      status: 'DELEGATED',
+      delegatedAt: delegatedAt.toISOString(),
+      delegateName: input.name,
+    };
   }
 
   /**

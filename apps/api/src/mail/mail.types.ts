@@ -18,9 +18,10 @@ export interface WelcomeEmailJob {
 export interface SigningLinkEmailJob {
   /**
    * `extended`: the sender gave more time (docs/16 step 7). `expiry-warning`:
-   * the deadline is close (docs/16 step 10).
+   * the deadline is close (docs/16 step 10). `delegated`: someone passed their part
+   * to this person (docs/22).
    */
-  template: 'invitation' | 'reminder' | 'extended' | 'expiry-warning';
+  template: 'invitation' | 'reminder' | 'extended' | 'expiry-warning' | 'delegated';
   envelopeId: string;
   recipientId: string;
   requestId?: string;
@@ -32,6 +33,21 @@ export interface DeclinedNoticeJob {
   envelopeId: string;
   /** The person who declined. */
   recipientId: string;
+  requestId?: string;
+}
+
+/**
+ * Tells the person who passed their part on, or the sender, that it happened
+ * (docs/22, ADR 0032). Ids only; the worker reads the names itself.
+ */
+export interface DelegationNoticeJob {
+  template: 'delegation-notice';
+  envelopeId: string;
+  /** The person who passed their part on. */
+  recipientId: string;
+  /** The person who now holds it. */
+  delegateId: string;
+  audience: 'delegator' | 'sender';
   requestId?: string;
 }
 
@@ -176,6 +192,7 @@ export type EmailJobData =
   | WelcomeEmailJob
   | SigningLinkEmailJob
   | DeclinedNoticeJob
+  | DelegationNoticeJob
   | CompletedEmailJob
   | VoidedNoticeJob
   | ExpiredNoticeJob
