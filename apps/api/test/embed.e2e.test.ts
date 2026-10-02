@@ -236,6 +236,12 @@ describe('embedded sender authority (e2e)', () => {
       .send({})
       .expect(403);
     await request(t.http).post('/api/v1/envelopes').set('Authorization', auth).expect(403);
+    // Handing the sender's own device to a signer is for a signed-in person, never an embedded editor.
+    await request(t.http)
+      .post(`/api/v1/envelopes/${id}/recipients/00000000-0000-4000-8000-000000000000/in-person`)
+      .set('Authorization', auth)
+      .send()
+      .expect(403);
     await request(t.http)
       .patch(`/api/v1/envelopes/${id}`)
       .set('Authorization', auth)

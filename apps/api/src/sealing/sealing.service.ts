@@ -543,7 +543,11 @@ export class SealingService {
       signedByAllAt: ordered.at(-1)?.signedAt ?? envelope.versions.at(-1)?.createdAt ?? new Date(0),
       parties: ordered.map((party) => {
         const signed = signedEvents.get(party.id);
-        const metadata = (signed?.metadata ?? {}) as { documentVersion?: number | null };
+        const metadata = (signed?.metadata ?? {}) as {
+          documentVersion?: number | null;
+          inPerson?: boolean;
+          hostName?: string;
+        };
         return {
           name: party.name,
           email: party.email,
@@ -555,6 +559,7 @@ export class SealingService {
           signatureMethod: party.signatureMethod,
           documentVersion: metadata.documentVersion ?? null,
           delegatedFrom: delegatedFromOf(party, byId),
+          inPersonHost: metadata.inPerson && metadata.hostName ? metadata.hostName : null,
         };
       }),
       versions: envelope.versions.map((version) => ({

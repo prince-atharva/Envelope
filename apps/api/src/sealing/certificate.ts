@@ -16,6 +16,8 @@ export interface CertificateParty {
   documentVersion: number | null;
   /** Who passed this part to them, and when (docs/22, ADR 0032). Null for the person first named. */
   delegatedFrom: { name: string; at: Date } | null;
+  /** The sender who hosted the signing on their own device, if it was in person (ADR 0033). */
+  inPersonHost: string | null;
 }
 
 export interface CertificateVersion {
@@ -77,6 +79,7 @@ const ACTIONS: Record<string, string> = {
   RECIPIENT_SIGNED: 'Signed',
   RECIPIENT_DECLINED: 'Declined',
   RECIPIENT_DELEGATED: 'Passed to someone else',
+  IN_PERSON_STARTED: 'In-person signing started',
   VERSION_CREATED: 'Version created',
 };
 
@@ -151,8 +154,25 @@ export function certificateBlocks(data: CertificateData): CertificateBlock[] {
               value: `v${party.documentVersion}`,
             },
           ]),
-      { kind: 'field', label: 'IP address', value: party.ipAddress },
-      { kind: 'field', label: 'Device', value: party.userAgent },
+      ...(party.inPersonHost
+        ? [
+            {
+              kind: 'field' as const,
+              label: 'Signed in person',
+              value: `Hosted by ${party.inPersonHost}, on the host's own device`,
+            },
+          ]
+        : []),
+      {
+        kind: 'field',
+        label: party.inPersonHost ? "IP address (host's device)" : 'IP address',
+        value: party.ipAddress,
+      },
+      {
+        kind: 'field',
+        label: party.inPersonHost ? "Device (host's device)" : 'Device',
+        value: party.userAgent,
+      },
       { kind: 'gap' },
     );
   }

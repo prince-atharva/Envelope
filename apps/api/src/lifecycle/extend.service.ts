@@ -92,9 +92,16 @@ export class ExtendService {
         data: { expiresAt, status: toStatus },
       });
       // A link that still works keeps working to the new deadline, in case the
-      // new email is slow (ADR 0013, amending ADR 0009).
+      // new email is slow (ADR 0013, amending ADR 0009). An in-person link keeps its
+      // short life: it is for a device in someone's hands right now (ADR 0033), and
+      // the fresh email replaces it anyway.
       await tx.recipient.updateMany({
-        where: { envelopeId, tokenHash: { not: null }, tokenUsedAt: null },
+        where: {
+          envelopeId,
+          tokenHash: { not: null },
+          tokenUsedAt: null,
+          inPersonHostUserId: null,
+        },
         data: { tokenExpiresAt: expiresAt },
       });
       // A new deadline gets its own "expires soon" email.

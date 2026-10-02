@@ -8,22 +8,29 @@ import {
   type ReadinessIssue,
   type RemindInput,
   type RemindResponse,
+  receivesSigningLink,
   recipientsDueInvitation,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
+  type StartInPersonResponse,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser, ClientInfo } from '../auth/auth.types';
+import { assertCanManage } from '../auth/ownership';
 import { AppException } from '../common/errors/app-exception';
 import { AppConfig } from '../config/app-config';
 import { toFieldInfo, toRecipientInfo } from '../drafts/draft-mappers';
 import { MailQueueService } from '../mail/mail-queue.service';
+import { lockOpenEnvelope } from '../prisma/envelope-locks';
 import { TenantPrismaService } from '../prisma/tenant-prisma.service';
+import { mintSigningToken, tokenRef } from '../signing/signing-token';
 import { WebhookQueueService } from '../webhooks/webhook-queue.service';
 
 const DAY_MS = 24 * 3600 * 1000;
+/** Invited and not yet finished. */
+const AWAITING = ['SENT', 'DELIVERED', 'VIEWED'] as const;
 
 function notReady(issues: ReadinessIssue[]): AppException {
   const errors: ProblemFieldError[] = issues.map((issue) => ({
@@ -184,6 +191,102 @@ export class SendingService {
       sentAt: sentAt.toISOString(),
       expiresAt: expiresAt.toISOString(),
       invited: invited.map((id) => ({ id, status: 'SENT' })),
+    };
+  }
+
+  /**
+   * POST /envelopes/:id/recipients/:recipientId/in-person (docs/22, ADR 0033).
+   * Makes a signing link for someone whose turn it is, to be opened on the
+   * sender's own device. The raw link is returned once to the signed-in sender,
+   * never queued, emailed or stored; only its HMAC is kept. It replaces whatever
+   * link the person had, and an emailed one made later replaces it in turn.
+   */
+  async startInPerson(
+    envelopeId: string,
+    recipientId: string,
+    user: AuthenticatedUser,
+    client: ClientInfo,
+  ): Promise<StartInPersonResponse> {
+    const now = new Date();
+    const ttlMs = this.config.IN_PERSON_LINK_TTL_MINUTES * 60_000;
+
+    const started = await this.db.$transaction(async (tx) => {
+      const envelope = await tx.envelope.findUnique({
+        where: { id: envelopeId },
+        select: { id: true, ownerId: true, status: true, expiresAt: true },
+      });
+      if (!envelope) throw new AppException('NOT_FOUND', 'Envelope not found.');
+      assertCanManage(envelope.ownerId, user);
+      if (envelope.status === 'DRAFT') {
+        throw new AppException('CONFLICT', 'This envelope has not been sent yet.');
+      }
+      if (
+        envelope.status === 'EXPIRED' ||
+        (isOpenEnvelope(envelope.status) && envelope.expiresAt && envelope.expiresAt <= now)
+      ) {
+        throw new AppException(
+          'ENVELOPE_EXPIRED',
+          'This document has passed its deadline. Give more time first.',
+        );
+      }
+      if (!isOpenEnvelope(envelope.status)) {
+        throw new AppException('ENVELOPE_TERMINAL', 'This envelope is closed.');
+      }
+      // Holds off a cancel, decline or sign until the link is stored.
+      if (!(await lockOpenEnvelope(tx, envelopeId, now))) {
+        throw new AppException('CONFLICT', 'This document changed. Reload and try again.');
+      }
+
+      const recipient = await tx.recipient.findFirst({
+        where: { id: recipientId, envelopeId },
+        select: { id: true, role: true, status: true },
+      });
+      if (!recipient) throw new AppException('NOT_FOUND', 'Recipient not found.');
+      if (!receivesSigningLink(recipient.role)) {
+        throw new AppException('CONFLICT', 'This person does not sign or approve.');
+      }
+      if (recipient.status === 'PENDING') {
+        throw new AppException('CONFLICT', 'It is not their turn yet.');
+      }
+      if (!(AWAITING as readonly string[]).includes(recipient.status)) {
+        throw new AppException('CONFLICT', 'This person has already finished.');
+      }
+
+      const { rawToken, tokenHash } = mintSigningToken(this.config.SIGNING_TOKEN_SECRET);
+      const expiresAt = new Date(
+        Math.min(now.getTime() + ttlMs, envelope.expiresAt?.getTime() ?? Number.MAX_SAFE_INTEGER),
+      );
+      const claimed = await tx.recipient.updateMany({
+        where: { id: recipientId, status: { in: [...AWAITING] }, tokenUsedAt: null },
+        data: {
+          tokenHash,
+          tokenExpiresAt: expiresAt,
+          inPersonHostUserId: user.id,
+          inPersonStartedAt: now,
+        },
+      });
+      if (claimed.count === 0) {
+        throw new AppException('CONFLICT', 'This document changed. Reload and try again.');
+      }
+      await this.audit.record(tx, {
+        envelopeId,
+        recipientId,
+        action: 'IN_PERSON_STARTED',
+        actorUserId: user.id,
+        ipAddress: client.ip,
+        userAgent: client.userAgent,
+        metadata: { expiresAt: expiresAt.toISOString() },
+      });
+      return { rawToken, tokenHash, expiresAt };
+    });
+
+    this.logger.info(
+      { envelopeId, recipientId, hostUserId: user.id, tokenRef: tokenRef(started.tokenHash) },
+      'In-person signing started',
+    );
+    return {
+      signingPath: `/sign/${started.rawToken}`,
+      expiresAt: started.expiresAt.toISOString(),
     };
   }
 

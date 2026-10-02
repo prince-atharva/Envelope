@@ -351,6 +351,7 @@ describe('PdfSealingService.appendCertificate', () => {
           signatureMethod: 'DRAWN',
           documentVersion: 0,
           delegatedFrom: null,
+          inPersonHost: null,
         },
         {
           name: 'Ελένη Юрий',
@@ -363,6 +364,7 @@ describe('PdfSealingService.appendCertificate', () => {
           signatureMethod: 'TYPED',
           documentVersion: 1,
           delegatedFrom: { name: 'Mia Clarke', at: at(15) },
+          inPersonHost: 'Dr Sender',
         },
       ],
       versions: [
@@ -432,6 +434,9 @@ describe('PdfSealingService.appendCertificate', () => {
     expect(printed).toContain('Role Approver');
     expect(printed).toContain('Delegated by Mia Clarke, 2026-09-19 10:15:00 UTC');
     expect(printed.match(/Delegated by/g)).toHaveLength(1);
+    expect(printed).toContain("Signed in person Hosted by Dr Sender, on the host's own device");
+    expect(printed).toContain("IP address (host's device) 198.51.100.4");
+    expect(printed).toContain('IP address 203.0.113.7');
     for (const version of data.versions) expect(printed).toContain(version.sha256);
     expect(printed).toContain('1 2026-09-19 10:00:00 UTC Signing link opened');
     expect(printed).toContain('2 2026-09-19 10:01:00 UTC Signed');

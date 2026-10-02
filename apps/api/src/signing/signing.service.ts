@@ -52,6 +52,17 @@ function requireConsent(signer: SignerContext): void {
   }
 }
 
+/** Who is hosting this signing on their own device, when the link was made for that (ADR 0033). */
+interface InPersonHost {
+  hostUserId: string;
+  hostName: string;
+}
+
+/** What the audit trail records on a signature or decline made in person. */
+function inPersonMetadata(host: InPersonHost | null): Prisma.InputJsonObject {
+  return host ? { inPerson: true, hostUserId: host.hostUserId, hostName: host.hostName } : {};
+}
+
 /**
  * Everything a signer does through their link (docs/08, "Signing Session").
  *
@@ -84,6 +95,7 @@ export class SigningService {
     const signer = await this.guardian.resolve(rawToken);
     const { recipient, envelope } = signer;
     const consented = recipient.consentGivenAt !== null;
+    const host = await this.hostOf(recipient, envelope.tenantId);
 
     // Nothing about the document itself before consent: the gate is enforced
     // here, not by the page (docs/07, docs/09). None of these three depend
@@ -130,6 +142,7 @@ export class SigningService {
         ...(recipient.initialsMethod ? { INITIALS: recipient.initialsMethod } : {}),
       },
       allowDelegation: envelope.allowDelegation && !recipient.delegatedFromId,
+      inPerson: host ? { hostName: host.hostName } : null,
     };
   }
 
@@ -329,6 +342,7 @@ export class SigningService {
       where: { envelopeId: envelope.id, recipientId: recipient.id },
       select: { id: true, type: true, required: true, pageNumber: true },
     });
+    const host = await this.hostOf(recipient, envelope.tenantId);
     const signedAt = new Date();
     const resolved = resolveFieldValues(fields, input.fields, recipient, signedAt);
     if (!resolved.ok) {
@@ -434,6 +448,7 @@ export class SigningService {
           initialsMethod: recipient.initialsMethod,
           documentVersion: served?.versionNumber ?? null,
           documentSha256: served?.hash ?? null,
+          ...inPersonMetadata(host),
         },
       });
 
@@ -519,6 +534,7 @@ export class SigningService {
   ): Promise<DeclineResponse> {
     const signer = await this.guardian.resolve(rawToken);
     const { recipient, envelope } = signer;
+    const host = await this.hostOf(recipient, envelope.tenantId);
     const declinedAt = new Date();
 
     const declined = await this.prisma.$transaction(async (tx) => {
@@ -546,7 +562,7 @@ export class SigningService {
         ipAddress: client.ip,
         userAgent: client.userAgent,
         // The reason itself is on the recipient, shown to the sender only.
-        metadata: { reasonLength: input.reason.length },
+        metadata: { reasonLength: input.reason.length, ...inPersonMetadata(host) },
       });
       return true;
     });
@@ -837,6 +853,18 @@ export class SigningService {
     } catch (error) {
       this.logger.warn({ err: error }, 'Could not record that the signer is reading');
     }
+  }
+
+  private async hostOf(
+    recipient: { inPersonHostUserId: string | null },
+    tenantId: string,
+  ): Promise<InPersonHost | null> {
+    if (!recipient.inPersonHostUserId) return null;
+    const host = await this.prisma.user.findFirst({
+      where: { id: recipient.inPersonHostUserId, tenantId },
+      select: { fullName: true },
+    });
+    return host ? { hostUserId: recipient.inPersonHostUserId, hostName: host.fullName } : null;
   }
 
   /** Removes an image nothing refers to. A failure only leaves an orphan behind. */

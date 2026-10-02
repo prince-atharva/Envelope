@@ -38,6 +38,7 @@ const SENSITIVE_KEYS = [
   'rawKey',
   'rawSecret',
   'signingUrl',
+  'signingPath',
   'downloadUrl',
   'tokenHash',
   'keyHash',

@@ -4,6 +4,7 @@ import {
   remindSchema,
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
+  type StartInPersonResponse,
   sendEnvelopeSchema,
 } from '@envelope/shared';
 import { Body, Controller, Headers, HttpCode, Param, Post, Res } from '@nestjs/common';
@@ -71,5 +72,26 @@ export class SendingController {
     @Client() client: ClientInfo,
   ): Promise<RemindResponse> {
     return this.sending.remind(id, body ?? {}, user, client);
+  }
+
+  /**
+   * The signed-in sender's own device is handed to the signer (docs/22, ADR 0033). The response
+   * holds a one-time link, so it must never be cached; API keys and embedded sessions cannot call it.
+   */
+  @Post(':id/recipients/:recipientId/in-person')
+  @HttpCode(200)
+  @RateLimit(LIMITS.lifecycle)
+  @ApiOperation({
+    summary: 'Host a signer in person: returns a one-time signing link for this device',
+  })
+  startInPerson(
+    @Param('id', UuidParamPipe) id: string,
+    @Param('recipientId', UuidParamPipe) recipientId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Client() client: ClientInfo,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StartInPersonResponse> {
+    res.setHeader('Cache-Control', 'no-store');
+    return this.sending.startInPerson(id, recipientId, user, client);
   }
 }

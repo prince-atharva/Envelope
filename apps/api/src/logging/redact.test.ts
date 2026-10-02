@@ -55,6 +55,7 @@ describe('log redaction', () => {
       {
         rawToken: SECRETS.rawToken,
         job: { signingUrl: `https://app.test/sign/${SECRETS.rawToken}` },
+        started: { signingPath: `/sign/${SECRETS.rawToken}` },
         config: { SIGNING_TOKEN_SECRET: SECRETS.signingSecret },
       },
       'signing',

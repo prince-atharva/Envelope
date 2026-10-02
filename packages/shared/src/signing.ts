@@ -201,6 +201,15 @@ export interface DelegateResponse {
   delegateName: string;
 }
 
+/**
+ * POST /envelopes/:id/recipients/:recipientId/in-person (docs/22, ADR 0033). The path is relative to
+ * the web app and holds the one-time link: it is shown to the signed-in sender only, never emailed or logged.
+ */
+export interface StartInPersonResponse {
+  signingPath: string;
+  expiresAt: string;
+}
+
 /** One of the signer's own fields. Nobody else's are ever sent (docs/10). */
 export interface SigningField extends Ratios {
   id: string;
@@ -230,6 +239,8 @@ export interface SigningSession {
   adopted: Partial<Record<SignatureKind, SignatureMethod>>;
   /** The sender allowed this person to pass their part to someone else (docs/22). */
   allowDelegation: boolean;
+  /** Set when the sender is hosting this signing on their own device (docs/22, ADR 0033). */
+  inPerson: { hostName: string } | null;
 }
 
 export interface ConsentResponse {

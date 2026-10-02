@@ -88,7 +88,13 @@ export class SigningLinkMailer {
           tokenUsedAt: null,
           envelope: { status: { in: [...OPEN_ENVELOPE_STATUSES] } },
         },
-        data: { tokenHash, tokenExpiresAt: envelope.expiresAt },
+        // An emailed link replaces an in-person one, so a later signature is not mislabelled (ADR 0033).
+        data: {
+          tokenHash,
+          tokenExpiresAt: envelope.expiresAt,
+          inPersonHostUserId: null,
+          inPersonStartedAt: null,
+        },
       });
       if (claimed.count === 0) return { sent: false, reason: 'changed while sending' } as const;
       return { sent: true, rawToken, tokenHash, recipient, envelope, delegatedFrom } as const;

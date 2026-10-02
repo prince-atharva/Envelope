@@ -36,6 +36,7 @@ const RECIPIENT_FIELDS = {
   servedVersionNumber: true,
   viewedAt: true,
   delegatedFromId: true,
+  inPersonHostUserId: true,
 } as const;
 
 const ENVELOPE_FIELDS = {
