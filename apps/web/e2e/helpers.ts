@@ -299,7 +299,7 @@ export async function signingLinkFor(email: string, timeoutMs = 20_000): Promise
       if (!message) continue;
       if (
         message.to !== email ||
-        !['invitation', 'reminder', 'extended'].includes(message.template)
+        !['invitation', 'reminder', 'extended', 'delegated'].includes(message.template)
       )
         continue;
       const link = /https?:\/\/\S+\/sign\/[0-9a-f]{64}/.exec(message.text)?.[0];

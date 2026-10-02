@@ -50,6 +50,16 @@ describe('toldOfCancellation', () => {
     const copy = person({ role: 'CC', notifiedAt: '2026-09-19T10:00:00Z' });
     expect(toldOfCancellation([emailed, approver, waiting, copy])).toEqual([emailed, approver]);
   });
+
+  it('does not name someone who passed their part on', () => {
+    const passedOn = person({
+      name: 'Passed on',
+      status: 'DELEGATED',
+      notifiedAt: '2026-09-19T10:00:00Z',
+    });
+    const holder = person({ name: 'Holder', notifiedAt: '2026-09-19T11:00:00Z' });
+    expect(toldOfCancellation([passedOn, holder])).toEqual([holder]);
+  });
 });
 
 describe('wasDiscarded', () => {

@@ -56,3 +56,19 @@ describe('who an extension reaches', () => {
     expect(names(stillToSign(team).map((person) => person.name))).toBe('Opened, Emailed and Later');
   });
 });
+
+describe('passing a part on', () => {
+  const team = [
+    person('Asha', { status: 'DELEGATED' }),
+    person('Sam', { status: 'SENT', delegatedFromId: 'Asha' }),
+    person('Ben', { status: 'SIGNED' }),
+  ];
+
+  it('waits for the person who holds the part, not the one who passed it on', () => {
+    expect(stillToSign(team).map((r) => r.name)).toEqual(['Sam']);
+  });
+
+  it('emails a fresh link to the person who holds it only', () => {
+    expect(freshLinkFor(team).map((r) => r.name)).toEqual(['Sam']);
+  });
+});

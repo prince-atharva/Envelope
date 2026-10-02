@@ -86,6 +86,8 @@ describe('format', () => {
       expect(describeAuditAction('CONSENT_GIVEN')).toBe('Agreed to sign electronically');
       expect(describeAuditAction('RECIPIENT_SIGNED')).toBe('Signed');
     });
+
+    expect(describeAuditAction('RECIPIENT_DELEGATED')).toBe('Passed their part to someone else');
   });
 
   describe('formatRelative', () => {

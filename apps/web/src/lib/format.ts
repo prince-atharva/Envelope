@@ -48,6 +48,7 @@ const AUDIT_ACTIONS: Record<string, string> = {
   SIGNATURE_ADOPTED: 'Signature adopted',
   RECIPIENT_SIGNED: 'Signed',
   RECIPIENT_DECLINED: 'Declined',
+  RECIPIENT_DELEGATED: 'Passed their part to someone else',
   VERSION_CREATED: 'Signature stamped into a new version',
   ENVELOPE_COMPLETED: 'Completed and sealed',
   COMPLETION_SENT: 'Finished copy sent',

@@ -43,6 +43,14 @@ function screenFor(state: EndState): Screen {
         title: 'This document is no longer available for signature',
         body: 'Someone declined to sign it, so it has been closed. The sender has been told.',
       };
+    case 'delegated':
+      return {
+        tone: 'neutral',
+        title: 'You passed this document to someone else',
+        body: state.delegateName
+          ? `${state.delegateName} has been emailed their own link, and yours no longer works. There is nothing more for you to do. You can close this page.`
+          : 'Someone else now holds your part, and this link no longer works. There is nothing more for you to do.',
+      };
     case 'cancelled':
       return {
         tone: 'stopped',

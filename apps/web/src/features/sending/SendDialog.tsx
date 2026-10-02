@@ -48,6 +48,7 @@ export function SendDialog({
   const keyRef = useRef<string>(crypto.randomUUID());
   const [expiresInDays, setExpiresInDays] = useState<number>(DEFAULT_EXPIRY_DAYS);
   const [message, setMessage] = useState(envelope.message ?? '');
+  const [allowDelegation, setAllowDelegation] = useState(false);
   const [reminderIntervalDays, setReminderIntervalDays] = useState<number | null>(
     DEFAULT_REMINDER_INTERVAL_DAYS,
   );
@@ -55,6 +56,7 @@ export function SendDialog({
   const queryClient = useQueryClient();
   const expiryId = useId();
   const messageId = useId();
+  const delegationId = useId();
 
   const summary = summariseSend(envelope.recipients, envelope.sequentialSigning);
   const expiresOn = formatDate(new Date(Date.now() + expiresInDays * 86_400_000).toISOString());
@@ -67,6 +69,7 @@ export function SendDialog({
           expiresInDays,
           message: message.trim() === '' ? null : message.trim(),
           reminderIntervalDays,
+          allowDelegation,
         },
         keyRef.current,
       ),
@@ -175,6 +178,24 @@ export function SendDialog({
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           placeholder="Please sign by Friday."
         />
+      </div>
+
+      <div className="flex items-start gap-3">
+        <input
+          id={delegationId}
+          type="checkbox"
+          checked={allowDelegation}
+          onChange={(event) => setAllowDelegation(event.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-400 accent-brand-700"
+        />
+        <div>
+          <label htmlFor={delegationId} className="text-sm font-medium text-slate-800">
+            Let signers pass it to someone else
+          </label>
+          <p className="text-xs text-slate-500">
+            A signer can hand their part to another person, and you are told who. Off by default.
+          </p>
+        </div>
       </div>
 
       <p className="text-xs text-slate-500">A document cannot be unsent.</p>

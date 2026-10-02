@@ -21,9 +21,16 @@ export function freshLinkFor(recipients: RecipientDetail[]): RecipientDetail[] {
   return recipients.filter((r) => receivesSigningLink(r.role) && AWAITING.includes(r.status));
 }
 
-/** Signers and approvers who have not signed yet, in routing order. */
+/**
+ * Signers and approvers who have not signed yet, in routing order. Someone who
+ * passed their part on is not waited for: the person they passed it to is (docs/22).
+ */
 export function stillToSign(recipients: RecipientDetail[]): RecipientDetail[] {
   return recipients.filter(
-    (r) => receivesSigningLink(r.role) && r.status !== 'SIGNED' && r.status !== 'DECLINED',
+    (r) =>
+      receivesSigningLink(r.role) &&
+      r.status !== 'SIGNED' &&
+      r.status !== 'DECLINED' &&
+      r.status !== 'DELEGATED',
   );
 }

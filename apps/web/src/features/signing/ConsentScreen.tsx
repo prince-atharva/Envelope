@@ -9,6 +9,7 @@ import { formatDate, pluralize } from '../../lib/format';
 import { reportError } from '../../lib/logger';
 import { useDocumentTitle } from '../../lib/use-document-title';
 import { DeclineDialog } from './DeclineDialog';
+import { DelegateDialog } from './DelegateDialog';
 import { type EndState, endStateFor } from './end-states';
 import { SigningFrame } from './SigningFrame';
 import { isTransient, signingApi } from './signing-api';
@@ -41,6 +42,7 @@ export function ConsentScreen({
   const [agreed, setAgreed] = useState(false);
   const [noticeChanged, setNoticeChanged] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
+  const [delegateOpen, setDelegateOpen] = useState(false);
   useDocumentTitle(session.envelopeTitle);
 
   const consent = useMutation({
@@ -143,12 +145,27 @@ export function ConsentScreen({
             <Button type="submit" disabled={!agreed} loading={consent.isPending}>
               Review document
             </Button>
-            <Button variant="ghost" onClick={() => setDeclineOpen(true)}>
-              Decline to sign
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="ghost" onClick={() => setDeclineOpen(true)}>
+                Decline to sign
+              </Button>
+              {session.allowDelegation && (
+                <Button variant="ghost" onClick={() => setDelegateOpen(true)}>
+                  Pass to someone else
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </div>
+
+      <DelegateDialog
+        open={delegateOpen}
+        token={token}
+        senderName={session.senderName}
+        onClose={() => setDelegateOpen(false)}
+        onEnd={onEnd}
+      />
 
       <DeclineDialog
         open={declineOpen}

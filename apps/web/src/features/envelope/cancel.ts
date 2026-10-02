@@ -19,10 +19,13 @@ export function cancelModeFor(status: EnvelopeStatus): 'discard' | 'cancel' | nu
 
 /**
  * Who gets the cancellation email: signers and approvers the mail server has
- * already accepted an email for. The same rule the worker applies.
+ * already accepted an email for. Someone who passed their part on is not told:
+ * whoever holds it now is (docs/22). The same rule the API applies.
  */
 export function toldOfCancellation(recipients: RecipientDetail[]): RecipientDetail[] {
-  return recipients.filter((r) => receivesSigningLink(r.role) && r.notifiedAt !== null);
+  return recipients.filter(
+    (r) => receivesSigningLink(r.role) && r.notifiedAt !== null && r.status !== 'DELEGATED',
+  );
 }
 
 /** A discarded draft was never sent; a cancelled envelope was. */

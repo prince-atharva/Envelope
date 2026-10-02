@@ -140,6 +140,9 @@ export function EnvelopeDetailPage() {
   const signerName = (recipientId: string) =>
     envelope?.recipients.find((r) => r.id === recipientId)?.name ?? 'a recipient';
 
+  // A signer who passed their part on shows in the progress list, not as a second person here (docs/22).
+  const setupRecipients = (envelope?.recipients ?? []).filter((r) => r.status !== 'DELEGATED');
+
   const handleDownload = () => {
     if (pdfData && envelope) {
       const blob = new Blob([pdfData], { type: 'application/pdf' });
@@ -433,14 +436,13 @@ export function EnvelopeDetailPage() {
                   <h2 className="section-title">Signers & Setup</h2>
                 </div>
                 <span className="text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200/60 px-2 py-0.5 whitespace-nowrap rounded-full">
-                  {envelope.recipients.length}{' '}
-                  {envelope.recipients.length === 1 ? 'person' : 'people'}
+                  {setupRecipients.length} {setupRecipients.length === 1 ? 'person' : 'people'}
                 </span>
               </div>
 
-              {envelope.recipients.length > 0 ? (
+              {setupRecipients.length > 0 ? (
                 <div className="space-y-2">
-                  {envelope.recipients.map((recipient, idx) => (
+                  {setupRecipients.map((recipient, idx) => (
                     <div
                       key={recipient.id}
                       className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 text-xs min-w-0"

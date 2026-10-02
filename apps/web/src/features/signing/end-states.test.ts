@@ -12,6 +12,7 @@ describe('endStateFor', () => {
     expect(endStateFor(apiError('TOKEN_INVALID', 401))).toEqual({ kind: 'invalid' });
     expect(endStateFor(apiError('TOKEN_EXPIRED', 401))).toEqual({ kind: 'expired' });
     expect(endStateFor(apiError('TOKEN_ALREADY_USED', 410))).toEqual({ kind: 'already-signed' });
+    expect(endStateFor(apiError('TOKEN_DELEGATED', 410))).toEqual({ kind: 'delegated' });
   });
 
   it('tells cancelled, declined by someone else and declined by you apart', () => {

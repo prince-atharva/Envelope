@@ -15,9 +15,14 @@ import { describeError, fieldErrorsOf } from '../../lib/errors';
 import { queryKeys } from '../../lib/query-keys';
 import type { TemplatesPageState } from './templates-state';
 
+/** Who becomes a role: a person who passed their part on is history, not a role (docs/22, ADR 0032). */
+function templateParties(envelope: EnvelopeDetail): EnvelopeDetail['recipients'] {
+  return envelope.recipients.filter((recipient) => recipient.status !== 'DELEGATED');
+}
+
 /** Whether the envelope has what a template needs: someone to sign, and somewhere to sign. */
 export function canSaveAsTemplate(envelope: EnvelopeDetail): boolean {
-  return envelope.recipients.length > 0 && envelope.fields.length > 0 && !envelope.purgedAt;
+  return templateParties(envelope).length > 0 && envelope.fields.length > 0 && !envelope.purgedAt;
 }
 
 /**
@@ -51,7 +56,10 @@ export function SaveTemplateDialog({
         name: name.trim(),
         description: description.trim() === '' ? undefined : description.trim(),
         roleNames: Object.fromEntries(
-          envelope.recipients.map((recipient) => [recipient.id, roleNameOf(recipient).trim()]),
+          templateParties(envelope).map((recipient) => [
+            recipient.id,
+            roleNameOf(recipient).trim(),
+          ]),
         ),
       }),
     onSuccess: async (template) => {
@@ -78,7 +86,7 @@ export function SaveTemplateDialog({
         mutation.reset();
       }}
       onSubmit={() => {
-        const roles = envelope.recipients.map((recipient) => roleNameOf(recipient).trim());
+        const roles = templateParties(envelope).map((recipient) => roleNameOf(recipient).trim());
         if (name.trim() === '') return setClientError('Give the template a name.');
         if (roles.some((role) => role === '')) return setClientError('Every role needs a name.');
         if (new Set(roles).size !== roles.length) {
@@ -123,7 +131,7 @@ export function SaveTemplateDialog({
           Name each role for what it is, such as “Patient”. You will give it a real person each time
           you use the template.
         </p>
-        {envelope.recipients.map((recipient) => (
+        {templateParties(envelope).map((recipient) => (
           <TextField
             key={recipient.id}
             label={`Role for ${recipient.name}`}

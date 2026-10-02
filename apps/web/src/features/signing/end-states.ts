@@ -19,6 +19,8 @@ export type EndState =
   /** Someone else declined, which closes the document for everyone. */
   | { kind: 'declined-by-other' }
   | { kind: 'cancelled' }
+  /** They passed their part to someone else, just now (`delegateName`) or on an earlier visit. */
+  | { kind: 'delegated'; delegateName?: string }
   /** Closed for a reason we have no better screen for. */
   | { kind: 'closed' };
 
@@ -47,6 +49,8 @@ export function endStateFor(error: unknown): EndState | null {
       return { kind: 'expired' };
     case 'TOKEN_ALREADY_USED':
       return { kind: 'already-signed' };
+    case 'TOKEN_DELEGATED':
+      return { kind: 'delegated' };
     case 'ENVELOPE_TERMINAL':
       return isTerminalReason(error.reason) ? TERMINAL[error.reason] : { kind: 'closed' };
     default:

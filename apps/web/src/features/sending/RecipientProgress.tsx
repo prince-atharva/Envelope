@@ -139,7 +139,7 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
 
       <ol className="divide-y divide-slate-100">
         {envelope.recipients.map((recipient, index) => {
-          const progress = progressOf(recipient, envelope.status);
+          const progress = progressOf(recipient, envelope.status, envelope.recipients);
           const color = recipientColor(recipient.colorIndex);
           return (
             // Two lines, not one: this card sits in a narrow sidebar, and a single
@@ -163,6 +163,13 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
                   <p className="truncate text-xs text-slate-600" title={recipient.email}>
                     {recipient.email}
                   </p>
+                  {recipient.delegatedFromId && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Delegated by{' '}
+                      {envelope.recipients.find((r) => r.id === recipient.delegatedFromId)?.name ??
+                        'someone else'}
+                    </p>
+                  )}
                   {recipient.emailProblem && (
                     <p className="mt-1 text-xs font-semibold text-amber-800">
                       {recipient.emailProblem === 'BOUNCED'

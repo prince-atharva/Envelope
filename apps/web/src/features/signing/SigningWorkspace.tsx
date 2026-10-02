@@ -15,6 +15,7 @@ import { reportError } from '../../lib/logger';
 import { useDocumentTitle } from '../../lib/use-document-title';
 import { type Adoption, AdoptSheet } from './AdoptSheet';
 import { DeclineDialog } from './DeclineDialog';
+import { DelegateDialog } from './DelegateDialog';
 import {
   clearDraft,
   draftKey,
@@ -42,7 +43,8 @@ import { TextSheet } from './TextSheet';
 type OpenSheet =
   | { type: 'adopt'; kind: SignatureKind; field: SigningField }
   | { type: 'text'; field: SigningField }
-  | { type: 'decline' };
+  | { type: 'decline' }
+  | { type: 'delegate' };
 
 const FLASH_KEYFRAMES: Keyframe[] = [
   { boxShadow: '0 0 0 0 rgb(13 148 136 / 0)' },
@@ -266,6 +268,11 @@ export default function SigningWorkspace({
               </span>
             </div>
 
+            {session.allowDelegation && (
+              <Button variant="secondary" size="sm" onClick={() => setSheet({ type: 'delegate' })}>
+                Pass to someone else
+              </Button>
+            )}
             <Button variant="dangerOutline" size="sm" onClick={() => setSheet({ type: 'decline' })}>
               Decline
             </Button>
@@ -423,6 +430,14 @@ export default function SigningWorkspace({
           setSheet(null);
         }}
         onClose={() => setSheet(null)}
+      />
+
+      <DelegateDialog
+        open={sheet?.type === 'delegate'}
+        token={token}
+        senderName={session.senderName}
+        onClose={() => setSheet(null)}
+        onEnd={finish}
       />
 
       <DeclineDialog

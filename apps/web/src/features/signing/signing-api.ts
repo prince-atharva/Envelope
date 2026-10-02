@@ -5,6 +5,8 @@ import type {
   ConsentResponse,
   DeclineInput,
   DeclineResponse,
+  DelegateInput,
+  DelegateResponse,
   MoreTimeResponse,
   SigningSession,
   SubmitSigningInput,
@@ -75,6 +77,9 @@ export const signingApi = {
     post<SubmitSigningResponse>(token, '/submit', input),
 
   decline: (token: string, input: DeclineInput) => post<DeclineResponse>(token, '/decline', input),
+
+  delegate: (token: string, input: DelegateInput) =>
+    post<DelegateResponse>(token, '/delegate', input),
 
   /** The one thing an expired link can do: ask the sender for more time (docs/16 step 8). */
   requestMoreTime: (token: string) => post<MoreTimeResponse>(token, '/request-more-time', {}),
