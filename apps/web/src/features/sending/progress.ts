@@ -121,3 +121,21 @@ export function reminderState(
   if (availableAt > now) return { can: false, reason: 'too-soon', availableAt };
   return { can: true };
 }
+
+/**
+ * Whether the sender can hand their own device to this person now (docs/22,
+ * ADR 0033). Mirrors the API: their turn has come, the document is open and
+ * within its deadline, and only the sender or an admin may host.
+ */
+export function canHostInPerson(
+  recipient: Pick<RecipientDetail, 'role' | 'status'>,
+  envelope: { status: EnvelopeStatus; expiresAt: string | null; owner: { id: string } },
+  user: { id: string; role: 'OWNER' | 'ADMIN' | 'MEMBER' },
+  now = Date.now(),
+): boolean {
+  if (!isOpenEnvelope(envelope.status)) return false;
+  if (envelope.expiresAt && new Date(envelope.expiresAt).getTime() <= now) return false;
+  if (!receivesSigningLink(recipient.role)) return false;
+  if (!['SENT', 'DELIVERED', 'VIEWED'].includes(recipient.status)) return false;
+  return user.role !== 'MEMBER' || envelope.owner.id === user.id;
+}

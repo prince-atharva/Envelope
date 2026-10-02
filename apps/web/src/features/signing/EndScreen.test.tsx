@@ -3,10 +3,10 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EndScreen } from './EndScreen';
 
-function show(state: Parameters<typeof EndScreen>[0]['state']) {
+function show(state: Parameters<typeof EndScreen>[0]['state'], hostName?: string) {
   render(
     <MemoryRouter>
-      <EndScreen state={state} />
+      <EndScreen state={state} hostName={hostName} />
     </MemoryRouter>,
   );
 }
@@ -25,6 +25,17 @@ describe('EndScreen', () => {
   it('explains an old link without naming anyone', () => {
     show({ kind: 'delegated' });
     expect(screen.getByText(/Someone else now holds your part/)).toBeTruthy();
+  });
+
+  it('asks a signer on the sender’s device to hand it back, after signing or declining', () => {
+    show({ kind: 'signed', message: 'Done.' }, 'Hana Host');
+    expect(screen.getByText('Please hand the device back to Hana Host.')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Hana Host: sign in again' }).getAttribute('href'),
+    ).toBe('/login');
+    cleanup();
+    show({ kind: 'you-declined', justNow: true }, 'Hana Host');
+    expect(screen.getByText('Please hand the device back to Hana Host.')).toBeTruthy();
   });
 
   it('says nothing about a host when the signer used their own link', () => {

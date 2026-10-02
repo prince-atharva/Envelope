@@ -89,7 +89,16 @@ const ICONS: Record<Tone, { className: string; path: string }> = {
  * A plain explanation, never an error code: finishing, or finding the link
  * already used, is a normal outcome.
  */
-export function EndScreen({ state, token }: { state: EndState; token?: string }) {
+export function EndScreen({
+  state,
+  token,
+  hostName,
+}: {
+  state: EndState;
+  token?: string;
+  /** Set when the sender hosted this signing on their own device (docs/22, ADR 0033). */
+  hostName?: string;
+}) {
   const screen = screenFor(state);
   const icon = ICONS[screen.tone];
   useDocumentTitle(screen.title);
@@ -118,6 +127,15 @@ export function EndScreen({ state, token }: { state: EndState; token?: string })
         <h1 className="page-title">{screen.title}</h1>
         <p className="max-w-md text-sm text-slate-600">{screen.body}</p>
         {state.kind === 'expired' && token && <MoreTimeRequest token={token} />}
+        {hostName && (state.kind === 'signed' || state.kind === 'you-declined') && (
+          <div className="max-w-md space-y-2 rounded-lg bg-slate-100 p-4 text-sm text-slate-700">
+            <p className="font-medium text-slate-900">Please hand the device back to {hostName}.</p>
+            <p>{hostName} was signed out while you used it, and will sign in again to carry on.</p>
+            <a href="/login" className="inline-block font-medium text-brand-700 underline">
+              {hostName}: sign in again
+            </a>
+          </div>
+        )}
       </div>
     </SigningFrame>
   );

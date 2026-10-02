@@ -11,6 +11,7 @@ import { useDocumentTitle } from '../../lib/use-document-title';
 import { DeclineDialog } from './DeclineDialog';
 import { DelegateDialog } from './DelegateDialog';
 import { type EndState, endStateFor } from './end-states';
+import { InPersonBanner } from './InPersonBanner';
 import { SigningFrame } from './SigningFrame';
 import { isTransient, signingApi } from './signing-api';
 
@@ -71,6 +72,7 @@ export function ConsentScreen({
 
   return (
     <SigningFrame>
+      {session.inPerson && <InPersonBanner hostName={session.inPerson.hostName} />}
       <div className="space-y-7">
         <div className="space-y-3">
           <p className="text-sm text-slate-600">

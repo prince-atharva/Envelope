@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { ApiError } from './api';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, api, onSessionChange } from './api';
 
 describe('ApiError', () => {
   it('constructs with all fields', () => {
@@ -39,5 +39,26 @@ describe('ApiError', () => {
     });
 
     expect(error.fieldErrors).toEqual([]);
+  });
+});
+
+describe('api.logout', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('tells the app the session ended, unless asked to stay quiet for a page about to be replaced', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 204 })),
+    );
+    const heard = vi.fn();
+    const stop = onSessionChange(heard);
+    try {
+      await api.logout({ silent: true });
+      expect(heard).not.toHaveBeenCalled();
+      await api.logout();
+      expect(heard).toHaveBeenCalledWith(null);
+    } finally {
+      stop();
+    }
   });
 });

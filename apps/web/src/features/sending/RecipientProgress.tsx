@@ -15,6 +15,7 @@ import { roleNoun } from '../../lib/labels';
 import { queryKeys } from '../../lib/query-keys';
 import { recipientColor } from '../builder/recipient-colors';
 import { canExtend } from '../envelope/extend';
+import { InPersonButton } from './InPersonButton';
 import { type ProgressTone, progressOf, reminderState } from './progress';
 import { ReminderChoice } from './ReminderChoice';
 
@@ -184,7 +185,7 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
                   {progress.label}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pl-6">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pl-6">
                 <div className="min-w-0 space-y-0.5 text-xs text-slate-500">
                   {progress.at && <p>{formatDateTime(progress.at)}</p>}
                   {recipient.moreTimeRequestedAt && canExtend(envelope.status) && (
@@ -196,7 +197,10 @@ export function RecipientProgress({ envelope }: { envelope: EnvelopeDetail }) {
                     <p>Finished copy sent {formatDateTime(recipient.copySentAt)}</p>
                   )}
                 </div>
-                <ReminderButton envelope={envelope} recipient={recipient} />
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <InPersonButton envelope={envelope} recipient={recipient} />
+                  <ReminderButton envelope={envelope} recipient={recipient} />
+                </div>
               </div>
             </li>
           );

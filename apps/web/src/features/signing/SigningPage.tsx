@@ -1,6 +1,6 @@
 import { SIGNING_TOKEN_PATTERN } from '@envelope/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
@@ -54,6 +54,8 @@ export default function SigningPage() {
   const wellFormed = SIGNING_TOKEN_PATTERN.test(token);
   const [ended, setEnded] = useState<EndState | null>(wellFormed ? null : { kind: 'invalid' });
   useNoReferrer();
+  // Kept past `end()`, which clears the cached session: the last screen still names the host.
+  const hostName = useRef<string | undefined>(undefined);
 
   const session = useQuery({
     queryKey: signingKeys.session(token),
@@ -78,13 +80,25 @@ export default function SigningPage() {
   );
 
   useEffect(() => {
+    if (session.data?.inPerson) hostName.current = session.data.inPerson.hostName;
+  }, [session.data]);
+
+  useEffect(() => {
     if (session.error && isTransient(session.error)) {
       reportError(session.error, 'signing:session');
     }
   }, [session.error]);
 
   const finished = ended ?? endStateFor(session.error);
-  if (finished) return <EndScreen state={finished} token={wellFormed ? token : undefined} />;
+  if (finished) {
+    return (
+      <EndScreen
+        state={finished}
+        token={wellFormed ? token : undefined}
+        hostName={hostName.current}
+      />
+    );
+  }
 
   if (session.isPending) return <FullPageSpinner label="Opening your document…" />;
 

@@ -19,7 +19,7 @@ interface AuthContextValue {
   /** A session is adopted here; a code or enrolment step is returned for the page to handle. */
   login(input: LoginInput): Promise<LoginResponse>;
   register(input: RegisterInput): Promise<void>;
-  logout(): Promise<void>;
+  logout(options?: { silent?: boolean }): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -49,8 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (input: RegisterInput) => {
     await api.register(input);
   }, []);
-  const logout = useCallback(async () => {
-    await api.logout();
+  const logout = useCallback(async (options?: { silent?: boolean }) => {
+    await api.logout(options);
   }, []);
 
   const value = useMemo(

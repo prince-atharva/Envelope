@@ -26,6 +26,7 @@ import {
   saveDraft,
 } from './drafts';
 import { type EndState, endStateFor } from './end-states';
+import { InPersonBanner } from './InPersonBanner';
 import { SigningFieldLayer } from './SigningFieldLayer';
 import { isTransient, signingApi, signingKeys, withBackoff } from './signing-api';
 import {
@@ -240,6 +241,7 @@ export default function SigningWorkspace({
 
   return (
     <div className="flex h-dvh flex-col bg-slate-100 relative">
+      {session.inPerson && <InPersonBanner hostName={session.inPerson.hostName} />}
       <header className="flex-none bg-white border-b border-slate-200/90 z-20 px-4 sm:px-6 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">

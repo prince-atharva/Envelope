@@ -87,7 +87,10 @@ describe('format', () => {
       expect(describeAuditAction('RECIPIENT_SIGNED')).toBe('Signed');
     });
 
-    expect(describeAuditAction('RECIPIENT_DELEGATED')).toBe('Passed their part to someone else');
+    it('describes passing a part on and hosting in person', () => {
+      expect(describeAuditAction('RECIPIENT_DELEGATED')).toBe('Passed their part to someone else');
+      expect(describeAuditAction('IN_PERSON_STARTED')).toBe('In-person signing started');
+    });
   });
 
   describe('formatRelative', () => {

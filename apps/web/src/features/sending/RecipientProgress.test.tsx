@@ -1,8 +1,16 @@
 import type { EnvelopeDetail, RecipientDetail } from '@envelope/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RecipientProgress } from './RecipientProgress';
+
+// The hand-over button asks who is signed in: here, the sender.
+vi.mock('../../lib/auth', () => ({
+  useAuth: () => ({
+    user: { id: 'sender', role: 'MEMBER' },
+    logout: async () => undefined,
+  }),
+}));
 
 function person(id: string, emailProblem: RecipientDetail['emailProblem']): RecipientDetail {
   return {
@@ -35,6 +43,7 @@ function show(recipients: RecipientDetail[]) {
     sequentialSigning: false,
     expiresAt: null,
     reminderIntervalDays: null,
+    owner: { id: 'sender', fullName: 'Sender' },
     recipients,
     versions: [],
   } as unknown as EnvelopeDetail;
@@ -63,5 +72,19 @@ describe('RecipientProgress and undeliverable email', () => {
   it('shows nothing extra when nothing is wrong', () => {
     show([person('a', null)]);
     expect(screen.queryByText(/undeliverable|spam/)).toBeNull();
+  });
+});
+
+describe('RecipientProgress and hosting in person', () => {
+  afterEach(cleanup);
+
+  it('offers the sender a way to hand their device to someone whose turn it is', () => {
+    show([person('a', null)]);
+    expect(screen.getByRole('button', { name: 'Sign in person with Person a' })).toBeTruthy();
+  });
+
+  it('offers nothing for someone who has finished', () => {
+    show([{ ...person('a', null), status: 'SIGNED' }]);
+    expect(screen.queryByRole('button', { name: /Sign in person/ })).toBeNull();
   });
 });

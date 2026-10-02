@@ -56,6 +56,7 @@ import {
   type SendEnvelopeInput,
   type SendEnvelopeResponse,
   type SetTwoFactorPolicyInput,
+  type StartInPersonResponse,
   type TemplateDetail,
   type TemplateListResponse,
   type TenantUser,
@@ -162,7 +163,7 @@ export function onSessionChange(listener: SessionListener): () => void {
   return () => listeners.delete(listener);
 }
 
-function setSession(session: AuthResponse | null): void {
+function setSession(session: AuthResponse | null, options: { notify?: boolean } = {}): void {
   accessToken = session?.accessToken ?? null;
   clearTimeout(refreshTimer);
   if (session) {
@@ -172,6 +173,7 @@ function setSession(session: AuthResponse | null): void {
       delaySeconds * 1000,
     );
   }
+  if (options.notify === false) return;
   for (const listener of listeners) listener(session);
 }
 
@@ -413,11 +415,15 @@ export const api = {
     setSession(null);
   },
 
-  async logout(): Promise<void> {
+  /**
+   * `silent` ends the session without telling the app, for a caller that replaces the whole page
+   * next: otherwise the route guard sends the person to the sign-in page first (docs/22, ADR 0033).
+   */
+  async logout(options: { silent?: boolean } = {}): Promise<void> {
     try {
       await send('/auth/logout', { method: 'POST' });
     } finally {
-      setSession(null);
+      setSession(null, { notify: !options.silent });
     }
   },
 
@@ -547,6 +553,13 @@ export const api = {
       headers: { ...(init.headers as Record<string, string>), 'Idempotency-Key': idempotencyKey },
     });
   },
+
+  /** A one-time signing link for this device, for hosting a signer in person (docs/22). */
+  startInPerson: (id: string, recipientId: string) =>
+    json<StartInPersonResponse>(
+      `/envelopes/${encodeURIComponent(id)}/recipients/${encodeURIComponent(recipientId)}/in-person`,
+      jsonBody({}),
+    ),
 
   remind: (id: string, input: RemindInput = {}) =>
     json<RemindResponse>(`/envelopes/${encodeURIComponent(id)}/remind`, jsonBody(input)),

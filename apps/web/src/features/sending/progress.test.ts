@@ -1,6 +1,6 @@
 import type { RecipientDetail } from '@envelope/shared';
 import { describe, expect, it } from 'vitest';
-import { progressOf, reminderState, summariseSend } from './progress';
+import { canHostInPerson, progressOf, reminderState, summariseSend } from './progress';
 
 function person(id: string, overrides: Partial<RecipientDetail> = {}): RecipientDetail {
   return {
@@ -166,5 +166,42 @@ describe('passing a part on', () => {
       can: false,
       reason: 'finished',
     });
+  });
+});
+
+describe('canHostInPerson', () => {
+  const envelope = {
+    status: 'SENT' as const,
+    expiresAt: '2026-10-10T00:00:00Z',
+    owner: { id: 'owner' },
+  };
+  const owner = { id: 'owner', role: 'MEMBER' as const };
+  const waiting = person('a', { status: 'SENT' });
+
+  it('is offered to the sender for someone whose turn has come', () => {
+    expect(canHostInPerson(waiting, envelope, owner, NOW)).toBe(true);
+    expect(canHostInPerson(person('a', { status: 'VIEWED' }), envelope, owner, NOW)).toBe(true);
+  });
+
+  it('is not offered before their turn, after they finish, or to people with no link', () => {
+    for (const status of ['PENDING', 'SIGNED', 'DECLINED', 'DELEGATED'] as const) {
+      expect(canHostInPerson(person('a', { status }), envelope, owner, NOW)).toBe(false);
+    }
+    expect(canHostInPerson(person('a', { status: 'SENT', role: 'CC' }), envelope, owner, NOW)).toBe(
+      false,
+    );
+  });
+
+  it('is not offered on a closed or expired document', () => {
+    expect(canHostInPerson(waiting, { ...envelope, status: 'VOIDED' }, owner, NOW)).toBe(false);
+    expect(canHostInPerson(waiting, { ...envelope, status: 'EXPIRED' }, owner, NOW)).toBe(false);
+    expect(
+      canHostInPerson(waiting, { ...envelope, expiresAt: '2026-09-30T00:00:00Z' }, owner, NOW),
+    ).toBe(false);
+  });
+
+  it('is for the sender or an admin, not another member', () => {
+    expect(canHostInPerson(waiting, envelope, { id: 'other', role: 'MEMBER' }, NOW)).toBe(false);
+    expect(canHostInPerson(waiting, envelope, { id: 'other', role: 'ADMIN' }, NOW)).toBe(true);
   });
 });
