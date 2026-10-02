@@ -21,6 +21,11 @@ export function SettingsNav() {
       <NavLink to="/settings/integrations" className={tabClass}>
         Integrations
       </NavLink>
+      {user && hasAtLeast(user.role, 'ADMIN') && (
+        <NavLink to="/settings/branding" className={tabClass}>
+          Branding
+        </NavLink>
+      )}
       {user && hasAtLeast(user.role, 'OWNER') && (
         <NavLink to="/settings/users" className={tabClass}>
           Users

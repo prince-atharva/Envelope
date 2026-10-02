@@ -1,3 +1,4 @@
+import type { SigningBrand } from '@envelope/shared';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { PublicFrame } from '../../components/layout/PublicFrame';
@@ -5,7 +6,8 @@ import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { TopProgressBar } from '../../components/ui/Skeletons';
 import { useDocumentTitle } from '../../lib/use-document-title';
-import { renewDownloadLink } from './download-api';
+import { BrandProvider } from '../branding/brand-context';
+import { fetchDownloadBrand, renewDownloadLink } from './download-api';
 
 type State = 'loading' | 'downloaded' | 'expired' | 'invalid' | 'error';
 type RenewState = 'idle' | 'sending' | 'sent' | 'error';
@@ -22,8 +24,31 @@ function filenameFrom(disposition: string | null): string {
  * instead of raw JSON from the API.
  */
 export default function DownloadPage() {
-  useDocumentTitle('Download document');
+  const [brand, setBrand] = useState<SigningBrand | null>(null);
   const { token = '' } = useParams<{ token: string }>();
+
+  // Cosmetic: a failure leaves the product look in place.
+  useEffect(() => {
+    let cancelled = false;
+    fetchDownloadBrand(token)
+      .then((found) => {
+        if (!cancelled) setBrand(found);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  return (
+    <BrandProvider brand={brand}>
+      <DownloadScreen token={token} />
+    </BrandProvider>
+  );
+}
+
+function DownloadScreen({ token }: { token: string }) {
+  useDocumentTitle('Download document');
   const [state, setState] = useState<State>('loading');
   const [renewState, setRenewState] = useState<RenewState>('idle');
 

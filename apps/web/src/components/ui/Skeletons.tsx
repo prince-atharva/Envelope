@@ -278,6 +278,23 @@ export function DashboardSkeleton() {
   );
 }
 
+/** Settings -> Branding: heading, tabs, two stacked cards and the preview beside them. */
+export function BrandingPageSkeleton() {
+  return (
+    <div className="page-stack" aria-hidden="true">
+      <HeadingSkeleton flat />
+      <TabsSkeleton widths={['w-24', 'w-16', 'w-12']} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
+        <Bone className="h-64 w-full rounded-xl" tone="light" />
+      </div>
+    </div>
+  );
+}
+
 /** The signed-in frame, shown while the session is being restored: sidebar, header, footer. */
 export function AppShellSkeleton() {
   return (

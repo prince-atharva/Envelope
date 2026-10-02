@@ -4,6 +4,7 @@ import {
   type ApiKeySummary,
   type AuditExportDocument,
   type AuthResponse,
+  type BrandingSettings,
   type BulkBatchAccepted,
   type BulkBatchDetail,
   type BulkBatchListResponse,
@@ -66,6 +67,7 @@ import {
   type TwoFactorPolicy,
   type TwoFactorSetup,
   type TwoFactorStatus,
+  type UpdateBrandingInput,
   type UpdateEnvelopeInput,
   type UpdateRecipientInput,
   type UpdateTemplateInput,
@@ -685,4 +687,20 @@ export const api = {
 
   removeUser: (userId: string) =>
     json<void>(`/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+
+  // ─── Workspace branding (docs/22, ADR 0034) ───
+
+  getBranding: () => json<BrandingSettings>('/branding'),
+
+  updateBranding: (input: UpdateBrandingInput) =>
+    json<BrandingSettings>('/branding', jsonBody(input, 'PATCH')),
+
+  /** The browser sets the multipart boundary itself, so no Content-Type here. */
+  setBrandLogo: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return json<BrandingSettings>('/branding/logo', { method: 'PUT', body: form });
+  },
+
+  removeBrandLogo: () => json<BrandingSettings>('/branding/logo', { method: 'DELETE' }),
 };

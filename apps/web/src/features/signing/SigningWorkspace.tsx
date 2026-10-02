@@ -245,7 +245,15 @@ export default function SigningWorkspace({
       <header className="flex-none bg-white border-b border-slate-200/90 z-20 px-4 sm:px-6 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-brand-600" />
+            {session.brand.logoUrl ? (
+              <img
+                src={session.brand.logoUrl}
+                alt={session.brand.name}
+                className="h-7 max-w-28 shrink-0 object-contain sm:h-8"
+              />
+            ) : (
+              <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 text-brand-600" />
+            )}
             <div className="min-w-0">
               <h1
                 className="truncate text-sm sm:text-base font-semibold text-slate-900 tracking-tight"

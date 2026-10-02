@@ -1,4 +1,4 @@
-import { SIGNING_TOKEN_PATTERN } from '@envelope/shared';
+import { SIGNING_TOKEN_PATTERN, type SigningBrand } from '@envelope/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { FullPageSpinner } from '../../components/ui/Spinner';
 import { describeError } from '../../lib/errors';
 import { reportError } from '../../lib/logger';
+import { BrandProvider } from '../branding/brand-context';
 import { ConsentScreen } from './ConsentScreen';
 import { EndScreen } from './EndScreen';
 import { type EndState, endStateFor } from './end-states';
@@ -49,6 +50,17 @@ function useNoReferrer(): void {
  * into a plain screen rather than an error.
  */
 export default function SigningPage() {
+  // Kept here, above the portal, so the last screen still wears the sender's look after the
+  // session is cleared (docs/22 step 8, ADR 0034).
+  const [brand, setBrand] = useState<SigningBrand | null>(null);
+  return (
+    <BrandProvider brand={brand}>
+      <SigningPortal onBrand={setBrand} />
+    </BrandProvider>
+  );
+}
+
+function SigningPortal({ onBrand }: { onBrand: (brand: SigningBrand) => void }) {
   const { token = '' } = useParams();
   const queryClient = useQueryClient();
   const wellFormed = SIGNING_TOKEN_PATTERN.test(token);
@@ -78,6 +90,10 @@ export default function SigningPage() {
     },
     [queryClient, token],
   );
+
+  useEffect(() => {
+    if (session.data) onBrand(session.data.brand);
+  }, [session.data, onBrand]);
 
   useEffect(() => {
     if (session.data?.inPerson) hostName.current = session.data.inPerson.hostName;

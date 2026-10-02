@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
+import { BrandedHeader } from '../../features/branding/brand-context';
 import { Logo } from '../brand/Logo';
 import { AppFooter } from './AppFooter';
 
@@ -32,7 +33,7 @@ export function PublicFrame({
               <Logo />
             </Link>
           ) : (
-            <Logo />
+            <BrandedHeader fallback={<Logo />} />
           )}
           {backTo && (
             <Link
