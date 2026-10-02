@@ -117,7 +117,15 @@ export function AppShell() {
         </NavLink>
       ))}
       {user && hasAtLeast(user.role, 'ADMIN') && (
-        <div className="mt-3 border-t border-slate-200 pt-3">
+        <div className="mt-3 space-y-1 border-t border-slate-200 pt-3">
+          <NavLink
+            to="/reports"
+            className={({ isActive }) => navItemClass(isActive)}
+            onClick={closeNavigation}
+          >
+            <NavIcon path="M4 20V10m6 10V4m6 16v-7m4 7H2" />
+            <span>Reports</span>
+          </NavLink>
           <Link
             to="/settings/integrations"
             aria-current={onSettings ? 'page' : undefined}

@@ -278,6 +278,26 @@ export function DashboardSkeleton() {
   );
 }
 
+/** Reports: four tiles, a wide tile, and the two chart cards. */
+export function ReportsPageSkeleton() {
+  return (
+    <div className="space-y-6" aria-hidden="true">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {['a', 'b', 'c', 'd'].map((key) => (
+          <div key={key} className="surface space-y-2 p-4">
+            <Bone className="h-4 w-24" tone="light" />
+            <Bone className="h-8 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CardSkeleton blocks={['h-40']} />
+        <CardSkeleton blocks={['h-40']} />
+      </div>
+    </div>
+  );
+}
+
 /** Settings -> Branding: heading, tabs, two stacked cards and the preview beside them. */
 export function BrandingPageSkeleton() {
   return (

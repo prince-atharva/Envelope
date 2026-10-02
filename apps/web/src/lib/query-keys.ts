@@ -18,6 +18,7 @@ export const queryKeys = {
   bulkBatch: (id: string) => ['bulk-batches', id] as const,
   users: ['users'] as const,
   branding: ['branding'] as const,
+  reports: (from: string, to: string) => ['reports', from, to] as const,
   twoFactor: ['two-factor'] as const,
   apiKeys: ['integrations', 'api-keys'] as const,
   webhookEndpoints: ['integrations', 'webhooks'] as const,

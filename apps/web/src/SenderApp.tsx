@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NewEnvelopePage } from './pages/NewEnvelopePage';
 import { PreparePage } from './pages/PreparePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { SettingsBrandingPage } from './pages/SettingsBrandingPage';
 import { SettingsIntegrationsPage } from './pages/SettingsIntegrationsPage';
@@ -52,6 +53,7 @@ export default function SenderApp() {
             <Route path="/dashboard/envelopes/:id/prepare" element={<PreparePage />} />
             <Route path="/dashboard/envelopes/:id/review" element={<ReviewPage />} />
             <Route element={<RequireRole minimum="ADMIN" />}>
+              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
               <Route path="/settings/branding" element={<SettingsBrandingPage />} />
             </Route>

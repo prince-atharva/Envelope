@@ -50,6 +50,7 @@ import {
   type ReminderSettingsResponse,
   type RemindInput,
   type RemindResponse,
+  type ReportSummary,
   type ResetPasswordInput,
   type RotateWebhookSecretInput,
   type RotateWebhookSecretResponse,
@@ -687,6 +688,11 @@ export const api = {
 
   removeUser: (userId: string) =>
     json<void>(`/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+
+  // ─── Reports (docs/22 step 9) ───
+
+  getReportSummary: (from: string, to: string) =>
+    json<ReportSummary>(`/reports/summary?from=${from}&to=${to}`),
 
   // ─── Workspace branding (docs/22, ADR 0034) ───
 
