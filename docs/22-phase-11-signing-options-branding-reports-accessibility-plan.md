@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Planned. Approved 1 October 2026; not yet built |
-| **Version** | 1.0.0 |
-| **Last updated** | 1 October 2026 |
+| **Status** | Built (2 October 2026), not yet released. Every step is committed and the full suite is green (see "As Built" and "Verification") |
+| **Version** | 1.1.0 |
+| **Last updated** | 2 October 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 11 deliver, how is each part built, and how do we check it? |
 
@@ -107,21 +107,21 @@ people who use a keyboard or a screen reader can sign.
 
 | # | Step | Status |
 |---|---|---|
-| 0 | *(optional, needs the owner's OK)* Mask invitation links in logs | Planned |
-| 1 | Groundwork for delegation and in-person signing | Planned |
-| 2 | API: a signer passes a document on | Planned |
-| 3 | Web: pass it on, and the sender's switch | Planned |
-| 4 | API: host a signer in person | Planned |
-| 5 | Web: sign in person | Planned |
-| 6 | API: workspace logo and accent colour | Planned |
-| 7 | API: brand emails sent to recipients | Planned |
-| 8 | Web: branding settings and branded signing pages | Planned |
-| 9 | API: workspace signing numbers | Planned |
-| 10 | Web: Reports page | Planned |
-| 11 | Accessibility: harness and sender screens | Planned |
-| 12 | Accessibility: signing portal and public pages | Planned |
-| 13 | Tests: the finish line | Planned |
-| 14 | Documentation | Planned |
+| 0 | *(optional, needs the owner's OK)* Mask invitation links in logs | ✅ Done |
+| 1 | Groundwork for delegation and in-person signing | ✅ Done |
+| 2 | API: a signer passes a document on | ✅ Done |
+| 3 | Web: pass it on, and the sender's switch | ✅ Done |
+| 4 | API: host a signer in person | ✅ Done |
+| 5 | Web: sign in person | ✅ Done |
+| 6 | API: workspace logo and accent colour | ✅ Done |
+| 7 | API: brand emails sent to recipients | ✅ Done |
+| 8 | Web: branding settings and branded signing pages | ✅ Done |
+| 9 | API: workspace signing numbers | ✅ Done |
+| 10 | Web: Reports page | ✅ Done |
+| 11 | Accessibility: harness and sender screens | ✅ Done |
+| 12 | Accessibility: signing portal and public pages | ✅ Done |
+| 13 | Tests: the finish line | ✅ Done |
+| 14 | Documentation | ✅ Done |
 
 Proposed commit subjects: `feat(api,shared): groundwork for delegation and in-person signing`,
 `feat(api): let a signer pass a document to someone else`, `feat(web): pass to someone else, and the
@@ -277,9 +277,60 @@ Cross-tenant and role-floor tests for every new route, the in-person leak audit,
 
 ## Step 14: Documentation
 
-This plan marked built with As Built notes; `As built` notes beside the affected sections of docs 01, 08,
+This plan marked built with As Built notes; `As built` notes beside the affected sections of docs 01, 05, 08,
 09, 10 and 11; `CHANGELOG.md` `[Unreleased]`; the docs index. No version bump, tag or release unless the
 owner asks.
+
+## As Built
+
+All fifteen steps are built, reviewed, verified once on the whole tree, and committed one per step. The
+code was written in one batch without per-step snapshots, so the per-step commits were cut afterwards, line
+by line, from the finished tree; each commit was then checked to build on its own (lint, typecheck and unit
+tests). Nothing in this phase is released: no version bump or tag.
+
+Differences from the plan, and things the plan did not spell out:
+
+- **Step 0 was done** at the owner's request ("complete all remaining code"): `accept-invite` and
+  `auth/invitations` are masked in `apps/api/src/logging/redact.ts` and `apps/web/src/lib/logger.ts`, with unit
+  tests. The `token-leak` e2e was not extended for it: a known gap, covered only by those unit tests.
+- **One route the plan did not list:** `GET /download/:token/brand`, so the download page can wear the
+  workspace look even when the link has expired. It reads no document and does not count as a download.
+- **Brand data on the signing session.** `SigningSession.brand` is `{ name, color, logoUrl }`; the logo URL is
+  a path on the site (`/api/v1/branding/logo/:ref`), made absolute only inside emails.
+- **`LIMITS.branding` and `LIMITS.reports`** were added to the keyed rate limits (20 and 30 a minute per workspace).
+- **Contrast is enforced twice.** The server refuses a colour below 4.5:1 with white (`packages/shared/src/branding.ts`),
+  the settings page checks as you type, and the email templates re-check the stored colour before drawing it.
+- **A branded look needs a colour or a logo.** A workspace with only a name keeps the product look.
+- **Reports** define the window on `sentAt` in UTC days; "open" is SENT, DELIVERED or PARTIALLY_SIGNED; time to
+  complete has a median only. The daily series is "sent per day". Charts are plain SVG and HTML bars; every
+  number is also in a table under the charts.
+- **`@axe-core/playwright`** was added to `apps/web` as a dev dependency (step 11), with the lockfile.
+- **Accessibility fixes.** Muted text that used `text-slate-400` on light backgrounds is now `text-slate-600`;
+  three `brand-600`, `emerald-600` and `amber-600` text uses darkened a step; the PDF canvas has a text
+  alternative; the scrolling document area is focusable. The first axe run then found three more, fixed in
+  steps 8 and 12: the zoom buttons were under 24 px (now larger), the branding preview's header text used
+  `opacity-85` and fell below contrast, and the axe harness now waits for fade-in animations to finish before
+  scanning (it read one half-way as low contrast on the iPhone project).
+- **Review and verification findings fixed before the commits:** the in-person link field `signingPath` is
+  redacted from logs; `hostOf` filters by tenant; a signer who passed their part on is left out of the
+  envelope page's "Signers & Setup" card and of "Save as template" (API and web), with a test; the sealing
+  helper's comment was moved back onto its function; `GET /download/:token/brand` has a positive-case test;
+  the reports seed satisfies the table's check constraints; the 44 px test measures Start before the fields
+  are filled and Finish after.
+- **A real bug found by the iPhone run:** handing the device over briefly showed the sign-in page, because the
+  app saw the sign-out and redirected before the page was replaced. `logout({ silent: true })` ends the session
+  without telling the app, for this one caller, with a unit test. Desktop and Pixel only passed on timing.
+- **Where things landed, against the plan:** the web `progress.ts` helper (the new status, `Passed to ...`) is in
+  step 1, not 3, because the shared status type is exhaustive there and would not compile otherwise;
+  `SigningSession.allowDelegation`, `.inPerson` and `.brand` arrive with steps 2, 4 and 6 (the code that
+  fills them), not all in step 1. The openapi snapshot and the leak audit are in step 13 as planned.
+- **Manual script:** [docs/23](23-accessibility-manual-test-script.md).
+- **Gallery:** one new scenario, "signing options, branding and reports".
+- **Known baseline, not from this phase:** the two Pixel 7 `embed.spec.ts` failures. Unit tests also time out
+  (5 s) for two tests when the three workspaces' runners run in parallel (`pnpm test`); each passes alone in about
+  1 s and all pass with `--workspace-concurrency=1`.
+- **Still to do by hand:** every item under "What We Need From You" (logo and colour to try, real-device
+  screen-reader pass, an in-person run on a tablet, a branded email in a real inbox).
 
 ## Deferred
 
@@ -310,3 +361,18 @@ Run once per batch (AGENTS.md section 5): `pnpm lint`, `pnpm typecheck`, `pnpm t
 accessibility, and `pnpm --filter @envelope/web ui:gallery` inspected for the new screens. Each rebuilt step
 snapshot is checked to build alone before it is committed. Do not run other CPU work while the browser suite
 runs.
+
+### Results (2 October 2026)
+
+On the final tree: `pnpm lint` and `pnpm typecheck` clean (the old `jurisdiction.test.ts` failure no longer
+reproduces); unit tests shared 200, API 294, web 277, embed 41 (run one workspace at a time; see As Built);
+API e2e on Node 22.19.0, 62 files and 478 tests; browser e2e `desktop-chrome` 67 passed; phones
+(`mobile-iphone14`, `mobile-pixel7`) over the signing, delegation, in-person, branding, accessibility and embed
+specs, 42 passed and the 2 known Pixel 7 embed failures; the in-person spec 18 of 18 across the three projects
+after the sign-in-page fix. The gallery ran 47 of 48 scenarios on its first pass, the new one passing on desktop,
+tablet and mobile; the one failure, the HealthProHub embedded editor on desktop, timed out waiting for the
+iframe (15 s) during the full run and passed 3 of 3 alone. Its cause was not found; it is recorded here as an
+unexplained intermittent, not as a pass.
+
+Each of the fifteen commits was also checked on its own in a scratch worktree: lint, typecheck of all four
+packages, and the shared, API and web unit tests.

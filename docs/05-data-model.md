@@ -179,6 +179,7 @@ enum RecipientStatus {
   VIEWED
   SIGNED
   DECLINED
+  DELEGATED   // As built (Phase 11, docs/22, ADR 0032): passed their part to someone else; history, not a party
 }
 
 // As built (Phase 3): how an adopted signature or initials image was made.
@@ -213,6 +214,14 @@ model User {
 
   @@index([tenantId])
 }
+
+// As built (Phase 11, docs/22, ADR 0032, ADR 0033, ADR 0034). Recipient gains
+// `delegatedFromId` (a self-relation to the person who passed their part on),
+// `delegatedAt`, `inPersonHostUserId` (the signed-in sender who handed over their
+// device) and `inPersonStartedAt`. Envelope gains `allowDelegation` (default
+// false, frozen at send) and an index on (`tenantId`, `sentAt`) for reports.
+// Tenant gains `brandColor`, `brandLogoKey` and `brandLogoRef` (unique, the
+// random public reference in the logo URL). All additive: nothing existing changes.
 
 // As built (Phase 8, docs/19, ADR 0023, ADR 0024, ADR 0025). User gains
 // `disabledAt` (a removed person), `totpSecretCiphertext`, `totpEnabledAt` and

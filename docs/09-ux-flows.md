@@ -365,6 +365,11 @@ Submission uses exponential backoff with a clear retry affordance — never a si
 | Motion | Honour `prefers-reduced-motion` on scroll and highlight animations |
 | Zoom | Usable to 200% without horizontal scrolling |
 
+> **As built (Phase 11, docs/22, ADR 0035).** axe-core runs over every sender screen and the signing
+> portal on desktop and both phone projects, plus keyboard-only signing, 44 by 44 pixel controls, reduced
+> motion and 320 pixel reflow checks. A manual screen-reader script for VoiceOver, TalkBack and NVDA is in
+> [docs/23](23-accessibility-manual-test-script.md); it has not been run on real devices yet.
+
 Typed signatures being equally prominent is both an accessibility requirement and a conversion improvement. Many sighted users with a mouse also find drawing awkward.
 
 ## Edge-Case Screens
@@ -418,6 +423,16 @@ Sender hosts the session on their own device — common for retail, onboarding, 
 ```
 
 Requirements: the signer never sees the sender's dashboard; the audit records both the hosting sender and the in-person signer; `signedFromIp` is the sender's device, which MUST be labelled as in-person in the audit so the IP is not later misread as the signer's own location.
+
+> **As built (Phase 11, docs/22).** Delegation and in-person signing are built.
+>
+> - **Delegation:** when the sender allowed it, "Pass to someone else" asks for a name and an email. The
+>   delegate gets their own link, the old link says it was passed on (`410 TOKEN_DELEGATED`), the sender and
+>   the delegator are emailed, and the certificate gains a "Delegated by" line.
+> - **In person:** "Sign in person" next to a person on a sent document asks for confirmation, signs the
+>   sender out of that browser and opens the signing page with a banner naming the host. The audit and the
+>   certificate say the signature was made in person and by whose device; there is no hand-back to the
+>   dashboard, the sender signs in again.
 
 ## Sender Dashboard
 

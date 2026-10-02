@@ -456,6 +456,21 @@ each recipient `invitedAt`, `notifiedAt` (the mail server accepted the last emai
 
 ## Signing Session
 
+> **As built (Phase 11, docs/22).** Added routes, none of them part of the partner API contract:
+>
+> | Method | Path | Who | Purpose |
+> |---|---|---|---|
+> | `POST` | `/v1/sign/:token/delegate` | Signing token | Pass the part to someone else (`DELEGATION_NOT_ALLOWED`, `RECIPIENT_EMAIL_TAKEN`) |
+> | `POST` | `/v1/envelopes/:id/recipients/:recipientId/in-person` | Session only | Mint a one-time in-person link; `Cache-Control: no-store` |
+> | `GET` / `PATCH` | `/v1/branding` | Admin, session only | Read or set the accent colour |
+> | `PUT` / `DELETE` | `/v1/branding/logo` | Admin, session only | Upload (PNG or JPEG, 512 KB, re-encoded) or remove the logo |
+> | `GET` | `/v1/branding/logo/:ref` | Public | The re-encoded logo, by random reference |
+> | `GET` | `/v1/download/:token/brand` | Download token | Workspace look for the download page |
+> | `GET` | `/v1/reports/summary?from&to` | Admin, session only | Workspace numbers, window up to 366 days |
+>
+> `allowDelegation` is an additive field on send and on the envelope responses; `recipient.delegated` is an
+> additive webhook event (ADR 0018); `INVALID_BRAND_LOGO` and `DELEGATION_NOT_ALLOWED` are new error codes.
+
 Unauthenticated, token-gated. Consumed by the signer portal.
 
 | Method | Path | Purpose | Audit event |

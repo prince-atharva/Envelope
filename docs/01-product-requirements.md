@@ -158,6 +158,11 @@ The signer being unauthenticated is the defining security constraint of the syst
 | REC-07 | System SHOULD support delegation — a recipient reassigning to someone else, fully audited | Should |
 | REC-08 | System SHOULD support in-person signing, where the sender hosts the session on their own device | Should |
 
+> **As built (Phase 11, docs/22).** REC-07 and REC-08 are built. Delegation is off by default, chosen by
+> the sender at send time, one hop and once ([ADR 0032](adr/0032-delegate-by-adding-a-recipient-and-keeping-the-delegator-as-history.md)).
+> In-person signing is started from the sender's session and signs the sender out of that browser
+> ([ADR 0033](adr/0033-mint-in-person-signing-links-in-the-request-and-end-the-hosts-session.md)).
+
 REC-05 is a legal requirement, not a nicety. Storing the disclosure text verbatim — rather than a reference to a template that may later change — is what makes consent defensible years afterwards. See [07-compliance-layer.md](07-compliance-layer.md).
 
 ### Fields
@@ -254,3 +259,8 @@ API-03 prevents the failure mode where a network retry sends the same contract t
 | 3 | Default retention period and whether tenants can override it | Data model, retention job |
 | 4 | Is per-tenant branding on emails and the signing page needed at launch? | Sprint 5–6 scope |
 | 5 | Expected peak volume in year one | Infrastructure sizing, cost model |
+
+> **As built (Phase 11, docs/22).** Answered: yes. A workspace admin sets a logo and an accent colour that
+> recipient-facing emails, the signing page and the download page show; the sealed PDF and certificate stay
+> unbranded ([ADR 0034](adr/0034-brand-recipient-facing-surfaces-with-a-workspace-logo-and-accent-colour.md)).
+> Owners and Admins also get a Reports page of live signing numbers.

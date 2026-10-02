@@ -110,6 +110,9 @@ To keep the timeline, these are needed at the times shown:
 | **Week 6** | Two or three real (anonymised) documents for testing | Realistic testing |
 | **Week 8** | People available to try it and give feedback | Fixing the right things in weeks 9–10 |
 
+> **As built (Phase 11, docs/22).** Branding is configured by each workspace admin in Settings, so a single
+> product palette is no longer needed from the owner; the email default stays `#0f766e`.
+
 The week-2 item is the one that most often slips. Lawyers take time, and the signing screen cannot be finished without that text.
 
 ---
@@ -239,6 +242,10 @@ The week-2 item is the one that most often slips. Lawyers take time, and the sig
 - [ ] Penetration test and remediation
 - [ ] Pre-launch security checklist (doc 10)
 - [ ] Runbooks and on-call rota
+
+> **As built (Phase 11, docs/22).** The automated half is built (axe-core, keyboard-only signing, size,
+> motion and reflow checks, ADR 0035). The manual half, a screen-reader pass on real devices, is the script in
+> [docs/23](23-accessibility-manual-test-script.md) and is still to be run, so this item stays open.
 
 **Exit criteria:** every checklist item in doc 10 complete. Load targets met. Accessibility audit passed. Penetration findings remediated.
 

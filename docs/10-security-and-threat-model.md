@@ -84,6 +84,14 @@ Three things limit the damage:
 
 **Paper has the same problem.** A contract posted to someone's office can be signed by anyone who opens the envelope. Electronic signing does not create this risk; it inherits it, and then records far more about what happened than paper ever could.
 
+> **As built (Phase 11, docs/22).** Two additions to this picture. A signer who passes their part on
+> (delegation) invalidates their own link and the delegate gets a new one, so a forwarded email cannot be
+> used after a deliberate hand-over. An in-person signing records the host's device address as
+> `signedFromIp` and labels it as in person in the audit and on the certificate, so it is not misread as the
+> signer's own location. The in-person link is minted in the request, shown once to the signed-in sender, never
+> emailed or logged, and the sender's session ends on hand-over. The public workspace logo route serves
+> only a re-encoded PNG under a random reference ([ADR 0034](adr/0034-brand-recipient-facing-surfaces-with-a-workspace-logo-and-accent-colour.md)).
+
 ## Malicious Uploads
 
 People upload files, and files can be hostile.

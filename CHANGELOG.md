@@ -6,6 +6,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+Phase 11 (signing options, branding, reports and accessibility), built and verified, not yet released. See [docs/22](docs/22-phase-11-signing-options-branding-reports-accessibility-plan.md) and
+[ADR 0032](docs/adr/0032-delegate-by-adding-a-recipient-and-keeping-the-delegator-as-history.md) to
+[ADR 0035](docs/adr/0035-gate-accessibility-with-axe-core-keyboard-only-and-device-size-checks.md).
+
+### Added
+
+- Delegation: a sender can allow signers to pass their part to someone else, once. The delegate gets their
+  own link, the old link says it was passed on, and the sender and delegator are emailed. New webhook event
+  `recipient.delegated`, new `allowDelegation` field, new error codes `DELEGATION_NOT_ALLOWED` and `TOKEN_DELEGATED`.
+- In-person signing: "Sign in person" hands the sender's own device to a signer. The sender is signed out of
+  that browser; the audit and certificate say it was done in person and by whom.
+- Workspace branding: a logo (PNG or JPEG, re-encoded) and an accent colour, set in Settings, shown on
+  emails to recipients, the signing page and the download page. The sealed PDF and certificate are unchanged.
+  New routes under `/branding` and `GET /download/:token/brand`; new error code `INVALID_BRAND_LOGO`.
+- Reports for Owners and Admins: sent, completed, completion rate, time to first signature, time to
+  complete and where signers drop off, over 7, 30, 90 days or a range of up to 366 days
+  (`GET /reports/summary`).
+- Accessibility: axe-core checks over every sender screen and the signing portal, keyboard-only signing,
+  44 by 44 pixel, reduced-motion and 320 pixel reflow checks, and a manual screen-reader script
+  ([docs/23](docs/23-accessibility-manual-test-script.md)).
+
+### Changed
+
+- Invitation links (`/accept-invite/...`, `/auth/invitations/...`) are now masked in server and browser logs.
+- Muted text that was too faint on light backgrounds is darker; the PDF canvas has a text alternative and the
+  scrolling document area can be reached from the keyboard.
+- A passed-on recipient (`DELEGATED`) is ignored by progress, reminders, expiry, sealing and counts.
+
+### Added (migrations)
+
+- `20261001120000_delegation_in_person`, `20261001130000_workspace_branding` and
+  `20261001140000_envelope_sent_at_index` (all additive).
+
 ## [0.11.0] - 2026-10-01
 
 Phase 10 (UI redesign), complete: every existing web screen now shares one professional workspace
