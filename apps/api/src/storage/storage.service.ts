@@ -108,3 +108,11 @@ export function templateDocumentKey(
 ): string {
   return `tenants/${tenantId}/templates/${templateId}/original-${uniqueId}.pdf`;
 }
+
+/**
+ * Where a workspace logo is kept (docs/22, ADR 0034): the re-encoded PNG only. A new
+ * unique id on every upload, so the public URL and the object both change on replace.
+ */
+export function brandLogoKey(tenantId: string, uniqueId: string): string {
+  return `branding/${tenantId}/logo-${uniqueId}.png`;
+}

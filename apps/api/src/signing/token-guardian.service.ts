@@ -55,6 +55,7 @@ const ENVELOPE_FIELDS = {
 type ResolvedRecipient = Pick<Recipient, keyof typeof RECIPIENT_FIELDS>;
 type ResolvedEnvelope = Pick<Envelope, keyof typeof ENVELOPE_FIELDS> & {
   owner: { fullName: string };
+  tenant: { name: string; brandColor: string | null; brandLogoRef: string | null };
 };
 
 export interface SignerContext {
@@ -179,7 +180,13 @@ export class TokenGuardianService {
       where: { tokenHash },
       select: {
         ...RECIPIENT_FIELDS,
-        envelope: { select: { ...ENVELOPE_FIELDS, owner: { select: { fullName: true } } } },
+        envelope: {
+          select: {
+            ...ENVELOPE_FIELDS,
+            owner: { select: { fullName: true } },
+            tenant: { select: { name: true, brandColor: true, brandLogoRef: true } },
+          },
+        },
       },
     });
     if (!found) {

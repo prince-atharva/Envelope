@@ -240,6 +240,37 @@ describe('completion download links (e2e)', () => {
     expect(JSON.stringify(expired.body)).not.toContain(token);
   });
 
+  it("tells the download page the workspace's look, even once the link has expired", async () => {
+    const [signer] = people('Brand Signer');
+    if (!signer) throw new Error('people');
+    const envelope = await prepareEnvelope(t.http, owner, [signer]);
+    const mail = await complete([signer], envelope);
+    const token = LINK.exec(mail.get(signer.email)?.text ?? '')?.[1] ?? '';
+    await request(t.http)
+      .patch('/api/v1/branding')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ color: '#1d4ed8' })
+      .expect(200);
+    try {
+      const live = await request(t.http).get(`/api/v1/download/${token}/brand`).expect(200);
+      expect(live.body).toMatchObject({ name: 'Download Clinic', color: '#1d4ed8' });
+
+      await ownerQuery(
+        `UPDATE "CompletionDownload" SET "expiresAt" = now() - interval '1 minute'
+          WHERE "tokenHash" = $1`,
+        [hashDownloadToken(process.env.SIGNING_TOKEN_SECRET ?? '', token)],
+      );
+      const expired = await request(t.http).get(`/api/v1/download/${token}/brand`).expect(200);
+      expect(expired.body).toMatchObject({ name: 'Download Clinic', color: '#1d4ed8' });
+      expect(JSON.stringify(expired.body)).not.toContain(token);
+    } finally {
+      await request(t.http)
+        .patch('/api/v1/branding')
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ color: null });
+    }
+  });
+
   it('sends a sender who is also a recipient one copy, not two', async () => {
     const [signer] = people('Owner Signs Too');
     if (!signer) throw new Error('people');

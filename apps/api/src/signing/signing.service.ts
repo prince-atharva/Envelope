@@ -20,6 +20,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { AuditService } from '../audit/audit.service';
 import type { ClientInfo } from '../auth/auth.types';
+import { toSigningBrand } from '../branding/signing-brand';
 import { AppException } from '../common/errors/app-exception';
 import { Prisma } from '../generated/prisma/client';
 import { maskEmail } from '../logging/redact';
@@ -143,6 +144,7 @@ export class SigningService {
       },
       allowDelegation: envelope.allowDelegation && !recipient.delegatedFromId,
       inPerson: host ? { hostName: host.hostName } : null,
+      brand: toSigningBrand(envelope.tenant),
     };
   }
 

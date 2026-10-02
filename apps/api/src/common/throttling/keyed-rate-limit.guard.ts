@@ -39,6 +39,9 @@ export function RateLimit(rule: Omit<KeyedRateLimit, 'windowMs'> & { windowMs?: 
 export const LIMITS = {
   createAndSend: { bucket: 'tenant-create-send', limit: 100, by: 'tenant' },
   lifecycle: { bucket: 'tenant-lifecycle', limit: 30, by: 'tenant' },
+  /** Changing workspace branding; a logo upload is an image decode (docs/22, ADR 0034). */
+  branding: { bucket: 'tenant-branding', limit: 20, by: 'tenant' },
+  /** The workspace signing numbers are live queries over every envelope in the window (docs/22). */
   /** Cutting the certificate out of a sealed PDF is CPU work (docs/18, workstream 11). */
   certificate: { bucket: 'tenant-certificate', limit: 30, by: 'tenant' },
   /** Starting a bulk send. Each batch is up to 500 envelopes, so this is per hour (docs/20, ADR 0028). */

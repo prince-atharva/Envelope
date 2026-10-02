@@ -1,4 +1,4 @@
-import type { DownloadRenewResponse } from '@envelope/shared';
+import type { DownloadRenewResponse, SigningBrand } from '@envelope/shared';
 import { Controller, Get, HttpCode, Param, Post, Res, StreamableFile } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -41,6 +41,22 @@ export class CompletionDownloadController {
       length: document.sizeBytes,
       disposition: attachment(signedFilename(document.filename)),
     });
+  }
+
+  @Get('brand')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: "The workspace's name, colour and logo, for the download page" })
+  @ApiParam({
+    name: 'token',
+    description: 'The token from the completion email. It is a credential: never log it.',
+  })
+  async brand(
+    @Param('token') token: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SigningBrand> {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    return this.downloads.brand(token);
   }
 
   @Post('renew')

@@ -88,6 +88,8 @@ export const ERROR_CATALOG = {
   TOKEN_DELEGATED: { status: 410, title: 'Signing link passed to someone else' },
   /** The sender did not allow it, the person is already a delegate, or they cannot delegate. */
   DELEGATION_NOT_ALLOWED: { status: 403, title: 'This document cannot be passed to someone else' },
+  /** A workspace logo that is not a PNG or JPEG, is too large, or will not decode (docs/22, ADR 0034). */
+  INVALID_BRAND_LOGO: { status: 422, title: 'The logo is not valid' },
   CONSENT_REQUIRED: { status: 403, title: 'Consent required' },
   /** The notice changed between being shown and being agreed to; show it again. */
   CONSENT_TEXT_CHANGED: { status: 409, title: 'The notice has changed' },

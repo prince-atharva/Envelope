@@ -3,9 +3,11 @@ import {
   DOWNLOAD_RENEW_COOLDOWN_HOURS,
   type DownloadRenewResponse,
   SIGNING_TOKEN_PATTERN,
+  type SigningBrand,
 } from '@envelope/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { toSigningBrand } from '../branding/signing-brand';
 import { AppException } from '../common/errors/app-exception';
 import { AppConfig } from '../config/app-config';
 import { MailQueueService } from '../mail/mail-queue.service';
@@ -93,6 +95,29 @@ export class CompletionDownloadService {
       sizeBytes: final.sizeBytes,
       filename: link.envelope.originalFilename,
     };
+  }
+
+  /**
+   * GET /download/:token/brand (docs/22, ADR 0034): the workspace's name, colour and logo, so
+   * the download page looks like the sender's even when the link has expired. Reads nothing
+   * of the document and does not count as a download.
+   */
+  async brand(rawToken: string): Promise<SigningBrand> {
+    if (!SIGNING_TOKEN_PATTERN.test(rawToken)) throw notFound();
+    const tokenHash = hashDownloadToken(this.config.SIGNING_TOKEN_SECRET, rawToken);
+    const link = await this.prisma.completionDownload.findUnique({
+      where: { tokenHash },
+      select: {
+        envelope: {
+          select: { tenant: { select: { name: true, brandColor: true, brandLogoRef: true } } },
+        },
+      },
+    });
+    if (!link) {
+      this.logger.info({ tokenRef: tokenRef(tokenHash) }, 'Download brand rejected: unknown');
+      throw notFound();
+    }
+    return toSigningBrand(link.envelope.tenant);
   }
 
   /**

@@ -6,6 +6,7 @@ import { AlertModule } from './alert/alert.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BrandingModule } from './branding/branding.module';
 import { BulkModule } from './bulk/bulk.module';
 import { ClientLogsModule } from './client-logs/client-logs.module';
 import { ProblemDetailsFilter } from './common/errors/problem-details.filter';
@@ -74,6 +75,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     HealthModule,
     ClientLogsModule,
     UsersModule,
+    BrandingModule,
     WebhooksModule,
   ],
   providers: [

@@ -126,6 +126,13 @@ model Tenant {
   /// factor (docs/19, ADR 0025).
   requireTwoFactor Boolean @default(false)
 
+  /// Workspace branding on recipient-facing surfaces (docs/22, ADR 0034). The logo is a
+  /// re-encoded PNG under brandLogoKey; brandLogoRef is a random value, new on every
+  /// upload, that the public logo URL carries instead of the tenant id.
+  brandColor   String?
+  brandLogoKey String?
+  brandLogoRef String? @unique
+
   embedOrigins       EmbedOrigin[]
   apiKeyEmbedOrigins ApiKeyEmbedOrigin[]
   embedSessions      EmbedSession[]

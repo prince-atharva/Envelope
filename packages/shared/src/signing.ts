@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { emailSchema } from './auth';
+import type { SigningBrand } from './branding';
 import type { FieldType, Ratios } from './coordinates';
 import { canOwnFields, type RecipientRole, type RecipientStatus } from './draft';
 import type { EnvelopeStatus } from './envelopes';
@@ -241,6 +242,8 @@ export interface SigningSession {
   allowDelegation: boolean;
   /** Set when the sender is hosting this signing on their own device (docs/22, ADR 0033). */
   inPerson: { hostName: string } | null;
+  /** The sender's workspace name, accent colour and logo (docs/22, ADR 0034). */
+  brand: SigningBrand;
 }
 
 export interface ConsentResponse {
