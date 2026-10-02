@@ -84,6 +84,10 @@ export const ERROR_CATALOG = {
   TOKEN_INVALID: { status: 401, title: 'Invalid signing link' },
   TOKEN_EXPIRED: { status: 401, title: 'Signing link expired' },
   TOKEN_ALREADY_USED: { status: 410, title: 'Signing link already used' },
+  /** The person passed their part to someone else; the old link explains it (docs/22, ADR 0032). */
+  TOKEN_DELEGATED: { status: 410, title: 'Signing link passed to someone else' },
+  /** The sender did not allow it, the person is already a delegate, or they cannot delegate. */
+  DELEGATION_NOT_ALLOWED: { status: 403, title: 'This document cannot be passed to someone else' },
   CONSENT_REQUIRED: { status: 403, title: 'Consent required' },
   /** The notice changed between being shown and being agreed to; show it again. */
   CONSENT_TEXT_CHANGED: { status: 409, title: 'The notice has changed' },

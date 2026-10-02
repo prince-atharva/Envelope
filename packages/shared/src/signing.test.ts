@@ -5,12 +5,14 @@ import {
   consentSchema,
   currentRoutingGroup,
   declineSchema,
+  delegateSchema,
   nextReminderAt,
   orderFieldsForSigning,
   PNG_DATA_URL_PREFIX,
   type RoutingRecipient,
   recipientsDueInvitation,
   SIGNING_TOKEN_PATTERN,
+  sendEnvelopeSchema,
   submitSigningSchema,
 } from './signing';
 
@@ -167,6 +169,23 @@ describe('request schemas', () => {
   it('requires a reason to decline', () => {
     expect(declineSchema.safeParse({ reason: '   ' }).success).toBe(false);
     expect(declineSchema.parse({ reason: '  Wrong amount  ' })).toEqual({ reason: 'Wrong amount' });
+  });
+
+  it('takes a name and a valid email to pass a document on, and nothing else', () => {
+    expect(delegateSchema.parse({ name: '  Sam Lee ', email: 'Sam@Example.com' }).name).toBe(
+      'Sam Lee',
+    );
+    expect(delegateSchema.safeParse({ name: '', email: 'sam@example.com' }).success).toBe(false);
+    expect(delegateSchema.safeParse({ name: 'Sam', email: 'not-an-email' }).success).toBe(false);
+    expect(
+      delegateSchema.safeParse({ name: 'Sam', email: 'sam@example.com', role: 'SIGNER' }).success,
+    ).toBe(false);
+  });
+
+  it('lets the sender switch delegation on when sending, and rejects a non-boolean', () => {
+    expect(sendEnvelopeSchema.parse({ allowDelegation: true }).allowDelegation).toBe(true);
+    expect(sendEnvelopeSchema.parse({}).allowDelegation).toBeUndefined();
+    expect(sendEnvelopeSchema.safeParse({ allowDelegation: 'yes' }).success).toBe(false);
   });
 
   it('rejects unknown keys in a submission, such as a recipient id', () => {

@@ -63,6 +63,8 @@ enum RecipientStatus {
   VIEWED
   SIGNED
   DECLINED
+  /// Passed their part to someone else; kept as history (docs/22, ADR 0032).
+  DELEGATED
 }
 
 /// How an adopted signature or initials image was made (docs/00: "how they signed").
@@ -189,6 +191,7 @@ model User {
   envelopes           Envelope[]           @relation("EnvelopeOwner")
   voidedEnvelopes     Envelope[]           @relation("EnvelopeVoidedBy")
   legalHoldEnvelopes  Envelope[]           @relation("EnvelopeLegalHoldBy")
+  inPersonRecipients  Recipient[]          @relation("RecipientInPersonHost")
   embedOrigins        EmbedOrigin[]
   apiKeyEmbedOrigins  ApiKeyEmbedOrigin[]
   embedSessions       EmbedSession[]
@@ -441,6 +444,9 @@ model Envelope {
   /// Automatic reminders every this many days (1–30). Null is off.
   reminderIntervalDays Int?
 
+  /// Signers may pass their part to someone else (docs/22, ADR 0032). Chosen at send, fixed after.
+  allowDelegation Boolean @default(false)
+
   /// Optional note included in the invitation email (docs/08, POST /send).
   message String? @db.Text
 
@@ -551,6 +557,19 @@ model Recipient {
   /// with its hash, as the version they attested to (ADR 0003).
   servedVersionNumber Int?
 
+  /// Delegation (docs/22, ADR 0032). The delegate points at the person who passed
+  /// the document on; that person's own row stays, with status DELEGATED.
+  delegatedFromId String?     @db.Uuid
+  delegatedFrom   Recipient?  @relation("Delegation", fields: [delegatedFromId], references: [id], onDelete: Restrict)
+  delegatedTo     Recipient[] @relation("Delegation")
+  delegatedAt     DateTime?
+
+  /// In-person signing (docs/22, ADR 0033). Set while the current link was made for
+  /// the sender to hand their own device over; cleared when an emailed link replaces it.
+  inPersonHostUserId String?   @db.Uuid
+  inPersonHost       User?     @relation("RecipientInPersonHost", fields: [inPersonHostUserId], references: [id], onDelete: Restrict)
+  inPersonStartedAt  DateTime?
+
   // Consent (ESIGN, docs/07). The verbatim disclosure text is stored, not a
   // reference to a template that may later change.
   consentGivenAt DateTime?
@@ -587,6 +606,8 @@ model Recipient {
   /// One entry per person per envelope. Emails are stored lower-cased.
   @@unique([envelopeId, email])
   @@index([envelopeId, routingOrder])
+  @@index([delegatedFromId])
+  @@index([inPersonHostUserId])
 }
 
 model DocumentField {

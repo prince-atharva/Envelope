@@ -79,6 +79,8 @@ export const STACK_ENV = {
   // into the past sees the envelope paused almost at once.
   EXPIRY_SWEEP_EVERY_MS: '2000',
 
+  IN_PERSON_LINK_TTL_MINUTES: '30',
+
   MAIL_TRANSPORT: 'file',
   MAIL_OUTBOX_DIR: OUTBOX_DIR,
   EMAIL_RETRY_BASE_DELAY_MS: '50',

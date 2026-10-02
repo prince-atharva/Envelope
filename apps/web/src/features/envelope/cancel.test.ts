@@ -21,6 +21,8 @@ function person(overrides: Partial<RecipientDetail>): RecipientDetail {
     copySentAt: null,
     moreTimeRequestedAt: null,
     emailProblem: null,
+    delegatedFromId: null,
+    delegatedAt: null,
     ...overrides,
   };
 }

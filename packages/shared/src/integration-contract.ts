@@ -1068,6 +1068,20 @@ export const WEBHOOK_EVENT_REFERENCE: Record<FiredWebhookEventType, WebhookEvent
       envelopeStatus: 'DECLINED',
     },
   },
+  'recipient.delegated': {
+    description:
+      'A recipient passed their part to someone else. The new person has their own recipient id and link.',
+    data: {
+      envelopeId: EXAMPLE_ENVELOPE_ID,
+      envelopeTitle: 'Consulting agreement',
+      fromRecipientId: EXAMPLE_RECIPIENT_ID,
+      fromRecipientEmail: 'alex@example.com',
+      toRecipientId: '33333333-3333-4333-8333-333333333333',
+      toRecipientEmail: 'sam@example.com',
+      envelopeStatus: 'SENT',
+      delegatedAt: time,
+    },
+  },
   'envelope.completed': {
     description: 'The final PDF is sealed. Use finalVersionNumber to download it.',
     data: {
@@ -1544,6 +1558,8 @@ export const NON_INTEGRATION_ERROR_CODES: readonly ErrorCode[] = [
   'TOKEN_INVALID',
   'TOKEN_EXPIRED',
   'TOKEN_ALREADY_USED',
+  'TOKEN_DELEGATED',
+  'DELEGATION_NOT_ALLOWED',
   'CONSENT_REQUIRED',
   'CONSENT_TEXT_CHANGED',
   'INVALID_SIGNATURE_IMAGE',

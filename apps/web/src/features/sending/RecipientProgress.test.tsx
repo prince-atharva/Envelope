@@ -23,6 +23,8 @@ function person(id: string, emailProblem: RecipientDetail['emailProblem']): Reci
     copySentAt: null,
     moreTimeRequestedAt: null,
     emailProblem,
+    delegatedFromId: null,
+    delegatedAt: null,
   };
 }
 

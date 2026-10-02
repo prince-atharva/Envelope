@@ -20,6 +20,23 @@ describe('webhook event contract v1', () => {
     expect(FIRED_WEBHOOK_EVENT_TYPES).not.toContain('envelope.delivered');
   });
 
+  it('adds recipient.delegated as a fired, subscribable event', () => {
+    expect(FIRED_WEBHOOK_EVENT_TYPES).toContain('recipient.delegated');
+    const ok = webhookEventDataSchemas['recipient.delegated'].safeParse({
+      envelopeId: '123e4567-e89b-42d3-a456-426614174000',
+      envelopeTitle: 'Agreement',
+      externalId: null,
+      metadata: null,
+      fromRecipientId: '223e4567-e89b-42d3-a456-426614174000',
+      fromRecipientEmail: 'alex@example.com',
+      toRecipientId: '323e4567-e89b-42d3-a456-426614174000',
+      toRecipientEmail: 'sam@example.com',
+      envelopeStatus: 'SENT',
+      delegatedAt: new Date().toISOString(),
+    });
+    expect(ok.success).toBe(true);
+  });
+
   it('has a data schema for every event type, including future fields', () => {
     for (const type of WEBHOOK_EVENT_TYPES) {
       expect(webhookEventDataSchemas[type]).toBeDefined();

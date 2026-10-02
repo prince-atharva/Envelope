@@ -73,6 +73,7 @@ when none was set) and `envelopeTitle`.
 | `recipient.consented` | A recipient accepted electronic signing consent. |
 | `recipient.signed` | A recipient finished; the sealing worker may still be running. |
 | `recipient.declined` | A recipient declined and the envelope closed. |
+| `recipient.delegated` | A recipient passed their part to someone else. The new person has their own recipient id and link. |
 | `envelope.completed` | The final PDF is sealed. Use finalVersionNumber to download it. |
 | `envelope.voided` | The sender cancelled the envelope or discarded its draft. |
 | `envelope.expired` | The deadline passed with unfinished recipients. Signing is paused. |
@@ -197,6 +198,31 @@ delivery uses the type `webhook.test` and needs no action.
     "recipientEmail": "alex@example.com",
     "declinedAt": "2026-09-27T10:00:00.000Z",
     "envelopeStatus": "DECLINED",
+    "externalId": "visit:1001",
+    "metadata": {
+      "department": "billing"
+    }
+  }
+}
+```
+
+#### `recipient.delegated`
+
+```json
+{
+  "id": "evt_55555555-5555-4555-8555-555555555555",
+  "type": "recipient.delegated",
+  "apiVersion": "v1",
+  "createdAt": "2026-09-27T10:00:00.000Z",
+  "data": {
+    "envelopeId": "11111111-1111-4111-8111-111111111111",
+    "envelopeTitle": "Consulting agreement",
+    "fromRecipientId": "22222222-2222-4222-8222-222222222222",
+    "fromRecipientEmail": "alex@example.com",
+    "toRecipientId": "33333333-3333-4333-8333-333333333333",
+    "toRecipientEmail": "sam@example.com",
+    "envelopeStatus": "SENT",
+    "delegatedAt": "2026-09-27T10:00:00.000Z",
     "externalId": "visit:1001",
     "metadata": {
       "department": "billing"

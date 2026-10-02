@@ -15,7 +15,14 @@ import { envelopeMetadataSchema, externalIdSchema } from './partner-reference';
  */
 
 export type RecipientRole = 'SIGNER' | 'APPROVER' | 'VIEWER' | 'CC';
-export type RecipientStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'VIEWED' | 'SIGNED' | 'DECLINED';
+export type RecipientStatus =
+  | 'PENDING'
+  | 'SENT'
+  | 'DELIVERED'
+  | 'VIEWED'
+  | 'SIGNED'
+  | 'DECLINED'
+  | 'DELEGATED';
 
 export const RECIPIENT_ROLES = ['SIGNER', 'APPROVER', 'VIEWER', 'CC'] as const;
 export const FIELD_TYPES = [

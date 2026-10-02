@@ -39,7 +39,11 @@ export interface Progress {
 }
 
 /** How far one person has got, as the sender reads it. */
-export function progressOf(recipient: RecipientDetail, envelopeStatus: EnvelopeStatus): Progress {
+export function progressOf(
+  recipient: RecipientDetail,
+  envelopeStatus: EnvelopeStatus,
+  everyone: readonly RecipientDetail[] = [],
+): Progress {
   if (!receivesSigningLink(recipient.role)) {
     return recipient.copySentAt
       ? { label: 'Finished copy sent', tone: 'done', at: recipient.copySentAt }
@@ -54,6 +58,12 @@ export function progressOf(recipient: RecipientDetail, envelopeStatus: EnvelopeS
       };
     case 'DECLINED':
       return { label: 'Declined', tone: 'stopped', at: recipient.declinedAt };
+    case 'DELEGATED':
+      return {
+        label: `Passed to ${everyone.find((r) => r.delegatedFromId === recipient.id)?.name ?? 'someone else'}`,
+        tone: 'muted',
+        at: recipient.delegatedAt,
+      };
     case 'VIEWED':
       return { label: 'Opened', tone: 'active', at: recipient.viewedAt };
     case 'SENT':
@@ -95,7 +105,11 @@ export function reminderState(
   if (envelope.expiresAt && new Date(envelope.expiresAt).getTime() <= now) {
     return { can: false, reason: 'closed' };
   }
-  if (recipient.status === 'SIGNED' || recipient.status === 'DECLINED') {
+  if (
+    recipient.status === 'SIGNED' ||
+    recipient.status === 'DECLINED' ||
+    recipient.status === 'DELEGATED'
+  ) {
     return { can: false, reason: 'finished' };
   }
   const stamped = new Set(

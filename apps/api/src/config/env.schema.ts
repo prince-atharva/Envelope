@@ -248,6 +248,11 @@ export const envSchema = z
      * from one file into the next.
      */
     RATE_LIMIT_KEY_PREFIX: z.string().trim().min(1).optional(),
+    /**
+     * How long a link made for in-person signing works (docs/22, ADR 0033), or until the
+     * envelope expires if that is sooner.
+     */
+    IN_PERSON_LINK_TTL_MINUTES: z.coerce.number().int().min(15).max(1440).default(120),
     /** First retry delay for a failed email; each later retry waits twice as long. */
     EMAIL_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(10).default(10_000),
     SMTP_HOST: z.string().min(1).optional(),

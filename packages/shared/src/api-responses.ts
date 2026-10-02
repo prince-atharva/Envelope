@@ -41,7 +41,7 @@ export const recipientInfoSchema = z
     name: z.string(),
     email: z.string(),
     role: z.enum(['SIGNER', 'APPROVER', 'VIEWER', 'CC']),
-    status: z.enum(['PENDING', 'SENT', 'DELIVERED', 'VIEWED', 'SIGNED', 'DECLINED']),
+    status: z.enum(['PENDING', 'SENT', 'DELIVERED', 'VIEWED', 'SIGNED', 'DECLINED', 'DELEGATED']),
     routingOrder: z.number().int(),
     colorIndex: z.number().int(),
   })
@@ -60,6 +60,12 @@ export const recipientDetailSchema = recipientInfoSchema
     moreTimeRequestedAt: nullableTime,
     emailProblem: z.enum(['BOUNCED', 'COMPLAINED']).nullable().meta({
       description: 'Set when a mail provider reported an email to this person as undeliverable.',
+    }),
+    delegatedFromId: id.nullable().meta({
+      description: 'Set on someone who was handed this part by another recipient (docs/22).',
+    }),
+    delegatedAt: nullableTime.meta({
+      description: 'Set on a recipient who passed their part to someone else (status DELEGATED).',
     }),
   })
   .meta({ id: 'RecipientDetail' });
@@ -158,6 +164,9 @@ export const envelopeDetailSchema = z
       .meta({ description: 'Send back as If-Match on the next draft edit.' }),
     sentAt: nullableTime,
     reminderIntervalDays: z.number().int().nullable(),
+    allowDelegation: z.boolean().meta({
+      description: 'Whether signers may pass their part to someone else (docs/22). Fixed at send.',
+    }),
     expiredAt: nullableTime,
     voidedAt: nullableTime,
     voidReason: z.string().nullable(),

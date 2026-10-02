@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { emailSchema } from './auth';
 import type { FieldType, Ratios } from './coordinates';
 import { canOwnFields, type RecipientRole, type RecipientStatus } from './draft';
 import type { EnvelopeStatus } from './envelopes';
@@ -7,6 +8,7 @@ import {
   MAX_EXPIRY_DAYS,
   MAX_FIELDS_PER_ENVELOPE,
   MAX_MESSAGE_LENGTH,
+  MAX_RECIPIENT_NAME_LENGTH,
   MAX_RECIPIENTS_PER_ENVELOPE,
   MAX_REMINDER_INTERVAL_DAYS,
   MAX_SIGNATURE_IMAGE_BYTES,
@@ -46,6 +48,8 @@ export const sendEnvelopeSchema = z.strictObject({
     .max(MAX_REMINDER_INTERVAL_DAYS)
     .nullable()
     .optional(),
+  /** Let signers pass their part to someone else (docs/22, ADR 0032). Default off; fixed once sent. */
+  allowDelegation: z.boolean().optional(),
 });
 export type SendEnvelopeInput = z.infer<typeof sendEnvelopeSchema>;
 
@@ -182,6 +186,20 @@ export const declineSchema = z.strictObject({
     .max(MAX_DECLINE_REASON_LENGTH),
 });
 export type DeclineInput = z.infer<typeof declineSchema>;
+
+/** POST /sign/:token/delegate: who the signer is passing their part to (docs/22, ADR 0032). */
+export const delegateSchema = z.strictObject({
+  name: z.string().trim().min(1, 'Enter a name').max(MAX_RECIPIENT_NAME_LENGTH),
+  email: emailSchema,
+});
+export type DelegateInput = z.infer<typeof delegateSchema>;
+
+export interface DelegateResponse {
+  status: 'DELEGATED';
+  delegatedAt: string;
+  /** The name the signer typed; the address is never echoed back. */
+  delegateName: string;
+}
 
 /** One of the signer's own fields. Nobody else's are ever sent (docs/10). */
 export interface SigningField extends Ratios {

@@ -11,6 +11,7 @@ export const WEBHOOK_EVENT_LABELS: Record<WebhookEventType, string> = {
   'recipient.consented': 'Recipient consented',
   'recipient.signed': 'Recipient signed',
   'recipient.declined': 'Recipient declined',
+  'recipient.delegated': 'Recipient passed it on',
   'envelope.completed': 'Envelope completed',
   'envelope.voided': 'Envelope cancelled',
   'envelope.expired': 'Envelope expired',

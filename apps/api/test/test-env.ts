@@ -49,6 +49,9 @@ export const TEST_ENV: Record<string, string> = {
   // Each suite runs the maintenance jobs itself, with the time it needs.
   MAINTENANCE_SCHEDULES_ENABLED: 'false',
 
+  // In-person links (docs/22, ADR 0033); tests that need one expired move the stored time.
+  IN_PERSON_LINK_TTL_MINUTES: '30',
+
   MAIL_TRANSPORT: 'memory',
   // Alerts go to the in-memory mailbox like every other test email.
   ALERT_EMAIL: 'alerts@test.local',

@@ -184,6 +184,10 @@ export interface RecipientDetail extends RecipientInfo {
    * it as spam (docs/20, ADR 0029). Null when nothing is known to be wrong.
    */
   emailProblem: 'BOUNCED' | 'COMPLAINED' | null;
+  /** Set on someone who was handed this part by another recipient (docs/22, ADR 0032). */
+  delegatedFromId: string | null;
+  /** Set on a recipient who passed their part on; their status is then DELEGATED. */
+  delegatedAt: string | null;
 }
 
 export interface EnvelopeDetail extends EnvelopeSummary {
@@ -230,6 +234,8 @@ export interface EnvelopeDetail extends EnvelopeSummary {
   expiresAt: string | null;
   /** Automatic reminders every this many days, with an "expires soon" email. Null is off. */
   reminderIntervalDays: number | null;
+  /** Signers may pass their part to someone else (docs/22). Chosen at send, fixed after. */
+  allowDelegation: boolean;
   /** When the expiry sweep last paused it. Kept after an extension, as history. */
   expiredAt: string | null;
   /** When it was cancelled or discarded, by whom and why. Null unless VOIDED. */

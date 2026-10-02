@@ -51,6 +51,9 @@ export type AuditAction =
   | 'SIGNATURE_ADOPTED'
   | 'RECIPIENT_SIGNED'
   | 'RECIPIENT_DECLINED'
+  // Signing options (Phase 11, docs/22)
+  | 'RECIPIENT_DELEGATED'
+  | 'IN_PERSON_STARTED'
   // Sealing (Phase 4)
   | 'VERSION_CREATED'
   | 'ENVELOPE_COMPLETED'

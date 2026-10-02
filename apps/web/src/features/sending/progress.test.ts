@@ -21,6 +21,8 @@ function person(id: string, overrides: Partial<RecipientDetail> = {}): Recipient
     copySentAt: null,
     moreTimeRequestedAt: null,
     emailProblem: null,
+    delegatedFromId: null,
+    delegatedAt: null,
     ...overrides,
   };
 }
@@ -142,6 +144,27 @@ describe('reminderState', () => {
     expect(reminderState(invited, [first, invited], unstamped, NOW)).toEqual({
       can: false,
       reason: 'not-their-turn',
+    });
+  });
+});
+
+describe('passing a part on', () => {
+  const asha = person('asha', { status: 'DELEGATED', delegatedAt: '2026-10-01T10:00:00Z' });
+  const sam = person('sam', { status: 'SENT', delegatedFromId: 'asha', name: 'Sam Lee' });
+
+  it('says who now holds it, or that someone does', () => {
+    expect(progressOf(asha, 'SENT', [asha, sam])).toEqual({
+      label: 'Passed to Sam Lee',
+      tone: 'muted',
+      at: '2026-10-01T10:00:00Z',
+    });
+    expect(progressOf(asha, 'SENT').label).toBe('Passed to someone else');
+  });
+
+  it('never offers a reminder to someone who passed it on', () => {
+    expect(reminderState(asha, [asha, sam], open, NOW)).toEqual({
+      can: false,
+      reason: 'finished',
     });
   });
 });

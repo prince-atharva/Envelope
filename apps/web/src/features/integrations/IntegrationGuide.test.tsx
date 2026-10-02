@@ -45,7 +45,7 @@ describe('integration guide', () => {
     expect(screen.getByLabelText('Complete script (bash, curl and jq)').textContent).toContain(
       'jq -r .recipient.id',
     );
-    expect(screen.getByText(/9 webhook events/)).toBeTruthy();
+    expect(screen.getByText(/10 webhook events/)).toBeTruthy();
   });
   it('lists every error code the API documents, with what to do', () => {
     render(<IntegrationGuide onManage={vi.fn()} />);

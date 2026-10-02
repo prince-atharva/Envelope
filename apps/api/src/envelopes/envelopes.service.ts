@@ -562,6 +562,7 @@ export class EnvelopesService {
           sequentialSigning: true,
           draftRevision: true,
           reminderIntervalDays: true,
+          allowDelegation: true,
           expiredAt: true,
           voidedAt: true,
           voidReason: true,
@@ -617,6 +618,8 @@ export class EnvelopesService {
               declinedAt: true,
               declinedReason: true,
               moreTimeRequestedAt: true,
+              delegatedFromId: true,
+              delegatedAt: true,
             },
           },
           fields: {
@@ -680,6 +683,7 @@ export class EnvelopesService {
       sentAt: envelope.sentAt?.toISOString() ?? null,
       expiresAt: envelope.expiresAt?.toISOString() ?? null,
       reminderIntervalDays: envelope.reminderIntervalDays,
+      allowDelegation: envelope.allowDelegation,
       expiredAt: envelope.expiredAt?.toISOString() ?? null,
       voidedAt: envelope.voidedAt?.toISOString() ?? null,
       voidReason: envelope.voidReason,
@@ -710,6 +714,8 @@ export class EnvelopesService {
         copySentAt: copySentAt(recipient.id),
         moreTimeRequestedAt: recipient.moreTimeRequestedAt?.toISOString() ?? null,
         emailProblem: emailProblemOf(recipient.id),
+        delegatedFromId: recipient.delegatedFromId,
+        delegatedAt: recipient.delegatedAt?.toISOString() ?? null,
       })),
       // Ordered by page, then down the page: the same order the builder walks
       // fields in, so "next field" means the same thing on both sides.
