@@ -9,8 +9,8 @@ An electronic signature platform. Upload a PDF, mark where people sign, and send
 Signers sign in their browser on any device without creating an account. Every signature is burned
 into the PDF, sealed with a certificate and backed by a tamper-evident audit trail.
 
-> **Status:** Phases 1 to 10 are complete. The latest release is
-> [**v0.11.0, Phase 10: UI redesign**](https://github.com/prince-atharva/Envelope/releases/tag/v0.11.0).
+> **Status:** Phases 1 to 11 are complete. The latest release is
+> [**v0.12.0, Phase 11: Signing options, branding, reports and accessibility**](https://github.com/prince-atharva/Envelope/releases/tag/v0.12.0).
 > The specification is in [`docs/`](docs/README.md), every phase has its own plan, and
 > [`CHANGELOG.md`](CHANGELOG.md) lists every change.
 
@@ -46,6 +46,7 @@ with its own notes.
 
 | Version | Phase | What it delivers | Plan |
 |---|---|---|---|
+| [v0.12.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.12.0) | **11. Signing options, branding, reports and accessibility** | Signers can pass their part on, senders can host a signer in person, workspace logo and colour on recipient emails and pages, a Reports page, and accessibility checks | [docs/22](docs/22-phase-11-signing-options-branding-reports-accessibility-plan.md) |
 | [v0.11.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.11.0) | **10. UI redesign** | A workspace sidebar that also holds the account actions, a compact header, one page heading and one set of controls on every screen, matching loading skeletons | [docs/21](docs/21-phase-10-ui-redesign-plan.md) |
 | [v0.10.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.10.0) | **9. Templates and bulk send** | Reusable templates, bulk send from a spreadsheet or the API, and bounce tracking with any mail provider | [docs/20](docs/20-phase-9-templates-bulk-send-plan.md) |
 | [v0.9.0](https://github.com/prince-atharva/Envelope/releases/tag/v0.9.0) | **8. Launch readiness** | Password reset, change password, two-factor sign-in (an Owner can require it), malware scanning of uploads | [docs/19](docs/19-phase-8-launch-readiness-plan.md) |

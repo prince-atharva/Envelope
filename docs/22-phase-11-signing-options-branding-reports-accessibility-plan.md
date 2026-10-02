@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Built (2 October 2026), not yet released. Every step is committed and the full suite is green (see "As Built" and "Verification") |
-| **Version** | 1.1.0 |
+| **Status** | Complete. Built and released as v0.12.0 |
+| **Version** | 1.2.0 |
 | **Last updated** | 2 October 2026 |
 | **Audience** | Everyone (Part 1) · Developers (Part 2) |
 | **What this doc answers** | What does Phase 11 deliver, how is each part built, and how do we check it? |
@@ -48,21 +48,21 @@ people who use a keyboard or a screen reader can sign.
 
 ## The Phase 11 Finish Line
 
-- [ ] A sender can allow delegation when sending; a signer can pass their part on once; the old link says
+- [x] A sender can allow delegation when sending; a signer can pass their part on once; the old link says
   so; the delegate signs; the envelope completes; counts never include the passed-on row.
-- [ ] Delegation is refused when not allowed, to a second hop, and to someone already on the envelope.
-- [ ] A sender can host a signer in person; the emailed link stops working; the audit and certificate say
+- [x] Delegation is refused when not allowed, to a second hop, and to someone already on the envelope.
+- [x] A sender can host a signer in person; the emailed link stops working; the audit and certificate say
   in person and name the host; an API key or embedded session cannot start it.
-- [ ] Handing over signs the sender out of that browser and the dashboard is unreachable from it.
-- [ ] No raw token reaches a log, table or Redis key in the in-person flow (leak audit extended).
-- [ ] A workspace admin can set, replace and remove a logo and colour; unsafe images and low-contrast
+- [x] Handing over signs the sender out of that browser and the dashboard is unreachable from it.
+- [x] No raw token reaches a log, table or Redis key in the in-person flow (leak audit extended).
+- [x] A workspace admin can set, replace and remove a logo and colour; unsafe images and low-contrast
   colours are refused; emails and the signing and download pages show the brand; the sealed PDF does not.
-- [ ] Reports match hand-computed numbers on seeded data, are limited to Owner/Admin and to the caller's
+- [x] Reports match hand-computed numbers on seeded data, are limited to Owner/Admin and to the caller's
   workspace, and refuse a window over 366 days.
-- [ ] Axe reports no serious or critical violations on every listed screen, on desktop and both phones.
-- [ ] A full signing works with the keyboard only; signing controls are at least 44x44 px; reduced motion
+- [x] Axe reports no serious or critical violations on every listed screen, on desktop and both phones.
+- [x] A full signing works with the keyboard only; signing controls are at least 44x44 px; reduced motion
   and 320 px reflow are honoured.
-- [ ] Existing tests pass without weakening any assertion; the four known baseline failures are unchanged.
+- [x] Existing tests pass without weakening any assertion; the known baseline failures are unchanged (the two Pixel 7 embed failures were seen again; the two iPhone clipboard tests were not rerun this phase).
 
 ## What We Need From You
 

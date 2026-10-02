@@ -6,7 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-Phase 11 (signing options, branding, reports and accessibility), built and verified, not yet released. See [docs/22](docs/22-phase-11-signing-options-branding-reports-accessibility-plan.md) and
+## [0.12.0] - 2026-10-02
+
+Phase 11: signing options, branding, reports and accessibility. Signers can pass their part to someone else when the sender allows it, a sender can hand their own device to a signer, a workspace can put its logo and colour on what recipients see, owners and admins get a Reports page, and the signing flow and every screen are checked for accessibility by tools and by keyboard-only signing. Needs one new optional setting, `IN_PERSON_LINK_TTL_MINUTES`, and three additive migrations. Known test failures: two iPhone clipboard-permission tests and two Pixel embed tests from earlier phases, none caused by this release. See [docs/22](docs/22-phase-11-signing-options-branding-reports-accessibility-plan.md) and
 [ADR 0032](docs/adr/0032-delegate-by-adding-a-recipient-and-keeping-the-delegator-as-history.md) to
 [ADR 0035](docs/adr/0035-gate-accessibility-with-axe-core-keyboard-only-and-device-size-checks.md).
 

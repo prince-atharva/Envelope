@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Phases 1–10 complete. Phase 10 (UI redesign, `v0.11.0`, [docs/21](21-phase-10-ui-redesign-plan.md)) gives every web screen one workspace layout and set of controls. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking, `v0.10.0`) is in [docs/20](20-phase-9-templates-bulk-send-plan.md). Phase 11 (delegation, in-person signing, branding, reports, accessibility) is coded but not yet verified or committed; see [docs/22](22-phase-11-signing-options-branding-reports-accessibility-plan.md) |
-| **Version** | 1.11.0 |
-| **Last updated** | 1 October 2026 |
+| **Status** | Phases 1–11 complete. Phase 10 (UI redesign, `v0.11.0`, [docs/21](21-phase-10-ui-redesign-plan.md)) gives every web screen one workspace layout and set of controls. Phase 7 delivers the integration API, webhooks, embedded editor, hosted SDK and a partner-facing developer guide. Phase 8 (launch readiness, `v0.9.0`) delivers password reset, change password, two-factor sign-in and malware scanning. Phase 9 (templates, bulk send and delivery tracking, `v0.10.0`) is in [docs/20](20-phase-9-templates-bulk-send-plan.md). Phase 11 (delegation, in-person signing, branding, reports, accessibility, `v0.12.0`) is in [docs/22](22-phase-11-signing-options-branding-reports-accessibility-plan.md) |
+| **Version** | 1.12.0 |
+| **Last updated** | 2 October 2026 |
 | **Audience** | Everyone — start with the reading path that matches you |
 | **What this doc answers** | What is in this folder, and which parts should I read? |
 
