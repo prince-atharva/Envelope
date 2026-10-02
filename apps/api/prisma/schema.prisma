@@ -513,6 +513,7 @@ model Envelope {
   @@index([tenantId, status, createdAt(sort: Desc), id(sort: Desc)])
   /// GET /envelopes?externalId= (docs/18 workstream 10).
   @@index([tenantId, externalId])
+  @@index([tenantId, sentAt])
   @@index([ownerId])
   /// The expiry sweep: open envelopes past their deadline.
   @@index([status, expiresAt])

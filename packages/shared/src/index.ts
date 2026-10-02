@@ -19,6 +19,7 @@ export * from './integration-examples';
 export * from './jurisdiction';
 export * from './limits';
 export * from './partner-reference';
+export * from './reports';
 export * from './signing';
 export * from './templates';
 export * from './two-factor';

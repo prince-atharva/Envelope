@@ -26,6 +26,7 @@ import { MailEventsModule } from './mail-events/mail-events.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
+import { ReportsModule } from './reports/reports.module';
 import { SendingModule } from './sending/sending.module';
 import { SigningModule } from './signing/signing.module';
 import { StorageModule } from './storage/storage.module';
@@ -76,6 +77,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ClientLogsModule,
     UsersModule,
     BrandingModule,
+    ReportsModule,
     WebhooksModule,
   ],
   providers: [
